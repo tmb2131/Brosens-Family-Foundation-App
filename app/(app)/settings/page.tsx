@@ -196,7 +196,7 @@ export default function SettingsPage() {
             .
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Optional headers: description, status, proposal_type, allocation_mode, notes, created_at, website,
+            Optional headers: description, status, proposal_type, allocation_mode, notes, sent_at, created_at, website,
             cause_area, charity_navigator_score.
           </p>
           <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importHistoricalCsv}>

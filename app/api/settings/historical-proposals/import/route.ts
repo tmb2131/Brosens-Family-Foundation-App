@@ -21,6 +21,7 @@ const HEADER_ALIASES = {
   proposalType: ["proposal_type", "type"],
   allocationMode: ["allocation_mode", "mode"],
   notes: ["notes"],
+  sentAt: ["sent_at", "sent_date", "date_sent", "date_amount_sent"],
   createdAt: ["created_at", "submitted_at", "date"],
   website: ["website", "organization_website"],
   causeArea: ["cause_area", "cause"],
@@ -128,6 +129,7 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
     proposalType: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.proposalType),
     allocationMode: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.allocationMode),
     notes: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.notes),
+    sentAt: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.sentAt),
     createdAt: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.createdAt),
     website: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.website),
     causeArea: findHeaderIndex(normalizedHeaders, HEADER_ALIASES.causeArea),
@@ -162,6 +164,7 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
     const budgetYearRaw = getCell(row, headerIndexes.budgetYear);
     const finalAmountRaw = getCell(row, headerIndexes.finalAmount);
     const notes = getCell(row, headerIndexes.notes);
+    const sentAtRaw = getCell(row, headerIndexes.sentAt);
     const createdAtRaw = getCell(row, headerIndexes.createdAt);
     const website = getCell(row, headerIndexes.website);
     const causeArea = getCell(row, headerIndexes.causeArea);
@@ -235,6 +238,18 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
       createdAt = new Date(timestamp).toISOString();
     }
 
+    let sentAt: string | undefined;
+    if (sentAtRaw) {
+      const timestamp = Date.parse(sentAtRaw);
+      if (Number.isNaN(timestamp)) {
+        throw new HttpError(
+          400,
+          `Row ${lineNumber}: sent_at must be a valid date or ISO timestamp.`
+        );
+      }
+      sentAt = new Date(timestamp).toISOString().slice(0, 10);
+    }
+
     const charityNavigatorScore = parseOptionalNumber(
       charityNavigatorScoreRaw,
       lineNumber,
@@ -251,6 +266,7 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
       proposalType,
       allocationMode,
       notes,
+      ...(sentAt ? { sentAt } : {}),
       ...(createdAt ? { createdAt } : {}),
       ...(website ? { website } : {}),
       ...(causeArea ? { causeArea } : {}),

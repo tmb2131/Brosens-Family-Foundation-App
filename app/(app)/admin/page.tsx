@@ -69,7 +69,6 @@ export default function AdminPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold">{proposal.title}</h3>
-                  <p className="text-xs text-zinc-500">{proposal.organizationName}</p>
                   <p className="mt-1 text-xs text-zinc-500">
                     Final amount: {currency(proposal.progress.computedFinalAmount)}
                   </p>

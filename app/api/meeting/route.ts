@@ -6,6 +6,7 @@ import {
   setMeetingReveal
 } from "@/lib/foundation-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { AppRole } from "@/lib/types";
 
 export async function GET() {
   try {
@@ -23,7 +24,6 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { admin, profile } = await requireAuthContext();
-    assertRole(profile, ["oversight", "manager"]);
 
     const body = await request.json();
     const action = String(body.action ?? "");
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "reveal") {
+      assertRole(profile, ["oversight", "manager"]);
       const reveal = Boolean(body.reveal);
       const proposal = await setMeetingReveal(admin, proposalId, reveal, profile.id);
       return NextResponse.json({ proposal });
@@ -44,6 +45,10 @@ export async function POST(request: NextRequest) {
       if (!status || !["approved", "declined", "sent"].includes(status)) {
         throw new HttpError(400, "Invalid status");
       }
+
+      const allowedRoles: AppRole[] =
+        status === "sent" ? ["oversight", "manager", "admin"] : ["oversight", "manager"];
+      assertRole(profile, allowedRoles);
 
       const proposal = await setMeetingDecision(
         admin,
