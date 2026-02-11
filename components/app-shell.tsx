@@ -4,11 +4,13 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { Home, ListChecks, LogOut, Settings, ShieldCheck, Vote } from "lucide-react";
+import useSWR from "swr";
 import { PropsWithChildren, ReactNode, useMemo } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { FoundationSnapshot, WorkspaceSnapshot } from "@/lib/types";
 
 type NavItem = {
   href: Route;
@@ -16,6 +18,14 @@ type NavItem = {
   icon: ReactNode;
   roles?: string[];
 };
+
+interface MeetingResponse {
+  proposals: FoundationSnapshot["proposals"];
+}
+
+interface AdminQueueResponse {
+  proposals: FoundationSnapshot["proposals"];
+}
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <Home className="h-4 w-4" /> },
@@ -41,7 +51,7 @@ const navItems: NavItem[] = [
     href: "/settings",
     label: "Settings",
     icon: <Settings className="h-4 w-4" />,
-    roles: ["oversight", "manager"]
+    roles: ["member", "oversight", "manager", "admin"]
   }
 ];
 
@@ -56,6 +66,45 @@ export function AppShell({ children }: PropsWithChildren) {
 
     return navItems.filter((item) => !item.roles || item.roles.includes(user.role));
   }, [user]);
+
+  const shouldLoadFoundation = Boolean(
+    user && availableNav.some((item) => item.href === "/dashboard")
+  );
+  const shouldLoadWorkspace = Boolean(
+    user && availableNav.some((item) => item.href === "/workspace")
+  );
+  const shouldLoadMeeting = Boolean(user && availableNav.some((item) => item.href === "/meeting"));
+  const shouldLoadAdmin = Boolean(user && availableNav.some((item) => item.href === "/admin"));
+
+  const { data: foundationData } = useSWR<FoundationSnapshot>(
+    shouldLoadFoundation ? "/api/foundation" : null,
+    { refreshInterval: 15_000 }
+  );
+  const { data: workspaceData } = useSWR<WorkspaceSnapshot>(
+    shouldLoadWorkspace ? "/api/workspace" : null,
+    { refreshInterval: 15_000 }
+  );
+  const { data: meetingData } = useSWR<MeetingResponse>(
+    shouldLoadMeeting ? "/api/meeting" : null,
+    { refreshInterval: 15_000 }
+  );
+  const { data: adminData } = useSWR<AdminQueueResponse>(
+    shouldLoadAdmin ? "/api/admin" : null,
+    { refreshInterval: 15_000 }
+  );
+
+  const outstandingByHref = useMemo(
+    () =>
+      ({
+        "/dashboard":
+          foundationData?.proposals.filter((proposal) => proposal.status === "to_review").length ?? 0,
+        "/workspace": workspaceData?.actionItems.length ?? 0,
+        "/meeting": meetingData?.proposals.length ?? 0,
+        "/admin": adminData?.proposals.length ?? 0,
+        "/settings": 0
+      }) as Partial<Record<Route, number>>,
+    [adminData, foundationData, meetingData, workspaceData]
+  );
 
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-20 pt-4 sm:px-6 page-enter">
@@ -90,6 +139,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <ul className="grid grid-cols-5 gap-1 sm:flex sm:justify-around">
           {availableNav.map((item) => {
             const active = pathname.startsWith(item.href);
+            const outstandingCount = outstandingByHref[item.href] ?? 0;
             return (
               <li key={item.href}>
                 <Link
@@ -101,7 +151,14 @@ export function AppShell({ children }: PropsWithChildren) {
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   )}
                 >
-                  {item.icon}
+                  <span className="relative inline-flex">
+                    {item.icon}
+                    {outstandingCount > 0 ? (
+                      <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
+                        {outstandingCount > 99 ? "99+" : outstandingCount}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="hidden sm:inline">{item.label}</span>
                 </Link>
               </li>

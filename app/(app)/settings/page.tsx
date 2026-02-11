@@ -22,7 +22,8 @@ interface BudgetResponse {
 
 export default function SettingsPage() {
   const { user, sendPasswordReset } = useAuth();
-  const { data, mutate, isLoading, error } = useSWR<BudgetResponse>("/api/budgets");
+  const canManageBudget = Boolean(user && ["oversight", "manager"].includes(user.role));
+  const { data, mutate, isLoading, error } = useSWR<BudgetResponse>(canManageBudget ? "/api/budgets" : null);
 
   const [year, setYear] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
@@ -51,13 +52,8 @@ export default function SettingsPage() {
     setRollover(String(data.budget.rolloverFromPreviousYear));
   }, [data]);
 
-  if (!user || !["oversight", "manager"].includes(user.role)) {
-    return (
-      <Card>
-        <CardTitle>Master Settings Access</CardTitle>
-        <p className="mt-2 text-sm text-zinc-500">Only Tom (oversight) and Dad (manager) can edit budgets.</p>
-      </Card>
-    );
+  if (!user) {
+    return <p className="text-sm text-zinc-500">Loading settings...</p>;
   }
 
   const submit = async (event: FormEvent) => {
@@ -160,10 +156,12 @@ export default function SettingsPage() {
   return (
     <div className="space-y-4 pb-4">
       <Card className="rounded-3xl">
-        <CardTitle>Process Oversight Controls</CardTitle>
-        <CardValue>Budget & Annual Cycle</CardValue>
+        <CardTitle>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardTitle>
+        <CardValue>{canManageBudget ? "Budget & Annual Cycle" : "Password & Security"}</CardValue>
         <p className="mt-1 text-sm text-zinc-500">
-          February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31.
+          {canManageBudget
+            ? "February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31."
+            : "Use password reset to securely change your sign-in credentials."}
         </p>
       </Card>
 
@@ -232,93 +230,104 @@ export default function SettingsPage() {
         </Card>
       ) : null}
 
-      <Card>
-        {error ? (
-          <>
-            <CardTitle>Settings Error</CardTitle>
-            <p className="mt-2 text-sm text-rose-600">{error.message}</p>
-          </>
-        ) : isLoading || !data ? (
-          <p className="text-sm text-zinc-500">Loading settings...</p>
-        ) : (
-          <form className="space-y-3" onSubmit={submit}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm font-medium">
-                Budget year
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
-                  value={year}
-                  onChange={(event) => setYear(event.target.value)}
-                />
-              </label>
-              <label className="text-sm font-medium">
-                Annual fund size
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
-                  value={totalAmount}
-                  onChange={(event) => setTotalAmount(event.target.value)}
-                />
-              </label>
-            </div>
+      {canManageBudget ? (
+        <>
+          <Card>
+            {error ? (
+              <>
+                <CardTitle>Settings Error</CardTitle>
+                <p className="mt-2 text-sm text-rose-600">{error.message}</p>
+              </>
+            ) : isLoading || !data ? (
+              <p className="text-sm text-zinc-500">Loading settings...</p>
+            ) : (
+              <form className="space-y-3" onSubmit={submit}>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium">
+                    Budget year
+                    <input
+                      type="number"
+                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      value={year}
+                      onChange={(event) => setYear(event.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Annual fund size
+                    <input
+                      type="number"
+                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      value={totalAmount}
+                      onChange={(event) => setTotalAmount(event.target.value)}
+                    />
+                  </label>
+                </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm font-medium">
-                Roll-over amount
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
-                  value={rollover}
-                  onChange={(event) => setRollover(event.target.value)}
-                />
-              </label>
-              <label className="text-sm font-medium">
-                Joint ratio
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
-                  value={jointRatio}
-                  onChange={(event) => setJointRatio(event.target.value)}
-                />
-              </label>
-              <label className="text-sm font-medium">
-                Discretionary ratio
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 w-full rounded-xl border px-3 py-2"
-                  value={discretionaryRatio}
-                  onChange={(event) => setDiscretionaryRatio(event.target.value)}
-                />
-              </label>
-            </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="text-sm font-medium">
+                    Roll-over amount
+                    <input
+                      type="number"
+                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      value={rollover}
+                      onChange={(event) => setRollover(event.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Joint ratio
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      value={jointRatio}
+                      onChange={(event) => setJointRatio(event.target.value)}
+                    />
+                  </label>
+                  <label className="text-sm font-medium">
+                    Discretionary ratio
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      value={discretionaryRatio}
+                      onChange={(event) => setDiscretionaryRatio(event.target.value)}
+                    />
+                  </label>
+                </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Budget"}
-            </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save Budget"}
+                </button>
 
-            {message ? <p className="text-xs text-zinc-600">{message}</p> : null}
-          </form>
-        )}
-      </Card>
+                {message ? <p className="text-xs text-zinc-600">{message}</p> : null}
+              </form>
+            )}
+          </Card>
 
-      {data ? (
+          {data ? (
+            <Card>
+              <CardTitle>Current Budget Snapshot</CardTitle>
+              <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                <p>Joint Pool: {currency(data.budget.jointPool)}</p>
+                <p>Discretionary Pool: {currency(data.budget.discretionaryPool)}</p>
+                <p>Joint Remaining: {currency(data.budget.jointRemaining)}</p>
+                <p>Discretionary Remaining: {currency(data.budget.discretionaryRemaining)}</p>
+              </div>
+            </Card>
+          ) : null}
+        </>
+      ) : (
         <Card>
-          <CardTitle>Current Budget Snapshot</CardTitle>
-          <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-            <p>Joint Pool: {currency(data.budget.jointPool)}</p>
-            <p>Discretionary Pool: {currency(data.budget.discretionaryPool)}</p>
-            <p>Joint Remaining: {currency(data.budget.jointRemaining)}</p>
-            <p>Discretionary Remaining: {currency(data.budget.discretionaryRemaining)}</p>
-          </div>
+          <CardTitle>Budget Controls</CardTitle>
+          <p className="mt-2 text-sm text-zinc-500">
+            Budget management is available only for Tom (oversight) and Dad (manager).
+          </p>
         </Card>
-      ) : null}
+      )}
     </div>
   );
 }
