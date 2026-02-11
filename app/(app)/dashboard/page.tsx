@@ -375,7 +375,7 @@ export default function DashboardPage() {
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardTitle>Total Fund (incl. roll-over)</CardTitle>
+          <CardTitle>TOTAL BUDGET</CardTitle>
           <CardValue>{currency(data.budget.total)}</CardValue>
         </Card>
         <Card>
