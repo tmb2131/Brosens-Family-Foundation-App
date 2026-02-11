@@ -2,16 +2,27 @@
 
 import { useState } from "react";
 import { ProposalType } from "@/lib/types";
+import { currency } from "@/lib/utils";
 
 interface VoteFormProps {
   proposalId: string;
   proposalType: ProposalType;
+  proposedAmount: number;
+  totalRequiredVotes: number;
   onSuccess: () => void;
 }
 
-export function VoteForm({ proposalId, proposalType, onSuccess }: VoteFormProps) {
+export function VoteForm({
+  proposalId,
+  proposalType,
+  proposedAmount,
+  totalRequiredVotes,
+  onSuccess
+}: VoteFormProps) {
   const [choice, setChoice] = useState<"yes" | "no">("yes");
-  const [allocationAmount, setAllocationAmount] = useState("250000");
+  const impliedJointAllocation =
+    totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
+  const [allocationAmount, setAllocationAmount] = useState(String(Math.max(0, impliedJointAllocation)));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +37,8 @@ export function VoteForm({ proposalId, proposalType, onSuccess }: VoteFormProps)
         body: JSON.stringify({
           proposalId,
           choice,
-          allocationAmount: choice === "yes" ? Number(allocationAmount || 0) : 0
+          allocationAmount:
+            proposalType === "joint" && choice === "yes" ? Number(allocationAmount || 0) : 0
         })
       });
 
@@ -71,17 +83,30 @@ export function VoteForm({ proposalId, proposalType, onSuccess }: VoteFormProps)
         </button>
       </div>
 
-      <label className="mt-2 block text-xs font-medium">
-        Allocation amount
-        <input
-          type="number"
-          min={0}
-          disabled={choice === "no"}
-          className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
-          value={allocationAmount}
-          onChange={(event) => setAllocationAmount(event.target.value)}
-        />
-      </label>
+      {proposalType === "joint" ? (
+        <>
+          <p className="mt-2 text-xs text-zinc-500">
+            Proposed joint amount implies {currency(impliedJointAllocation)} each. Enter your allocation amount; it
+            can be more or less than {currency(impliedJointAllocation)} (including {currency(0)}).
+          </p>
+          <label className="mt-2 block text-xs font-medium">
+            Allocation amount
+            <input
+              type="number"
+              min={0}
+              disabled={choice === "no"}
+              className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+              value={allocationAmount}
+              onChange={(event) => setAllocationAmount(event.target.value)}
+            />
+          </label>
+        </>
+      ) : (
+        <p className="mt-2 text-xs text-zinc-500">
+          Proposed discretionary amount is {currency(proposedAmount)} and is set by the proposer. Your vote is
+          approval only.
+        </p>
+      )}
 
       <button
         className="mt-3 w-full rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"

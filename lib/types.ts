@@ -48,8 +48,11 @@ export interface GrantProposal {
   budgetYear: number;
   proposalType: ProposalType;
   allocationMode: AllocationMode;
+  proposedAmount: number;
   status: ProposalStatus;
   revealVotes: boolean;
+  notes?: string | null;
+  sentAt?: string | null;
   createdAt: string;
 }
 
@@ -69,6 +72,13 @@ export interface ProposalProgress {
   masked: boolean;
   computedFinalAmount: number;
   isReadyForMeeting: boolean;
+}
+
+export interface HistoryByYearPoint {
+  year: number;
+  totalDonated: number;
+  jointSent: number;
+  discretionarySent: number;
 }
 
 export interface FoundationSnapshot {
@@ -95,7 +105,8 @@ export interface FoundationSnapshot {
       }>;
     }
   >;
-  historyByYear: Array<{ year: number; totalDonated: number }>;
+  historyByYear: HistoryByYearPoint[];
+  availableBudgetYears?: number[];
   annualCycle: {
     resetDate: string;
     yearEndDeadline: string;

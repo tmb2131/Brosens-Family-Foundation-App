@@ -2,27 +2,17 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
-import { FoundationSnapshot, Organization } from "@/lib/types";
-
-interface ProposalMetaResponse {
-  proposals: FoundationSnapshot["proposals"];
-  organizations: Organization[];
-}
 
 export default function NewProposalPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { data } = useSWR<ProposalMetaResponse>(
-    user ? "/api/proposals" : null
-  );
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [organizationId, setOrganizationId] = useState("");
   const [proposalType, setProposalType] = useState<"joint" | "discretionary">("joint");
+  const [proposedAmount, setProposedAmount] = useState("25000");
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +33,9 @@ export default function NewProposalPage() {
         body: JSON.stringify({
           title,
           description,
-          organizationId,
           proposalType,
-          allocationMode
+          allocationMode,
+          proposedAmount: Number(proposedAmount || 0)
         })
       });
 
@@ -68,8 +58,7 @@ export default function NewProposalPage() {
         <CardTitle>Submission Flow</CardTitle>
         <CardValue>New Giving Idea</CardValue>
         <p className="mt-1 text-sm text-zinc-500">
-          Proposals are added to the full grant list and move to blind voting. For discretionary grants,
-          proposer is an automatic "Yes." 
+          Proposals are added to the full grant list and move to blind voting by eligible voters.
         </p>
       </Card>
 
@@ -86,28 +75,23 @@ export default function NewProposalPage() {
           </label>
 
           <label className="block text-sm font-medium">
-            Organization
-            <select
-              value={organizationId}
-              onChange={(event) => setOrganizationId(event.target.value)}
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
-              required
-            >
-              <option value="">Select organization</option>
-              {data?.organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name} (Charity Navigator {org.charityNavigatorScore})
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block text-sm font-medium">
             Description
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               className="mt-1 min-h-24 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              required
+            />
+          </label>
+
+          <label className="block text-sm font-medium">
+            Proposed amount
+            <input
+              type="number"
+              min={0}
+              value={proposedAmount}
+              onChange={(event) => setProposedAmount(event.target.value)}
+              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
               required
             />
           </label>
@@ -128,7 +112,9 @@ export default function NewProposalPage() {
             <div className="block text-sm font-medium">
               Final amount rule
               <p className="mt-1 w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900/40 dark:text-zinc-300">
-                Sum of blind allocations
+                {proposalType === "joint"
+                  ? "Final amount is still the sum of blind allocations. Proposed amount is guidance only."
+                  : "Final amount is set by the proposer's proposed amount."}
               </p>
             </div>
           </div>

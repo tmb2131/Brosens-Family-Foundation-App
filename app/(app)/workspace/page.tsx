@@ -95,6 +95,8 @@ export default function WorkspacePage() {
                   <VoteForm
                     proposalId={item.proposalId}
                     proposalType={item.proposalType}
+                    proposedAmount={proposal.proposedAmount}
+                    totalRequiredVotes={proposal.progress.totalRequiredVotes}
                     onSuccess={() => {
                       void workspaceQuery.mutate();
                       void foundationQuery.mutate();

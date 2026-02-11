@@ -4,6 +4,7 @@ import {
   FoundationSnapshot,
   GrantMaster,
   GrantProposal,
+  HistoryByYearPoint,
   Organization,
   ProposalType,
   UserProfile,
@@ -26,7 +27,7 @@ interface DataState {
   budgets: Budget[];
   proposals: GrantProposal[];
   votes: Vote[];
-  historicalDonations: Array<{ year: number; totalDonated: number }>;
+  historicalDonations: HistoryByYearPoint[];
 }
 
 function currentYear() {
@@ -124,6 +125,7 @@ const seedState: DataState = {
       budgetYear: currentYear(),
       proposalType: "joint",
       allocationMode: "average",
+      proposedAmount: 2_400_000,
       status: "to_review",
       revealVotes: false,
       createdAt: isoNow(-500)
@@ -138,6 +140,7 @@ const seedState: DataState = {
       budgetYear: currentYear(),
       proposalType: "discretionary",
       allocationMode: "sum",
+      proposedAmount: 700_000,
       status: "approved",
       revealVotes: true,
       createdAt: isoNow(-700)
@@ -152,6 +155,7 @@ const seedState: DataState = {
       budgetYear: currentYear(),
       proposalType: "joint",
       allocationMode: "sum",
+      proposedAmount: 1_800_000,
       status: "to_review",
       revealVotes: false,
       createdAt: isoNow(-250)
@@ -166,6 +170,7 @@ const seedState: DataState = {
       budgetYear: currentYear(),
       proposalType: "discretionary",
       allocationMode: "sum",
+      proposedAmount: 500_000,
       status: "declined",
       revealVotes: true,
       createdAt: isoNow(-900)
@@ -254,10 +259,30 @@ const seedState: DataState = {
     }
   ],
   historicalDonations: [
-    { year: currentYear() - 3, totalDonated: 16_800_000 },
-    { year: currentYear() - 2, totalDonated: 18_200_000 },
-    { year: currentYear() - 1, totalDonated: 20_000_000 },
-    { year: currentYear(), totalDonated: 17_500_000 }
+    {
+      year: currentYear() - 3,
+      totalDonated: 16_800_000,
+      jointSent: 12_600_000,
+      discretionarySent: 4_200_000
+    },
+    {
+      year: currentYear() - 2,
+      totalDonated: 18_200_000,
+      jointSent: 13_650_000,
+      discretionarySent: 4_550_000
+    },
+    {
+      year: currentYear() - 1,
+      totalDonated: 20_000_000,
+      jointSent: 15_000_000,
+      discretionarySent: 5_000_000
+    },
+    {
+      year: currentYear(),
+      totalDonated: 17_500_000,
+      jointSent: 13_125_000,
+      discretionarySent: 4_375_000
+    }
   ]
 };
 
@@ -291,27 +316,7 @@ function computeFinalAmount(
     return votes.reduce((sum, vote) => sum + vote.allocationAmount, 0);
   }
 
-  const proposerAutoYes = votes.some(
-    (vote) => vote.userId === proposal.proposerId && vote.choice === "yes"
-  );
-
-  const votesWithAutoYes = proposerAutoYes
-    ? votes
-    : [
-        ...votes,
-        {
-          id: `${proposal.id}-auto-yes`,
-          proposalId: proposal.id,
-          userId: proposal.proposerId,
-          choice: "yes" as VoteChoice,
-          allocationAmount: 0,
-          createdAt: proposal.createdAt
-        }
-      ];
-
-  return votesWithAutoYes
-    .filter((vote) => vote.choice === "yes")
-    .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+  return Math.max(0, Math.round(proposal.proposedAmount));
 }
 
 function getRequiredVotesForProposal(proposal: GrantProposal) {
@@ -322,63 +327,60 @@ function getRequiredVotesForProposal(proposal: GrantProposal) {
   return VOTING_MEMBER_IDS.filter((id) => id !== proposal.proposerId).length;
 }
 
-function proposerAutoYesForDiscretionary(proposal: GrantProposal, votes: Vote[]) {
-  if (proposal.proposalType !== "discretionary") {
-    return votes;
+function getEligibleVotesForProposal(proposal: GrantProposal, votes: Vote[]) {
+  if (proposal.proposalType === "joint") {
+    return votes.filter((vote) => VOTING_MEMBER_IDS.includes(vote.userId));
   }
 
-  if (votes.some((vote) => vote.userId === proposal.proposerId)) {
-    return votes;
-  }
-
-  return [
-    ...votes,
-    {
-      id: `${proposal.id}-auto-yes`,
-      proposalId: proposal.id,
-      userId: proposal.proposerId,
-      choice: "yes" as VoteChoice,
-      allocationAmount: 0,
-      createdAt: proposal.createdAt
-    }
-  ];
+  return votes.filter(
+    (vote) => VOTING_MEMBER_IDS.includes(vote.userId) && vote.userId !== proposal.proposerId
+  );
 }
 
-function isDiscretionaryAutoDeclined(proposal: GrantProposal, votes: Vote[]) {
+function getDiscretionaryVoteStatus(proposal: GrantProposal, votes: Vote[]) {
   if (proposal.proposalType !== "discretionary") {
-    return false;
+    return proposal.status;
   }
 
-  const votersOtherThanProposer = VOTING_MEMBER_IDS.filter((id) => id !== proposal.proposerId);
-  const otherVotes = votes.filter((vote) => votersOtherThanProposer.includes(vote.userId));
+  const eligibleVoterIds = VOTING_MEMBER_IDS.filter((id) => id !== proposal.proposerId);
+  const otherVotes = votes.filter((vote) => eligibleVoterIds.includes(vote.userId));
+  const hasAnyNo = otherVotes.some((vote) => vote.choice === "no");
+  const allOthersVotedYes =
+    otherVotes.length === eligibleVoterIds.length &&
+    otherVotes.every((vote) => vote.choice === "yes");
 
-  return (
-    otherVotes.length === votersOtherThanProposer.length &&
-    otherVotes.every((vote) => vote.choice === "no")
-  );
+  if (hasAnyNo) {
+    return "declined";
+  }
+
+  if (allOthersVotedYes) {
+    return "approved";
+  }
+
+  return "to_review";
 }
 
 function withProgress(proposal: GrantProposal, userId?: string, revealOverride = false) {
   const org = db().organizations.find((item) => item.id === proposal.organizationId);
-  const votes = proposerAutoYesForDiscretionary(proposal, proposalVotes(proposal.id));
+  const votes = getEligibleVotesForProposal(proposal, proposalVotes(proposal.id));
   const requiredVotes = getRequiredVotesForProposal(proposal);
-  const votesSubmitted = votes.filter((vote) => VOTING_MEMBER_IDS.includes(vote.userId)).length;
+  const votesSubmitted = votes.length;
   const hasCurrentUserVoted = userId
-    ? votes.some((vote) => vote.userId === userId)
+    ? proposal.proposalType === "discretionary" && userId === proposal.proposerId
+      ? true
+      : votes.some((vote) => vote.userId === userId)
     : false;
   const masked = !(revealOverride || proposal.revealVotes || hasCurrentUserVoted);
 
   return {
     ...proposal,
     organizationName: org?.name ?? "Unknown Organization",
-    voteBreakdown: votes
-      .filter((vote) => !vote.id.endsWith("-auto-yes"))
-      .map((vote) => ({
-        userId: vote.userId,
-        choice: vote.choice,
-        allocationAmount: vote.allocationAmount,
-        createdAt: vote.createdAt
-      })),
+    voteBreakdown: votes.map((vote) => ({
+      userId: vote.userId,
+      choice: vote.choice,
+      allocationAmount: vote.allocationAmount,
+      createdAt: vote.createdAt
+    })),
     progress: {
       totalRequiredVotes: requiredVotes,
       votesSubmitted,
@@ -402,7 +404,7 @@ function aggregateBudgetUsage() {
       continue;
     }
 
-    const total = computeFinalAmount(proposal, proposerAutoYesForDiscretionary(proposal, proposalVotes(proposal.id)));
+    const total = computeFinalAmount(proposal, getEligibleVotesForProposal(proposal, proposalVotes(proposal.id)));
     if (proposal.proposalType === "joint") {
       jointAllocated += total;
     } else {
@@ -499,17 +501,21 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
     })
     .reduce((sum, vote) => sum + vote.allocationAmount, 0);
 
-  const discretionaryAllocatedByUser = userVotes
-    .filter((vote) => {
-      const proposal = db().proposals.find((item) => item.id === vote.proposalId);
-      return proposal?.proposalType === "discretionary";
-    })
-    .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+  const discretionaryProposedByUser = db()
+    .proposals
+    .filter(
+      (proposal) =>
+        proposal.budgetYear === budget.budget.year &&
+        proposal.proposalType === "discretionary" &&
+        proposal.proposerId === userId &&
+        proposal.status !== "declined"
+    )
+    .reduce((sum, proposal) => sum + proposal.proposedAmount, 0);
 
   const toReview = db()
     .proposals
     .filter((proposal) => proposal.status === "to_review" && VOTING_MEMBER_IDS.includes(userId))
-    .filter((proposal) => !proposalVotes(proposal.id).some((vote) => vote.userId === userId))
+    .filter((proposal) => !withProgress(proposal, userId).progress.hasCurrentUserVoted)
     .map((proposal) => {
       const progress = withProgress(proposal, userId).progress;
 
@@ -546,8 +552,8 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
       jointAllocated: jointAllocatedByUser,
       jointRemaining: Math.max(0, personalJointTarget - jointAllocatedByUser),
       discretionaryCap: personalDiscretionaryCap,
-      discretionaryAllocated: discretionaryAllocatedByUser,
-      discretionaryRemaining: Math.max(0, personalDiscretionaryCap - discretionaryAllocatedByUser)
+      discretionaryAllocated: discretionaryProposedByUser,
+      discretionaryRemaining: Math.max(0, personalDiscretionaryCap - discretionaryProposedByUser)
     },
     actionItems: toReview,
     voteHistory,
@@ -561,6 +567,7 @@ export function submitProposal(input: {
   organizationId: string;
   proposalType: ProposalType;
   allocationMode: AllocationMode;
+  proposedAmount: number;
   proposerId: string;
 }) {
   const state = db();
@@ -591,23 +598,13 @@ export function submitProposal(input: {
     budgetYear: budget.year,
     proposalType: input.proposalType,
     allocationMode: input.proposalType === "joint" ? "sum" : input.allocationMode,
+    proposedAmount: Math.max(0, Math.round(input.proposedAmount)),
     status: "to_review",
     revealVotes: false,
     createdAt: isoNow()
   };
 
   state.proposals.push(proposal);
-
-  if (input.proposalType === "discretionary") {
-    state.votes.push({
-      id: `vote-${state.votes.length + 1}`,
-      proposalId: proposal.id,
-      userId: input.proposerId,
-      choice: "yes",
-      allocationAmount: 0,
-      createdAt: isoNow()
-    });
-  }
 
   return proposal;
 }
@@ -624,9 +621,22 @@ export function submitVote(input: {
     throw new Error("Proposal not found.");
   }
 
+  if (proposal.status !== "to_review") {
+    throw new Error("Votes can only be submitted while proposal is To Review.");
+  }
+
   if (!VOTING_MEMBER_IDS.includes(input.userId)) {
     throw new Error("Only voting members can cast votes.");
   }
+
+  if (proposal.proposalType === "discretionary" && input.userId === proposal.proposerId) {
+    throw new Error("Discretionary proposer cannot vote on their own proposal.");
+  }
+
+  const normalizedAllocation =
+    proposal.proposalType === "joint" && input.choice === "yes"
+      ? Math.max(0, Math.round(input.allocationAmount))
+      : 0;
 
   const existing = state.votes.find(
     (vote) => vote.proposalId === input.proposalId && vote.userId === input.userId
@@ -634,7 +644,7 @@ export function submitVote(input: {
 
   if (existing) {
     existing.choice = input.choice;
-    existing.allocationAmount = Math.max(0, Math.round(input.allocationAmount));
+    existing.allocationAmount = normalizedAllocation;
     existing.createdAt = isoNow();
   } else {
     state.votes.push({
@@ -642,14 +652,14 @@ export function submitVote(input: {
       proposalId: input.proposalId,
       userId: input.userId,
       choice: input.choice,
-      allocationAmount: Math.max(0, Math.round(input.allocationAmount)),
+      allocationAmount: normalizedAllocation,
       createdAt: isoNow()
     });
   }
 
-  const votesForProposal = proposalVotes(proposal.id);
-  if (isDiscretionaryAutoDeclined(proposal, votesForProposal)) {
-    proposal.status = "declined";
+  if (proposal.proposalType === "discretionary") {
+    const votesForProposal = proposalVotes(proposal.id);
+    proposal.status = getDiscretionaryVoteStatus(proposal, votesForProposal);
   }
 
   return withProgress(proposal, input.userId);

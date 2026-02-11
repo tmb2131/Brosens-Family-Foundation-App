@@ -1,9 +1,11 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
 import {
+  AppRole,
   AllocationMode,
   FoundationSnapshot,
   GrantProposal,
+  HistoryByYearPoint,
   Organization,
   ProposalStatus,
   ProposalType,
@@ -38,6 +40,7 @@ interface ProposalRow {
   reveal_votes: boolean;
   final_amount: number | string;
   notes: string | null;
+  sent_at: string | null;
   created_at: string;
 }
 
@@ -65,7 +68,9 @@ interface OrganizationRow {
 }
 
 const PROPOSAL_SELECT =
-  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, created_at";
+  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, created_at";
+
+const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
 export interface HistoricalProposalImportRow {
   title: string;
@@ -78,6 +83,7 @@ export interface HistoricalProposalImportRow {
   allocationMode: AllocationMode;
   notes: string;
   createdAt?: string;
+  sentAt?: string;
   website?: string;
   causeArea?: string;
   charityNavigatorScore?: number;
@@ -102,6 +108,20 @@ function normalizeLookupValue(value: string) {
 
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function normalizeDateString(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) {
+    throw new HttpError(400, "Invalid date. Use YYYY-MM-DD or a valid ISO timestamp.");
+  }
+
+  return new Date(parsed).toISOString().slice(0, 10);
 }
 
 function must<T>(value: T | null | undefined, message: string): T {
@@ -143,8 +163,11 @@ function mapProposal(row: ProposalRow, grant: GrantMasterRow | undefined): Grant
     budgetYear: row.budget_year,
     proposalType: row.proposal_type,
     allocationMode: row.proposal_type === "joint" ? "sum" : row.allocation_mode,
+    proposedAmount: toNumber(row.final_amount),
     status: row.status,
     revealVotes: row.reveal_votes,
+    notes: row.notes,
+    sentAt: row.sent_at,
     createdAt: row.created_at
   };
 }
@@ -154,31 +177,17 @@ function computeFinalAmount(proposal: GrantProposal, votes: Vote[]) {
     return votes.reduce((sum, vote) => sum + vote.allocationAmount, 0);
   }
 
-  return votes
-    .filter((vote) => vote.choice === "yes")
-    .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+  return roundCurrency(proposal.proposedAmount);
 }
 
-function withDiscretionaryAutoYes(proposal: GrantProposal, votes: Vote[]) {
-  if (proposal.proposalType !== "discretionary") {
-    return votes;
+function getEligibleVotesForProposal(proposal: GrantProposal, votes: Vote[], votingMemberIds: string[]) {
+  if (proposal.proposalType === "joint") {
+    return votes.filter((vote) => votingMemberIds.includes(vote.userId));
   }
 
-  if (votes.some((vote) => vote.userId === proposal.proposerId)) {
-    return votes;
-  }
-
-  return [
-    ...votes,
-    {
-      id: `${proposal.id}-auto-yes`,
-      proposalId: proposal.id,
-      userId: proposal.proposerId,
-      choice: "yes" as VoteChoice,
-      allocationAmount: 0,
-      createdAt: proposal.createdAt
-    }
-  ];
+  return votes.filter(
+    (vote) => votingMemberIds.includes(vote.userId) && vote.userId !== proposal.proposerId
+  );
 }
 
 async function getVotingMemberIds(admin: AdminClient) {
@@ -233,6 +242,22 @@ async function getCurrentBudget(admin: AdminClient): Promise<BudgetRow> {
   return latest;
 }
 
+async function getBudgetByYearOrNull(admin: AdminClient, budgetYear: number) {
+  const { data, error } = await admin
+    .from("budgets")
+    .select(
+      "id, budget_year, annual_fund_size, rollover_from_previous_year, joint_ratio, discretionary_ratio, meeting_reveal_enabled"
+    )
+    .eq("budget_year", budgetYear)
+    .maybeSingle<BudgetRow>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load budget for year ${budgetYear}: ${error.message}`);
+  }
+
+  return data ?? null;
+}
+
 async function getCurrentBudgetOrNull(admin: AdminClient) {
   try {
     return await getCurrentBudget(admin);
@@ -242,6 +267,53 @@ async function getCurrentBudgetOrNull(admin: AdminClient) {
     }
     throw error;
   }
+}
+
+async function getBudgetForYearOrDefault(admin: AdminClient, budgetYear?: number) {
+  if (budgetYear === undefined) {
+    return getCurrentBudgetOrNull(admin);
+  }
+
+  if (!Number.isInteger(budgetYear) || budgetYear < 1900 || budgetYear > 3000) {
+    throw new HttpError(400, "budgetYear must be a valid year.");
+  }
+
+  return getBudgetByYearOrNull(admin, budgetYear);
+}
+
+async function loadAvailableBudgetYears(admin: AdminClient, includedYear?: number) {
+  const [budgetYearsResult, proposalYearsResult] = await Promise.all([
+    admin.from("budgets").select("budget_year").returns<Array<{ budget_year: number }>>(),
+    admin.from("grant_proposals").select("budget_year").returns<Array<{ budget_year: number }>>()
+  ]);
+
+  if (budgetYearsResult.error) {
+    throw new HttpError(500, `Could not load budget years: ${budgetYearsResult.error.message}`);
+  }
+
+  if (proposalYearsResult.error) {
+    throw new HttpError(
+      500,
+      `Could not load proposal budget years: ${proposalYearsResult.error.message}`
+    );
+  }
+
+  const yearSet = new Set<number>();
+  for (const row of budgetYearsResult.data ?? []) {
+    yearSet.add(row.budget_year);
+  }
+  for (const row of proposalYearsResult.data ?? []) {
+    yearSet.add(row.budget_year);
+  }
+  if (includedYear !== undefined) {
+    yearSet.add(includedYear);
+  }
+
+  if (!yearSet.size) {
+    yearSet.add(currentYear());
+  }
+
+  return [...yearSet].sort((a, b) => b - a);
 }
 
 function buildAnnualCycle() {
@@ -261,7 +333,10 @@ function buildAnnualCycle() {
   };
 }
 
-function emptyFoundationSnapshot(year = currentYear()): FoundationSnapshot {
+function emptyFoundationSnapshot(
+  year = currentYear(),
+  availableBudgetYears: number[] = [year]
+): FoundationSnapshot {
   return {
     budget: {
       year,
@@ -276,6 +351,7 @@ function emptyFoundationSnapshot(year = currentYear()): FoundationSnapshot {
     },
     proposals: [],
     historyByYear: [],
+    availableBudgetYears,
     annualCycle: buildAnnualCycle()
   };
 }
@@ -393,20 +469,14 @@ function buildProposalViews(input: {
 
     const proposal = mapProposal(row, grant);
     const rawVotes = input.votesByProposalId.get(proposal.id) ?? [];
-    const votes = withDiscretionaryAutoYes(proposal, rawVotes);
+    const votes = getEligibleVotesForProposal(proposal, rawVotes, input.votingMemberIds);
 
     const requiredVotes =
       proposal.proposalType === "joint"
         ? input.votingMemberIds.length
         : input.votingMemberIds.filter((id) => id !== proposal.proposerId).length;
 
-    const votesSubmitted =
-      proposal.proposalType === "joint"
-        ? votes.filter((vote) => input.votingMemberIds.includes(vote.userId)).length
-        : votes.filter(
-            (vote) =>
-              input.votingMemberIds.includes(vote.userId) && vote.userId !== proposal.proposerId
-          ).length;
+    const votesSubmitted = votes.length;
 
     const hasCurrentUserVoted = input.currentUserId
       ? proposal.proposalType === "discretionary" && input.currentUserId === proposal.proposerId
@@ -415,17 +485,21 @@ function buildProposalViews(input: {
       : false;
 
     const masked = !(proposal.revealVotes || hasCurrentUserVoted);
-    const hasRawVotes = rawVotes.length > 0;
+    const hasRawVotes = votes.length > 0;
     const computedFromVotes = computeFinalAmount(proposal, votes);
-    const computedFinalAmount =
-      hasRawVotes || !["approved", "sent"].includes(row.status)
-        ? computedFromVotes
-        : toNumber(row.final_amount);
+    const shouldUseStoredJointAmount =
+      proposal.proposalType === "joint" &&
+      proposal.budgetYear < currentYear() &&
+      !hasRawVotes &&
+      ["approved", "sent"].includes(row.status);
+    const computedFinalAmount = shouldUseStoredJointAmount
+      ? toNumber(row.final_amount)
+      : computedFromVotes;
 
     return {
       ...proposal,
       organizationName: organization?.name ?? "Unknown Organization",
-      voteBreakdown: rawVotes.map((vote) => ({
+      voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,
         choice: vote.choice,
         allocationAmount: vote.allocationAmount,
@@ -483,37 +557,64 @@ async function computeHistoryByYear(admin: AdminClient, votingMemberIds: string[
   const votes = await loadVotesByProposalIds(admin, proposalIds);
   const votesByProposalId = groupVotes(votes);
 
-  const totalsByYear = new Map<number, number>();
+  const totalsByYear = new Map<number, { jointSent: number; discretionarySent: number }>();
 
   for (const row of proposals) {
     const proposal = mapProposal(row, undefined);
-    const proposalVotes = withDiscretionaryAutoYes(proposal, votesByProposalId.get(proposal.id) ?? []);
+    const rawProposalVotes = votesByProposalId.get(proposal.id) ?? [];
+    const relevantVotes = getEligibleVotesForProposal(proposal, rawProposalVotes, votingMemberIds);
+    const hasRecordedRelevantVotes = relevantVotes.length > 0;
 
-    const relevantVotes =
-      proposal.proposalType === "joint"
-        ? proposalVotes.filter((vote) => votingMemberIds.includes(vote.userId))
-        : proposalVotes.filter(
-            (vote) => votingMemberIds.includes(vote.userId) || vote.userId === proposal.proposerId
-          );
+    const shouldUseStoredJointAmount =
+      proposal.proposalType === "joint" &&
+      proposal.budgetYear < currentYear() &&
+      !hasRecordedRelevantVotes;
+    const total = shouldUseStoredJointAmount
+      ? toNumber(row.final_amount)
+      : computeFinalAmount(proposal, relevantVotes);
+    const existingYearTotals = totalsByYear.get(proposal.budgetYear) ?? {
+      jointSent: 0,
+      discretionarySent: 0
+    };
 
-    const total =
-      relevantVotes.length > 0 ? computeFinalAmount(proposal, relevantVotes) : toNumber(row.final_amount);
-    totalsByYear.set(proposal.budgetYear, (totalsByYear.get(proposal.budgetYear) ?? 0) + total);
+    if (proposal.proposalType === "joint") {
+      existingYearTotals.jointSent += total;
+    } else {
+      existingYearTotals.discretionarySent += total;
+    }
+
+    totalsByYear.set(proposal.budgetYear, existingYearTotals);
   }
 
   return [...totalsByYear.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([year, totalDonated]) => ({ year, totalDonated: Math.round(totalDonated) }));
+    .map(([year, yearTotals]): HistoryByYearPoint => {
+      const jointSent = Math.round(yearTotals.jointSent);
+      const discretionarySent = Math.round(yearTotals.discretionarySent);
+      return {
+        year,
+        jointSent,
+        discretionarySent,
+        totalDonated: jointSent + discretionarySent
+      };
+    });
 }
 
 export async function getFoundationSnapshot(
   admin: AdminClient,
-  currentUserId?: string
+  currentUserId?: string,
+  budgetYear?: number
 ): Promise<FoundationSnapshot> {
-  const budget = await getCurrentBudgetOrNull(admin);
+  const budget = await getBudgetForYearOrDefault(admin, budgetYear);
+  const availableBudgetYears = await loadAvailableBudgetYears(admin, budget?.budget_year ?? budgetYear);
+
   if (!budget) {
-    return emptyFoundationSnapshot();
+    return emptyFoundationSnapshot(
+      budgetYear !== undefined ? budgetYear : currentYear(),
+      availableBudgetYears
+    );
   }
+
   const votingMemberIds = await getVotingMemberIds(admin);
 
   const proposalRows = await loadProposalRowsByYear(admin, budget.budget_year);
@@ -561,6 +662,7 @@ export async function getFoundationSnapshot(
     },
     proposals,
     historyByYear: await computeHistoryByYear(admin, votingMemberIds),
+    availableBudgetYears,
     annualCycle: buildAnnualCycle()
   };
 }
@@ -607,14 +709,15 @@ export async function getWorkspaceSnapshot(
     })
     .reduce((sum, vote) => sum + vote.allocationAmount, 0);
 
-  const discretionaryAllocated = userVotes
-    .filter((vote) => {
-      const proposal = votedProposalById.get(vote.proposalId);
-      return (
-        proposal?.budget_year === foundation.budget.year && proposal.proposal_type === "discretionary"
-      );
-    })
-    .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+  const discretionaryProposed = foundation.proposals
+    .filter(
+      (proposal) =>
+        proposal.budgetYear === foundation.budget.year &&
+        proposal.proposalType === "discretionary" &&
+        proposal.proposerId === user.id &&
+        proposal.status !== "declined"
+    )
+    .reduce((sum, proposal) => sum + proposal.progress.computedFinalAmount, 0);
 
   const actionItems = isVotingRole(user.role)
     ? foundation.proposals
@@ -670,8 +773,8 @@ export async function getWorkspaceSnapshot(
       jointAllocated,
       jointRemaining: Math.max(0, jointTarget - jointAllocated),
       discretionaryCap,
-      discretionaryAllocated,
-      discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryAllocated)
+      discretionaryAllocated: discretionaryProposed,
+      discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryProposed)
     },
     actionItems,
     voteHistory,
@@ -698,9 +801,9 @@ export async function submitProposal(
   input: {
     title: string;
     description: string;
-    organizationId: string;
     proposalType: ProposalType;
     allocationMode: AllocationMode;
+    proposedAmount: number;
     proposerId: string;
   }
 ) {
@@ -711,7 +814,8 @@ export async function submitProposal(
     .from("grants_master")
     .select("id")
     .eq("title", input.title)
-    .eq("organization_id", input.organizationId)
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle<{ id: string }>();
 
   if (existingGrantError) {
@@ -727,7 +831,7 @@ export async function submitProposal(
         title: input.title,
         description: input.description,
         cause_area: "General",
-        organization_id: input.organizationId,
+        organization_id: null,
         created_by: input.proposerId
       })
       .select("id")
@@ -747,11 +851,12 @@ export async function submitProposal(
     .from("grant_proposals")
     .insert({
       grant_master_id: grantMasterId,
-      organization_id: input.organizationId,
+      organization_id: null,
       proposer_id: input.proposerId,
       budget_year: budget.budget_year,
       proposal_type: input.proposalType,
       allocation_mode: allocationMode,
+      final_amount: roundCurrency(input.proposedAmount),
       status: "to_review",
       reveal_votes: false
     })
@@ -763,22 +868,6 @@ export async function submitProposal(
       500,
       `Could not create proposal: ${insertProposalError?.message ?? "missing row"}`
     );
-  }
-
-  if (input.proposalType === "discretionary") {
-    const { error: autoVoteError } = await admin.from("votes").upsert(
-      {
-        proposal_id: insertedProposal.id,
-        voter_id: input.proposerId,
-        choice: "yes",
-        allocation_amount: 0
-      },
-      { onConflict: "proposal_id,voter_id" }
-    );
-
-    if (autoVoteError) {
-      throw new HttpError(500, `Could not create automatic proposer vote: ${autoVoteError.message}`);
-    }
   }
 
   return insertedProposal;
@@ -807,17 +896,30 @@ export async function submitVote(
     throw new HttpError(404, "Proposal not found.");
   }
 
+  if (proposal.status !== "to_review") {
+    throw new HttpError(400, "Votes can only be submitted while the proposal is To Review.");
+  }
+
   const votingMemberIds = await getVotingMemberIds(admin);
   if (!votingMemberIds.includes(input.voterId)) {
     throw new HttpError(403, "Only voting family members can cast votes.");
   }
+
+  if (proposal.proposal_type === "discretionary" && input.voterId === proposal.proposer_id) {
+    throw new HttpError(403, "Discretionary proposer cannot vote on their own proposal.");
+  }
+
+  const normalizedAmount =
+    proposal.proposal_type === "joint" && input.choice === "yes"
+      ? Math.max(0, Math.round(input.allocationAmount))
+      : 0;
 
   const { error: voteError } = await admin.from("votes").upsert(
     {
       proposal_id: input.proposalId,
       voter_id: input.voterId,
       choice: input.choice,
-      allocation_amount: Math.max(0, Math.round(input.allocationAmount))
+      allocation_amount: normalizedAmount
     },
     { onConflict: "proposal_id,voter_id" }
   );
@@ -833,17 +935,24 @@ export async function submitVote(
     const otherVoterIds = votingMemberIds.filter((id) => id !== proposal.proposer_id);
     const otherVotes = votesForProposal.filter((vote) => otherVoterIds.includes(vote.userId));
 
-    const unanimousNo =
-      otherVotes.length === otherVoterIds.length && otherVotes.every((vote) => vote.choice === "no");
+    const hasAnyNo = otherVotes.some((vote) => vote.choice === "no");
+    const allOthersVotedYes =
+      otherVotes.length === otherVoterIds.length && otherVotes.every((vote) => vote.choice === "yes");
 
-    if (unanimousNo) {
-      const { error: declineError } = await admin
+    const nextStatus: ProposalStatus = hasAnyNo
+      ? "declined"
+      : allOthersVotedYes
+      ? "approved"
+      : "to_review";
+
+    if (proposal.status !== nextStatus) {
+      const { error: statusError } = await admin
         .from("grant_proposals")
-        .update({ status: "declined" })
+        .update({ status: nextStatus })
         .eq("id", proposal.id);
 
-      if (declineError) {
-        throw new HttpError(500, `Could not auto-decline proposal: ${declineError.message}`);
+      if (statusError) {
+        throw new HttpError(500, `Could not update discretionary proposal status: ${statusError.message}`);
       }
     }
   }
@@ -914,9 +1023,10 @@ export async function setMeetingDecision(
   status: "approved" | "declined" | "sent",
   currentUserId?: string
 ) {
+  const sentAt = status === "sent" ? new Date().toISOString().slice(0, 10) : null;
   const { error } = await admin
     .from("grant_proposals")
-    .update({ status, reveal_votes: true })
+    .update({ status, reveal_votes: true, sent_at: sentAt })
     .eq("id", proposalId);
 
   if (error) {
@@ -924,6 +1034,105 @@ export async function setMeetingDecision(
   }
 
   return getProposalViewById(admin, proposalId, currentUserId);
+}
+
+export async function updateProposalRecord(
+  admin: AdminClient,
+  input: {
+    proposalId: string;
+    requesterId: string;
+    requesterRole: AppRole;
+    status?: ProposalStatus;
+    finalAmount?: number;
+    notes?: string | null;
+    sentAt?: string | null;
+    currentUserId?: string;
+  }
+) {
+  const proposalRows = await loadProposalRowsByIds(admin, [input.proposalId]);
+  const proposal = proposalRows[0];
+
+  if (!proposal) {
+    throw new HttpError(404, "Proposal not found.");
+  }
+
+  const isHistorical = proposal.budget_year < currentYear();
+  const canEditHistorical = input.requesterRole === "oversight" && isHistorical;
+  const isProposer = proposal.proposer_id === input.requesterId;
+  const touchesHistoricalFields =
+    input.status !== undefined || input.finalAmount !== undefined || input.notes !== undefined;
+
+  if (!canEditHistorical) {
+    if (!isProposer || touchesHistoricalFields || input.sentAt === undefined) {
+      throw new HttpError(
+        403,
+        "Only oversight can edit historical proposals. Other users may only update sent date on their own proposal."
+      );
+    }
+
+    if (proposal.status !== "sent") {
+      throw new HttpError(400, "Sent date can only be recorded when the proposal status is Sent.");
+    }
+  }
+
+  const updates: Record<string, unknown> = {};
+  let nextStatus: ProposalStatus = proposal.status;
+
+  if (canEditHistorical && input.status !== undefined) {
+    if (!EDITABLE_PROPOSAL_STATUSES.includes(input.status)) {
+      throw new HttpError(
+        400,
+        `Invalid status. Must be one of ${EDITABLE_PROPOSAL_STATUSES.join(", ")}.`
+      );
+    }
+
+    nextStatus = input.status;
+    updates.status = input.status;
+  }
+
+  if (canEditHistorical && input.finalAmount !== undefined) {
+    if (!Number.isFinite(input.finalAmount) || input.finalAmount < 0) {
+      throw new HttpError(400, "finalAmount must be a non-negative number.");
+    }
+    updates.final_amount = roundCurrency(input.finalAmount);
+  }
+
+  if (canEditHistorical && input.notes !== undefined) {
+    const notes = input.notes === null ? "" : String(input.notes);
+    updates.notes = notes.trim() ? notes.trim() : null;
+  }
+
+  if (input.sentAt !== undefined) {
+    const sentAt =
+      input.sentAt === null ? null : normalizeDateString(typeof input.sentAt === "string" ? input.sentAt : "");
+
+    if (sentAt && nextStatus !== "sent") {
+      throw new HttpError(400, "Sent date requires the proposal status to be Sent.");
+    }
+
+    updates.sent_at = sentAt;
+  } else if (canEditHistorical && input.status !== undefined && nextStatus !== "sent") {
+    updates.sent_at = null;
+  } else if (
+    canEditHistorical &&
+    input.status === "sent" &&
+    input.sentAt === undefined &&
+    !proposal.sent_at
+  ) {
+    updates.sent_at = new Date().toISOString().slice(0, 10);
+  }
+
+  if (!Object.keys(updates).length) {
+    throw new HttpError(400, "No editable fields were provided.");
+  }
+
+  const { error } = await admin.from("grant_proposals").update(updates).eq("id", input.proposalId);
+
+  if (error) {
+    throw new HttpError(500, `Could not update proposal: ${error.message}`);
+  }
+
+  return getProposalViewById(admin, input.proposalId, input.currentUserId);
 }
 
 export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
@@ -1232,6 +1441,7 @@ export async function importHistoricalProposals(
     reveal_votes: boolean;
     final_amount: number;
     notes: string | null;
+    sent_at?: string | null;
     created_at?: string;
   }> = [];
 
@@ -1265,6 +1475,7 @@ export async function importHistoricalProposals(
       reveal_votes: boolean;
       final_amount: number;
       notes: string | null;
+      sent_at?: string | null;
       created_at?: string;
     } = {
       grant_master_id: grantId,
@@ -1278,6 +1489,10 @@ export async function importHistoricalProposals(
       final_amount: Math.max(0, roundCurrency(row.finalAmount)),
       notes: row.notes || null
     };
+
+    if (row.sentAt) {
+      proposalRow.sent_at = row.sentAt;
+    }
 
     if (row.createdAt) {
       proposalRow.created_at = row.createdAt;

@@ -58,7 +58,8 @@ npm run dev
 
 - 75/25 split: budget settings and dashboard visualized
 - Blind voting: masked amounts and vote visibility until user submits own vote
-- Discretionary proposer auto-yes: applied on proposal creation
+- Discretionary approvals: voted only by non-proposers; unanimous yes auto-approves, any no auto-declines
+- Proposed amount on submission: discretionary uses proposer-set final amount, joint uses it as vote guidance
 - Meeting reveal stage: explicit reveal/mask controls before decision logging
 - Admin execution cue: approved proposals appear in Brynn queue
 - Annual cycle milestones: Jan review, Feb reset convention, Dec 31 year-end messaging

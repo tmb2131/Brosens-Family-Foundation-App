@@ -80,7 +80,12 @@ export default function MeetingPage() {
 
               <div className="mt-3 grid gap-2 text-xs text-zinc-500 sm:grid-cols-3">
                 <p>Type: {titleCase(proposal.proposalType)}</p>
-                <p>Rule: {titleCase(proposal.allocationMode)}</p>
+                <p>
+                  Rule:{" "}
+                  {proposal.proposalType === "joint"
+                    ? titleCase(proposal.allocationMode)
+                    : "Proposer-set amount"}
+                </p>
                 <p>Recommended amount: {currency(proposal.progress.computedFinalAmount)}</p>
               </div>
 
