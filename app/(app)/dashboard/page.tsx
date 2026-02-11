@@ -219,17 +219,14 @@ export default function DashboardPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.proposal.trim()) count += 1;
-    if (filters.proposalType !== "all") count += 1;
-    if (filters.amountMin.trim()) count += 1;
-    if (filters.amountMax.trim()) count += 1;
-    if (filters.status !== "all") count += 1;
-    if (filters.sentAt) count += 1;
-    if (filters.notes.trim()) count += 1;
-    return count;
-  }, [filters]);
+  let activeFilterCount = 0;
+  if (filters.proposal.trim()) activeFilterCount += 1;
+  if (filters.proposalType !== "all") activeFilterCount += 1;
+  if (filters.amountMin.trim()) activeFilterCount += 1;
+  if (filters.amountMax.trim()) activeFilterCount += 1;
+  if (filters.status !== "all") activeFilterCount += 1;
+  if (filters.sentAt) activeFilterCount += 1;
+  if (filters.notes.trim()) activeFilterCount += 1;
 
   const toggleSort = (nextSortKey: SortKey) => {
     if (sortKey === nextSortKey) {
