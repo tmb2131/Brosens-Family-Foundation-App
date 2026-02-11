@@ -58,10 +58,10 @@ export function VoteForm({
   return (
     <div className="mt-2 rounded-xl border bg-white/75 p-3 text-sm dark:bg-zinc-900/40">
       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Cast {proposalType} vote</p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-2">
         <button
           onClick={() => setChoice("yes")}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+          className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold sm:text-xs ${
             choice === "yes"
               ? "bg-emerald-600 text-white"
               : "border bg-white text-zinc-600 dark:bg-zinc-900"
@@ -72,7 +72,7 @@ export function VoteForm({
         </button>
         <button
           onClick={() => setChoice("no")}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+          className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold sm:text-xs ${
             choice === "no"
               ? "bg-rose-600 text-white"
               : "border bg-white text-zinc-600 dark:bg-zinc-900"
@@ -95,7 +95,7 @@ export function VoteForm({
               type="number"
               min={0}
               disabled={choice === "no"}
-              className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+              className="mt-1 min-h-11 w-full rounded-lg border px-2 py-2 text-sm"
               value={allocationAmount}
               onChange={(event) => setAllocationAmount(event.target.value)}
             />
@@ -109,7 +109,7 @@ export function VoteForm({
       )}
 
       <button
-        className="mt-3 w-full rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+        className="mt-3 min-h-11 w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:text-xs"
         type="button"
         onClick={() => void submitVote()}
         disabled={saving}

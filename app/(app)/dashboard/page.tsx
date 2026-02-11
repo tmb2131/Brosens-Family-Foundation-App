@@ -219,6 +219,18 @@ export default function DashboardPage() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.proposal.trim()) count += 1;
+    if (filters.proposalType !== "all") count += 1;
+    if (filters.amountMin.trim()) count += 1;
+    if (filters.amountMax.trim()) count += 1;
+    if (filters.status !== "all") count += 1;
+    if (filters.sentAt) count += 1;
+    if (filters.notes.trim()) count += 1;
+    return count;
+  }, [filters]);
+
   const toggleSort = (nextSortKey: SortKey) => {
     if (sortKey === nextSortKey) {
       setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
@@ -348,7 +360,7 @@ export default function DashboardPage() {
               Reset: {data.annualCycle.resetDate} | Year-end deadline: {data.annualCycle.yearEndDeadline}
             </p>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-end">
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
@@ -413,7 +425,7 @@ export default function DashboardPage() {
             <CardTitle>Grant Tracker</CardTitle>
             <p className="text-xs text-zinc-500">Statuses: To Review, Approved, Sent, Declined</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canEditHistorical ? (
               <p className="text-xs text-zinc-500">
                 Oversight editing enabled for historical year {data.budget.year}.
@@ -429,7 +441,283 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <details className="mb-3 rounded-xl border p-3 md:hidden">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Filters and Sort
+            {activeFilterCount > 0 ? (
+              <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent">
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </summary>
+          <div className="mt-3 space-y-3">
+            <label className="block text-xs font-semibold text-zinc-500">
+              Search proposal
+              <input
+                type="text"
+                value={filters.proposal}
+                onChange={(event) => setFilter("proposal", event.target.value)}
+                placeholder="Title or description"
+                className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              <label className="text-xs font-semibold text-zinc-500">
+                Proposal type
+                <select
+                  value={filters.proposalType}
+                  onChange={(event) =>
+                    setFilter("proposalType", event.target.value as TableFilters["proposalType"])
+                  }
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="all">All</option>
+                  <option value="joint">Joint</option>
+                  <option value="discretionary">Discretionary</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-zinc-500">
+                Status
+                <select
+                  value={filters.status}
+                  onChange={(event) => setFilter("status", event.target.value as TableFilters["status"])}
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="all">All</option>
+                  {STATUS_OPTIONS.map((statusOption) => (
+                    <option key={statusOption} value={statusOption}>
+                      {titleCase(statusOption)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-zinc-500">
+                Sent date
+                <input
+                  type="date"
+                  value={filters.sentAt}
+                  onChange={(event) => setFilter("sentAt", event.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-semibold text-zinc-500">
+                  Min amount
+                  <input
+                    type="number"
+                    min={0}
+                    value={filters.amountMin}
+                    onChange={(event) => setFilter("amountMin", event.target.value)}
+                    placeholder="0"
+                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Max amount
+                  <input
+                    type="number"
+                    min={0}
+                    value={filters.amountMax}
+                    onChange={(event) => setFilter("amountMax", event.target.value)}
+                    placeholder="Any"
+                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+              </div>
+              <label className="text-xs font-semibold text-zinc-500">
+                Notes
+                <input
+                  type="text"
+                  value={filters.notes}
+                  onChange={(event) => setFilter("notes", event.target.value)}
+                  placeholder="Filter notes"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs font-semibold text-zinc-500">
+                Sort by
+                <select
+                  value={sortKey}
+                  onChange={(event) => setSortKey(event.target.value as SortKey)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="proposal">Proposal</option>
+                  <option value="type">Type</option>
+                  <option value="amount">Amount</option>
+                  <option value="status">Status</option>
+                  <option value="sentAt">Sent Date</option>
+                  <option value="notes">Notes</option>
+                </select>
+              </label>
+              <label className="text-xs font-semibold text-zinc-500">
+                Direction
+                <select
+                  value={sortDirection}
+                  onChange={(event) => setSortDirection(event.target.value as SortDirection)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <div className="space-y-3 md:hidden">
+          {filteredAndSortedProposals.length === 0 ? (
+            <p className="rounded-xl border p-4 text-sm text-zinc-500">
+              No proposals match the current filters for budget year {data.budget.year}.
+            </p>
+          ) : (
+            filteredAndSortedProposals.map((proposal) => {
+              const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
+              const masked = proposal.progress.masked && proposal.status === "to_review";
+              const isOwnProposal = Boolean(user && proposal.proposerId === user.id);
+              const canEditSentDate = canEditHistorical || (isOwnProposal && proposal.status === "sent");
+              const sentDateDisabled = canEditHistorical ? draft.status !== "sent" : !canEditSentDate;
+              const rowState = rowMessage[proposal.id];
+
+              return (
+                <article key={proposal.id} className="rounded-xl border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">{proposal.title}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
+                    </div>
+                    <StatusPill status={proposal.status} />
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-500">
+                    <p>Type: {titleCase(proposal.proposalType)}</p>
+                    <p>Sent: {proposal.sentAt ?? "—"}</p>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      <p className="text-xs font-semibold text-zinc-500">Amount</p>
+                      {canEditHistorical ? (
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={draft.finalAmount}
+                          onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
+                          className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                      ) : (
+                        <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                          {masked
+                            ? "Blind until your vote is submitted"
+                            : currency(proposal.progress.computedFinalAmount)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-zinc-500">Status</p>
+                      {canEditHistorical ? (
+                        <select
+                          value={draft.status}
+                          onChange={(event) =>
+                            updateDraft(proposal.id, {
+                              status: event.target.value as ProposalStatus,
+                              ...(event.target.value === "sent" ? {} : { sentAt: "" })
+                            })
+                          }
+                          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        >
+                          {STATUS_OPTIONS.map((statusOption) => (
+                            <option key={statusOption} value={statusOption}>
+                              {titleCase(statusOption)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : null}
+                    </div>
+
+                    {canEditSentDate ? (
+                      <label className="block text-xs font-semibold text-zinc-500">
+                        Date amount sent
+                        <input
+                          type="date"
+                          value={draft.sentAt}
+                          disabled={sentDateDisabled}
+                          onChange={(event) => updateDraft(proposal.id, { sentAt: event.target.value })}
+                          className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                      </label>
+                    ) : null}
+
+                    {canEditHistorical ? (
+                      <label className="block text-xs font-semibold text-zinc-500">
+                        Notes
+                        <input
+                          type="text"
+                          value={draft.notes}
+                          onChange={(event) => updateDraft(proposal.id, { notes: event.target.value })}
+                          placeholder="Optional notes"
+                          className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                        />
+                      </label>
+                    ) : proposal.notes?.trim() ? (
+                      <p className="text-xs text-zinc-500">Notes: {proposal.notes}</p>
+                    ) : null}
+
+                    {canEditHistorical ? (
+                      <button
+                        type="button"
+                        disabled={savingProposalId === proposal.id}
+                        onClick={() => void saveProposal(proposal, "historical")}
+                        className="w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {savingProposalId === proposal.id ? "Saving..." : "Save row"}
+                      </button>
+                    ) : isOwnProposal && proposal.status === "sent" ? (
+                      <button
+                        type="button"
+                        disabled={savingProposalId === proposal.id}
+                        onClick={() => void saveProposal(proposal, "sentDate")}
+                        className="w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {savingProposalId === proposal.id ? "Saving..." : "Save date"}
+                      </button>
+                    ) : null}
+
+                    {user &&
+                    canVote &&
+                    proposal.status === "to_review" &&
+                    !proposal.progress.hasCurrentUserVoted ? (
+                      <VoteForm
+                        proposalId={proposal.id}
+                        proposalType={proposal.proposalType}
+                        proposedAmount={proposal.proposedAmount}
+                        totalRequiredVotes={proposal.progress.totalRequiredVotes}
+                        onSuccess={() => void mutate()}
+                      />
+                    ) : null}
+
+                    {rowState ? (
+                      <p
+                        className={`text-xs ${
+                          rowState.tone === "error"
+                            ? "text-rose-600"
+                            : "text-emerald-700 dark:text-emerald-300"
+                        }`}
+                      >
+                        {rowState.text}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-[980px] table-auto text-left text-sm">
             <thead>
               <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">

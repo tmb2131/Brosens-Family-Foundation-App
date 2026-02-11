@@ -172,7 +172,7 @@ export default function SettingsPage() {
           type="button"
           onClick={() => void sendResetEmail()}
           disabled={sendingReset}
-          className="mt-3 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="mt-3 min-h-11 w-full rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           {sendingReset ? "Sending..." : "Send Password Reset Email"}
         </button>
@@ -211,7 +211,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={historicalImporting}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
             >
               {historicalImporting ? "Importing..." : "Import CSV"}
             </button>
@@ -298,7 +298,7 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
                 >
                   {saving ? "Saving..." : "Save Budget"}
                 </button>

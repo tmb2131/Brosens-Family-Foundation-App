@@ -114,9 +114,9 @@ export function AppShell({ children }: PropsWithChildren) {
   );
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-20 pt-4 sm:px-6 page-enter">
+    <div className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-20">
       <header className="glass-card mb-4 rounded-3xl p-4 print:hidden">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
             <h1 className="text-xl font-semibold">Grant Management</h1>
@@ -142,8 +142,14 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <main className="flex-1">{children}</main>
 
-      <nav className="fixed bottom-3 left-1/2 z-20 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-2xl border bg-card/95 px-2 py-2 shadow-soft backdrop-blur print:hidden">
-        <ul className="grid grid-cols-5 gap-1 sm:flex sm:justify-around">
+      <nav
+        className="fixed inset-x-3 bottom-2 z-20 rounded-2xl border bg-card/95 px-2 py-2 shadow-soft backdrop-blur print:hidden sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-[calc(100%-1.5rem)] sm:max-w-2xl sm:-translate-x-1/2"
+        style={{ bottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+      >
+        <ul
+          className="grid gap-1 sm:flex sm:justify-around"
+          style={{ gridTemplateColumns: `repeat(${Math.max(availableNav.length, 1)}, minmax(0, 1fr))` }}
+        >
           {availableNav.map((item) => {
             const active = pathname.startsWith(item.href);
             const outstandingCount = outstandingByHref[item.href] ?? 0;
@@ -152,7 +158,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold",
+                    "flex min-h-11 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold sm:px-3 sm:text-xs",
                     active
                       ? "bg-accent text-white"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
@@ -166,7 +172,9 @@ export function AppShell({ children }: PropsWithChildren) {
                       </span>
                     ) : null}
                   </span>
-                  <span className="hidden sm:inline">{item.label}</span>
+                  <span className="max-w-[4.5rem] truncate text-[10px] leading-tight sm:max-w-none sm:text-xs">
+                    {item.label}
+                  </span>
                 </Link>
               </li>
             );

@@ -89,31 +89,31 @@ export default function MeetingPage() {
                 <p>Recommended amount: {currency(proposal.progress.computedFinalAmount)}</p>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold"
+                  className="min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold sm:text-xs"
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: true })}
                 >
                   Reveal Votes
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg border px-3 py-1.5 text-xs font-semibold"
+                  className="min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold sm:text-xs"
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: false })}
                 >
                   Mask Again
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
+                  className="min-h-11 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white sm:text-xs"
                   onClick={() => void updateMeeting({ action: "decision", proposalId: proposal.id, status: "approved" })}
                 >
                   Confirm Approved
                 </button>
                 <button
                   type="button"
-                  className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white"
+                  className="min-h-11 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white sm:text-xs"
                   onClick={() => void updateMeeting({ action: "decision", proposalId: proposal.id, status: "declined" })}
                 >
                   Confirm Declined

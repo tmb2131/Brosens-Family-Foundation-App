@@ -64,9 +64,9 @@ export default function WorkspacePage() {
       </section>
 
       <Card>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Action Items</CardTitle>
-          <Link href="/dashboard" className="text-xs font-semibold text-accent">
+          <Link href="/dashboard" className="inline-flex min-h-10 items-center text-xs font-semibold text-accent">
             Open full tracker
           </Link>
         </div>
@@ -83,7 +83,7 @@ export default function WorkspacePage() {
 
               return (
                 <article key={item.proposalId} className="rounded-xl border p-3">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
                       <p className="text-xs text-zinc-500">
@@ -116,9 +116,8 @@ export default function WorkspacePage() {
             {workspace.voteHistory.map((vote) => (
               <div key={`${vote.proposalId}-${vote.at}`} className="rounded-xl border p-2">
                 <p className="text-sm font-medium">{vote.proposalTitle}</p>
-                <p className="text-xs text-zinc-500">
-                  {titleCase(vote.choice)} | {currency(vote.amount)} | {new Date(vote.at).toLocaleDateString()}
-                </p>
+                <p className="mt-1 text-xs text-zinc-500">{titleCase(vote.choice)} | {currency(vote.amount)}</p>
+                <p className="text-xs text-zinc-500">{new Date(vote.at).toLocaleDateString()}</p>
               </div>
             ))}
           </div>
@@ -136,10 +135,9 @@ export default function WorkspacePage() {
                     <p className="text-sm font-medium">{proposal.title}</p>
                     <StatusPill status={proposal.status} />
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Budget Year: {proposal.budgetYear} | Amount: {currency(proposal.proposedAmount)}
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-1">{proposal.description}</p>
+                  <p className="mt-1 text-xs text-zinc-500">Budget Year: {proposal.budgetYear}</p>
+                  <p className="text-xs text-zinc-500">Amount: {currency(proposal.proposedAmount)}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
                 </div>
               ))
             )}

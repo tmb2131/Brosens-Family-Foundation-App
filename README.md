@@ -48,6 +48,28 @@ npm run dev
 
 5. Open [http://localhost:3000](http://localhost:3000).
 
+## Mobile screenshot checks (Playwright)
+
+1. Install Chromium once:
+
+```bash
+npm run test:mobile-screenshots:install
+```
+
+2. Capture screenshots for mobile/tablet viewports:
+
+```bash
+npm run test:mobile-screenshots
+```
+
+3. Optional authenticated route coverage:
+
+```bash
+E2E_EMAIL=you@example.com E2E_PASSWORD=your_password npm run test:mobile-screenshots
+```
+
+Artifacts are saved under `test-results/` and include no-horizontal-overflow checks for each captured route.
+
 ## Supabase schema
 
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_initial_schema.sql`

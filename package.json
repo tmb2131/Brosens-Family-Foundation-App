@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:mobile-screenshots": "playwright test tests/mobile-screenshots.spec.ts",
+    "test:mobile-screenshots:headed": "playwright test tests/mobile-screenshots.spec.ts --headed",
+    "test:mobile-screenshots:install": "playwright install chromium"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -22,6 +25,7 @@
     "swr": "^2.2.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",

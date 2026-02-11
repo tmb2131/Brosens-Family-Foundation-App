@@ -202,7 +202,7 @@ export default function ReportsPage() {
               Include/exclude proposal statuses below, then export using Print / PDF.
             </p>
           </div>
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
@@ -220,7 +220,7 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={exportToPdf}
-              className="inline-flex items-center gap-1 rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white"
+              className="inline-flex items-center justify-center gap-1 rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white"
             >
               <Download className="h-4 w-4" />
               Print / PDF
@@ -280,7 +280,7 @@ export default function ReportsPage() {
       <section className="grid gap-3 lg:grid-cols-2">
         <Card>
           <CardTitle>Proposals by Status</CardTitle>
-          <div className="h-[210px] w-full">
+          <div className="h-[190px] w-full sm:h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statusCounts}>
                 <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.grid} />
@@ -300,7 +300,7 @@ export default function ReportsPage() {
 
         <Card>
           <CardTitle>Amount by Proposal Type</CardTitle>
-          <div className="h-[210px] w-full">
+          <div className="h-[190px] w-full sm:h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -339,7 +339,30 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-2 md:hidden">
+          {filteredProposals.length === 0 ? (
+            <p className="rounded-xl border p-4 text-sm text-zinc-500">
+              No proposals match the selected status filters.
+            </p>
+          ) : (
+            filteredProposals.map((proposal) => (
+              <article key={proposal.id} className="rounded-xl border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium">{proposal.title}</p>
+                  <StatusPill status={proposal.status} />
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  <p>Type: {titleCase(proposal.proposalType)}</p>
+                  <p>Amount: {currency(proposal.progress.computedFinalAmount)}</p>
+                  <p>Sent: {proposal.sentAt ?? "—"}</p>
+                  <p>Created: {proposal.createdAt.slice(0, 10)}</p>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-[860px] table-auto text-left text-sm">
             <thead>
               <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
