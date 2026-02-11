@@ -136,6 +136,9 @@ export default function WorkspacePage() {
                     <p className="text-sm font-medium">{proposal.title}</p>
                     <StatusPill status={proposal.status} />
                   </div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Budget Year: {proposal.budgetYear} | Amount: {currency(proposal.proposedAmount)}
+                  </p>
                   <p className="text-xs text-zinc-500 mt-1">{proposal.description}</p>
                 </div>
               ))
