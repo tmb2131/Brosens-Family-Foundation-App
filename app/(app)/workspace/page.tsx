@@ -1,0 +1,146 @@
+"use client";
+
+import Link from "next/link";
+import useSWR from "swr";
+import { useAuth } from "@/components/auth/auth-provider";
+import { WorkspaceSnapshot, FoundationSnapshot } from "@/lib/types";
+import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
+import { currency, titleCase } from "@/lib/utils";
+import { VoteForm } from "@/components/voting/vote-form";
+import { StatusPill } from "@/components/ui/status-pill";
+
+export default function WorkspacePage() {
+  const { user } = useAuth();
+
+  const workspaceQuery = useSWR<WorkspaceSnapshot>(
+    user ? "/api/workspace" : null,
+    { refreshInterval: 10_000 }
+  );
+  const foundationQuery = useSWR<FoundationSnapshot>(
+    user ? "/api/foundation" : null,
+    { refreshInterval: 10_000 }
+  );
+
+  if (workspaceQuery.isLoading || foundationQuery.isLoading) {
+    return <p className="text-sm text-zinc-500">Loading workspace...</p>;
+  }
+
+  if (workspaceQuery.error || foundationQuery.error || !workspaceQuery.data || !foundationQuery.data) {
+    return (
+      <p className="text-sm text-rose-600">
+        Failed to load workspace data
+        {workspaceQuery.error || foundationQuery.error
+          ? `: ${(workspaceQuery.error || foundationQuery.error)?.message}`
+          : "."}
+      </p>
+    );
+  }
+
+  const workspace = workspaceQuery.data;
+  const foundation = foundationQuery.data;
+
+  return (
+    <div className="space-y-4 pb-4">
+      <Card className="rounded-3xl">
+        <CardTitle>My Workspace</CardTitle>
+        <CardValue>{workspace.user.name}</CardValue>
+        <p className="mt-1 text-sm text-zinc-500">
+          Track your joint/discretionary balances, action items, and personal voting history.
+        </p>
+      </Card>
+
+      <section className="grid gap-3 sm:grid-cols-2">
+        <PersonalBudgetBars
+          title="Joint Budget Tracker"
+          allocated={workspace.personalBudget.jointAllocated}
+          total={workspace.personalBudget.jointTarget}
+        />
+        <PersonalBudgetBars
+          title="Discretionary Budget Tracker"
+          allocated={workspace.personalBudget.discretionaryAllocated}
+          total={workspace.personalBudget.discretionaryCap}
+        />
+      </section>
+
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <CardTitle>Action Items</CardTitle>
+          <Link href="/dashboard" className="text-xs font-semibold text-accent">
+            Open full tracker
+          </Link>
+        </div>
+
+        <div className="space-y-3">
+          {workspace.actionItems.length === 0 ? (
+            <p className="text-sm text-zinc-500">No vote-required items right now.</p>
+          ) : (
+            workspace.actionItems.map((item) => {
+              const proposal = foundation.proposals.find((row) => row.id === item.proposalId);
+              if (!proposal || !user) {
+                return null;
+              }
+
+              return (
+                <article key={item.proposalId} className="rounded-xl border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold">{item.title}</h3>
+                      <p className="text-xs text-zinc-500">
+                        {titleCase(item.proposalType)} | {item.voteProgressLabel}
+                      </p>
+                    </div>
+                    <StatusPill status={proposal.status} />
+                  </div>
+                  <VoteForm
+                    proposalId={item.proposalId}
+                    proposalType={item.proposalType}
+                    onSuccess={() => {
+                      void workspaceQuery.mutate();
+                      void foundationQuery.mutate();
+                    }}
+                  />
+                </article>
+              );
+            })
+          )}
+        </div>
+      </Card>
+
+      <section className="grid gap-3 lg:grid-cols-2">
+        <Card>
+          <CardTitle>Personal History</CardTitle>
+          <div className="mt-3 space-y-2">
+            {workspace.voteHistory.map((vote) => (
+              <div key={`${vote.proposalId}-${vote.at}`} className="rounded-xl border p-2">
+                <p className="text-sm font-medium">{vote.proposalTitle}</p>
+                <p className="text-xs text-zinc-500">
+                  {titleCase(vote.choice)} | {currency(vote.amount)} | {new Date(vote.at).toLocaleDateString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <CardTitle>My Submitted Gifts</CardTitle>
+          <div className="mt-3 space-y-2">
+            {workspace.submittedGifts.length === 0 ? (
+              <p className="text-sm text-zinc-500">No submitted gifts yet.</p>
+            ) : (
+              workspace.submittedGifts.map((proposal) => (
+                <div key={proposal.id} className="rounded-xl border p-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{proposal.title}</p>
+                    <StatusPill status={proposal.status} />
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">{proposal.description}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </section>
+    </div>
+  );
+}

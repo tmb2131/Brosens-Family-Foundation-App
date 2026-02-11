@@ -1,0 +1,98 @@
+"use client";
+
+import { useState } from "react";
+import { ProposalType } from "@/lib/types";
+
+interface VoteFormProps {
+  proposalId: string;
+  proposalType: ProposalType;
+  onSuccess: () => void;
+}
+
+export function VoteForm({ proposalId, proposalType, onSuccess }: VoteFormProps) {
+  const [choice, setChoice] = useState<"yes" | "no">("yes");
+  const [allocationAmount, setAllocationAmount] = useState("250000");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submitVote = async () => {
+    setError(null);
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/votes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          proposalId,
+          choice,
+          allocationAmount: choice === "yes" ? Number(allocationAmount || 0) : 0
+        })
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: "Could not save vote" }));
+        throw new Error(payload.error || "Could not save vote");
+      }
+
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save vote");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 rounded-xl border bg-white/75 p-3 text-sm dark:bg-zinc-900/40">
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Cast {proposalType} vote</p>
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={() => setChoice("yes")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+            choice === "yes"
+              ? "bg-emerald-600 text-white"
+              : "border bg-white text-zinc-600 dark:bg-zinc-900"
+          }`}
+          type="button"
+        >
+          Yes
+        </button>
+        <button
+          onClick={() => setChoice("no")}
+          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+            choice === "no"
+              ? "bg-rose-600 text-white"
+              : "border bg-white text-zinc-600 dark:bg-zinc-900"
+          }`}
+          type="button"
+        >
+          No
+        </button>
+      </div>
+
+      <label className="mt-2 block text-xs font-medium">
+        Allocation amount
+        <input
+          type="number"
+          min={0}
+          disabled={choice === "no"}
+          className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
+          value={allocationAmount}
+          onChange={(event) => setAllocationAmount(event.target.value)}
+        />
+      </label>
+
+      <button
+        className="mt-3 w-full rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+        type="button"
+        onClick={() => void submitVote()}
+        disabled={saving}
+      >
+        {saving ? "Saving vote..." : "Submit Blind Vote"}
+      </button>
+
+      {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
+    </div>
+  );
+}

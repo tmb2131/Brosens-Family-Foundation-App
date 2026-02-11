@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: 201 45% 98%;
+  --foreground: 218 36% 16%;
+  --card: 0 0% 100%;
+  --accent: 154 61% 37%;
+  --muted: 212 40% 94%;
+  --border: 212 24% 85%;
+  --success: 154 61% 37%;
+  --danger: 0 72% 50%;
+}
+
+.dark {
+  --surface: 219 31% 11%;
+  --foreground: 204 36% 96%;
+  --card: 222 30% 15%;
+  --accent: 154 56% 44%;
+  --muted: 220 21% 20%;
+  --border: 220 16% 27%;
+  --success: 154 56% 44%;
+  --danger: 0 78% 62%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 5% 0%, hsl(154 100% 92% / 0.65), transparent 38%),
+    radial-gradient(circle at 95% 10%, hsl(43 100% 90% / 0.72), transparent 34%),
+    linear-gradient(180deg, hsl(var(--surface)), hsl(210 35% 96%));
+  font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+  min-height: 100vh;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 8% 2%, hsl(154 61% 18% / 0.4), transparent 35%),
+    radial-gradient(circle at 96% 8%, hsl(35 86% 24% / 0.45), transparent 30%),
+    linear-gradient(180deg, hsl(var(--surface)), hsl(220 24% 9%));
+}
+
+.page-enter {
+  animation: fade-up 500ms ease-out both;
+}
+
+.glass-card {
+  @apply border bg-card/90 backdrop-blur;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+}
+
+.status-dot {
+  @apply inline-block h-2.5 w-2.5 rounded-full;
+}
