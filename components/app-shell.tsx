@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { Home, ListChecks, LogOut, Settings, ShieldCheck, Vote } from "lucide-react";
+import { FileText, Home, ListChecks, LogOut, Settings, ShieldCheck, Vote } from "lucide-react";
 import useSWR from "swr";
 import { PropsWithChildren, ReactNode, useMemo } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -39,6 +39,12 @@ const navItems: NavItem[] = [
     href: "/meeting",
     label: "Meeting",
     icon: <Vote className="h-4 w-4" />,
+    roles: ["oversight", "manager"]
+  },
+  {
+    href: "/reports" as Route,
+    label: "Reports",
+    icon: <FileText className="h-4 w-4" />,
     roles: ["oversight", "manager"]
   },
   {
@@ -100,6 +106,7 @@ export function AppShell({ children }: PropsWithChildren) {
           foundationData?.proposals.filter((proposal) => proposal.status === "to_review").length ?? 0,
         "/workspace": workspaceData?.actionItems.length ?? 0,
         "/meeting": meetingData?.proposals.length ?? 0,
+        "/reports": 0,
         "/admin": adminData?.proposals.length ?? 0,
         "/settings": 0
       }) as Partial<Record<Route, number>>,
@@ -108,7 +115,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-20 pt-4 sm:px-6 page-enter">
-      <header className="glass-card mb-4 rounded-3xl p-4">
+      <header className="glass-card mb-4 rounded-3xl p-4 print:hidden">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
@@ -135,7 +142,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <main className="flex-1">{children}</main>
 
-      <nav className="fixed bottom-3 left-1/2 z-20 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-2xl border bg-card/95 px-2 py-2 shadow-soft backdrop-blur">
+      <nav className="fixed bottom-3 left-1/2 z-20 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-2xl border bg-card/95 px-2 py-2 shadow-soft backdrop-blur print:hidden">
         <ul className="grid grid-cols-5 gap-1 sm:flex sm:justify-around">
           {availableNav.map((item) => {
             const active = pathname.startsWith(item.href);
