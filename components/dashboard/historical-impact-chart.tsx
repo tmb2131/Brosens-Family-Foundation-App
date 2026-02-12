@@ -3,11 +3,10 @@
 import {
   Bar,
   BarChart,
-  CartesianGrid,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
-  XAxis,
-  YAxis
+  XAxis
 } from "recharts";
 import { chartPalette, chartText } from "@/lib/chart-styles";
 import type { HistoryByYearPoint } from "@/lib/types";
@@ -18,16 +17,16 @@ export function HistoricalImpactChart({
 }: {
   data: HistoryByYearPoint[];
 }) {
+  const chartData = data.map((entry) => ({
+    ...entry,
+    totalSent: entry.jointSent + entry.discretionarySent
+  }));
+
   return (
     <div className="h-[220px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.grid} />
+        <BarChart data={chartData} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
           <XAxis dataKey="year" tick={{ fill: chartText.axis, fontSize: 12 }} />
-          <YAxis
-            tickFormatter={(value) => compactCurrency(Number(value))}
-            tick={{ fill: chartText.axis, fontSize: 12 }}
-          />
           <Tooltip
             formatter={(value: number) => currency(value)}
             contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))" }}
@@ -40,7 +39,16 @@ export function HistoricalImpactChart({
             fill={chartPalette.discretionary}
             minPointSize={2}
             radius={[6, 6, 0, 0]}
-          />
+          >
+            <LabelList
+              position="top"
+              fill={chartText.axis}
+              fontSize={11}
+              fontWeight={600}
+              dataKey="totalSent"
+              formatter={(value: number) => compactCurrency(Number(value))}
+            />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

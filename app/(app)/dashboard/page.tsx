@@ -8,7 +8,6 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { HistoricalImpactChart } from "@/components/dashboard/historical-impact-chart";
-import { BudgetSplitChart } from "@/components/dashboard/budget-split-chart";
 import { StatusPill } from "@/components/ui/status-pill";
 import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
@@ -393,34 +392,29 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardTitle>TOTAL BUDGET</CardTitle>
-          <CardValue>{currency(data.budget.total)}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Joint Pool Remaining</CardTitle>
-          <CardValue>{currency(data.budget.jointRemaining)}</CardValue>
-          <p className="mt-1 text-xs text-zinc-500">Allocated: {currency(data.budget.jointAllocated)}</p>
-        </Card>
-        <Card>
-          <CardTitle>Discretionary Remaining</CardTitle>
-          <CardValue>{currency(data.budget.discretionaryRemaining)}</CardValue>
-          <p className="mt-1 text-xs text-zinc-500">
-            Allocated: {currency(data.budget.discretionaryAllocated)}
-          </p>
-        </Card>
-        <Card>
-          <CardTitle>TOTAL ALLOCATED</CardTitle>
-          <CardValue>{currency(totalAllocatedForYear)}</CardValue>
-        </Card>
-      </section>
-
-      <section className="grid gap-3 lg:grid-cols-2">
-        <Card>
-          <CardTitle>BUDGET SPLIT</CardTitle>
-          <BudgetSplitChart joint={data.budget.jointPool} discretionary={data.budget.discretionaryPool} />
-        </Card>
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+        <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
+          <Card>
+            <CardTitle>TOTAL BUDGET</CardTitle>
+            <CardValue>{currency(data.budget.total)}</CardValue>
+          </Card>
+          <Card>
+            <CardTitle>TOTAL ALLOCATED</CardTitle>
+            <CardValue>{currency(totalAllocatedForYear)}</CardValue>
+          </Card>
+          <Card>
+            <CardTitle>JOINT POOL REMAINING</CardTitle>
+            <CardValue>{currency(data.budget.jointRemaining)}</CardValue>
+            <p className="mt-1 text-xs text-zinc-500">Allocated: {currency(data.budget.jointAllocated)}</p>
+          </Card>
+          <Card>
+            <CardTitle>DISCRETIONARY REMAINING</CardTitle>
+            <CardValue>{currency(data.budget.discretionaryRemaining)}</CardValue>
+            <p className="mt-1 text-xs text-zinc-500">
+              Allocated: {currency(data.budget.discretionaryAllocated)}
+            </p>
+          </Card>
+        </div>
         <Card>
           <CardTitle>Historical Impact</CardTitle>
           <HistoricalImpactChart data={data.historyByYear} />

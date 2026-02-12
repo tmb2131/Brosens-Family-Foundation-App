@@ -5,7 +5,6 @@ import useSWR from "swr";
 import {
   Bar,
   BarChart,
-  CartesianGrid,
   Cell,
   Label,
   LabelList,
@@ -40,6 +39,14 @@ const DEFAULT_STATUS_FILTERS: StatusFilterState = {
   sent: true,
   declined: true
 };
+
+interface StatusCountDatum {
+  status: ProposalStatus;
+  label: string;
+  count: number;
+  amount: number;
+  countAndAmountLabel: string;
+}
 
 function sumAmount(rows: FoundationSnapshot["proposals"]) {
   return rows.reduce((sum, row) => sum + row.progress.computedFinalAmount, 0);
@@ -97,13 +104,20 @@ export default function ReportsPage() {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [data, statusFilters]);
 
-  const statusCounts = useMemo(
+  const statusCounts = useMemo<StatusCountDatum[]>(
     () =>
-      STATUS_OPTIONS.map((status) => ({
-        status,
-        label: titleCase(status),
-        count: filteredProposals.filter((proposal) => proposal.status === status).length
-      })),
+      STATUS_OPTIONS.map((status) => {
+        const proposalsForStatus = filteredProposals.filter((proposal) => proposal.status === status);
+        const count = proposalsForStatus.length;
+        const amount = sumAmount(proposalsForStatus);
+        return {
+          status,
+          label: titleCase(status),
+          count,
+          amount,
+          countAndAmountLabel: `${formatNumber(count)} | ${compactCurrency(amount)}`
+        };
+      }),
     [filteredProposals]
   );
 
@@ -272,16 +286,56 @@ export default function ReportsPage() {
           <CardTitle>Proposals by Status</CardTitle>
           <div className="h-[190px] w-full sm:h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statusCounts}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.grid} />
+              <BarChart data={statusCounts} margin={{ top: 28, right: 8, left: 8, bottom: 0 }}>
                 <XAxis dataKey="label" tick={{ fill: chartText.axis, fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fill: chartText.axis, fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                <YAxis
+                  tickFormatter={(value) =>
+                    compactCurrency(Number(value), {
+                      maximumFractionDigits: 0
+                    })
+                  }
+                  tick={{ fill: chartText.axis, fontSize: 12 }}
+                  axisLine={{ stroke: "hsl(var(--border))" }}
+                  tickLine={false}
+                  width={74}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--muted) / 0.55)" }}
+                  separator=""
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: "1px solid hsl(var(--border))",
+                    backgroundColor: "hsl(var(--card))",
+                    color: "hsl(var(--foreground))"
+                  }}
+                  labelStyle={{ color: "hsl(var(--foreground) / 0.92)", fontWeight: 600 }}
+                  itemStyle={{ color: "hsl(var(--foreground) / 0.84)" }}
+                  formatter={(value, _name, item) => {
+                    const row = item.payload as StatusCountDatum | undefined;
+                    if (!row) {
+                      return [currency(Number(value)), ""];
+                    }
+                    return [`${formatNumber(row.count)} proposals | ${currency(row.amount)}`, ""];
+                  }}
+                  labelFormatter={(label, payload) => {
+                    const row = payload?.[0]?.payload as StatusCountDatum | undefined;
+                    if (!row) {
+                      return String(label);
+                    }
+                    return row.label;
+                  }}
+                />
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                   {statusCounts.map((entry) => (
                     <Cell key={entry.status} fill={STATUS_COLORS[entry.status]} />
                   ))}
-                  <LabelList dataKey="count" position="top" fill={chartText.axis} fontSize={12} />
+                  <LabelList
+                    dataKey="countAndAmountLabel"
+                    position="top"
+                    fill={chartText.axis}
+                    fontSize={12}
+                    fontWeight={600}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

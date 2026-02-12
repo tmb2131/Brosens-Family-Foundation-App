@@ -9,6 +9,6 @@ export const chartPalette = {
 };
 
 export const chartText = {
-  axis: "hsl(218 25% 33%)",
-  label: "hsl(218 35% 18%)"
+  axis: "hsl(var(--foreground) / 0.72)",
+  label: "hsl(var(--foreground) / 0.92)"
 };
