@@ -23,6 +23,28 @@ function sanitizeRedirect(target: string): Route {
   return "/mobile";
 }
 
+function friendlyLoginError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Unable to sign in right now. Please try again.";
+  }
+
+  const message = error.message.toLowerCase();
+  if (message.includes("invalid login credentials")) {
+    return "Invalid email or password.";
+  }
+  if (message.includes("email not confirmed")) {
+    return "Please confirm your email before signing in.";
+  }
+  if (message.includes("too many requests")) {
+    return "Too many sign-in attempts. Please wait and try again.";
+  }
+  if (message.includes("failed to fetch")) {
+    return "Unable to reach the server. Check your connection and try again.";
+  }
+
+  return "Unable to sign in right now. Please try again.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -31,8 +53,8 @@ export default function LoginPage() {
   const safeRedirect = sanitizeRedirect(redirect);
   const { signIn, refreshProfile, updatePassword, user, configured } = useAuth();
 
-  const [email, setEmail] = useState("tom@brosens.foundation");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +73,11 @@ export default function LoginPage() {
     setError(null);
     setSuccess(null);
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
       await refreshProfile();
       router.replace(safeRedirect);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to sign in.");
+      setError(friendlyLoginError(err));
     } finally {
       setLoading(false);
     }
@@ -83,8 +105,8 @@ export default function LoginPage() {
       await updatePassword(newPassword);
       setSuccess("Password updated. Redirecting to your mobile focus view...");
       router.replace("/mobile");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update password.");
+    } catch {
+      setError("Unable to update password right now. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -98,11 +120,11 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-zinc-500">
           {recoveryMode
             ? "Use this page from your reset email link to set a new password."
-            : "Sign in with Supabase Auth email/password. Profiles are loaded from `user_profiles`."}
+            : "Sign in with your email and password."}
         </p>
 
         {recoveryMode ? (
-          <form className="mt-4 space-y-3" onSubmit={submitPasswordUpdate}>
+          <form className="mt-4 space-y-3" onSubmit={submitPasswordUpdate} aria-busy={loading}>
             <label className="block text-sm font-medium">
               New password
               <input
@@ -111,6 +133,8 @@ export default function LoginPage() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 required
                 type="password"
+                minLength={8}
+                autoComplete="new-password"
               />
             </label>
             <label className="block text-sm font-medium">
@@ -121,6 +145,8 @@ export default function LoginPage() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
                 type="password"
+                minLength={8}
+                autoComplete="new-password"
               />
             </label>
             <button
@@ -138,7 +164,7 @@ export default function LoginPage() {
             </button>
           </form>
         ) : (
-          <form className="mt-4 space-y-3" onSubmit={submitLogin}>
+          <form className="mt-4 space-y-3" onSubmit={submitLogin} aria-busy={loading}>
             <label className="block text-sm font-medium">
               Email
               <input
@@ -147,6 +173,10 @@ export default function LoginPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 required
                 type="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                inputMode="email"
               />
             </label>
             <label className="block text-sm font-medium">
@@ -157,6 +187,7 @@ export default function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 type="password"
+                autoComplete="current-password"
               />
             </label>
             <button
@@ -179,8 +210,16 @@ export default function LoginPage() {
             Open this page using the link in your password reset email to complete the update.
           </p>
         ) : null}
-        {success ? <p className="mt-3 text-xs text-emerald-700 dark:text-emerald-300">{success}</p> : null}
-        {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
+        {success ? (
+          <p className="mt-3 text-xs text-emerald-700 dark:text-emerald-300" aria-live="polite">
+            {success}
+          </p>
+        ) : null}
+        {error ? (
+          <p className="mt-3 text-xs text-rose-600" role="alert" aria-live="polite">
+            {error}
+          </p>
+        ) : null}
       </Card>
     </div>
   );
