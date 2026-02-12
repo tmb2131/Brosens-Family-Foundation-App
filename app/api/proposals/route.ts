@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       proposalType,
       allocationMode,
       proposedAmount,
-      proposerId: profile.id
+      proposer: profile
     });
 
     return NextResponse.json({ proposal }, { status: 201 });

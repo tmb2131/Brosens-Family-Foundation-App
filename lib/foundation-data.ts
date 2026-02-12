@@ -804,9 +804,30 @@ export async function submitProposal(
     proposalType: ProposalType;
     allocationMode: AllocationMode;
     proposedAmount: number;
-    proposerId: string;
+    proposer: UserProfile;
   }
 ) {
+  const normalizedProposedAmount = roundCurrency(input.proposedAmount);
+
+  if (input.proposalType === "discretionary") {
+    const workspace = await getWorkspaceSnapshot(admin, input.proposer);
+    const discretionaryRemaining = roundCurrency(workspace.personalBudget.discretionaryRemaining);
+
+    if (normalizedProposedAmount > discretionaryRemaining) {
+      throw new HttpError(
+        400,
+        `Discretionary proposal amount cannot exceed your remaining discretionary budget of ${discretionaryRemaining.toLocaleString(
+          "en-US",
+          {
+            style: "currency",
+            currency: "USD",
+            maximumFractionDigits: 0
+          }
+        )}.`
+      );
+    }
+  }
+
   const budget = await getCurrentBudget(admin);
   const allocationMode: AllocationMode = input.proposalType === "joint" ? "sum" : input.allocationMode;
 
@@ -832,7 +853,7 @@ export async function submitProposal(
         description: input.description,
         cause_area: "General",
         organization_id: null,
-        created_by: input.proposerId
+        created_by: input.proposer.id
       })
       .select("id")
       .single<{ id: string }>();
@@ -852,11 +873,11 @@ export async function submitProposal(
     .insert({
       grant_master_id: grantMasterId,
       organization_id: null,
-      proposer_id: input.proposerId,
+      proposer_id: input.proposer.id,
       budget_year: budget.budget_year,
       proposal_type: input.proposalType,
       allocation_mode: allocationMode,
-      final_amount: roundCurrency(input.proposedAmount),
+      final_amount: normalizedProposedAmount,
       status: "to_review",
       reveal_votes: false
     })

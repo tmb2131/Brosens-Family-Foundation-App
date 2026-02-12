@@ -2,12 +2,20 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
+import { WorkspaceSnapshot } from "@/lib/types";
+import { currency } from "@/lib/utils";
 
 export default function NewProposalPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const workspaceQuery = useSWR<WorkspaceSnapshot>(
+    user ? "/api/workspace" : null,
+    { refreshInterval: 10_000 }
+  );
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -16,6 +24,9 @@ export default function NewProposalPage() {
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const discretionaryLimit = workspaceQuery.data
+    ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
+    : null;
 
   if (!user) {
     return null;
@@ -63,6 +74,48 @@ export default function NewProposalPage() {
       </Card>
 
       <Card>
+        <CardTitle>Your Individual Budget</CardTitle>
+        {workspaceQuery.isLoading ? (
+          <p className="mt-2 text-sm text-zinc-500">Loading budget details...</p>
+        ) : workspaceQuery.error || !workspaceQuery.data ? (
+          <p className="mt-2 text-sm text-rose-600">
+            Could not load your budget details. You can still submit a proposal.
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <PersonalBudgetBars
+                title="Joint Budget Tracker"
+                allocated={workspaceQuery.data.personalBudget.jointAllocated}
+                total={workspaceQuery.data.personalBudget.jointTarget}
+              />
+              <PersonalBudgetBars
+                title="Discretionary Budget Tracker"
+                allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
+                total={workspaceQuery.data.personalBudget.discretionaryCap}
+              />
+            </div>
+            <div className="mt-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2">
+              <p>Joint remaining: {currency(workspaceQuery.data.personalBudget.jointRemaining)}</p>
+              <p>
+                Discretionary remaining:{" "}
+                {currency(workspaceQuery.data.personalBudget.discretionaryRemaining)}
+              </p>
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              {proposalType === "joint"
+                ? `Joint proposals use your joint voting allocation. You currently have ${currency(
+                    workspaceQuery.data.personalBudget.jointRemaining
+                  )} remaining.`
+                : `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
+                    workspaceQuery.data.personalBudget.discretionaryRemaining
+                  )} remaining.`}
+            </p>
+          </>
+        )}
+      </Card>
+
+      <Card>
         <form className="space-y-3" onSubmit={submit}>
           <label className="block text-sm font-medium">
             Proposal title
@@ -85,15 +138,35 @@ export default function NewProposalPage() {
           </label>
 
           <label className="block text-sm font-medium">
-            Proposed amount
+            {proposalType === "joint" ? "Proposed total donation (joint)" : "Proposed amount"}
             <input
               type="number"
               min={0}
+              max={proposalType === "discretionary" && discretionaryLimit !== null ? discretionaryLimit : undefined}
               value={proposedAmount}
-              onChange={(event) => setProposedAmount(event.target.value)}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+
+                if (proposalType === "discretionary" && discretionaryLimit !== null) {
+                  const parsed = Number(nextValue);
+                  if (Number.isFinite(parsed) && parsed > discretionaryLimit) {
+                    setProposedAmount(String(discretionaryLimit));
+                    return;
+                  }
+                }
+
+                setProposedAmount(nextValue);
+              }}
               className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
               required
             />
+            <p className="mt-1 text-xs text-zinc-500">
+              {proposalType === "joint"
+                ? "For joint proposals, this is the total donation you propose the family sends together."
+                : discretionaryLimit !== null
+                ? `Maximum allowed from your remaining discretionary budget: ${currency(discretionaryLimit)}.`
+                : "This amount cannot exceed your remaining discretionary budget."}
+            </p>
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -101,7 +174,20 @@ export default function NewProposalPage() {
               Proposal type
               <select
                 value={proposalType}
-                onChange={(event) => setProposalType(event.target.value as "joint" | "discretionary")}
+                onChange={(event) => {
+                  const nextType = event.target.value as "joint" | "discretionary";
+                  setProposalType(nextType);
+
+                  if (nextType === "discretionary" && discretionaryLimit !== null) {
+                    setProposedAmount((current) => {
+                      const parsedCurrent = Number(current);
+                      if (!Number.isFinite(parsedCurrent) || parsedCurrent <= discretionaryLimit) {
+                        return current;
+                      }
+                      return String(discretionaryLimit);
+                    });
+                  }
+                }}
                 className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
               >
                 <option value="joint">Joint (75% pool)</option>
