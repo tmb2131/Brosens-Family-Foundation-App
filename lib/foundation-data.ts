@@ -970,6 +970,17 @@ export async function submitVote(
     throw new HttpError(403, "Discretionary proposer cannot vote on their own proposal.");
   }
 
+  const allowedChoices: VoteChoice[] =
+    proposal.proposal_type === "joint" ? ["yes", "no"] : ["acknowledged", "flagged"];
+  if (!allowedChoices.includes(input.choice)) {
+    throw new HttpError(
+      400,
+      proposal.proposal_type === "joint"
+        ? 'Joint proposals accept only "yes" or "no" votes.'
+        : 'Discretionary proposals accept only "acknowledged" or "flagged" votes.'
+    );
+  }
+
   const normalizedAmount =
     proposal.proposal_type === "joint" && input.choice === "yes"
       ? Math.max(0, Math.round(input.allocationAmount))
@@ -987,35 +998,6 @@ export async function submitVote(
 
   if (voteError) {
     throw new HttpError(500, `Could not save vote: ${voteError.message}`);
-  }
-
-  if (proposal.proposal_type === "discretionary") {
-    const proposalVotes = await loadVotesByProposalIds(admin, [proposal.id]);
-    const votesForProposal = proposalVotes.filter((vote) => vote.proposalId === proposal.id);
-
-    const otherVoterIds = votingMemberIds.filter((id) => id !== proposal.proposer_id);
-    const otherVotes = votesForProposal.filter((vote) => otherVoterIds.includes(vote.userId));
-
-    const hasAnyNo = otherVotes.some((vote) => vote.choice === "no");
-    const allOthersVotedYes =
-      otherVotes.length === otherVoterIds.length && otherVotes.every((vote) => vote.choice === "yes");
-
-    const nextStatus: ProposalStatus = hasAnyNo
-      ? "declined"
-      : allOthersVotedYes
-      ? "approved"
-      : "to_review";
-
-    if (proposal.status !== nextStatus) {
-      const { error: statusError } = await admin
-        .from("grant_proposals")
-        .update({ status: nextStatus })
-        .eq("id", proposal.id);
-
-      if (statusError) {
-        throw new HttpError(500, `Could not update discretionary proposal status: ${statusError.message}`);
-      }
-    }
   }
 
   return { ok: true };

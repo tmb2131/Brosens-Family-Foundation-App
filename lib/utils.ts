@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
+import { type VoteChoice } from "@/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -18,6 +19,21 @@ export function titleCase(value: string) {
     .split(" ")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+export function voteChoiceLabel(choice: VoteChoice) {
+  switch (choice) {
+    case "yes":
+      return "Yes";
+    case "no":
+      return "No";
+    case "acknowledged":
+      return "Acknowledged";
+    case "flagged":
+      return "Flag for Discussion";
+    default:
+      return titleCase(choice);
+  }
 }
 
 export function toISODate(value: Date) {

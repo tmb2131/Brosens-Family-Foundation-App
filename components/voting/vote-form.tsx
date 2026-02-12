@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ProposalType } from "@/lib/types";
+import { ProposalType, type VoteChoice } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
 interface VoteFormProps {
@@ -19,7 +19,9 @@ export function VoteForm({
   totalRequiredVotes,
   onSuccess
 }: VoteFormProps) {
-  const [choice, setChoice] = useState<"yes" | "no">("yes");
+  const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
+  const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
+  const [choice, setChoice] = useState<VoteChoice>(primaryChoice);
   const impliedJointAllocation =
     totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
   const [allocationAmount, setAllocationAmount] = useState(String(Math.max(0, impliedJointAllocation)));
@@ -60,26 +62,26 @@ export function VoteForm({
       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Cast {proposalType} vote</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button
-          onClick={() => setChoice("yes")}
+          onClick={() => setChoice(primaryChoice)}
           className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold sm:text-xs ${
-            choice === "yes"
+            choice === primaryChoice
               ? "bg-emerald-600 text-white"
               : "border bg-white text-zinc-600 dark:bg-zinc-900"
           }`}
           type="button"
         >
-          Yes
+          {proposalType === "joint" ? "Yes" : "Acknowledged"}
         </button>
         <button
-          onClick={() => setChoice("no")}
+          onClick={() => setChoice(secondaryChoice)}
           className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold sm:text-xs ${
-            choice === "no"
+            choice === secondaryChoice
               ? "bg-rose-600 text-white"
               : "border bg-white text-zinc-600 dark:bg-zinc-900"
           }`}
           type="button"
         >
-          No
+          {proposalType === "joint" ? "No" : "Flag for Discussion"}
         </button>
       </div>
 
@@ -94,7 +96,7 @@ export function VoteForm({
             <input
               type="number"
               min={0}
-              disabled={choice === "no"}
+              disabled={choice !== "yes"}
               className="mt-1 min-h-11 w-full rounded-lg border px-2 py-2 text-sm"
               value={allocationAmount}
               onChange={(event) => setAllocationAmount(event.target.value)}
@@ -103,8 +105,8 @@ export function VoteForm({
         </>
       ) : (
         <p className="mt-2 text-xs text-zinc-500">
-          Proposed discretionary amount is {currency(proposedAmount)} and is set by the proposer. Your vote is
-          approval only.
+          Proposed discretionary amount is {currency(proposedAmount)} and is proposer-set. Mark Acknowledged if
+          ready, or Flag for Discussion to route the final decision to Meeting.
         </p>
       )}
 

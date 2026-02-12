@@ -3,7 +3,7 @@ export type AppRole = "member" | "oversight" | "admin" | "manager";
 export type ProposalStatus = "to_review" | "approved" | "sent" | "declined";
 export type ProposalType = "joint" | "discretionary";
 export type AllocationMode = "average" | "sum";
-export type VoteChoice = "yes" | "no";
+export type VoteChoice = "yes" | "no" | "acknowledged" | "flagged";
 
 export interface UserProfile {
   id: string;

@@ -337,29 +337,6 @@ function getEligibleVotesForProposal(proposal: GrantProposal, votes: Vote[]) {
   );
 }
 
-function getDiscretionaryVoteStatus(proposal: GrantProposal, votes: Vote[]) {
-  if (proposal.proposalType !== "discretionary") {
-    return proposal.status;
-  }
-
-  const eligibleVoterIds = VOTING_MEMBER_IDS.filter((id) => id !== proposal.proposerId);
-  const otherVotes = votes.filter((vote) => eligibleVoterIds.includes(vote.userId));
-  const hasAnyNo = otherVotes.some((vote) => vote.choice === "no");
-  const allOthersVotedYes =
-    otherVotes.length === eligibleVoterIds.length &&
-    otherVotes.every((vote) => vote.choice === "yes");
-
-  if (hasAnyNo) {
-    return "declined";
-  }
-
-  if (allOthersVotedYes) {
-    return "approved";
-  }
-
-  return "to_review";
-}
-
 function withProgress(proposal: GrantProposal, userId?: string, revealOverride = false) {
   const org = db().organizations.find((item) => item.id === proposal.organizationId);
   const votes = getEligibleVotesForProposal(proposal, proposalVotes(proposal.id));
@@ -633,6 +610,16 @@ export function submitVote(input: {
     throw new Error("Discretionary proposer cannot vote on their own proposal.");
   }
 
+  const allowedChoices: VoteChoice[] =
+    proposal.proposalType === "joint" ? ["yes", "no"] : ["acknowledged", "flagged"];
+  if (!allowedChoices.includes(input.choice)) {
+    throw new Error(
+      proposal.proposalType === "joint"
+        ? 'Joint proposals accept only "yes" or "no" votes.'
+        : 'Discretionary proposals accept only "acknowledged" or "flagged" votes.'
+    );
+  }
+
   const normalizedAllocation =
     proposal.proposalType === "joint" && input.choice === "yes"
       ? Math.max(0, Math.round(input.allocationAmount))
@@ -655,11 +642,6 @@ export function submitVote(input: {
       allocationAmount: normalizedAllocation,
       createdAt: isoNow()
     });
-  }
-
-  if (proposal.proposalType === "discretionary") {
-    const votesForProposal = proposalVotes(proposal.id);
-    proposal.status = getDiscretionaryVoteStatus(proposal, votesForProposal);
   }
 
   return withProgress(proposal, input.userId);

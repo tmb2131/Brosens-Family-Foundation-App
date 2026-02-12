@@ -76,13 +76,14 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_initial_schema.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_auth_profile_and_blind_vote_policies.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_mandate_policy_notifications.sql`
+- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_discretionary_vote_choices.sql`
 - Edge function stub: `/Users/tombrosens/brosens-family-foundation/supabase/functions/notify-admin/index.ts`
 
 ## PRD rule mapping (implemented)
 
 - 75/25 split: budget settings and dashboard visualized
 - Blind voting: masked amounts and vote visibility until user submits own vote
-- Discretionary approvals: voted only by non-proposers; unanimous yes auto-approves, any no auto-declines
+- Discretionary voting: non-proposers mark Acknowledged or Flag for Discussion, with final approve/decline logged in Meeting
 - Proposed amount on submission: discretionary uses proposer-set final amount, joint uses it as vote guidance
 - Meeting reveal stage: explicit reveal/mask controls before decision logging
 - Admin execution cue: approved proposals appear in Brynn queue

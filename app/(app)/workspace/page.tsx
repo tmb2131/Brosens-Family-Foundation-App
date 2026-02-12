@@ -6,7 +6,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { WorkspaceSnapshot, FoundationSnapshot } from "@/lib/types";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { currency, titleCase } from "@/lib/utils";
+import { currency, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
 
@@ -116,7 +116,9 @@ export default function WorkspacePage() {
             {workspace.voteHistory.map((vote) => (
               <div key={`${vote.proposalId}-${vote.at}`} className="rounded-xl border p-2">
                 <p className="text-sm font-medium">{vote.proposalTitle}</p>
-                <p className="mt-1 text-xs text-zinc-500">{titleCase(vote.choice)} | {currency(vote.amount)}</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {voteChoiceLabel(vote.choice)} | {currency(vote.amount)}
+                </p>
                 <p className="text-xs text-zinc-500">{new Date(vote.at).toLocaleDateString()}</p>
               </div>
             ))}

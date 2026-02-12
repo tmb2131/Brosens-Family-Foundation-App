@@ -46,8 +46,9 @@ export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
   discretionaryGivingPolicy: [
     "A discretionary pool exists for individual proposal ownership.",
     "Current app rule: proposer cannot vote on their own discretionary proposal.",
-    "Current app rule: any \"no\" vote from a non-proposer voter auto-declines the proposal.",
-    "Current app rule: proposal auto-approves only when all eligible non-proposer voters vote \"yes\".",
+    'Current app rule: non-proposer voters use "Acknowledged" or "Flag for Discussion" for discretionary proposals.',
+    "Current app rule: discretionary proposals stay To Review until a meeting decision is logged.",
+    "Current app rule: Oversight can approve or decline discretionary proposals in Meeting stage.",
     "Current app rule: final discretionary amount is proposer-set.",
     "Current app workspace cap: per-user discretionary cap is min($5,000,000, discretionary_pool / voting_members)."
   ].join("\n"),
@@ -65,7 +66,7 @@ export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
   ].join("\n"),
   rolesAndResponsibilities: [
     "Brynn (Admin): executes approved donations and marks proposals as Sent.",
-    "Tom (Oversight): process oversight and policy maintenance.",
+    "Tom (Oversight): process oversight, policy maintenance, and discretionary meeting approvals/declines.",
     "Dad (Manager): co-approves meeting decisions and manages foundation-level budget direction."
   ].join("\n"),
   references: [

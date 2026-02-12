@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { submitVote } from "@/lib/foundation-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
-import { VoteChoice } from "@/lib/types";
+import { type VoteChoice } from "@/lib/types";
+
+const VALID_VOTE_CHOICES: VoteChoice[] = ["yes", "no", "acknowledged", "flagged"];
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,16 +13,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const proposalId = String(body.proposalId ?? "").trim();
-    const choice = String(body.choice ?? "") as VoteChoice;
+    const rawChoice = String(body.choice ?? "").trim();
     const allocationAmount = Number(body.allocationAmount ?? 0);
 
-    if (!proposalId || !choice) {
+    if (!proposalId || !rawChoice) {
       throw new HttpError(400, "Missing required fields.");
     }
 
-    if (!["yes", "no"].includes(choice)) {
+    if (!VALID_VOTE_CHOICES.includes(rawChoice as VoteChoice)) {
       throw new HttpError(400, "Invalid vote choice.");
     }
+
+    const choice = rawChoice as VoteChoice;
 
     if (Number.isNaN(allocationAmount) || allocationAmount < 0) {
       throw new HttpError(400, "Allocation must be a non-negative number.");

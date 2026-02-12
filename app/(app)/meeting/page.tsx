@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { currency, titleCase } from "@/lib/utils";
+import { currency, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
 
 interface MeetingResponse {
@@ -128,7 +128,7 @@ export default function MeetingPage() {
                   <div className="mt-2 space-y-1 text-sm">
                     {proposal.voteBreakdown.map((vote) => (
                       <p key={`${proposal.id}-${vote.userId}`}>
-                        {vote.userId}: {titleCase(vote.choice)} ({currency(vote.allocationAmount)})
+                        {vote.userId}: {voteChoiceLabel(vote.choice)} ({currency(vote.allocationAmount)})
                       </p>
                     ))}
                   </div>
