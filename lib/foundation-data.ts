@@ -1064,12 +1064,22 @@ export async function setMeetingDecision(
   admin: AdminClient,
   proposalId: string,
   status: "approved" | "declined" | "sent",
-  currentUserId?: string
+  currentUserId?: string,
+  sentAt?: string | null
 ) {
-  const sentAt = status === "sent" ? new Date().toISOString().slice(0, 10) : null;
+  const normalizedSentAt =
+    sentAt === undefined ? undefined : sentAt === null ? null : normalizeDateString(sentAt);
+
+  if (normalizedSentAt && status !== "sent") {
+    throw new HttpError(400, "Sent date requires the proposal status to be Sent.");
+  }
+
+  const nextSentAt =
+    status === "sent" ? normalizedSentAt ?? new Date().toISOString().slice(0, 10) : null;
+
   const { error } = await admin
     .from("grant_proposals")
-    .update({ status, reveal_votes: true, sent_at: sentAt })
+    .update({ status, reveal_votes: true, sent_at: nextSentAt })
     .eq("id", proposalId);
 
   if (error) {

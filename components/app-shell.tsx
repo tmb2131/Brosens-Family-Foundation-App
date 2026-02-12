@@ -42,6 +42,12 @@ interface PolicyNotificationSummaryResponse {
 }
 
 const fullNavItems: NavItem[] = [
+  {
+    href: "/admin",
+    label: "Admin Queue",
+    icon: <ShieldCheck className="h-4 w-4" />,
+    roles: ["admin"]
+  },
   { href: "/dashboard", label: "Dashboard", icon: <Home className="h-4 w-4" /> },
   {
     href: "/workspace",
@@ -66,12 +72,6 @@ const fullNavItems: NavItem[] = [
     label: "Mandate",
     icon: <ScrollText className="h-4 w-4" />,
     roles: ["member", "oversight", "manager", "admin"]
-  },
-  {
-    href: "/admin",
-    label: "Admin Queue",
-    icon: <ShieldCheck className="h-4 w-4" />,
-    roles: ["admin"]
   },
   {
     href: "/settings",
