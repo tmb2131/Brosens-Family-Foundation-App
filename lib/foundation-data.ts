@@ -796,6 +796,46 @@ export async function listOrganizations(admin: AdminClient) {
   return (data ?? []).map(mapOrganization);
 }
 
+export async function listProposalTitleSuggestions(admin: AdminClient, limit = 20) {
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+  const queryLimit = Math.max(25, Math.min(500, safeLimit * 5));
+
+  const { data, error } = await admin
+    .from("grants_master")
+    .select("title")
+    .order("created_at", { ascending: false })
+    .limit(queryLimit)
+    .returns<Array<Pick<GrantMasterRow, "title">>>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load proposal title suggestions: ${error.message}`);
+  }
+
+  const seen = new Set<string>();
+  const suggestions: string[] = [];
+
+  for (const row of data ?? []) {
+    const title = String(row.title ?? "").trim();
+    if (!title) {
+      continue;
+    }
+
+    const normalizedTitle = normalizeLookupValue(title);
+    if (seen.has(normalizedTitle)) {
+      continue;
+    }
+
+    seen.add(normalizedTitle);
+    suggestions.push(title);
+
+    if (suggestions.length >= safeLimit) {
+      break;
+    }
+  }
+
+  return suggestions;
+}
+
 export async function submitProposal(
   admin: AdminClient,
   input: {

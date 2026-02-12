@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -9,12 +9,19 @@ import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars"
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
+interface ProposalTitleSuggestionsResponse {
+  titles: string[];
+}
+
 export default function NewProposalPage() {
   const router = useRouter();
   const { user } = useAuth();
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,
     { refreshInterval: 10_000 }
+  );
+  const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>(
+    user ? "/api/proposals/titles" : null
   );
 
   const [title, setTitle] = useState("");
@@ -27,6 +34,38 @@ export default function NewProposalPage() {
   const discretionaryLimit = workspaceQuery.data
     ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
     : null;
+  const allTitleSuggestions = titleSuggestionsQuery.data?.titles ?? [];
+  const normalizedTitle = title.trim().toLowerCase();
+  const matchingTitleSuggestions = useMemo(() => {
+    if (!allTitleSuggestions.length) {
+      return [];
+    }
+
+    if (!normalizedTitle) {
+      return allTitleSuggestions.slice(0, 12);
+    }
+
+    const startsWithMatches: string[] = [];
+    const containsMatches: string[] = [];
+
+    for (const suggestion of allTitleSuggestions) {
+      const normalizedSuggestion = suggestion.trim().toLowerCase();
+      if (!normalizedSuggestion.includes(normalizedTitle)) {
+        continue;
+      }
+
+      if (normalizedSuggestion.startsWith(normalizedTitle)) {
+        startsWithMatches.push(suggestion);
+      } else {
+        containsMatches.push(suggestion);
+      }
+    }
+
+    return [...startsWithMatches, ...containsMatches].slice(0, 12);
+  }, [allTitleSuggestions, normalizedTitle]);
+  const hasExactTitleSuggestion = normalizedTitle
+    ? allTitleSuggestions.some((suggestion) => suggestion.trim().toLowerCase() === normalizedTitle)
+    : false;
 
   if (!user) {
     return null;
@@ -122,9 +161,31 @@ export default function NewProposalPage() {
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
+              list="proposal-title-suggestions"
+              autoComplete="off"
               className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
               required
             />
+            <datalist id="proposal-title-suggestions">
+              {matchingTitleSuggestions.map((suggestion) => (
+                <option key={suggestion} value={suggestion} />
+              ))}
+              {title.trim() && !hasExactTitleSuggestion ? (
+                <option
+                  value={title.trim()}
+                  label={`Add as a new proposal title: ${title.trim()}`}
+                />
+              ) : null}
+            </datalist>
+            <p className="mt-1 text-xs text-zinc-500">
+              {titleSuggestionsQuery.isLoading
+                ? "Loading previous proposal titles..."
+                : !allTitleSuggestions.length
+                ? "No previous proposal titles found. Enter a new proposal title."
+                : title.trim() && !hasExactTitleSuggestion
+                ? "No exact match found. Submitting will add this as a new proposal title."
+                : "Suggestions are based on previous proposal titles in the database."}
+            </p>
           </label>
 
           <label className="block text-sm font-medium">
