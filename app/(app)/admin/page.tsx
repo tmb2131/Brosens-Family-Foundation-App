@@ -94,7 +94,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
       <Card className="rounded-3xl">
         <CardTitle>Administrator Workspace</CardTitle>
         <CardValue>Donation Execution Cues</CardValue>
@@ -116,54 +116,63 @@ export default function AdminPage() {
 
             return (
               <Card key={proposal.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold">{proposal.title}</h3>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Final amount: {currency(proposal.progress.computedFinalAmount)}
-                    </p>
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="break-words text-sm font-semibold">{proposal.title}</h3>
+
+                    <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                      <div className="min-w-0 sm:shrink-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 leading-tight">
+                          Send amount
+                        </p>
+                        <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                          {currency(proposal.progress.computedFinalAmount)}
+                        </p>
+                      </div>
+
+                      <div className="w-full max-w-full sm:w-[12rem] sm:shrink-0">
+                        <label
+                          htmlFor={`sent-date-${proposal.id}`}
+                          className="block text-xs font-semibold uppercase tracking-wide text-zinc-500 leading-tight"
+                        >
+                          Date sent
+                        </label>
+                        <input
+                          id={`sent-date-${proposal.id}`}
+                          type="date"
+                          value={sentDate}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setSentDateByProposalId((current) => ({
+                              ...current,
+                              [proposal.id]: value
+                            }));
+                            setSentErrorByProposalId((current) => {
+                              const next = { ...current };
+                              delete next[proposal.id];
+                              return next;
+                            });
+                          }}
+                          className="mt-1 block h-8 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                          required
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        className="w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto sm:shrink-0 sm:self-end"
+                        onClick={() => void markSent(proposal.id)}
+                        disabled={!sentDate || isSaving}
+                      >
+                        {isSaving ? "Saving..." : "Mark as Sent"}
+                      </button>
+                    </div>
                   </div>
+
                   <StatusPill status={proposal.status} />
                 </div>
 
-                <div className="mt-3">
-                  <label
-                    htmlFor={`sent-date-${proposal.id}`}
-                    className="block text-xs font-semibold uppercase tracking-wide text-zinc-500"
-                  >
-                    Date sent
-                  </label>
-                  <input
-                    id={`sent-date-${proposal.id}`}
-                    type="date"
-                    value={sentDate}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setSentDateByProposalId((current) => ({
-                        ...current,
-                        [proposal.id]: value
-                      }));
-                      setSentErrorByProposalId((current) => {
-                        const next = { ...current };
-                        delete next[proposal.id];
-                        return next;
-                      });
-                    }}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                    required
-                  />
-                </div>
-
                 {errorMessage ? <p className="mt-2 text-xs text-rose-600">{errorMessage}</p> : null}
-
-                <button
-                  type="button"
-                  className="mt-3 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-indigo-300"
-                  onClick={() => void markSent(proposal.id)}
-                  disabled={!sentDate || isSaving}
-                >
-                  {isSaving ? "Saving..." : "Mark as Sent"}
-                </button>
               </Card>
             );
           })

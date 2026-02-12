@@ -204,7 +204,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div
-      className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-20"
+      className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-24"
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
       {hideShellHeader ? null : (
@@ -234,7 +234,7 @@ export function AppShell({ children }: PropsWithChildren) {
         </header>
       )}
 
-      <main className="flex-1">{children}</main>
+      <main className="min-w-0 flex-1">{children}</main>
 
       <nav
         className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-[calc(100%-1.5rem)] sm:max-w-2xl sm:-translate-x-1/2 sm:rounded-2xl sm:border sm:bg-card/95 sm:py-2 sm:backdrop-blur"
@@ -247,11 +247,11 @@ export function AppShell({ children }: PropsWithChildren) {
             const active = pathname.startsWith(item.href);
             const outstandingCount = outstandingByHref[item.href] ?? 0;
             return (
-              <li key={item.href}>
+              <li key={item.href} className="min-w-0">
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-11 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold sm:px-3 sm:text-xs",
+                    "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold sm:px-3 sm:text-xs",
                     active
                       ? "bg-accent text-white"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"

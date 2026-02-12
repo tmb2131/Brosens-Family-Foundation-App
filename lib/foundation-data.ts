@@ -1189,14 +1189,19 @@ export async function updateProposalRecord(
 }
 
 export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
-  const budget = await getCurrentBudgetOrNull(admin);
-  if (!budget) {
-    return [];
-  }
   const votingMemberIds = await getVotingMemberIds(admin);
-  const proposalRows = (await loadProposalRowsByYear(admin, budget.budget_year)).filter(
-    (row) => row.status === "approved"
-  );
+  const { data: approvedRows, error } = await admin
+    .from("grant_proposals")
+    .select(PROPOSAL_SELECT)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .returns<ProposalRow[]>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load admin queue proposals: ${error.message}`);
+  }
+
+  const proposalRows = approvedRows ?? [];
 
   const deps = await loadProposalsWithDependencies(admin, proposalRows);
 
