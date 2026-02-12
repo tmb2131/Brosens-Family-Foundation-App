@@ -84,6 +84,12 @@ const fullNavItems: NavItem[] = [
 const focusNavItems: NavItem[] = [
   { href: "/mobile" as Route, label: "Home", icon: <Home className="h-4 w-4" /> },
   {
+    href: "/meeting" as Route,
+    label: "Meeting",
+    icon: <Vote className="h-4 w-4" />,
+    roles: ["oversight"]
+  },
+  {
     href: "/proposals/new",
     label: "New Proposal",
     icon: <Plus className="h-4 w-4" />,
@@ -131,10 +137,14 @@ export function AppShell({ children }: PropsWithChildren) {
   const showMobileFocusNav =
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||
+      pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
   const hideShellHeader =
-    isSmallViewport && (pathname.startsWith("/mobile") || pathname.startsWith("/proposals/new"));
+    isSmallViewport &&
+    (pathname.startsWith("/mobile") ||
+      pathname.startsWith("/meeting") ||
+      pathname.startsWith("/proposals/new"));
   const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
 
   const shouldLoadFoundation = Boolean(
