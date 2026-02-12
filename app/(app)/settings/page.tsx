@@ -4,7 +4,7 @@ import { FormEvent, useState, useEffect } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
-import { currency } from "@/lib/utils";
+import { currency, formatNumber, parseNumberInput } from "@/lib/utils";
 
 interface BudgetResponse {
   budget: {
@@ -41,6 +41,12 @@ export default function SettingsPage() {
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const parsedTotalAmount = parseNumberInput(totalAmount);
+  const parsedRollover = parseNumberInput(rollover);
+  const parsedJointRatio = parseNumberInput(jointRatio);
+  const parsedDiscretionaryRatio = parseNumberInput(discretionaryRatio);
+  const projectedTotalBudget =
+    parsedTotalAmount !== null && parsedRollover !== null ? parsedTotalAmount + parsedRollover : null;
 
   useEffect(() => {
     if (!data?.budget) {
@@ -139,7 +145,9 @@ export default function SettingsPage() {
 
       setHistoricalImportMessage({
         tone: "success",
-        text: `Imported ${importedCount} historical proposals${skippedCount > 0 ? `, skipped ${skippedCount} duplicates` : ""}.`
+        text: `Imported ${formatNumber(importedCount)} historical proposals${
+          skippedCount > 0 ? `, skipped ${formatNumber(skippedCount)} duplicates` : ""
+        }.`
       });
       setHistoricalCsvFile(null);
       setHistoricalImportInputKey((current) => current + 1);
@@ -260,6 +268,9 @@ export default function SettingsPage() {
                       value={totalAmount}
                       onChange={(event) => setTotalAmount(event.target.value)}
                     />
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Amount preview: {parsedTotalAmount !== null ? currency(parsedTotalAmount) : "—"}
+                    </p>
                   </label>
                 </div>
 
@@ -272,6 +283,9 @@ export default function SettingsPage() {
                       value={rollover}
                       onChange={(event) => setRollover(event.target.value)}
                     />
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Amount preview: {parsedRollover !== null ? currency(parsedRollover) : "—"}
+                    </p>
                   </label>
                   <label className="text-sm font-medium">
                     Joint ratio
@@ -282,6 +296,15 @@ export default function SettingsPage() {
                       value={jointRatio}
                       onChange={(event) => setJointRatio(event.target.value)}
                     />
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Split preview:{" "}
+                      {parsedJointRatio !== null
+                        ? `${formatNumber(parsedJointRatio * 100, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}%`
+                        : "—"}
+                    </p>
                   </label>
                   <label className="text-sm font-medium">
                     Discretionary ratio
@@ -292,8 +315,22 @@ export default function SettingsPage() {
                       value={discretionaryRatio}
                       onChange={(event) => setDiscretionaryRatio(event.target.value)}
                     />
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Split preview:{" "}
+                      {parsedDiscretionaryRatio !== null
+                        ? `${formatNumber(parsedDiscretionaryRatio * 100, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}%`
+                        : "—"}
+                    </p>
                   </label>
                 </div>
+
+                <p className="text-xs text-zinc-500">
+                  Planned total budget preview (fund + roll-over):{" "}
+                  {projectedTotalBudget !== null ? currency(projectedTotalBudget) : "—"}
+                </p>
 
                 <button
                   type="submit"

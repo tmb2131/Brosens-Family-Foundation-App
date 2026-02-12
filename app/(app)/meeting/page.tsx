@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { currency, titleCase, voteChoiceLabel } from "@/lib/utils";
+import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
 
 interface MeetingResponse {
@@ -72,7 +72,8 @@ export default function MeetingPage() {
                 <div>
                   <h3 className="text-sm font-semibold">{proposal.title}</h3>
                   <p className="text-xs text-zinc-500">
-                    {proposal.progress.votesSubmitted} of {proposal.progress.totalRequiredVotes} votes in
+                    {formatNumber(proposal.progress.votesSubmitted)} of{" "}
+                    {formatNumber(proposal.progress.totalRequiredVotes)} votes in
                   </p>
                 </div>
                 <StatusPill status={proposal.status} />

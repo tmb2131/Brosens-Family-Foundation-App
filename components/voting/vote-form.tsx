@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ProposalType, type VoteChoice } from "@/lib/types";
-import { currency } from "@/lib/utils";
+import { currency, parseNumberInput } from "@/lib/utils";
 
 interface VoteFormProps {
   proposalId: string;
@@ -25,6 +25,7 @@ export function VoteForm({
   const impliedJointAllocation =
     totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
   const [allocationAmount, setAllocationAmount] = useState(String(Math.max(0, impliedJointAllocation)));
+  const parsedAllocationAmount = parseNumberInput(allocationAmount);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,6 +102,9 @@ export function VoteForm({
               value={allocationAmount}
               onChange={(event) => setAllocationAmount(event.target.value)}
             />
+            <p className="mt-1 text-[11px] text-zinc-500">
+              Amount preview: {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
+            </p>
           </label>
         </>
       ) : (

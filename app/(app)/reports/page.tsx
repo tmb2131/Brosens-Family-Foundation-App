@@ -21,7 +21,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
-import { currency, titleCase } from "@/lib/utils";
+import { compactCurrency, currency, formatNumber, titleCase } from "@/lib/utils";
 import { chartPalette, chartText } from "@/lib/chart-styles";
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
@@ -43,16 +43,6 @@ const DEFAULT_STATUS_FILTERS: StatusFilterState = {
 
 function sumAmount(rows: FoundationSnapshot["proposals"]) {
   return rows.reduce((sum, row) => sum + row.progress.computedFinalAmount, 0);
-}
-
-function compactCurrency(value: number) {
-  if (value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}M`;
-  }
-  if (value >= 1_000) {
-    return `$${(value / 1_000).toFixed(value >= 100_000 ? 0 : 1)}K`;
-  }
-  return currency(value);
 }
 
 export default function ReportsPage() {
@@ -261,7 +251,7 @@ export default function ReportsPage() {
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardTitle>Proposals</CardTitle>
-          <CardValue>{filteredProposals.length}</CardValue>
+          <CardValue>{formatNumber(filteredProposals.length)}</CardValue>
         </Card>
         <Card>
           <CardTitle>Total Amount</CardTitle>
@@ -335,7 +325,7 @@ export default function ReportsPage() {
             <p className="text-xs text-zinc-500">Compact report table for the selected year and statuses.</p>
           </div>
           <p className="text-xs text-zinc-500">
-            Showing {filteredProposals.length} of {data.proposals.length}
+            Showing {formatNumber(filteredProposals.length)} of {formatNumber(data.proposals.length)}
           </p>
         </div>
 

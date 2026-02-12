@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
-import { currency } from "@/lib/utils";
+import { currency, parseNumberInput } from "@/lib/utils";
 
 interface ProposalTitleSuggestionsResponse {
   titles: string[];
@@ -28,6 +28,7 @@ export default function NewProposalPage() {
   const [description, setDescription] = useState("");
   const [proposalType, setProposalType] = useState<"joint" | "discretionary">("joint");
   const [proposedAmount, setProposedAmount] = useState("25000");
+  const parsedProposedAmount = parseNumberInput(proposedAmount);
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,6 +228,9 @@ export default function NewProposalPage() {
                 : discretionaryLimit !== null
                 ? `Maximum allowed from your remaining discretionary budget: ${currency(discretionaryLimit)}.`
                 : "This amount cannot exceed your remaining discretionary budget."}
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              Amount preview: {parsedProposedAmount !== null ? currency(parsedProposedAmount) : "—"}
             </p>
           </label>
 

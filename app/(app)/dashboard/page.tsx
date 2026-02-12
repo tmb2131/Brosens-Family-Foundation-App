@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
-import { currency, titleCase } from "@/lib/utils";
+import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { HistoricalImpactChart } from "@/components/dashboard/historical-impact-chart";
 import { BudgetSplitChart } from "@/components/dashboard/budget-split-chart";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -129,8 +129,8 @@ export default function DashboardPage() {
 
     const normalizedProposalFilter = filters.proposal.trim().toLowerCase();
     const normalizedNotesFilter = filters.notes.trim().toLowerCase();
-    const minAmount = Number(filters.amountMin);
-    const maxAmount = Number(filters.amountMax);
+    const minAmount = parseNumberInput(filters.amountMin);
+    const maxAmount = parseNumberInput(filters.amountMax);
 
     const filtered = data.proposals.filter((proposal) => {
       const searchableProposalText = `${proposal.title} ${proposal.description}`.toLowerCase();
@@ -147,13 +147,13 @@ export default function DashboardPage() {
         return false;
       }
 
-      if (filters.amountMin.trim() && Number.isFinite(minAmount)) {
+      if (minAmount !== null) {
         if (proposal.progress.computedFinalAmount < minAmount) {
           return false;
         }
       }
 
-      if (filters.amountMax.trim() && Number.isFinite(maxAmount)) {
+      if (maxAmount !== null) {
         if (proposal.progress.computedFinalAmount > maxAmount) {
           return false;
         }
@@ -228,6 +228,17 @@ export default function DashboardPage() {
   if (filters.sentAt) activeFilterCount += 1;
   if (filters.notes.trim()) activeFilterCount += 1;
 
+  const parsedMinFilterAmount = parseNumberInput(filters.amountMin);
+  const parsedMaxFilterAmount = parseNumberInput(filters.amountMax);
+  const amountFilterPreview =
+    parsedMinFilterAmount !== null && parsedMaxFilterAmount !== null
+      ? `${currency(parsedMinFilterAmount)} to ${currency(parsedMaxFilterAmount)}`
+      : parsedMinFilterAmount !== null
+      ? `At least ${currency(parsedMinFilterAmount)}`
+      : parsedMaxFilterAmount !== null
+      ? `Up to ${currency(parsedMaxFilterAmount)}`
+      : "No amount filter";
+
   const toggleSort = (nextSortKey: SortKey) => {
     if (sortKey === nextSortKey) {
       setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
@@ -273,8 +284,8 @@ export default function DashboardPage() {
     const payload: Record<string, unknown> = {};
 
     if (mode === "historical") {
-      const finalAmount = Number(draft.finalAmount.replace(/[$,\s]+/g, ""));
-      if (!Number.isFinite(finalAmount) || finalAmount < 0) {
+      const finalAmount = parseNumberInput(draft.finalAmount);
+      if (finalAmount === null || finalAmount < 0) {
         setRowMessage((current) => ({
           ...current,
           [proposal.id]: {
@@ -521,6 +532,7 @@ export default function DashboardPage() {
                   />
                 </label>
               </div>
+              <p className="text-[11px] text-zinc-500">Amount filter preview: {amountFilterPreview}</p>
               <label className="text-xs font-semibold text-zinc-500">
                 Notes
                 <input
@@ -576,6 +588,7 @@ export default function DashboardPage() {
               const canEditSentDate = canEditHistorical || (isOwnProposal && proposal.status === "sent");
               const sentDateDisabled = canEditHistorical ? draft.status !== "sent" : !canEditSentDate;
               const rowState = rowMessage[proposal.id];
+              const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
 
               return (
                 <article key={proposal.id} className="rounded-xl border p-3">
@@ -596,14 +609,19 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-xs font-semibold text-zinc-500">Amount</p>
                       {canEditHistorical ? (
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={draft.finalAmount}
-                          onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
-                          className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                        />
+                        <>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={draft.finalAmount}
+                            onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
+                            className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                          <p className="mt-1 text-[11px] text-zinc-500">
+                            Amount preview: {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
+                          </p>
+                        </>
                       ) : (
                         <p className="text-sm text-zinc-700 dark:text-zinc-200">
                           {masked
@@ -774,23 +792,26 @@ export default function DashboardPage() {
                   </select>
                 </th>
                 <th className="px-2 py-2">
-                  <div className="flex gap-1">
-                    <input
-                      type="number"
-                      min={0}
-                      value={filters.amountMin}
-                      onChange={(event) => setFilter("amountMin", event.target.value)}
-                      placeholder="Min"
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={filters.amountMax}
-                      onChange={(event) => setFilter("amountMax", event.target.value)}
-                      placeholder="Max"
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                    />
+                  <div className="flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        value={filters.amountMin}
+                        onChange={(event) => setFilter("amountMin", event.target.value)}
+                        placeholder="Min"
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={filters.amountMax}
+                        onChange={(event) => setFilter("amountMax", event.target.value)}
+                        placeholder="Max"
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                    </div>
+                    <p className="text-[10px] normal-case text-zinc-500">{amountFilterPreview}</p>
                   </div>
                 </th>
                 <th className="px-2 py-2">
@@ -842,6 +863,7 @@ export default function DashboardPage() {
                   const canEditSentDate = canEditHistorical || (isOwnProposal && proposal.status === "sent");
                   const sentDateDisabled = canEditHistorical ? draft.status !== "sent" : !canEditSentDate;
                   const rowState = rowMessage[proposal.id];
+                  const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
 
                   return (
                     <tr key={proposal.id} className="border-b align-top">
@@ -854,16 +876,21 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-2 py-3 text-xs text-zinc-500">
                         {canEditHistorical ? (
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={draft.finalAmount}
-                            onChange={(event) =>
-                              updateDraft(proposal.id, { finalAmount: event.target.value })
-                            }
-                            className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                          />
+                          <div>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={draft.finalAmount}
+                              onChange={(event) =>
+                                updateDraft(proposal.id, { finalAmount: event.target.value })
+                              }
+                              className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                            />
+                            <p className="mt-1 text-[10px] text-zinc-500">
+                              {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
+                            </p>
+                          </div>
                         ) : (
                           <p className="text-xs text-zinc-600 dark:text-zinc-300">
                             {masked

@@ -11,6 +11,7 @@ import {
   PolicyChangeNotification
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
+import { formatNumber } from "@/lib/utils";
 
 const STATUS_STYLES: Record<PolicyChangeNotification["status"], string> = {
   pending: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200",
@@ -267,7 +268,7 @@ export default function MandatePage() {
       const notifiedUsersCount = Number(payload.notifiedUsersCount ?? 0);
       setSaveMessage({
         tone: "success",
-        text: `Mandate saved. A new version was created and ${notifiedUsersCount} users were notified.`
+        text: `Mandate saved. A new version was created and ${formatNumber(notifiedUsersCount)} users were notified.`
       });
       setIsEditing(false);
       await mutate();
@@ -324,12 +325,12 @@ export default function MandatePage() {
             <CardTitle>Foundation Mandate</CardTitle>
             <CardValue>{data.policy.title}</CardValue>
             <p className="mt-1 text-sm text-zinc-500">
-              Version {data.policy.version} | Last updated {prettyDate(data.policy.updatedAt)}
+              Version {formatNumber(data.policy.version)} | Last updated {prettyDate(data.policy.updatedAt)}
               {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
             </p>
             {!canEdit ? (
               <p className="mt-1 text-xs text-zinc-500">
-                You have {data.pendingNotificationsCount} update(s) waiting for review.
+                You have {formatNumber(data.pendingNotificationsCount)} update(s) waiting for review.
               </p>
             ) : null}
           </div>
@@ -433,7 +434,7 @@ export default function MandatePage() {
               data.discussionFlags.map((flag) => (
                 <article key={flag.id} className="rounded-xl border p-3">
                   <p className="text-sm font-semibold">
-                    {flag.userName ?? "Unknown user"} flagged version {flag.version}
+                    {flag.userName ?? "Unknown user"} flagged version {formatNumber(flag.version)}
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
                     Flagged {prettyDate(flag.flaggedAt)} | Changed {prettyDate(flag.changedAt)}
@@ -468,7 +469,7 @@ export default function MandatePage() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold">
-                        Version {notification.version} changes
+                        Version {formatNumber(notification.version)} changes
                       </p>
                       <p className="text-xs text-zinc-500">
                         Changed {prettyDate(notification.changedAt)}
