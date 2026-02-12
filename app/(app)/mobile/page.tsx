@@ -3,7 +3,7 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { VoteForm } from "@/components/voting/vote-form";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
@@ -51,21 +51,6 @@ export default function MobileFocusPage() {
 
   return (
     <div className="space-y-2 pb-3 sm:space-y-3">
-      <Card className="rounded-2xl p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-[11px] tracking-[0.14em]">Mobile Focus</CardTitle>
-            <CardValue className="mt-0.5 text-lg">Today&apos;s Top Actions</CardValue>
-          </div>
-          <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-zinc-600">
-            {workspace.actionItems.length} open
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-zinc-500">
-          Clear items, use New Proposal in the bottom nav, and review budget on one screen.
-        </p>
-      </Card>
-
       <Card className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">
           <div>
@@ -76,12 +61,9 @@ export default function MobileFocusPage() {
                 : `${workspace.actionItems.length} item${workspace.actionItems.length === 1 ? "" : "s"} waiting for your response.`}
             </p>
           </div>
-          <Link
-            href="/workspace"
-            className="inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-semibold"
-          >
-            Open queue
-          </Link>
+          <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-zinc-600">
+            {workspace.actionItems.length} open
+          </span>
         </div>
 
         <div className="space-y-2">
@@ -149,19 +131,6 @@ export default function MobileFocusPage() {
           <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
           <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
         </div>
-      </Card>
-
-      <Card className="rounded-xl border-dashed p-3">
-        <CardTitle>Need Full Details?</CardTitle>
-        <p className="mt-1 text-xs text-zinc-500">
-          Open the complete tracker, reports, and historical details.
-        </p>
-        <Link
-          href="/dashboard"
-          className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
-        >
-          View Full Details
-        </Link>
       </Card>
     </div>
   );

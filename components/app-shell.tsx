@@ -128,7 +128,9 @@ export function AppShell({ children }: PropsWithChildren) {
     return focusNavItems.filter((item) => !item.roles || item.roles.includes(user.role));
   }, [user]);
 
-  const showMobileFocusNav = pathname.startsWith("/mobile") && isSmallViewport;
+  const showMobileFocusNav =
+    isSmallViewport && (pathname.startsWith("/mobile") || pathname.startsWith("/dashboard"));
+  const hideShellHeader = pathname.startsWith("/mobile") && isSmallViewport;
   const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
 
   const shouldLoadFoundation = Boolean(
@@ -191,30 +193,32 @@ export function AppShell({ children }: PropsWithChildren) {
       className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-20"
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
-      <header className="glass-card mb-4 rounded-3xl p-4 print:hidden">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
-            <h1 className="text-xl font-semibold">Grant Management</h1>
-            {user ? (
-              <div className="mt-2 flex items-center gap-2 text-sm">
-                <span>{user.name}</span>
-                <RolePill role={user.role} />
-              </div>
-            ) : null}
+      {hideShellHeader ? null : (
+        <header className="glass-card mb-4 rounded-3xl p-4 print:hidden">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
+              <h1 className="text-xl font-semibold">Grant Management</h1>
+              {user ? (
+                <div className="mt-2 flex items-center gap-2 text-sm">
+                  <span>{user.name}</span>
+                  <RolePill role={user.role} />
+                </div>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => void signOut()}
+                className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
+                type="button"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Sign out
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <button
-              onClick={() => void signOut()}
-              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
-              type="button"
-            >
-              <LogOut className="h-3.5 w-3.5" /> Sign out
-            </button>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="flex-1">{children}</main>
 
