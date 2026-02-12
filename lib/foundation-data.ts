@@ -371,6 +371,22 @@ async function loadProposalRowsByYear(admin: AdminClient, budgetYear: number) {
   return data ?? [];
 }
 
+async function loadPendingProposalRows(admin: AdminClient) {
+  const { data, error } = await admin
+    .from("grant_proposals")
+    .select(PROPOSAL_SELECT)
+    .in("status", ["to_review", "approved"])
+    .order("budget_year", { ascending: false })
+    .order("created_at", { ascending: false })
+    .returns<ProposalRow[]>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load pending proposals: ${error.message}`);
+  }
+
+  return data ?? [];
+}
+
 async function loadProposalRowsByIds(admin: AdminClient, proposalIds: string[]) {
   if (!proposalIds.length) {
     return [];
@@ -1014,6 +1030,24 @@ export async function getMeetingProposals(admin: AdminClient, currentUserId: str
     (row) => row.status === "to_review"
   );
 
+  const deps = await loadProposalsWithDependencies(admin, proposalRows);
+
+  return buildProposalViews({
+    proposals: proposalRows,
+    grantById: deps.grantById,
+    organizationById: deps.organizationById,
+    votesByProposalId: deps.votesByProposalId,
+    currentUserId,
+    votingMemberIds
+  });
+}
+
+export async function getPendingProposalsForOversight(
+  admin: AdminClient,
+  currentUserId?: string
+) {
+  const votingMemberIds = await getVotingMemberIds(admin);
+  const proposalRows = await loadPendingProposalRows(admin);
   const deps = await loadProposalsWithDependencies(admin, proposalRows);
 
   return buildProposalViews({

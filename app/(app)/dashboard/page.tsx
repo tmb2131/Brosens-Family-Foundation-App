@@ -6,7 +6,7 @@ import useSWR from "swr";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
-import { currency, parseNumberInput, titleCase } from "@/lib/utils";
+import { currency, formatNumber, parseNumberInput, titleCase } from "@/lib/utils";
 import { HistoricalImpactChart } from "@/components/dashboard/historical-impact-chart";
 import { StatusPill } from "@/components/ui/status-pill";
 import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
@@ -15,6 +15,11 @@ import { VoteForm } from "@/components/voting/vote-form";
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
 type ProposalView = FoundationSnapshot["proposals"][number];
+type DashboardTab = "tracker" | "pending";
+
+interface PendingResponse {
+  proposals: FoundationSnapshot["proposals"];
+}
 
 interface ProposalDraft {
   status: ProposalStatus;
@@ -66,9 +71,37 @@ function toProposalDraft(proposal: ProposalView): ProposalDraft {
   };
 }
 
+function buildPendingActionRequiredLabel(proposal: ProposalView) {
+  if (proposal.status === "approved") {
+    return "Approved and ready for disbursement. Mark as Sent once funds are sent.";
+  }
+
+  if (proposal.status === "to_review") {
+    const remainingVotes = Math.max(
+      proposal.progress.totalRequiredVotes - proposal.progress.votesSubmitted,
+      0
+    );
+
+    if (remainingVotes > 0) {
+      const memberLabel = remainingVotes === 1 ? "member" : "members";
+      if (proposal.proposalType === "joint") {
+        return `${formatNumber(remainingVotes)} voting ${memberLabel} need to submit allocations.`;
+      }
+
+      return `${formatNumber(remainingVotes)} voting ${memberLabel} need to submit acknowledgement/flag votes.`;
+    }
+
+    return "All votes submitted. Oversight/Manager needs to record the meeting decision.";
+  }
+
+  return "Pending workflow update.";
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const isOversight = user?.role === "oversight";
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
   const [filters, setFilters] = useState<TableFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("proposal");
@@ -91,6 +124,14 @@ export default function DashboardPage() {
   }, [selectedYear, user]);
 
   const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey);
+  const {
+    data: pendingData,
+    isLoading: isPendingLoading,
+    error: pendingError,
+    mutate: mutatePending
+  } = useSWR<PendingResponse>(isOversight ? "/api/foundation/pending" : null, {
+    refreshInterval: 15_000
+  });
 
   const availableYears = useMemo(() => {
     if (!data) {
@@ -120,6 +161,12 @@ export default function DashboardPage() {
       Object.fromEntries(data.proposals.map((proposal) => [proposal.id, toProposalDraft(proposal)]))
     );
   }, [data]);
+
+  useEffect(() => {
+    if (!isOversight) {
+      setActiveTab("tracker");
+    }
+  }, [isOversight]);
 
   const filteredAndSortedProposals = useMemo(() => {
     if (!data) {
@@ -196,6 +243,21 @@ export default function DashboardPage() {
     return sorted;
   }, [data, filters, sortDirection, sortKey]);
 
+  const pendingProposals = useMemo(() => {
+    if (!pendingData) {
+      return [];
+    }
+
+    return [...pendingData.proposals]
+      .filter((proposal) => proposal.status !== "sent" && proposal.status !== "declined")
+      .sort((a, b) => {
+        if (a.budgetYear !== b.budgetYear) {
+          return b.budgetYear - a.budgetYear;
+        }
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+  }, [pendingData]);
+
   if (isLoading) {
     return <p className="text-sm text-zinc-500">Loading foundation dashboard...</p>;
   }
@@ -212,6 +274,7 @@ export default function DashboardPage() {
   const isHistoricalView =
     selectedYear !== null ? selectedYear < new Date().getFullYear() : data.budget.year < new Date().getFullYear();
   const canEditHistorical = Boolean(user?.role === "oversight" && isHistoricalView);
+  const showPendingTab = isOversight && activeTab === "pending";
   const totalAllocatedForYear = data.budget.jointAllocated + data.budget.discretionaryAllocated;
 
   const setFilter = <K extends keyof TableFilters>(key: K, value: TableFilters[K]) => {
@@ -341,6 +404,9 @@ export default function DashboardPage() {
       }));
 
       await mutate();
+      if (isOversight) {
+        await mutatePending();
+      }
     } catch (saveError) {
       setRowMessage((current) => ({
         ...current,
@@ -424,25 +490,115 @@ export default function DashboardPage() {
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <CardTitle>Grant Tracker</CardTitle>
-            <p className="text-xs text-zinc-500">Statuses: To Review, Approved, Sent, Declined</p>
+            <CardTitle>{showPendingTab ? "Pending" : "Grant Tracker"}</CardTitle>
+            <p className="text-xs text-zinc-500">
+              {showPendingTab
+                ? "All budget years. Includes proposals not yet Sent or Declined."
+                : "Statuses: To Review, Approved, Sent, Declined"}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {canEditHistorical ? (
-              <p className="text-xs text-zinc-500">
-                Oversight editing enabled for historical year {data.budget.year}.
-              </p>
+            {isOversight ? (
+              <div className="inline-flex rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("tracker")}
+                  className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                    activeTab === "tracker"
+                      ? "bg-accent text-white"
+                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  Grant Tracker
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("pending")}
+                  className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                    activeTab === "pending"
+                      ? "bg-accent text-white"
+                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  Pending
+                </button>
+              </div>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setFilters(DEFAULT_FILTERS)}
-              className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Clear filters
-            </button>
+            {!showPendingTab ? (
+              <>
+                {canEditHistorical ? (
+                  <p className="text-xs text-zinc-500">
+                    Oversight editing enabled for historical year {data.budget.year}.
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
 
+        {showPendingTab ? (
+          <div className="overflow-x-auto">
+            {pendingError ? (
+              <p className="rounded-xl border p-4 text-sm text-rose-600">
+                Failed to load pending proposals: {pendingError.message}
+              </p>
+            ) : isPendingLoading && !pendingData ? (
+              <p className="rounded-xl border p-4 text-sm text-zinc-500">Loading pending proposals...</p>
+            ) : pendingProposals.length === 0 ? (
+              <p className="rounded-xl border p-4 text-sm text-zinc-500">
+                No pending proposals across all budget years.
+              </p>
+            ) : (
+              <table className="min-w-[860px] table-auto text-left text-sm">
+                <thead>
+                  <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
+                    <th className="px-2 py-2">Proposal</th>
+                    <th className="px-2 py-2">Type</th>
+                    <th className="px-2 py-2">Amount</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-2 py-2">Action Required</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingProposals.map((proposal) => {
+                    const masked = proposal.progress.masked && proposal.status === "to_review";
+
+                    return (
+                      <tr key={proposal.id} className="border-b align-top">
+                        <td className="px-2 py-3">
+                          <p className="font-semibold">{proposal.title}</p>
+                          <p className="mt-1 text-xs text-zinc-500">Budget year {proposal.budgetYear}</p>
+                        </td>
+                        <td className="px-2 py-3 text-xs text-zinc-500">
+                          {titleCase(proposal.proposalType)}
+                        </td>
+                        <td className="px-2 py-3 text-xs text-zinc-500">
+                          {masked
+                            ? "Blind until your vote is submitted"
+                            : currency(proposal.progress.computedFinalAmount)}
+                        </td>
+                        <td className="px-2 py-3">
+                          <StatusPill status={proposal.status} />
+                        </td>
+                        <td className="px-2 py-3 text-xs text-zinc-600 dark:text-zinc-300">
+                          {buildPendingActionRequiredLabel(proposal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
+          <>
         <details className="mb-3 rounded-xl border p-3 md:hidden">
           <summary className="cursor-pointer text-sm font-semibold">
             Filters and Sort
@@ -704,7 +860,12 @@ export default function DashboardPage() {
                         proposalType={proposal.proposalType}
                         proposedAmount={proposal.proposedAmount}
                         totalRequiredVotes={proposal.progress.totalRequiredVotes}
-                        onSuccess={() => void mutate()}
+                        onSuccess={() => {
+                          void mutate();
+                          if (isOversight) {
+                            void mutatePending();
+                          }
+                        }}
                       />
                     ) : null}
 
@@ -976,7 +1137,12 @@ export default function DashboardPage() {
                               proposalType={proposal.proposalType}
                               proposedAmount={proposal.proposedAmount}
                               totalRequiredVotes={proposal.progress.totalRequiredVotes}
-                              onSuccess={() => void mutate()}
+                              onSuccess={() => {
+                                void mutate();
+                                if (isOversight) {
+                                  void mutatePending();
+                                }
+                              }}
                             />
                           ) : null}
 
@@ -1000,6 +1166,8 @@ export default function DashboardPage() {
             </tbody>
           </table>
         </div>
+          </>
+        )}
       </Card>
     </div>
   );
