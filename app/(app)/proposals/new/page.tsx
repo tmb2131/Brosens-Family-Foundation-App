@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
@@ -12,6 +13,8 @@ import { currency, parseNumberInput } from "@/lib/utils";
 interface ProposalTitleSuggestionsResponse {
   titles: string[];
 }
+
+type ProposalTypeOption = "" | "joint" | "discretionary";
 
 export default function NewProposalPage() {
   const router = useRouter();
@@ -26,8 +29,9 @@ export default function NewProposalPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [proposalType, setProposalType] = useState<"joint" | "discretionary">("joint");
-  const [proposedAmount, setProposedAmount] = useState("25000");
+  const [proposalType, setProposalType] = useState<ProposalTypeOption>("");
+  const [proposedAmount, setProposedAmount] = useState("0");
+  const [isTitleSuggestionsOpen, setIsTitleSuggestionsOpen] = useState(false);
   const parsedProposedAmount = parseNumberInput(proposedAmount);
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
@@ -67,6 +71,9 @@ export default function NewProposalPage() {
   const hasExactTitleSuggestion = normalizedTitle
     ? allTitleSuggestions.some((suggestion) => suggestion.trim().toLowerCase() === normalizedTitle)
     : false;
+  const showCreateTitleOption = Boolean(title.trim()) && !hasExactTitleSuggestion;
+  const hasAnyTitleSuggestions = matchingTitleSuggestions.length > 0 || showCreateTitleOption;
+  const showTitleSuggestionsPanel = isTitleSuggestionsOpen && hasAnyTitleSuggestions;
 
   if (!user) {
     return null;
@@ -74,8 +81,12 @@ export default function NewProposalPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setSaving(true);
     setError(null);
+    if (!proposalType) {
+      setError("Select a proposal type before submitting.");
+      return;
+    }
+    setSaving(true);
 
     try {
       const response = await fetch("/api/proposals", {
@@ -147,9 +158,11 @@ export default function NewProposalPage() {
                 ? `Joint proposals use your joint voting allocation. You currently have ${currency(
                     workspaceQuery.data.personalBudget.jointRemaining
                   )} remaining.`
-                : `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
+                : proposalType === "discretionary"
+                ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
                     workspaceQuery.data.personalBudget.discretionaryRemaining
-                  )} remaining.`}
+                  )} remaining.`
+                : "Select a proposal type to see how this proposal affects your budget."}
             </p>
           </>
         )}
@@ -159,25 +172,77 @@ export default function NewProposalPage() {
         <form className="space-y-3" onSubmit={submit}>
           <label className="block text-sm font-medium">
             Proposal title
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              list="proposal-title-suggestions"
-              autoComplete="off"
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
-              required
-            />
-            <datalist id="proposal-title-suggestions">
-              {matchingTitleSuggestions.map((suggestion) => (
-                <option key={suggestion} value={suggestion} />
-              ))}
-              {title.trim() && !hasExactTitleSuggestion ? (
-                <option
-                  value={title.trim()}
-                  label={`Add as a new proposal title: ${title.trim()}`}
-                />
+            <div
+              className="relative mt-1"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setIsTitleSuggestionsOpen(false);
+                }
+              }}
+            >
+              <input
+                value={title}
+                onChange={(event) => {
+                  setTitle(event.target.value);
+                  setIsTitleSuggestionsOpen(true);
+                }}
+                onFocus={() => setIsTitleSuggestionsOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setIsTitleSuggestionsOpen(false);
+                  }
+                }}
+                autoComplete="off"
+                className="w-full rounded-xl border bg-white/80 px-3 py-2 pr-12 dark:bg-zinc-900/40"
+                required
+              />
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setIsTitleSuggestionsOpen((open) => !open)}
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-xl border-l bg-zinc-50 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                aria-label="Toggle proposal title suggestions"
+                aria-expanded={showTitleSuggestionsPanel}
+                aria-controls="proposal-title-suggestions-list"
+              >
+                <ChevronDown aria-hidden="true" size={16} />
+              </button>
+              {showTitleSuggestionsPanel ? (
+                <div
+                  id="proposal-title-suggestions-list"
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  {matchingTitleSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setTitle(suggestion);
+                        setIsTitleSuggestionsOpen(false);
+                      }}
+                      className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                  {showCreateTitleOption ? (
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setTitle(title.trim());
+                        setIsTitleSuggestionsOpen(false);
+                      }}
+                      className="mt-1 block w-full rounded-lg border border-dashed border-zinc-300 px-2 py-1.5 text-left text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      Add as new title: {title.trim()}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
-            </datalist>
+            </div>
             <p className="mt-1 text-xs text-zinc-500">
               {titleSuggestionsQuery.isLoading
                 ? "Loading previous proposal titles..."
@@ -185,7 +250,7 @@ export default function NewProposalPage() {
                 ? "No previous proposal titles found. Enter a new proposal title."
                 : title.trim() && !hasExactTitleSuggestion
                 ? "No exact match found. Submitting will add this as a new proposal title."
-                : "Suggestions are based on previous proposal titles in the database."}
+                : "Suggestions are based on previous proposal titles in the database. Use the arrow button to open suggestions."}
             </p>
           </label>
 
@@ -200,7 +265,11 @@ export default function NewProposalPage() {
           </label>
 
           <label className="block text-sm font-medium">
-            {proposalType === "joint" ? "Proposed total donation (joint)" : "Proposed amount"}
+            {proposalType === "joint"
+              ? "Proposed total donation (joint)"
+              : proposalType === "discretionary"
+              ? "Proposed amount (discretionary)"
+              : "Proposed amount"}
             <input
               type="number"
               min={0}
@@ -225,9 +294,11 @@ export default function NewProposalPage() {
             <p className="mt-1 text-xs text-zinc-500">
               {proposalType === "joint"
                 ? "For joint proposals, this is the total donation you propose the family sends together."
-                : discretionaryLimit !== null
-                ? `Maximum allowed from your remaining discretionary budget: ${currency(discretionaryLimit)}.`
-                : "This amount cannot exceed your remaining discretionary budget."}
+                : proposalType === "discretionary"
+                ? discretionaryLimit !== null
+                  ? `Maximum allowed from your remaining discretionary budget: ${currency(discretionaryLimit)}.`
+                  : "This amount cannot exceed your remaining discretionary budget."
+                : "Select a proposal type first so the correct amount rules apply."}
             </p>
             <p className="mt-1 text-[11px] text-zinc-500">
               Amount preview: {parsedProposedAmount !== null ? currency(parsedProposedAmount) : "—"}
@@ -240,7 +311,7 @@ export default function NewProposalPage() {
               <select
                 value={proposalType}
                 onChange={(event) => {
-                  const nextType = event.target.value as "joint" | "discretionary";
+                  const nextType = event.target.value as ProposalTypeOption;
                   setProposalType(nextType);
 
                   if (nextType === "discretionary" && discretionaryLimit !== null) {
@@ -254,7 +325,11 @@ export default function NewProposalPage() {
                   }
                 }}
                 className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+                required
               >
+                <option value="" disabled>
+                  Select
+                </option>
                 <option value="joint">Joint (75% pool)</option>
                 <option value="discretionary">Discretionary (25% pool)</option>
               </select>
@@ -265,14 +340,16 @@ export default function NewProposalPage() {
               <p className="mt-1 w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900/40 dark:text-zinc-300">
                 {proposalType === "joint"
                   ? "Final amount is still the sum of blind allocations. Proposed amount is guidance only."
-                  : "Final amount is set by the proposer's proposed amount."}
+                  : proposalType === "discretionary"
+                  ? "Final amount is set by the proposer's proposed amount."
+                  : "Select a proposal type to see the final amount rule."}
               </p>
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !proposalType}
             className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             {saving ? "Submitting..." : "Submit Proposal"}
