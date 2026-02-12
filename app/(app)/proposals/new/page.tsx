@@ -105,7 +105,7 @@ export default function NewProposalPage() {
 
   return (
     <div className="space-y-4 pb-4">
-      <Card className="rounded-3xl">
+      <Card className="hidden rounded-3xl sm:block">
         <CardTitle>Submission Flow</CardTitle>
         <CardValue>New Giving Idea</CardValue>
         <p className="mt-1 text-sm text-zinc-500">

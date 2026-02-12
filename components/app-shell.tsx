@@ -129,8 +129,12 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [user]);
 
   const showMobileFocusNav =
-    isSmallViewport && (pathname.startsWith("/mobile") || pathname.startsWith("/dashboard"));
-  const hideShellHeader = pathname.startsWith("/mobile") && isSmallViewport;
+    isSmallViewport &&
+    (pathname.startsWith("/mobile") ||
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/proposals/new"));
+  const hideShellHeader =
+    isSmallViewport && (pathname.startsWith("/mobile") || pathname.startsWith("/proposals/new"));
   const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
 
   const shouldLoadFoundation = Boolean(
@@ -223,8 +227,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <main className="flex-1">{children}</main>
 
       <nav
-        className="fixed inset-x-3 bottom-2 z-20 rounded-2xl border bg-card/95 px-2 py-2 shadow-soft backdrop-blur print:hidden sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-[calc(100%-1.5rem)] sm:max-w-2xl sm:-translate-x-1/2"
-        style={{ bottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+        className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-[calc(100%-1.5rem)] sm:max-w-2xl sm:-translate-x-1/2 sm:rounded-2xl sm:border sm:bg-card/95 sm:py-2 sm:backdrop-blur"
       >
         <ul
           className="grid gap-1 sm:flex sm:justify-around"
