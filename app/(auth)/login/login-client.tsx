@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 
 const allowedRedirects = [
+  "/mobile",
   "/dashboard",
   "/workspace",
   "/meeting",
@@ -19,14 +20,14 @@ function sanitizeRedirect(target: string): Route {
   if (allowedRedirects.includes(target as (typeof allowedRedirects)[number])) {
     return target as Route;
   }
-  return "/dashboard";
+  return "/mobile";
 }
 
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
   const recoveryMode = params.get("mode") === "recovery";
-  const redirect = params.get("redirect") || "/dashboard";
+  const redirect = params.get("redirect") || "/mobile";
   const safeRedirect = sanitizeRedirect(redirect);
   const { signIn, refreshProfile, updatePassword, user, configured } = useAuth();
 
@@ -80,8 +81,8 @@ export default function LoginPage() {
 
     try {
       await updatePassword(newPassword);
-      setSuccess("Password updated. Redirecting to dashboard...");
-      router.replace("/dashboard");
+      setSuccess("Password updated. Redirecting to your mobile focus view...");
+      router.replace("/mobile");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to update password.");
     } finally {

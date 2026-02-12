@@ -15,7 +15,7 @@ export function Guard({ children }: PropsWithChildren) {
     }
 
     if (!user) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname || "/dashboard")}`);
+      router.replace(`/login?redirect=${encodeURIComponent(pathname || "/mobile")}`);
     }
   }, [loading, pathname, router, user]);
 

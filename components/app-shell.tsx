@@ -8,24 +8,25 @@ import {
   Home,
   ListChecks,
   LogOut,
+  Plus,
   ScrollText,
   Settings,
   ShieldCheck,
   Vote
 } from "lucide-react";
 import useSWR from "swr";
-import { PropsWithChildren, ReactNode, useMemo } from "react";
+import { PropsWithChildren, ReactNode, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { FoundationSnapshot, WorkspaceSnapshot } from "@/lib/types";
+import { AppRole, FoundationSnapshot, WorkspaceSnapshot } from "@/lib/types";
 
 type NavItem = {
   href: Route;
   label: string;
   icon: ReactNode;
-  roles?: string[];
+  roles?: AppRole[];
 };
 
 interface MeetingResponse {
@@ -40,7 +41,7 @@ interface PolicyNotificationSummaryResponse {
   pendingCount: number;
 }
 
-const navItems: NavItem[] = [
+const fullNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <Home className="h-4 w-4" /> },
   {
     href: "/workspace",
@@ -80,29 +81,72 @@ const navItems: NavItem[] = [
   }
 ];
 
+const focusNavItems: NavItem[] = [
+  { href: "/mobile" as Route, label: "Home", icon: <Home className="h-4 w-4" /> },
+  {
+    href: "/proposals/new",
+    label: "New Proposal",
+    icon: <Plus className="h-4 w-4" />,
+    roles: ["member", "oversight", "manager"]
+  },
+  { href: "/dashboard", label: "Full Details", icon: <FileText className="h-4 w-4" /> }
+];
+
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const [isSmallViewport, setIsSmallViewport] = useState(false);
 
-  const availableNav = useMemo(() => {
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 639px)");
+    const syncViewport = () => setIsSmallViewport(mediaQuery.matches);
+
+    syncViewport();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", syncViewport);
+      return () => mediaQuery.removeEventListener("change", syncViewport);
+    }
+
+    mediaQuery.addListener(syncViewport);
+    return () => mediaQuery.removeListener(syncViewport);
+  }, []);
+
+  const availableFullNav = useMemo(() => {
     if (!user) {
       return [];
     }
 
-    return navItems.filter((item) => !item.roles || item.roles.includes(user.role));
+    return fullNavItems.filter((item) => !item.roles || item.roles.includes(user.role));
   }, [user]);
 
+  const availableFocusNav = useMemo(() => {
+    if (!user) {
+      return [];
+    }
+
+    return focusNavItems.filter((item) => !item.roles || item.roles.includes(user.role));
+  }, [user]);
+
+  const showMobileFocusNav = pathname.startsWith("/mobile") && isSmallViewport;
+  const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
+
   const shouldLoadFoundation = Boolean(
-    user && availableNav.some((item) => item.href === "/dashboard")
+    user &&
+      (availableFullNav.some((item) => item.href === "/dashboard") ||
+        availableFocusNav.some((item) => item.href === "/mobile"))
   );
   const shouldLoadWorkspace = Boolean(
-    user && availableNav.some((item) => item.href === "/workspace")
+    user &&
+      (availableFullNav.some((item) => item.href === "/workspace") ||
+        availableFocusNav.some((item) => item.href === "/mobile")) &&
+      ["member", "oversight", "manager"].includes(user.role)
   );
-  const shouldLoadMeeting = Boolean(user && availableNav.some((item) => item.href === "/meeting"));
+  const shouldLoadMeeting = Boolean(user && availableFullNav.some((item) => item.href === "/meeting"));
   const shouldLoadPolicySummary = Boolean(
-    user && availableNav.some((item) => item.href === "/mandate")
+    user && availableFullNav.some((item) => item.href === "/mandate")
   );
-  const shouldLoadAdmin = Boolean(user && availableNav.some((item) => item.href === "/admin"));
+  const shouldLoadAdmin = Boolean(user && availableFullNav.some((item) => item.href === "/admin"));
 
   const { data: foundationData } = useSWR<FoundationSnapshot>(
     shouldLoadFoundation ? "/api/foundation" : null,
@@ -130,12 +174,14 @@ export function AppShell({ children }: PropsWithChildren) {
       ({
         "/dashboard":
           foundationData?.proposals.filter((proposal) => proposal.status === "to_review").length ?? 0,
+        "/mobile": workspaceData?.actionItems.length ?? 0,
         "/workspace": workspaceData?.actionItems.length ?? 0,
         "/meeting": meetingData?.proposals.length ?? 0,
         "/reports": 0,
         "/mandate": policyNotificationSummary?.pendingCount ?? 0,
         "/admin": adminData?.proposals.length ?? 0,
-        "/settings": 0
+        "/settings": 0,
+        "/proposals/new": 0
       }) as Partial<Record<Route, number>>,
     [adminData, foundationData, meetingData, policyNotificationSummary, workspaceData]
   );
@@ -175,9 +221,9 @@ export function AppShell({ children }: PropsWithChildren) {
       >
         <ul
           className="grid gap-1 sm:flex sm:justify-around"
-          style={{ gridTemplateColumns: `repeat(${Math.max(availableNav.length, 1)}, minmax(0, 1fr))` }}
+          style={{ gridTemplateColumns: `repeat(${Math.max(renderedNav.length, 1)}, minmax(0, 1fr))` }}
         >
-          {availableNav.map((item) => {
+          {renderedNav.map((item) => {
             const active = pathname.startsWith(item.href);
             const outstandingCount = outstandingByHref[item.href] ?? 0;
             return (

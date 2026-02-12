@@ -4,6 +4,7 @@ const AUTH_EMAIL = process.env.E2E_EMAIL;
 const AUTH_PASSWORD = process.env.E2E_PASSWORD;
 
 const APP_ROUTES = [
+  "/mobile",
   "/dashboard",
   "/workspace",
   "/meeting",
@@ -45,6 +46,12 @@ async function capture(page: Page, route: string) {
   });
 }
 
+async function assertFocusPage(page: Page) {
+  await expect(page.getByText("Today's Top Actions")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Outstanding Action Items" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View Full Details" })).toBeVisible();
+}
+
 async function signIn(page: Page, email: string, password: string) {
   await page.goto("/login");
   await waitForUISettled(page);
@@ -53,7 +60,7 @@ async function signIn(page: Page, email: string, password: string) {
   await page.getByLabel("Password").fill(password);
 
   await Promise.all([
-    page.waitForURL("**/dashboard"),
+    page.waitForURL(/\/(mobile|dashboard)$/),
     page.getByRole("button", { name: "Sign in" }).click()
   ]);
 
@@ -77,6 +84,9 @@ test("captures mobile app screens with no horizontal overflow", async ({ page })
   for (const route of APP_ROUTES) {
     await page.goto(route);
     await waitForUISettled(page);
+    if (route === "/mobile") {
+      await assertFocusPage(page);
+    }
     await assertNoHorizontalOverflow(page, route);
     await capture(page, route);
   }
