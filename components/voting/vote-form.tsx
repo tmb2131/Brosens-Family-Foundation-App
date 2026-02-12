@@ -106,7 +106,7 @@ export function VoteForm({
       ) : (
         <p className="mt-2 text-xs text-zinc-500">
           Proposed discretionary amount is {currency(proposedAmount)} and is proposer-set. Mark Acknowledged if
-          ready, or Flag for Discussion to route the final decision to Meeting.
+          ready, or Flag for Discussion to route the final Oversight approval/rejection in Meeting.
         </p>
       )}
 

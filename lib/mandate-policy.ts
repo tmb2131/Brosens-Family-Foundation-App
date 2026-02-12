@@ -31,48 +31,48 @@ export const MANDATE_SECTION_LABELS: Record<MandateSectionKey, string> = {
 
 export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
   missionStatement:
-    "The Brosens Family Foundation provides economic opportunities to disenfranchised communities and people in order to help bridge societal gaps in human equity, with a practical focus on education-related outcomes.",
+    "The Brosens Family Foundation supports people and communities that have been left out of economic opportunity. Our practical focus is education, because it creates long-term pathways to equity.",
   structure: [
-    "The foundation currently operates as a non-operating entity and executes donations through Brynn (Admin role).",
-    "Annual giving defaults to a 75% joint pool and 25% discretionary pool, based on the configured budget record for the year.",
-    "Unused budget can be carried and managed through yearly rollover settings."
+    "The foundation operates as a non-operating entity; Brynn (Admin) executes approved donations.",
+    "Annual giving defaults to a 75% joint pool and 25% discretionary pool, based on that year's budget record.",
+    "Unused budget can roll over to future years through yearly rollover settings."
   ].join("\n"),
   jointGivingPolicy: [
-    "Joint proposals are reviewed case-by-case across a broad mandate rather than a single cause area.",
-    "Voting is blind until reveal in Meeting stage.",
-    "Current app rule: final joint amount is the sum of eligible allocation votes (not an average).",
+    "Joint proposals are reviewed case-by-case across the full mandate, not limited to one cause area.",
+    "Voting stays blind.",
+    "The final joint amount is the sum of eligible allocation votes (not an average).",
     "Joint proposals move through To Review -> Approved/Declined -> Sent."
   ].join("\n"),
   discretionaryGivingPolicy: [
-    "A discretionary pool exists for individual proposal ownership.",
-    "Current app rule: proposer cannot vote on their own discretionary proposal.",
-    'Current app rule: non-proposer voters use "Acknowledged" or "Flag for Discussion" for discretionary proposals.',
-    "Current app rule: discretionary proposals stay To Review until a meeting decision is logged.",
-    "Current app rule: Oversight can approve or decline discretionary proposals in Meeting stage.",
-    "Current app rule: final discretionary amount is proposer-set.",
-    "Current app workspace cap: per-user discretionary cap is min($5,000,000, discretionary_pool / voting_members)."
+    "The discretionary pool supports proposals owned by individual members.",
+    "Proposers cannot vote on their own discretionary proposals.",
+    'Non-proposer voters select "Acknowledged" or "Flag for Discussion".',
+    "Discretionary proposals stay To Review until they are discussed in Meeting.",
+    "The final decision is approved or rejected by the Oversight admin in Meeting.",
+    "The final discretionary amount is proposer-set for approved proposals.",
+    "Per-user discretionary cap is min($5,000,000, discretionary_pool / voting_members)."
   ].join("\n"),
   process: [
-    "1) Add proposal details and supporting context.",
+    "1) Create a proposal with key details and supporting context.",
     "2) Notify members that voting is open.",
     "3) Collect blind votes from eligible voters.",
-    "4) Use Meeting stage to reveal votes when needed and confirm the final decision.",
-    "5) Approved proposals appear in Brynn's Admin queue for execution."
+    "4) In the Meeting stage, reveal votes as needed and confirm the final decision.",
+    "5) Approved proposals move to Brynn's Admin queue for execution."
   ].join("\n"),
   annualCycle: [
-    "January: review period for improvements to policy/process.",
-    "February 1: annual reset point for active budget cycle.",
-    "December 31: year-end allocation deadline for the cycle."
+    "January: review and improve policy and process.",
+    "February 1: start of the annual budget cycle.",
+    "December 31: deadline for year-end allocations."
   ].join("\n"),
   rolesAndResponsibilities: [
     "Brynn (Admin): executes approved donations and marks proposals as Sent.",
-    "Tom (Oversight): process oversight, policy maintenance, and discretionary meeting approvals/declines.",
-    "Dad (Manager): co-approves meeting decisions and manages foundation-level budget direction."
+    "Tom (Oversight): maintains policy, oversees process, and approves or declines discretionary proposals during meetings.",
+    "Dad (Manager): co-approves meeting decisions and sets foundation-level budget direction."
   ].join("\n"),
   references: [
     "Brosens Family Foundation Master Document",
     "Brosens Foundation working documents",
-    "Brosens Family Foundation Grants master tracking sheets"
+    "Brosens Family Foundation grants master tracking sheets"
   ].join("\n")
 };
 

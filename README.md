@@ -83,7 +83,7 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 
 - 75/25 split: budget settings and dashboard visualized
 - Blind voting: masked amounts and vote visibility until user submits own vote
-- Discretionary voting: non-proposers mark Acknowledged or Flag for Discussion, with final approve/decline logged in Meeting
+- Discretionary voting: non-proposers mark Acknowledged or Flag for Discussion, with final Oversight approve/reject logged in Meeting
 - Proposed amount on submission: discretionary uses proposer-set final amount, joint uses it as vote guidance
 - Meeting reveal stage: explicit reveal/mask controls before decision logging
 - Admin execution cue: approved proposals appear in Brynn queue
