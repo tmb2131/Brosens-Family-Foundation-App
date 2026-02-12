@@ -10,6 +10,7 @@ Mobile-first grant management app based on the PRD. This implementation includes
 - Meeting reveal flow for unmasking votes and confirming decisions
 - Admin execution queue for marking approved grants as sent
 - Oversight budget settings with annual cycle conventions
+- Mandate policy page with Oversight editing and versioned change notifications (acknowledge/flag workflow for non-oversight users)
 - API routes backed by real Supabase queries (no in-memory data layer)
 
 ## Stack
@@ -74,6 +75,7 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_initial_schema.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_auth_profile_and_blind_vote_policies.sql`
+- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_mandate_policy_notifications.sql`
 - Edge function stub: `/Users/tombrosens/brosens-family-foundation/supabase/functions/notify-admin/index.ts`
 
 ## PRD rule mapping (implemented)

@@ -8,6 +8,7 @@ const APP_ROUTES = [
   "/workspace",
   "/meeting",
   "/reports",
+  "/mandate",
   "/settings",
   "/proposals/new"
 ];

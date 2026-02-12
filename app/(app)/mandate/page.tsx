@@ -1,0 +1,405 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
+import { useAuth } from "@/components/auth/auth-provider";
+import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import {
+  MandatePolicyContent,
+  MandatePolicyPageData,
+  MandateSectionKey,
+  PolicyChangeNotification
+} from "@/lib/types";
+import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
+
+const STATUS_STYLES: Record<PolicyChangeNotification["status"], string> = {
+  pending: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200",
+  acknowledged:
+    "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200",
+  flagged: "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-900/40 dark:text-rose-200"
+};
+
+function prettyDate(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+export default function MandatePage() {
+  const { user } = useAuth();
+  const canEdit = user?.role === "oversight";
+
+  const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>(
+    user ? "/api/policy/mandate" : null,
+    { refreshInterval: 20_000 }
+  );
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState<MandatePolicyContent | null>(null);
+  const [saveMessage, setSaveMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
+  const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
+  const [flagReasons, setFlagReasons] = useState<Record<string, string>>({});
+
+  const sections = useMemo(
+    () =>
+      MANDATE_SECTION_ORDER.map((key) => ({
+        key,
+        label: MANDATE_SECTION_LABELS[key]
+      })),
+    []
+  );
+
+  useEffect(() => {
+    if (!data?.policy.content || isEditing) {
+      return;
+    }
+
+    setDraft(data.policy.content);
+  }, [data, isEditing]);
+
+  if (!user) {
+    return <p className="text-sm text-zinc-500">Loading mandate policy...</p>;
+  }
+
+  if (error) {
+    return (
+      <p className="text-sm text-rose-600">
+        Failed to load mandate policy: {error.message}
+      </p>
+    );
+  }
+
+  if (isLoading || !data) {
+    return <p className="text-sm text-zinc-500">Loading mandate policy...</p>;
+  }
+
+  const updateDraftField = (key: MandateSectionKey, value: string) => {
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
+    if (saveMessage) {
+      setSaveMessage(null);
+    }
+  };
+
+  const savePolicy = async () => {
+    if (!draft) {
+      return;
+    }
+
+    setSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch("/api/policy/mandate", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ content: draft })
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to save policy."));
+      }
+
+      const notifiedUsersCount = Number(payload.notifiedUsersCount ?? 0);
+      setSaveMessage({
+        tone: "success",
+        text: `Policy saved and versioned. Notifications sent to ${notifiedUsersCount} users.`
+      });
+      setIsEditing(false);
+      await mutate();
+    } catch (err) {
+      setSaveMessage({
+        tone: "error",
+        text: err instanceof Error ? err.message : "Failed to save policy."
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateNotificationStatus = async (
+    notificationId: string,
+    action: "acknowledge" | "flag"
+  ) => {
+    setActiveNotificationId(notificationId);
+    setNotificationMessage(null);
+
+    try {
+      const response = await fetch(`/api/policy/notifications/${notificationId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          reason: action === "flag" ? flagReasons[notificationId] ?? "" : undefined
+        })
+      });
+
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to update notification."));
+      }
+
+      setNotificationMessage(
+        action === "acknowledge"
+          ? "Policy update acknowledged."
+          : "Policy update flagged for discussion."
+      );
+      await mutate();
+    } catch (err) {
+      setNotificationMessage(err instanceof Error ? err.message : "Failed to update notification.");
+    } finally {
+      setActiveNotificationId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4 pb-6">
+      <Card className="rounded-3xl">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>Mandate Policy</CardTitle>
+            <CardValue>{data.policy.title}</CardValue>
+            <p className="mt-1 text-sm text-zinc-500">
+              Version {data.policy.version} | Updated {prettyDate(data.policy.updatedAt)}
+              {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
+            </p>
+            {!canEdit ? (
+              <p className="mt-1 text-xs text-zinc-500">
+                Pending policy updates requiring your review: {data.pendingNotificationsCount}
+              </p>
+            ) : null}
+          </div>
+
+          {canEdit ? (
+            <div className="flex flex-wrap gap-2">
+              {isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => void savePolicy()}
+                    className="min-h-11 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {saving ? "Saving..." : "Save Policy"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setDraft(data.policy.content);
+                      setSaveMessage(null);
+                    }}
+                    className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(true);
+                    setDraft(data.policy.content);
+                    setSaveMessage(null);
+                  }}
+                  className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
+                >
+                  Edit Policy
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {saveMessage ? (
+          <p
+            className={`mt-2 text-xs ${
+              saveMessage.tone === "error"
+                ? "text-rose-600"
+                : "text-emerald-700 dark:text-emerald-300"
+            }`}
+          >
+            {saveMessage.text}
+          </p>
+        ) : null}
+      </Card>
+
+      {isEditing && canEdit && draft ? (
+        <Card>
+          <CardTitle>Edit Mandate Policy</CardTitle>
+          <p className="mt-1 text-sm text-zinc-500">
+            Saving creates a new version and notifies non-oversight users of section-level changes.
+          </p>
+          <div className="mt-4 space-y-3">
+            {sections.map((section) => (
+              <label key={section.key} className="block text-sm font-medium">
+                {section.label}
+                <textarea
+                  value={draft[section.key]}
+                  onChange={(event) => updateDraftField(section.key, event.target.value)}
+                  className="mt-1 min-h-32 w-full rounded-xl border bg-white/80 px-3 py-2 text-sm dark:bg-zinc-900/40"
+                />
+              </label>
+            ))}
+          </div>
+        </Card>
+      ) : (
+        <section className="space-y-3">
+          {sections.map((section) => (
+            <Card key={section.key}>
+              <CardTitle>{section.label}</CardTitle>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-300">
+                {data.policy.content[section.key]}
+              </p>
+            </Card>
+          ))}
+        </section>
+      )}
+
+      {canEdit ? (
+        <Card>
+          <CardTitle>Flagged For Discussion</CardTitle>
+          <p className="mt-1 text-sm text-zinc-500">
+            Non-oversight users can flag policy updates here with discussion notes.
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {data.discussionFlags.length === 0 ? (
+              <p className="text-sm text-zinc-500">No flagged policy notes right now.</p>
+            ) : (
+              data.discussionFlags.map((flag) => (
+                <article key={flag.id} className="rounded-xl border p-3">
+                  <p className="text-sm font-semibold">
+                    {flag.userName ?? "Unknown user"} flagged version {flag.version}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Flagged {prettyDate(flag.flaggedAt)} | Changed {prettyDate(flag.changedAt)}
+                  </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-200">
+                    {flag.reason}
+                  </p>
+                </article>
+              ))
+            )}
+          </div>
+        </Card>
+      ) : null}
+
+      {!canEdit ? (
+        <Card>
+          <CardTitle>Policy Change Notifications</CardTitle>
+          <p className="mt-1 text-sm text-zinc-500">
+            Review each change and either acknowledge it or flag it for discussion.
+          </p>
+
+          {notificationMessage ? (
+            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{notificationMessage}</p>
+          ) : null}
+
+          <div className="mt-3 space-y-3">
+            {data.notifications.length === 0 ? (
+              <p className="text-sm text-zinc-500">No policy change notifications yet.</p>
+            ) : (
+              data.notifications.map((notification) => (
+                <article key={notification.id} className="rounded-xl border p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        Version {notification.version} update
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        Changed {prettyDate(notification.changedAt)}
+                        {notification.changedByName ? ` by ${notification.changedByName}` : ""}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full border px-2 py-1 text-xs font-semibold ${STATUS_STYLES[notification.status]}`}
+                    >
+                      {notification.status}
+                    </span>
+                  </div>
+
+                  {notification.diffs.length === 0 ? (
+                    <p className="mt-2 text-xs text-zinc-500">No section diff available.</p>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      {notification.diffs.map((diff) => (
+                        <details key={`${notification.id}-${diff.key}`} className="rounded-lg border p-2">
+                          <summary className="cursor-pointer text-sm font-medium">{diff.label}</summary>
+                          <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                                Before
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-300">
+                                {diff.before || "(empty)"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                                After
+                              </p>
+                              <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-300">
+                                {diff.after || "(empty)"}
+                              </p>
+                            </div>
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  )}
+
+                  {notification.flagReason ? (
+                    <p className="mt-2 text-xs text-rose-600">
+                      Flag reason: {notification.flagReason}
+                    </p>
+                  ) : null}
+
+                  {notification.status === "pending" ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={activeNotificationId === notification.id}
+                          onClick={() => void updateNotificationStatus(notification.id, "acknowledge")}
+                          className="min-h-11 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          Acknowledge
+                        </button>
+                        <button
+                          type="button"
+                          disabled={activeNotificationId === notification.id}
+                          onClick={() => void updateNotificationStatus(notification.id, "flag")}
+                          className="min-h-11 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          Flag for Discussion
+                        </button>
+                      </div>
+                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                        Discussion note (required when flagging)
+                        <input
+                          type="text"
+                          value={flagReasons[notification.id] ?? ""}
+                          onChange={(event) =>
+                            setFlagReasons((current) => ({
+                              ...current,
+                              [notification.id]: event.target.value
+                            }))
+                          }
+                          className="mt-1 w-full rounded-lg border bg-white/80 px-2 py-1 text-sm dark:bg-zinc-900/40"
+                          placeholder="What should be discussed?"
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                </article>
+              ))
+            )}
+          </div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}

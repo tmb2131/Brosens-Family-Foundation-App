@@ -139,3 +139,73 @@ export interface WorkspaceSnapshot {
   }>;
   submittedGifts: Array<GrantProposal>;
 }
+
+export type PolicyNotificationStatus = "pending" | "acknowledged" | "flagged";
+
+export type MandateSectionKey =
+  | "missionStatement"
+  | "structure"
+  | "jointGivingPolicy"
+  | "discretionaryGivingPolicy"
+  | "process"
+  | "annualCycle"
+  | "rolesAndResponsibilities"
+  | "references";
+
+export interface MandatePolicyContent {
+  missionStatement: string;
+  structure: string;
+  jointGivingPolicy: string;
+  discretionaryGivingPolicy: string;
+  process: string;
+  annualCycle: string;
+  rolesAndResponsibilities: string;
+  references: string;
+}
+
+export interface MandateSectionDiff {
+  key: MandateSectionKey;
+  label: string;
+  before: string;
+  after: string;
+}
+
+export interface MandatePolicySnapshot {
+  slug: string;
+  title: string;
+  version: number;
+  content: MandatePolicyContent;
+  updatedAt: string;
+  updatedByName: string | null;
+}
+
+export interface PolicyChangeNotification {
+  id: string;
+  changeId: string;
+  status: PolicyNotificationStatus;
+  flagReason: string | null;
+  handledAt: string | null;
+  createdAt: string;
+  version: number;
+  changedAt: string;
+  changedByName: string | null;
+  diffs: MandateSectionDiff[];
+}
+
+export interface PolicyDiscussionFlag {
+  id: string;
+  userId: string;
+  userName: string | null;
+  changeId: string;
+  version: number;
+  changedAt: string;
+  flaggedAt: string;
+  reason: string;
+}
+
+export interface MandatePolicyPageData {
+  policy: MandatePolicySnapshot;
+  notifications: PolicyChangeNotification[];
+  pendingNotificationsCount: number;
+  discussionFlags: PolicyDiscussionFlag[];
+}

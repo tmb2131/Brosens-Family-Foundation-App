@@ -3,7 +3,16 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { FileText, Home, ListChecks, LogOut, Settings, ShieldCheck, Vote } from "lucide-react";
+import {
+  FileText,
+  Home,
+  ListChecks,
+  LogOut,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Vote
+} from "lucide-react";
 import useSWR from "swr";
 import { PropsWithChildren, ReactNode, useMemo } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -27,6 +36,10 @@ interface AdminQueueResponse {
   proposals: FoundationSnapshot["proposals"];
 }
 
+interface PolicyNotificationSummaryResponse {
+  pendingCount: number;
+}
+
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <Home className="h-4 w-4" /> },
   {
@@ -46,6 +59,12 @@ const navItems: NavItem[] = [
     label: "Reports",
     icon: <FileText className="h-4 w-4" />,
     roles: ["oversight", "manager"]
+  },
+  {
+    href: "/mandate" as Route,
+    label: "Mandate",
+    icon: <ScrollText className="h-4 w-4" />,
+    roles: ["member", "oversight", "manager", "admin"]
   },
   {
     href: "/admin",
@@ -80,6 +99,9 @@ export function AppShell({ children }: PropsWithChildren) {
     user && availableNav.some((item) => item.href === "/workspace")
   );
   const shouldLoadMeeting = Boolean(user && availableNav.some((item) => item.href === "/meeting"));
+  const shouldLoadPolicySummary = Boolean(
+    user && availableNav.some((item) => item.href === "/mandate")
+  );
   const shouldLoadAdmin = Boolean(user && availableNav.some((item) => item.href === "/admin"));
 
   const { data: foundationData } = useSWR<FoundationSnapshot>(
@@ -92,6 +114,10 @@ export function AppShell({ children }: PropsWithChildren) {
   );
   const { data: meetingData } = useSWR<MeetingResponse>(
     shouldLoadMeeting ? "/api/meeting" : null,
+    { refreshInterval: 15_000 }
+  );
+  const { data: policyNotificationSummary } = useSWR<PolicyNotificationSummaryResponse>(
+    shouldLoadPolicySummary ? "/api/policy/notifications/summary" : null,
     { refreshInterval: 15_000 }
   );
   const { data: adminData } = useSWR<AdminQueueResponse>(
@@ -107,10 +133,11 @@ export function AppShell({ children }: PropsWithChildren) {
         "/workspace": workspaceData?.actionItems.length ?? 0,
         "/meeting": meetingData?.proposals.length ?? 0,
         "/reports": 0,
+        "/mandate": policyNotificationSummary?.pendingCount ?? 0,
         "/admin": adminData?.proposals.length ?? 0,
         "/settings": 0
       }) as Partial<Record<Route, number>>,
-    [adminData, foundationData, meetingData, workspaceData]
+    [adminData, foundationData, meetingData, policyNotificationSummary, workspaceData]
   );
 
   return (
