@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -49,20 +48,26 @@ export default function MobileFocusPage() {
   const foundation = foundationQuery.data;
   const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
-  const canSubmitProposal = Boolean(user && ["member", "oversight", "manager"].includes(user.role));
 
   return (
-    <div className="space-y-3 pb-4 sm:space-y-4">
-      <Card className="rounded-3xl">
-        <CardTitle>Mobile Focus</CardTitle>
-        <CardValue>Today&apos;s Top Actions</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
-          Action outstanding items, submit a proposal, and check your budget from one screen.
+    <div className="space-y-2 pb-3 sm:space-y-3">
+      <Card className="rounded-2xl p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-[11px] tracking-[0.14em]">Mobile Focus</CardTitle>
+            <CardValue className="mt-0.5 text-lg">Today&apos;s Top Actions</CardValue>
+          </div>
+          <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-zinc-600">
+            {workspace.actionItems.length} open
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          Clear items, use New Proposal in the bottom nav, and review budget on one screen.
         </p>
       </Card>
 
-      <Card>
-        <div className="mb-3 flex items-start justify-between gap-2">
+      <Card className="p-3">
+        <div className="mb-2 flex items-start justify-between gap-2">
           <div>
             <CardTitle>Outstanding Action Items</CardTitle>
             <p className="mt-1 text-xs text-zinc-500">
@@ -73,13 +78,13 @@ export default function MobileFocusPage() {
           </div>
           <Link
             href="/workspace"
-            className="inline-flex min-h-10 items-center rounded-full border px-3 text-xs font-semibold"
+            className="inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-semibold"
           >
             Open queue
           </Link>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {visibleActionItems.length === 0 ? (
             <p className="text-sm text-zinc-500">You&apos;re all caught up.</p>
           ) : (
@@ -90,7 +95,7 @@ export default function MobileFocusPage() {
               }
 
               return (
-                <article key={item.proposalId} className="rounded-xl border p-3">
+                <article key={item.proposalId} className="rounded-lg border p-2.5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
@@ -119,35 +124,16 @@ export default function MobileFocusPage() {
         {remainingActionItems > 0 ? (
           <Link
             href="/workspace"
-            className="mt-3 inline-flex min-h-10 items-center text-xs font-semibold text-accent"
+            className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-accent"
           >
             View {remainingActionItems} more action item{remainingActionItems === 1 ? "" : "s"}
           </Link>
         ) : null}
       </Card>
 
-      <Card>
-        <CardTitle>Submit New Proposal</CardTitle>
-        <p className="mt-1 text-sm text-zinc-500">
-          Capture a new giving idea quickly, then continue in the full submission flow.
-        </p>
-        {canSubmitProposal ? (
-          <Link
-            href="/proposals/new"
-            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white"
-          >
-            Start new proposal <ArrowRight className="h-4 w-4" />
-          </Link>
-        ) : (
-          <p className="mt-3 text-xs text-zinc-500">
-            Proposal submission is available for member, oversight, and manager roles.
-          </p>
-        )}
-      </Card>
-
-      <Card>
+      <Card className="p-3">
         <CardTitle>Personal Budget</CardTitle>
-        <div className="mt-3 space-y-3">
+        <div className="mt-2 space-y-2">
           <PersonalBudgetBars
             title="Joint Budget Tracker"
             allocated={workspace.personalBudget.jointAllocated}
@@ -159,20 +145,20 @@ export default function MobileFocusPage() {
             total={workspace.personalBudget.discretionaryCap}
           />
         </div>
-        <div className="mt-3 grid gap-1 text-xs text-zinc-500">
+        <div className="mt-2 grid gap-1 text-xs text-zinc-500">
           <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
           <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
         </div>
       </Card>
 
-      <Card className="rounded-2xl border-dashed">
+      <Card className="rounded-xl border-dashed p-3">
         <CardTitle>Need Full Details?</CardTitle>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-xs text-zinc-500">
           Open the complete tracker, reports, and historical details.
         </p>
         <Link
           href="/dashboard"
-          className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
+          className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
         >
           View Full Details
         </Link>

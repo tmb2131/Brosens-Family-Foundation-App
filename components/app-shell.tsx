@@ -187,7 +187,10 @@ export function AppShell({ children }: PropsWithChildren) {
   );
 
   return (
-    <div className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-20">
+    <div
+      className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-20"
+      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+    >
       <header className="glass-card mb-4 rounded-3xl p-4 print:hidden">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
