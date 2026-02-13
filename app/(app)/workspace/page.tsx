@@ -15,11 +15,11 @@ export default function WorkspacePage() {
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,
-    { refreshInterval: 10_000 }
+    { refreshInterval: 30_000 }
   );
   const foundationQuery = useSWR<FoundationSnapshot>(
     user ? "/api/foundation" : null,
-    { refreshInterval: 10_000 }
+    { refreshInterval: 30_000 }
   );
 
   if (workspaceQuery.isLoading || foundationQuery.isLoading) {

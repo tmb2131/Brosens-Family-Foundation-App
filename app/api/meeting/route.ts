@@ -6,6 +6,7 @@ import {
   setMeetingReveal
 } from "@/lib/foundation-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { writeAuditLog } from "@/lib/audit";
 import { AppRole } from "@/lib/types";
 
 export async function GET() {
@@ -38,6 +39,12 @@ export async function POST(request: NextRequest) {
       assertRole(profile, ["oversight", "manager"]);
       const reveal = Boolean(body.reveal);
       const proposal = await setMeetingReveal(admin, proposalId, reveal, profile.id);
+      await writeAuditLog(admin, {
+        actorId: profile.id,
+        action: reveal ? "reveal_votes" : "hide_votes",
+        entityType: "proposal",
+        entityId: proposalId,
+      });
       return NextResponse.json({ proposal });
     }
 
@@ -77,6 +84,14 @@ export async function POST(request: NextRequest) {
         profile.id,
         hasSentAt ? sentAt : undefined
       );
+
+      await writeAuditLog(admin, {
+        actorId: profile.id,
+        action: `meeting_decision_${status}`,
+        entityType: "proposal",
+        entityId: proposalId,
+        details: { status, sentAt: hasSentAt ? sentAt : undefined },
+      });
 
       return NextResponse.json({ proposal });
     }

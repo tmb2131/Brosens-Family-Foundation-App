@@ -14,7 +14,7 @@ interface MeetingResponse {
 export default function MeetingPage() {
   const { user } = useAuth();
   const { data, mutate, isLoading, error } = useSWR<MeetingResponse>("/api/meeting", {
-    refreshInterval: 8_000
+    refreshInterval: 30_000
   });
 
   if (!user || !["oversight", "manager"].includes(user.role)) {

@@ -15,7 +15,7 @@ interface AdminQueueResponse {
 export default function AdminPage() {
   const { user } = useAuth();
   const { data, mutate, isLoading, error } = useSWR<AdminQueueResponse>("/api/admin", {
-    refreshInterval: 8_000
+    refreshInterval: 30_000
   });
   const [sentDateByProposalId, setSentDateByProposalId] = useState<Record<string, string>>({});
   const [sentErrorByProposalId, setSentErrorByProposalId] = useState<Record<string, string>>({});

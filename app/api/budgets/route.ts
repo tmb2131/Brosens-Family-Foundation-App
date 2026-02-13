@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { getBudgetSnapshot, updateBudget } from "@/lib/foundation-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { writeAuditLog } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -46,6 +47,14 @@ export async function POST(request: NextRequest) {
       jointRatio,
       discretionaryRatio,
       updatedByUserId: profile.id
+    });
+
+    await writeAuditLog(admin, {
+      actorId: profile.id,
+      action: "update_budget",
+      entityType: "budget",
+      entityId: String(year),
+      details: { totalAmount, rolloverFromPreviousYear, jointRatio, discretionaryRatio },
     });
 
     return NextResponse.json({ budget });

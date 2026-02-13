@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { currency, formatNumber, parseNumberInput, titleCase } from "@/lib/utils";
-import { HistoricalImpactChart } from "@/components/dashboard/historical-impact-chart";
 import { StatusPill } from "@/components/ui/status-pill";
+
+const HistoricalImpactChart = dynamic(
+  () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
+  { ssr: false, loading: () => <div className="h-[220px] w-full" /> }
+);
 import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
 
@@ -130,7 +135,7 @@ export default function DashboardPage() {
     error: pendingError,
     mutate: mutatePending
   } = useSWR<PendingResponse>(isOversight ? "/api/foundation/pending" : null, {
-    refreshInterval: 15_000
+    refreshInterval: 30_000
   });
 
   const availableYears = useMemo(() => {

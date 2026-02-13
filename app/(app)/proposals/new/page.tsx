@@ -21,7 +21,7 @@ export default function NewProposalPage() {
   const { user } = useAuth();
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,
-    { refreshInterval: 10_000 }
+    { refreshInterval: 30_000 }
   );
   const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>(
     user ? "/api/proposals/titles" : null

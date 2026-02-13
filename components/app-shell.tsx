@@ -169,23 +169,23 @@ export function AppShell({ children }: PropsWithChildren) {
 
   const { data: foundationData } = useSWR<FoundationSnapshot>(
     shouldLoadFoundation ? "/api/foundation" : null,
-    { refreshInterval: 15_000 }
+    { refreshInterval: 60_000 }
   );
   const { data: workspaceData } = useSWR<WorkspaceSnapshot>(
     shouldLoadWorkspace ? "/api/workspace" : null,
-    { refreshInterval: 15_000 }
+    { refreshInterval: 60_000 }
   );
   const { data: meetingData } = useSWR<MeetingResponse>(
     shouldLoadMeeting ? "/api/meeting" : null,
-    { refreshInterval: 15_000 }
+    { refreshInterval: 60_000 }
   );
   const { data: policyNotificationSummary } = useSWR<PolicyNotificationSummaryResponse>(
     shouldLoadPolicySummary ? "/api/policy/notifications/summary" : null,
-    { refreshInterval: 15_000 }
+    { refreshInterval: 60_000 }
   );
   const { data: adminData } = useSWR<AdminQueueResponse>(
     shouldLoadAdmin ? "/api/admin" : null,
-    { refreshInterval: 15_000 }
+    { refreshInterval: 60_000 }
   );
 
   const outstandingByHref = useMemo(

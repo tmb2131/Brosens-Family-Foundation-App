@@ -193,7 +193,7 @@ export default function MandatePage() {
 
   const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>(
     user ? "/api/policy/mandate" : null,
-    { refreshInterval: 20_000 }
+    { refreshInterval: 60_000 }
   );
 
   const [isEditing, setIsEditing] = useState(false);
