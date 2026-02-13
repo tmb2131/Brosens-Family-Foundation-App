@@ -368,6 +368,7 @@ export function AppShell({ children }: PropsWithChildren) {
           {renderedNav.map((item) => {
             const active = pathname.startsWith(item.href);
             const outstandingCount = outstandingByHref[item.href] ?? 0;
+            const isNewProposalShortcut = item.href === "/proposals/new";
             return (
               <li key={item.href} className="min-w-0">
                 <Link
@@ -376,6 +377,8 @@ export function AppShell({ children }: PropsWithChildren) {
                     "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold",
                     active
                       ? "bg-accent text-white"
+                      : isNewProposalShortcut
+                        ? "bg-accent text-white ring-1 ring-amber-300 shadow-md shadow-amber-400/30"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   )}
                 >
