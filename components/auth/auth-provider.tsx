@@ -153,7 +153,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       const redirectTo =
-        typeof window === "undefined" ? undefined : `${window.location.origin}/login?mode=recovery`;
+        typeof window === "undefined" ? undefined : `${window.location.origin}/reset-password`;
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
       if (error) {
