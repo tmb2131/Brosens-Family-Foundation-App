@@ -352,6 +352,8 @@ function withProgress(proposal: GrantProposal, userId?: string, revealOverride =
   return {
     ...proposal,
     organizationName: org?.name ?? "Unknown Organization",
+    organizationWebsite: org?.website ?? null,
+    charityNavigatorUrl: org?.charityNavigatorUrl ?? null,
     voteBreakdown: votes.map((vote) => ({
       userId: vote.userId,
       choice: vote.choice,

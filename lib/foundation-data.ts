@@ -64,6 +64,7 @@ interface OrganizationRow {
   name: string;
   website: string | null;
   charity_navigator_score: number | string | null;
+  charity_navigator_url: string | null;
   cause_area: string | null;
 }
 
@@ -137,6 +138,7 @@ function mapOrganization(row: OrganizationRow): Organization {
     name: row.name,
     website: row.website ?? "",
     charityNavigatorScore: toNumber(row.charity_navigator_score),
+    charityNavigatorUrl: row.charity_navigator_url,
     causeArea: row.cause_area ?? "General"
   };
 }
@@ -430,7 +432,7 @@ async function loadOrganizationRows(admin: AdminClient, organizationIds: string[
 
   const { data, error } = await admin
     .from("organizations")
-    .select("id, name, website, charity_navigator_score, cause_area")
+    .select("id, name, website, charity_navigator_score, charity_navigator_url, cause_area")
     .in("id", organizationIds)
     .returns<OrganizationRow[]>();
 
@@ -515,6 +517,8 @@ function buildProposalViews(input: {
     return {
       ...proposal,
       organizationName: organization?.name ?? "Unknown Organization",
+      organizationWebsite: organization?.website ?? null,
+      charityNavigatorUrl: organization?.charity_navigator_url ?? null,
       voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,
         choice: vote.choice,
@@ -801,7 +805,7 @@ export async function getWorkspaceSnapshot(
 export async function listOrganizations(admin: AdminClient) {
   const { data, error } = await admin
     .from("organizations")
-    .select("id, name, website, charity_navigator_score, cause_area")
+    .select("id, name, website, charity_navigator_score, charity_navigator_url, cause_area")
     .order("name", { ascending: true })
     .returns<OrganizationRow[]>();
 
@@ -860,10 +864,14 @@ export async function submitProposal(
     proposalType: ProposalType;
     allocationMode: AllocationMode;
     proposedAmount: number;
+    website?: string | null;
+    charityNavigatorUrl?: string | null;
     proposer: UserProfile;
   }
 ) {
   const normalizedProposedAmount = roundCurrency(input.proposedAmount);
+  const normalizedWebsite = String(input.website ?? "").trim() || null;
+  const normalizedCharityNavigatorUrl = String(input.charityNavigatorUrl ?? "").trim() || null;
 
   if (input.proposalType === "discretionary") {
     const workspace = await getWorkspaceSnapshot(admin, input.proposer);
@@ -889,17 +897,119 @@ export async function submitProposal(
 
   const { data: existingGrant, error: existingGrantError } = await admin
     .from("grants_master")
-    .select("id")
+    .select("id, organization_id")
     .eq("title", input.title)
     .order("created_at", { ascending: true })
     .limit(1)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string; organization_id: string | null }>();
 
   if (existingGrantError) {
     throw new HttpError(500, `Could not check existing grant: ${existingGrantError.message}`);
   }
 
   let grantMasterId = existingGrant?.id;
+  let organizationId = existingGrant?.organization_id ?? null;
+
+  const syncMissingOrganizationLinks = async (
+    targetOrganizationId: string,
+    existingValues?: { website: string | null; charity_navigator_url: string | null }
+  ) => {
+    if (!normalizedWebsite && !normalizedCharityNavigatorUrl) {
+      return;
+    }
+
+    let currentValues = existingValues;
+    if (!currentValues) {
+      const { data: loadedOrganization, error: loadOrganizationError } = await admin
+        .from("organizations")
+        .select("website, charity_navigator_url")
+        .eq("id", targetOrganizationId)
+        .maybeSingle<{ website: string | null; charity_navigator_url: string | null }>();
+
+      if (loadOrganizationError) {
+        throw new HttpError(
+          500,
+          `Could not load organization before updating links: ${loadOrganizationError.message}`
+        );
+      }
+
+      if (!loadedOrganization) {
+        throw new HttpError(500, "Organization not found while updating proposal links.");
+      }
+
+      currentValues = loadedOrganization;
+    }
+
+    const organizationUpdates: { website?: string; charity_navigator_url?: string } = {};
+    if (normalizedWebsite && !currentValues.website) {
+      organizationUpdates.website = normalizedWebsite;
+    }
+    if (normalizedCharityNavigatorUrl && !currentValues.charity_navigator_url) {
+      organizationUpdates.charity_navigator_url = normalizedCharityNavigatorUrl;
+    }
+
+    if (!Object.keys(organizationUpdates).length) {
+      return;
+    }
+
+    const { error: updateOrganizationError } = await admin
+      .from("organizations")
+      .update(organizationUpdates)
+      .eq("id", targetOrganizationId);
+
+    if (updateOrganizationError) {
+      throw new HttpError(500, `Could not update organization links: ${updateOrganizationError.message}`);
+    }
+  };
+
+  if (organizationId) {
+    await syncMissingOrganizationLinks(organizationId);
+  } else {
+    const { data: existingOrganizationByTitle, error: existingOrganizationLookupError } = await admin
+      .from("organizations")
+      .select("id, website, charity_navigator_url")
+      .eq("name", input.title)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ id: string; website: string | null; charity_navigator_url: string | null }>();
+
+    if (existingOrganizationLookupError) {
+      throw new HttpError(
+        500,
+        `Could not look up organization for proposal title: ${existingOrganizationLookupError.message}`
+      );
+    }
+
+    if (existingOrganizationByTitle) {
+      organizationId = existingOrganizationByTitle.id;
+      await syncMissingOrganizationLinks(organizationId, {
+        website: existingOrganizationByTitle.website,
+        charity_navigator_url: existingOrganizationByTitle.charity_navigator_url
+      });
+    } else if (normalizedWebsite || normalizedCharityNavigatorUrl) {
+      const { data: insertedOrganization, error: insertOrganizationError } = await admin
+        .from("organizations")
+        .insert({
+          name: input.title,
+          website: normalizedWebsite,
+          charity_navigator_url: normalizedCharityNavigatorUrl,
+          cause_area: "General"
+        })
+        .select("id")
+        .single<{ id: string }>();
+
+      if (insertOrganizationError || !insertedOrganization) {
+        throw new HttpError(
+          500,
+          `Could not create organization for proposal links: ${
+            insertOrganizationError?.message ?? "missing row"
+          }`
+        );
+      }
+
+      organizationId = insertedOrganization.id;
+    }
+  }
 
   if (!grantMasterId) {
     const { data: insertedGrant, error: insertGrantError } = await admin
@@ -908,7 +1018,7 @@ export async function submitProposal(
         title: input.title,
         description: input.description,
         cause_area: "General",
-        organization_id: null,
+        organization_id: organizationId,
         created_by: input.proposer.id
       })
       .select("id")
@@ -922,13 +1032,22 @@ export async function submitProposal(
     }
 
     grantMasterId = insertedGrant.id;
+  } else if (!existingGrant?.organization_id && organizationId) {
+    const { error: updateGrantError } = await admin
+      .from("grants_master")
+      .update({ organization_id: organizationId })
+      .eq("id", grantMasterId);
+
+    if (updateGrantError) {
+      throw new HttpError(500, `Could not link grant to organization: ${updateGrantError.message}`);
+    }
   }
 
   const { data: insertedProposal, error: insertProposalError } = await admin
     .from("grant_proposals")
     .insert({
       grant_master_id: grantMasterId,
-      organization_id: null,
+      organization_id: organizationId,
       proposer_id: input.proposer.id,
       budget_year: budget.budget_year,
       proposal_type: input.proposalType,

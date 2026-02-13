@@ -17,6 +17,7 @@ export interface Organization {
   name: string;
   website: string;
   charityNavigatorScore: number;
+  charityNavigatorUrl?: string | null;
   causeArea: string;
 }
 
@@ -97,6 +98,8 @@ export interface FoundationSnapshot {
     GrantProposal & {
       progress: ProposalProgress;
       organizationName: string;
+      organizationWebsite?: string | null;
+      charityNavigatorUrl?: string | null;
       voteBreakdown: Array<{
         userId: string;
         choice: VoteChoice;

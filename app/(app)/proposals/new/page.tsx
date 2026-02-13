@@ -29,6 +29,8 @@ export default function NewProposalPage() {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [website, setWebsite] = useState("");
+  const [charityNavigatorUrl, setCharityNavigatorUrl] = useState("");
   const [proposalType, setProposalType] = useState<ProposalTypeOption>("");
   const [proposedAmount, setProposedAmount] = useState("0");
   const [isTitleSuggestionsOpen, setIsTitleSuggestionsOpen] = useState(false);
@@ -95,6 +97,8 @@ export default function NewProposalPage() {
         body: JSON.stringify({
           title,
           description,
+          website,
+          charityNavigatorUrl,
           proposalType,
           allocationMode,
           proposedAmount: Number(proposedAmount || 0)
@@ -265,6 +269,38 @@ export default function NewProposalPage() {
           </label>
 
           <label className="block text-sm font-medium">
+            Organization website link (optional)
+            <input
+              type="url"
+              value={website}
+              onChange={(event) => setWebsite(event.target.value)}
+              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              placeholder="https://example.org"
+              inputMode="url"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Add the organization website for proposal context and to help Brynn complete the
+              donation.
+            </p>
+          </label>
+
+          <label className="block text-sm font-medium">
+            Charity Navigator link (optional)
+            <input
+              type="url"
+              value={charityNavigatorUrl}
+              onChange={(event) => setCharityNavigatorUrl(event.target.value)}
+              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              placeholder="https://www.charitynavigator.org/..."
+              inputMode="url"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Add the Charity Navigator profile URL. A future update can auto-populate the score
+              and summary from this link.
+            </p>
+          </label>
+
+          <label className="block text-sm font-medium">
             {proposalType === "joint"
               ? "Proposed total donation (joint)"
               : proposalType === "discretionary"
@@ -347,13 +383,23 @@ export default function NewProposalPage() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={saving || !proposalType}
-            className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {saving ? "Submitting..." : "Submit Proposal"}
-          </button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => router.push("/dashboard")}
+              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !proposalType}
+              className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {saving ? "Submitting..." : "Submit Proposal"}
+            </button>
+          </div>
 
           {error ? <p className="text-xs text-rose-600">{error}</p> : null}
         </form>

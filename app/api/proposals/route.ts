@@ -7,6 +7,26 @@ import {
 import { toErrorResponse, HttpError } from "@/lib/http-error";
 import { AllocationMode, ProposalType } from "@/lib/types";
 
+function normalizeOptionalHttpUrl(value: unknown, fieldLabel: string) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new HttpError(400, `${fieldLabel} must be a valid URL.`);
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new HttpError(400, `${fieldLabel} must start with http:// or https://.`);
+  }
+
+  return parsed.toString();
+}
+
 export async function GET() {
   try {
     const { admin, profile } = await requireAuthContext();
@@ -32,6 +52,11 @@ export async function POST(request: NextRequest) {
     const proposalType = String(body.proposalType ?? "joint") as ProposalType;
     const requestedAllocationMode = String(body.allocationMode ?? "sum") as AllocationMode;
     const proposedAmount = Number(body.proposedAmount ?? Number.NaN);
+    const website = normalizeOptionalHttpUrl(body.website, "website");
+    const charityNavigatorUrl = normalizeOptionalHttpUrl(
+      body.charityNavigatorUrl,
+      "charity navigator link"
+    );
 
     if (!title || !description) {
       throw new HttpError(400, "Missing required fields.");
@@ -57,6 +82,8 @@ export async function POST(request: NextRequest) {
       proposalType,
       allocationMode,
       proposedAmount,
+      website,
+      charityNavigatorUrl,
       proposer: profile
     });
 

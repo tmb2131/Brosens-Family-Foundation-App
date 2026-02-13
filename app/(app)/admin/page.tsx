@@ -119,6 +119,9 @@ export default function AdminPage() {
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="break-words text-sm font-semibold">{proposal.title}</h3>
+                    {proposal.organizationName !== "Unknown Organization" ? (
+                      <p className="mt-1 text-xs text-zinc-500">{proposal.organizationName}</p>
+                    ) : null}
 
                     <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
                       <div className="min-w-0 sm:shrink-0">
@@ -167,6 +170,37 @@ export default function AdminPage() {
                         {isSaving ? "Saving..." : "Mark as Sent"}
                       </button>
                     </div>
+
+                    {proposal.organizationWebsite || proposal.charityNavigatorUrl ? (
+                      <div className="mt-3 space-y-1 text-xs text-zinc-600">
+                        {proposal.organizationWebsite ? (
+                          <p className="break-all">
+                            Organization website:{" "}
+                            <a
+                              href={proposal.organizationWebsite}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
+                            >
+                              {proposal.organizationWebsite}
+                            </a>
+                          </p>
+                        ) : null}
+                        {proposal.charityNavigatorUrl ? (
+                          <p className="break-all">
+                            Charity Navigator:{" "}
+                            <a
+                              href={proposal.charityNavigatorUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
+                            >
+                              {proposal.charityNavigatorUrl}
+                            </a>
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
 
                   <StatusPill status={proposal.status} />
