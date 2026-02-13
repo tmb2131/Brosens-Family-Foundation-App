@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import {
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Home,
   ListChecks,
@@ -102,6 +104,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [isSmallViewport, setIsSmallViewport] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 639px)");
@@ -204,43 +207,162 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div
-      className="page-enter mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-24"
+      className="page-enter flex min-h-screen w-full flex-col px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8"
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
-      {hideShellHeader ? null : (
-        <header className="glass-card mb-4 rounded-3xl p-4 print:hidden">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
-              <h1 className="text-xl font-semibold">Grant Management</h1>
-              {user ? (
-                <div className="mt-2 flex items-center gap-2 text-sm">
-                  <span>{user.name}</span>
-                  <RolePill role={user.role} />
+      <aside
+        className={cn(
+          "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 print:hidden sm:flex sm:transition-[width]",
+          isDesktopSidebarOpen ? "w-64" : "w-[4.75rem]"
+        )}
+      >
+        <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
+          <section className={cn("mb-2 rounded-2xl border bg-card/70", isDesktopSidebarOpen ? "p-3" : "p-2")}>
+            {isDesktopSidebarOpen ? (
+              <>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                  Brosens Family Foundation
+                </p>
+                <h1 className="mt-1 text-lg font-semibold leading-tight">Grant Management</h1>
+                {user ? (
+                  <div className="mt-2 flex items-center gap-2 text-sm">
+                    <span className="truncate">{user.name}</span>
+                    <RolePill role={user.role} />
+                  </div>
+                ) : null}
+                <div className="mt-3 flex items-center gap-2">
+                  <ThemeToggle />
+                  <button
+                    onClick={() => void signOut()}
+                    className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
+                    type="button"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> Sign out
+                  </button>
                 </div>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <button
-                onClick={() => void signOut()}
-                className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
-                type="button"
-              >
-                <LogOut className="h-3.5 w-3.5" /> Sign out
-              </button>
-            </div>
-          </div>
-        </header>
-      )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <span
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card text-[11px] font-semibold tracking-wide"
+                  title="Brosens Family Foundation"
+                >
+                  BF
+                </span>
+                <ThemeToggle />
+                <button
+                  onClick={() => void signOut()}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card"
+                  type="button"
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </section>
 
-      <main className="min-w-0 flex-1">{children}</main>
+          <div
+            className={cn(
+              "mb-2 flex items-center",
+              isDesktopSidebarOpen ? "justify-between" : "justify-center"
+            )}
+          >
+            {isDesktopSidebarOpen ? (
+              <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Navigation
+              </p>
+            ) : null}
+            <button
+              onClick={() => setIsDesktopSidebarOpen((current) => !current)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-card text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              type="button"
+              aria-expanded={isDesktopSidebarOpen}
+              aria-label={isDesktopSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              {isDesktopSidebarOpen ? (
+                <ChevronLeft className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+
+          <nav className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+            <ul className="space-y-1">
+              {renderedNav.map((item) => {
+                const active = pathname.startsWith(item.href);
+                const outstandingCount = outstandingByHref[item.href] ?? 0;
+                return (
+                  <li key={item.href} className="min-w-0">
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        "flex min-h-11 min-w-0 items-center rounded-xl py-2 text-sm font-semibold transition-colors",
+                        isDesktopSidebarOpen ? "gap-2 px-3" : "justify-center px-2",
+                        active
+                          ? "bg-accent text-white"
+                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      )}
+                      title={isDesktopSidebarOpen ? undefined : item.label}
+                    >
+                      <span className="relative inline-flex shrink-0">
+                        {item.icon}
+                        {outstandingCount > 0 ? (
+                          <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
+                            {outstandingCount > 99 ? "99+" : outstandingCount}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className={cn("truncate", !isDesktopSidebarOpen && "sr-only")}>
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        {hideShellHeader ? null : (
+          <header className="glass-card mb-4 rounded-3xl p-4 print:hidden sm:hidden">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
+                <h1 className="text-xl font-semibold">Grant Management</h1>
+                {user ? (
+                  <div className="mt-2 flex items-center gap-2 text-sm">
+                    <span>{user.name}</span>
+                    <RolePill role={user.role} />
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <button
+                  onClick={() => void signOut()}
+                  className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
+                  type="button"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Sign out
+                </button>
+              </div>
+            </div>
+          </header>
+        )}
+
+        <main className="min-w-0 flex-1">{children}</main>
+      </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:inset-x-auto sm:bottom-3 sm:left-1/2 sm:w-[calc(100%-1.5rem)] sm:max-w-2xl sm:-translate-x-1/2 sm:rounded-2xl sm:border sm:bg-card/95 sm:py-2 sm:backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden"
       >
         <ul
-          className="grid gap-1 sm:flex sm:justify-around"
+          className="grid gap-1"
           style={{ gridTemplateColumns: `repeat(${Math.max(renderedNav.length, 1)}, minmax(0, 1fr))` }}
         >
           {renderedNav.map((item) => {
@@ -251,7 +373,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold sm:px-3 sm:text-xs",
+                    "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold",
                     active
                       ? "bg-accent text-white"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
@@ -265,9 +387,7 @@ export function AppShell({ children }: PropsWithChildren) {
                       </span>
                     ) : null}
                   </span>
-                  <span className="max-w-[4.5rem] truncate text-[10px] leading-tight sm:max-w-none sm:text-xs">
-                    {item.label}
-                  </span>
+                  <span className="max-w-[4.5rem] truncate text-[10px] leading-tight">{item.label}</span>
                 </Link>
               </li>
             );
