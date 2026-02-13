@@ -43,6 +43,11 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
 VAPID_PRIVATE_KEY=...
 VAPID_SUBJECT=mailto:you@example.com
 PUSH_WORKER_SECRET=...
+EMAIL_WORKER_SECRET=...
+RESEND_API_KEY=...
+EMAIL_FROM=...
+EMAIL_REPLY_TO=...
+APP_BASE_URL=http://localhost:3000
 ```
 
 4. Run the app:
@@ -81,6 +86,7 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_auth_profile_and_blind_vote_policies.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_mandate_policy_notifications.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_push_notifications.sql`
+- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_email_notifications.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_discretionary_vote_choices.sql`
 - Edge function stub: `/Users/tombrosens/brosens-family-foundation/supabase/functions/notify-admin/index.ts`
 
@@ -93,6 +99,15 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
   - `/api/notifications/push/preferences`
 - Delivery worker API:
   - `/api/notifications/push/process` (supports `Authorization: Bearer $PUSH_WORKER_SECRET`)
+
+## Email notifications
+
+- Notification queue + retries:
+  - `/api/notifications/email/process` (supports `Authorization: Bearer $EMAIL_WORKER_SECRET`)
+- Weekly action reminders:
+  - `/api/notifications/email/reminders` (run hourly; sends Friday 9am local reminders per user timezone)
+- Device-aware email links:
+  - `/open?to=/target/path` routes mobile users to `/mobile` and desktop users to the web target
 
 ## PRD rule mapping (implemented)
 

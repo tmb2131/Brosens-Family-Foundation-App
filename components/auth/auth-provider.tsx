@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -51,6 +52,7 @@ async function fetchCurrentProfile() {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const supabase = useMemo(() => createClient(), []);
+  const syncedTimezoneRef = useRef<string | null>(null);
 
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -106,6 +108,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    if (!session || !user) {
+      syncedTimezoneRef.current = null;
+      return;
+    }
+
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone?.trim();
+    if (!timezone) {
+      return;
+    }
+
+    const syncKey = `${session.user.id}:${timezone}`;
+    if (syncedTimezoneRef.current === syncKey) {
+      return;
+    }
+
+    syncedTimezoneRef.current = syncKey;
+    void fetch("/api/auth/timezone", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ timezone })
+    }).catch(() => {
+      syncedTimezoneRef.current = null;
+    });
+  }, [session, user]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {

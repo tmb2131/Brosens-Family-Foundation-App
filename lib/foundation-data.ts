@@ -2,6 +2,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
 import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
+  queueAdminSendRequiredActionEmails,
+  queueMeetingReviewActionEmails,
+  queueProposalSentFyiEmails,
+  queueVoteRequiredActionEmails
+} from "@/lib/email-notifications";
+import {
   AppRole,
   AllocationMode,
   FoundationSnapshot,
@@ -135,7 +141,7 @@ function must<T>(value: T | null | undefined, message: string): T {
 
 function logNotificationError(context: string, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`[push] ${context}: ${message}`);
+  console.error(`[notifications] ${context}: ${message}`);
 }
 
 async function loadProposalTitle(admin: AdminClient, grantMasterId: string) {
@@ -1104,6 +1110,16 @@ export async function submitProposal(
     }).catch((error) => {
       logNotificationError("submitProposal enqueue", error);
     });
+
+    void queueVoteRequiredActionEmails(admin, {
+      proposalId: insertedProposal.id,
+      proposalTitle: input.title,
+      proposalType: input.proposalType,
+      recipientUserIds: recipients,
+      actorUserId: input.proposer.id
+    }).catch((error) => {
+      logNotificationError("submitProposal enqueue action-required email", error);
+    });
   }
 
   return insertedProposal;
@@ -1210,6 +1226,15 @@ export async function submitVote(
           idempotencyKey: `proposal-ready-for-meeting:${proposal.id}`
         }).catch((error) => {
           logNotificationError("submitVote enqueue", error);
+        });
+
+        void queueMeetingReviewActionEmails(admin, {
+          proposalId: proposal.id,
+          proposalTitle,
+          recipientUserIds: recipients,
+          actorUserId: input.voterId
+        }).catch((error) => {
+          logNotificationError("submitVote enqueue action-required email", error);
         });
       }
     }
@@ -1361,7 +1386,7 @@ export async function setMeetingDecision(
           return;
         }
 
-        return queuePushEvent(admin, {
+        const pushPromise = queuePushEvent(admin, {
           eventType: "proposal_approved_for_admin",
           actorUserId: currentUserId ?? null,
           entityId: proposalId,
@@ -1375,10 +1400,30 @@ export async function setMeetingDecision(
           recipientUserIds: adminUserIds,
           idempotencyKey: `proposal-approved-for-admin:${proposalId}`
         });
+
+        const emailPromise = queueAdminSendRequiredActionEmails(admin, {
+          proposalId,
+          proposalTitle,
+          recipientUserIds: adminUserIds,
+          actorUserId: currentUserId ?? null
+        });
+
+        return Promise.allSettled([pushPromise, emailPromise]);
       })
-      .catch((pushError) => {
-        logNotificationError("setMeetingDecision enqueue admin queue alert", pushError);
+      .catch((error) => {
+        logNotificationError("setMeetingDecision enqueue admin notifications", error);
       });
+  }
+
+  if (status === "sent") {
+    void queueProposalSentFyiEmails(admin, {
+      proposalId,
+      proposalTitle,
+      sentAt: nextSentAt,
+      actorUserId: currentUserId ?? null
+    }).catch((emailError) => {
+      logNotificationError("setMeetingDecision enqueue sent FYI email", emailError);
+    });
   }
 
   return updatedProposal;

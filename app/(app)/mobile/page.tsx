@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -14,6 +16,7 @@ const ACTION_ITEMS_PREVIEW_LIMIT = 2;
 
 export default function MobileFocusPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const workspaceQuery = useSWR<WorkspaceSnapshot>(user ? "/api/workspace" : null, {
     refreshInterval: 10_000
   });
@@ -46,11 +49,30 @@ export default function MobileFocusPage() {
 
   const workspace = workspaceQuery.data;
   const foundation = foundationQuery.data;
+  const deepLinkTarget = useMemo(() => {
+    const value = searchParams.get("next")?.trim() ?? "";
+    if (!value.startsWith("/") || value.startsWith("//")) {
+      return null;
+    }
+    return value;
+  }, [searchParams]);
   const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
 
   return (
     <div className="space-y-2 pb-3 sm:space-y-3">
+      {deepLinkTarget ? (
+        <Card className="p-3">
+          <p className="text-xs text-zinc-500">Continue to the required action from your email.</p>
+          <Link
+            href={deepLinkTarget}
+            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+          >
+            Continue to required action
+          </Link>
+        </Card>
+      ) : null}
+
       <Card className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">
           <div>
