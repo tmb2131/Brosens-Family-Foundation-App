@@ -39,16 +39,26 @@ export default function WorkspacePage() {
 
   const workspace = workspaceQuery.data;
   const foundation = foundationQuery.data;
+  const totalIndividualAllocated =
+    workspace.personalBudget.jointAllocated + workspace.personalBudget.discretionaryAllocated;
+  const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
 
   return (
     <div className="space-y-4 pb-4">
-      <Card className="rounded-3xl">
-        <CardTitle>My Workspace</CardTitle>
-        <CardValue>{workspace.user.name}</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
-          Track your joint/discretionary balances, action items, and personal voting history.
-        </p>
-      </Card>
+      <section className="grid gap-3 xl:grid-cols-[2fr_1fr]">
+        <Card className="rounded-3xl">
+          <CardTitle>My Workspace</CardTitle>
+          <CardValue>{workspace.user.name}</CardValue>
+          <p className="mt-1 text-sm text-zinc-500">
+            Track your joint/discretionary balances, action items, and personal voting history.
+          </p>
+        </Card>
+        <PersonalBudgetBars
+          title="Total Individual Budget Tracker"
+          allocated={totalIndividualAllocated}
+          total={totalIndividualTarget}
+        />
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2">
         <PersonalBudgetBars
