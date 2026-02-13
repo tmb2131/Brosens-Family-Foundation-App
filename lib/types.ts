@@ -212,3 +212,19 @@ export interface MandatePolicyPageData {
   pendingNotificationsCount: number;
   discussionFlags: PolicyDiscussionFlag[];
 }
+
+export type PushNotificationEventType =
+  | "proposal_created"
+  | "proposal_ready_for_meeting"
+  | "proposal_status_changed"
+  | "policy_update_published"
+  | "proposal_approved_for_admin";
+
+export interface NotificationPreferences {
+  pushEnabled: boolean;
+  proposalCreated: boolean;
+  proposalReadyForMeeting: boolean;
+  proposalStatusChanged: boolean;
+  policyUpdatePublished: boolean;
+  proposalApprovedForAdmin: boolean;
+}

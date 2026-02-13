@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
+import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
   AppRole,
   AllocationMode,
@@ -130,6 +131,25 @@ function must<T>(value: T | null | undefined, message: string): T {
     throw new HttpError(500, message);
   }
   return value;
+}
+
+function logNotificationError(context: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[push] ${context}: ${message}`);
+}
+
+async function loadProposalTitle(admin: AdminClient, grantMasterId: string) {
+  const { data, error } = await admin
+    .from("grants_master")
+    .select("title")
+    .eq("id", grantMasterId)
+    .maybeSingle<{ title: string }>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load proposal title: ${error.message}`);
+  }
+
+  return data?.title?.trim() || "Proposal";
 }
 
 function mapOrganization(row: OrganizationRow): Organization {
@@ -1066,6 +1086,26 @@ export async function submitProposal(
     );
   }
 
+  const recipients = (await getVotingMemberIds(admin)).filter((userId) => userId !== input.proposer.id);
+  if (recipients.length) {
+    void queuePushEvent(admin, {
+      eventType: "proposal_created",
+      actorUserId: input.proposer.id,
+      entityId: insertedProposal.id,
+      title: "New Proposal Submitted",
+      body: `${input.proposer.name} submitted "${input.title}".`,
+      linkPath: "/workspace",
+      payload: {
+        proposalId: insertedProposal.id,
+        proposalType: input.proposalType
+      },
+      recipientUserIds: recipients,
+      idempotencyKey: `proposal-created:${insertedProposal.id}`
+    }).catch((error) => {
+      logNotificationError("submitProposal enqueue", error);
+    });
+  }
+
   return insertedProposal;
 }
 
@@ -1133,6 +1173,46 @@ export async function submitVote(
 
   if (voteError) {
     throw new HttpError(500, `Could not save vote: ${voteError.message}`);
+  }
+
+  const requiredVotes =
+    proposal.proposal_type === "joint"
+      ? votingMemberIds.length
+      : votingMemberIds.filter((memberId) => memberId !== proposal.proposer_id).length;
+
+  if (requiredVotes > 0) {
+    const { count: votesSubmitted, error: countError } = await admin
+      .from("votes")
+      .select("id", { count: "exact", head: true })
+      .eq("proposal_id", input.proposalId);
+
+    if (countError) {
+      throw new HttpError(500, `Could not count submitted votes: ${countError.message}`);
+    }
+
+    if ((votesSubmitted ?? 0) >= requiredVotes) {
+      const recipients = await listUserIdsByRoles(admin, ["oversight", "manager"]);
+      if (recipients.length) {
+        const proposalTitle = await loadProposalTitle(admin, proposal.grant_master_id);
+
+        void queuePushEvent(admin, {
+          eventType: "proposal_ready_for_meeting",
+          actorUserId: input.voterId,
+          entityId: proposal.id,
+          title: "Proposal Ready For Meeting",
+          body: `"${proposalTitle}" now has enough votes for review.`,
+          linkPath: "/meeting",
+          payload: {
+            proposalId: proposal.id,
+            proposalType: proposal.proposal_type
+          },
+          recipientUserIds: recipients,
+          idempotencyKey: `proposal-ready-for-meeting:${proposal.id}`
+        }).catch((error) => {
+          logNotificationError("submitVote enqueue", error);
+        });
+      }
+    }
   }
 
   return { ok: true };
@@ -1220,6 +1300,13 @@ export async function setMeetingDecision(
   currentUserId?: string,
   sentAt?: string | null
 ) {
+  const proposalRows = await loadProposalRowsByIds(admin, [proposalId]);
+  const existingProposal = proposalRows[0];
+
+  if (!existingProposal) {
+    throw new HttpError(404, "Proposal not found.");
+  }
+
   const normalizedSentAt =
     sentAt === undefined ? undefined : sentAt === null ? null : normalizeDateString(sentAt);
 
@@ -1239,7 +1326,62 @@ export async function setMeetingDecision(
     throw new HttpError(500, `Could not update proposal decision: ${error.message}`);
   }
 
-  return getProposalViewById(admin, proposalId, currentUserId);
+  const updatedProposal = await getProposalViewById(admin, proposalId, currentUserId);
+  const proposalTitle = updatedProposal?.title || "Proposal";
+
+  const statusLabel = status === "approved" ? "Approved" : status === "declined" ? "Declined" : "Sent";
+  const statusBody =
+    status === "sent"
+      ? `"${proposalTitle}" was marked Sent.`
+      : `"${proposalTitle}" was marked ${statusLabel}.`;
+  const statusKeySuffix = status === "sent" ? nextSentAt ?? "sent" : status;
+
+  void queuePushEvent(admin, {
+    eventType: "proposal_status_changed",
+    actorUserId: currentUserId ?? null,
+    entityId: proposalId,
+    title: "Proposal Status Updated",
+    body: statusBody,
+    linkPath: "/dashboard",
+    payload: {
+      proposalId,
+      status,
+      sentAt: nextSentAt
+    },
+    recipientUserIds: [existingProposal.proposer_id],
+    idempotencyKey: `proposal-status-changed:${proposalId}:${status}:${statusKeySuffix}`
+  }).catch((pushError) => {
+    logNotificationError("setMeetingDecision enqueue proposer update", pushError);
+  });
+
+  if (status === "approved") {
+    void listUserIdsByRoles(admin, ["admin"])
+      .then((adminUserIds) => {
+        if (!adminUserIds.length) {
+          return;
+        }
+
+        return queuePushEvent(admin, {
+          eventType: "proposal_approved_for_admin",
+          actorUserId: currentUserId ?? null,
+          entityId: proposalId,
+          title: "Proposal Approved",
+          body: `"${proposalTitle}" is ready in the Admin queue.`,
+          linkPath: "/admin",
+          payload: {
+            proposalId,
+            status
+          },
+          recipientUserIds: adminUserIds,
+          idempotencyKey: `proposal-approved-for-admin:${proposalId}`
+        });
+      })
+      .catch((pushError) => {
+        logNotificationError("setMeetingDecision enqueue admin queue alert", pushError);
+      });
+  }
+
+  return updatedProposal;
 }
 
 export async function updateProposalRecord(

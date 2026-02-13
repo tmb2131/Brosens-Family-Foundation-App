@@ -39,6 +39,10 @@ cp .env.example .env.local
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+PUSH_WORKER_SECRET=...
 ```
 
 4. Run the app:
@@ -76,8 +80,19 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_initial_schema.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_auth_profile_and_blind_vote_policies.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_mandate_policy_notifications.sql`
+- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_push_notifications.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_discretionary_vote_choices.sql`
 - Edge function stub: `/Users/tombrosens/brosens-family-foundation/supabase/functions/notify-admin/index.ts`
+
+## Push notifications
+
+- Service worker: `/Users/tombrosens/brosens-family-foundation/public/sw.js`
+- Subscription/preferences APIs:
+  - `/api/notifications/push/subscribe`
+  - `/api/notifications/push/unsubscribe`
+  - `/api/notifications/push/preferences`
+- Delivery worker API:
+  - `/api/notifications/push/process` (supports `Authorization: Bearer $PUSH_WORKER_SECRET`)
 
 ## PRD rule mapping (implemented)
 

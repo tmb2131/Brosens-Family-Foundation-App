@@ -3,6 +3,7 @@
 import { FormEvent, useState, useEffect } from "react";
 import useSWR from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
+import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { currency, formatNumber, parseNumberInput } from "@/lib/utils";
 
@@ -190,6 +191,8 @@ export default function SettingsPage() {
           </p>
         ) : null}
       </Card>
+
+      <PushSettingsCard />
 
       {user.role === "oversight" ? (
         <Card>

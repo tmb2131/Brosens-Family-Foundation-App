@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
+import { queuePushEvent } from "@/lib/push-notifications";
 import {
   AppRole,
   MandatePolicyContent,
@@ -73,6 +74,11 @@ interface UpdatePolicyNotificationInput {
 }
 
 const POLICY_DOCUMENT_SELECT = "id, slug, title, version, content, updated_by, updated_at";
+
+function logNotificationError(context: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[push] ${context}: ${message}`);
+}
 
 function parsePolicyContent(raw: unknown): MandatePolicyContent {
   return applyMandateDefaults(normalizeMandatePolicyContent(raw));
@@ -415,6 +421,27 @@ export async function updateMandatePolicy(
     if (notificationError) {
       throw new HttpError(500, `Could not enqueue policy notifications: ${notificationError.message}`);
     }
+  }
+
+  if (notificationsToInsert.length) {
+    const recipientUserIds = notificationsToInsert.map((entry) => entry.user_id);
+
+    void queuePushEvent(admin, {
+      eventType: "policy_update_published",
+      actorUserId: input.editorId,
+      entityId: change.id,
+      title: "Mandate Policy Updated",
+      body: `Version ${nextVersion} is available for review in Mandate.`,
+      linkPath: "/mandate",
+      payload: {
+        changeId: change.id,
+        version: nextVersion
+      },
+      recipientUserIds,
+      idempotencyKey: `policy-update-published:${change.id}`
+    }).catch((error) => {
+      logNotificationError("updateMandatePolicy enqueue", error);
+    });
   }
 
   const userNamesById = await loadUserNames(admin, [input.editorId]);
