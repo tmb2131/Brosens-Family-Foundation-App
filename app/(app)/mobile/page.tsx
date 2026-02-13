@@ -23,6 +23,13 @@ export default function MobileFocusPage() {
   const foundationQuery = useSWR<FoundationSnapshot>(user ? "/api/foundation" : null, {
     refreshInterval: 30_000
   });
+  const deepLinkTarget = useMemo(() => {
+    const value = searchParams.get("next")?.trim() ?? "";
+    if (!value.startsWith("/") || value.startsWith("//")) {
+      return null;
+    }
+    return value;
+  }, [searchParams]);
 
   if (workspaceQuery.isLoading || foundationQuery.isLoading) {
     return <p className="text-sm text-zinc-500">Loading your mobile focus view...</p>;
@@ -49,13 +56,6 @@ export default function MobileFocusPage() {
 
   const workspace = workspaceQuery.data;
   const foundation = foundationQuery.data;
-  const deepLinkTarget = useMemo(() => {
-    const value = searchParams.get("next")?.trim() ?? "";
-    if (!value.startsWith("/") || value.startsWith("//")) {
-      return null;
-    }
-    return value;
-  }, [searchParams]);
   const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
 
