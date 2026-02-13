@@ -17,7 +17,7 @@ import {
   Vote
 } from "lucide-react";
 import useSWR from "swr";
-import { PropsWithChildren, ReactNode, useEffect, useMemo, useState } from "react";
+import { ComponentType, PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
@@ -27,7 +27,7 @@ import { AppRole, FoundationSnapshot, WorkspaceSnapshot } from "@/lib/types";
 type NavItem = {
   href: Route;
   label: string;
-  icon: ReactNode;
+  icon: ComponentType<{ className?: string }>;
   roles?: AppRole[];
 };
 
@@ -47,57 +47,57 @@ const fullNavItems: NavItem[] = [
   {
     href: "/admin",
     label: "Admin Queue",
-    icon: <ShieldCheck className="h-4 w-4" />,
+    icon: ShieldCheck,
     roles: ["admin"]
   },
-  { href: "/dashboard", label: "Dashboard", icon: <Home className="h-4 w-4" /> },
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   {
     href: "/workspace",
     label: "My Workspace",
-    icon: <ListChecks className="h-4 w-4" />,
+    icon: ListChecks,
     roles: ["member", "oversight", "manager"]
   },
   {
     href: "/meeting",
     label: "Meeting",
-    icon: <Vote className="h-4 w-4" />,
+    icon: Vote,
     roles: ["oversight", "manager"]
   },
   {
     href: "/reports" as Route,
     label: "Reports",
-    icon: <FileText className="h-4 w-4" />,
+    icon: FileText,
     roles: ["oversight", "manager"]
   },
   {
     href: "/mandate" as Route,
     label: "Mandate",
-    icon: <ScrollText className="h-4 w-4" />,
+    icon: ScrollText,
     roles: ["member", "oversight", "manager", "admin"]
   },
   {
     href: "/settings",
     label: "Settings",
-    icon: <Settings className="h-4 w-4" />,
+    icon: Settings,
     roles: ["member", "oversight", "manager", "admin"]
   }
 ];
 
 const focusNavItems: NavItem[] = [
-  { href: "/mobile" as Route, label: "Home", icon: <Home className="h-4 w-4" /> },
+  { href: "/mobile" as Route, label: "Home", icon: Home },
   {
     href: "/meeting" as Route,
     label: "Meeting",
-    icon: <Vote className="h-4 w-4" />,
+    icon: Vote,
     roles: ["oversight"]
   },
   {
     href: "/proposals/new",
     label: "New Proposal",
-    icon: <Plus className="h-4 w-4" />,
+    icon: Plus,
     roles: ["member", "oversight", "manager"]
   },
-  { href: "/dashboard", label: "Full Details", icon: <FileText className="h-4 w-4" /> }
+  { href: "/dashboard", label: "Full Details", icon: FileText }
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -308,7 +308,7 @@ export function AppShell({ children }: PropsWithChildren) {
                       title={isDesktopSidebarOpen ? undefined : item.label}
                     >
                       <span className="relative inline-flex shrink-0">
-                        {item.icon}
+                        <item.icon className="h-4 w-4" />
                         {outstandingCount > 0 ? (
                           <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
                             {outstandingCount > 99 ? "99+" : outstandingCount}
@@ -390,7 +390,7 @@ export function AppShell({ children }: PropsWithChildren) {
                         "h-6 w-6 items-center justify-center rounded-full bg-[#316AD8] text-white shadow-[0_6px_12px_-8px_rgba(49,106,216,1)] motion-safe:animate-[pulse_900ms_ease-out_1] dark:bg-[#3F80DE] dark:shadow-[0_6px_12px_-8px_rgba(63,128,222,1)]"
                     )}
                   >
-                    {item.icon}
+                    <item.icon className="h-4 w-4" />
                     {outstandingCount > 0 ? (
                       <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
                         {outstandingCount > 99 ? "99+" : outstandingCount}
