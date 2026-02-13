@@ -41,7 +41,7 @@ export default function NewProposalPage() {
   const discretionaryLimit = workspaceQuery.data
     ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
     : null;
-  const allTitleSuggestions = titleSuggestionsQuery.data?.titles ?? [];
+  const allTitleSuggestions = useMemo(() => titleSuggestionsQuery.data?.titles ?? [], [titleSuggestionsQuery.data?.titles]);
   const normalizedTitle = title.trim().toLowerCase();
   const matchingTitleSuggestions = useMemo(() => {
     if (!allTitleSuggestions.length) {
