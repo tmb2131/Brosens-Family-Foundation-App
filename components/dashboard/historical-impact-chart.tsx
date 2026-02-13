@@ -8,7 +8,7 @@ import {
   Tooltip,
   XAxis
 } from "recharts";
-import { chartPalette, chartText } from "@/lib/chart-styles";
+import { chartPalette, chartText, chartTooltip } from "@/lib/chart-styles";
 import type { HistoryByYearPoint } from "@/lib/types";
 import { compactCurrency, currency } from "@/lib/utils";
 
@@ -28,8 +28,14 @@ export function HistoricalImpactChart({
         <BarChart data={chartData} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
           <XAxis dataKey="year" tick={{ fill: chartText.axis, fontSize: 12 }} />
           <Tooltip
+            cursor={false}
             formatter={(value: number) => currency(value)}
-            contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))" }}
+            contentStyle={chartTooltip.contentStyle}
+            labelStyle={chartTooltip.labelStyle}
+            itemStyle={chartTooltip.itemStyle}
+            wrapperStyle={chartTooltip.wrapperStyle}
+            offset={chartTooltip.offset}
+            allowEscapeViewBox={chartTooltip.allowEscapeViewBox}
           />
           <Bar stackId="sent" dataKey="jointSent" name="Joint sent" fill={chartPalette.joint} />
           <Bar

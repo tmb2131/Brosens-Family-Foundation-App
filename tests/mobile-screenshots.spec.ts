@@ -46,6 +46,24 @@ async function capture(page: Page, route: string) {
   });
 }
 
+async function assertHistoricalImpactHoverState(page: Page) {
+  const historicalImpactCard = page.locator("section", {
+    has: page.getByText("Historical Impact")
+  });
+  const chartContainer = historicalImpactCard.locator(".recharts-responsive-container").first();
+
+  await expect(chartContainer).toBeVisible();
+
+  const box = await chartContainer.boundingBox();
+  if (!box) {
+    throw new Error("Unable to detect Historical Impact chart bounds.");
+  }
+
+  await page.mouse.move(box.x + box.width * 0.28, box.y + box.height * 0.48);
+  await expect(page.locator(".recharts-default-tooltip")).toBeVisible();
+  await expect(chartContainer.locator(".recharts-tooltip-cursor")).toHaveCount(0);
+}
+
 async function assertFocusPage(page: Page) {
   await expect(page.getByText("Today's Top Actions")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Outstanding Action Items" })).toBeVisible();
@@ -86,6 +104,9 @@ test("captures mobile app screens with no horizontal overflow", async ({ page })
     await waitForUISettled(page);
     if (route === "/mobile") {
       await assertFocusPage(page);
+    }
+    if (route === "/dashboard") {
+      await assertHistoricalImpactHoverState(page);
     }
     await assertNoHorizontalOverflow(page, route);
     await capture(page, route);
