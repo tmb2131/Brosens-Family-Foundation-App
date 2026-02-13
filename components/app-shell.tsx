@@ -369,20 +369,27 @@ export function AppShell({ children }: PropsWithChildren) {
             const active = pathname.startsWith(item.href);
             const outstandingCount = outstandingByHref[item.href] ?? 0;
             const isNewProposalShortcut = item.href === "/proposals/new";
+            const showNewProposalCta = isNewProposalShortcut && !active;
             return (
               <li key={item.href} className="min-w-0">
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold",
+                    "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold transition-[background-color,border-color,color,box-shadow] duration-200",
                     active
                       ? "bg-accent text-white"
-                      : isNewProposalShortcut
-                        ? "bg-accent text-white ring-1 ring-amber-300 shadow-md shadow-amber-400/30"
+                      : showNewProposalCta
+                        ? "border border-[#316AD8]/50 bg-[#316AD8]/12 text-[#2154c2] shadow-[0_10px_20px_-16px_rgba(49,106,216,1)] hover:bg-[#316AD8]/18 dark:border-[#3F80DE]/60 dark:bg-[#3F80DE]/20 dark:text-[#D9E8FF] dark:shadow-[0_12px_22px_-16px_rgba(63,128,222,1)] dark:hover:bg-[#3F80DE]/28"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   )}
                 >
-                  <span className="relative inline-flex">
+                  <span
+                    className={cn(
+                      "relative inline-flex",
+                      showNewProposalCta &&
+                        "h-6 w-6 items-center justify-center rounded-full bg-[#316AD8] text-white shadow-[0_6px_12px_-8px_rgba(49,106,216,1)] motion-safe:animate-[pulse_900ms_ease-out_1] dark:bg-[#3F80DE] dark:shadow-[0_6px_12px_-8px_rgba(63,128,222,1)]"
+                    )}
+                  >
                     {item.icon}
                     {outstandingCount > 0 ? (
                       <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
