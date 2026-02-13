@@ -34,6 +34,7 @@ interface OrganizationRow {
 interface GrantMasterRow {
   id: string;
   title: string;
+  description: string | null;
 }
 
 interface FrankDeenieSnapshotInput {
@@ -181,13 +182,14 @@ function mapFrankDeenieDonationRow(row: FrankDeenieDonationDbRow): FrankDeenieDo
 function mapChildrenDonationRow(
   row: SentProposalRow,
   organizationNamesById: Map<string, string>,
-  grantMasterTitlesById: Map<string, string>
+  grantMasterTitlesById: Map<string, string>,
+  grantMasterDescriptionsById: Map<string, string>
 ): FrankDeenieDonationRow {
   const proposalTitle = grantMasterTitlesById.get(row.grant_master_id)?.trim() || "Submitted gift";
+  const proposalDescription = grantMasterDescriptionsById.get(row.grant_master_id)?.trim() ?? "";
   const organizationName = row.organization_id
     ? organizationNamesById.get(row.organization_id)?.trim() ?? ""
     : "";
-  const memo = row.notes?.trim() || (organizationName ? proposalTitle : "");
 
   return {
     id: `children:${row.id}`,
@@ -195,8 +197,8 @@ function mapChildrenDonationRow(
     date: row.sent_at ?? row.created_at.slice(0, 10),
     type: "donation",
     name: organizationName || proposalTitle,
-    memo,
-    split: "Children",
+    memo: proposalDescription,
+    split: "",
     amount: toNumber(row.final_amount),
     status: "Gave",
     editable: false
@@ -258,6 +260,7 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
   const grantMasterIds = [...new Set((proposals ?? []).map((row) => row.grant_master_id).filter(Boolean))];
   const organizationNamesById = new Map<string, string>();
   const grantMasterTitlesById = new Map<string, string>();
+  const grantMasterDescriptionsById = new Map<string, string>();
 
   if (organizationIds.length > 0 || grantMasterIds.length > 0) {
     const [organizationsResult, grantMasterResult] = await Promise.all([
@@ -267,7 +270,7 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
       grantMasterIds.length > 0
         ? admin
             .from("grants_master")
-            .select("id, title")
+            .select("id, title, description")
             .in("id", grantMasterIds)
             .returns<GrantMasterRow[]>()
         : Promise.resolve({ data: [], error: null })
@@ -287,11 +290,17 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
 
     for (const grantMaster of grantMasterResult.data ?? []) {
       grantMasterTitlesById.set(grantMaster.id, grantMaster.title);
+      grantMasterDescriptionsById.set(grantMaster.id, grantMaster.description ?? "");
     }
   }
 
   return (proposals ?? []).map((row) =>
-    mapChildrenDonationRow(row, organizationNamesById, grantMasterTitlesById)
+    mapChildrenDonationRow(
+      row,
+      organizationNamesById,
+      grantMasterTitlesById,
+      grantMasterDescriptionsById
+    )
   );
 }
 

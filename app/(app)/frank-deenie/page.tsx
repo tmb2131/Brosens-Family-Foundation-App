@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -34,6 +34,7 @@ const DEFAULT_FILTERS: DonationFilters = {
 };
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
+const SHOW_FRANK_DEENIE_IMPORT = false;
 
 function initialDraftForYear(year: number | null): DonationDraft {
   return {
@@ -41,7 +42,7 @@ function initialDraftForYear(year: number | null): DonationDraft {
     type: "donation",
     name: "",
     memo: "",
-    split: "Frank & Deenie",
+    split: "",
     amount: "",
     status: "Gave"
   };
@@ -81,6 +82,7 @@ export default function FrankDeeniePage() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [highlightAddCard, setHighlightAddCard] = useState(false);
   const [newDraft, setNewDraft] = useState<DonationDraft>(() => initialDraftForYear(null));
   const [isCreating, setIsCreating] = useState(false);
   const [createMessage, setCreateMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
@@ -100,6 +102,8 @@ export default function FrankDeeniePage() {
   const [rowMessageById, setRowMessageById] = useState<
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
+  const addDonationCardRef = useRef<HTMLDivElement | null>(null);
+  const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -136,6 +140,26 @@ export default function FrankDeeniePage() {
       setEditDraft(null);
     }
   }, [data, editingId]);
+
+  useEffect(() => {
+    if (!showAddForm) {
+      setHighlightAddCard(false);
+      return;
+    }
+
+    setHighlightAddCard(true);
+    const frame = window.requestAnimationFrame(() => {
+      addDonationNameInputRef.current?.focus();
+    });
+    const timeout = window.setTimeout(() => {
+      setHighlightAddCard(false);
+    }, 1400);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [showAddForm]);
 
   const typeOptions = useMemo(() => {
     if (!data) {
@@ -554,7 +578,15 @@ export default function FrankDeeniePage() {
       </section>
 
       {showAddForm ? (
-        <Card>
+        <div
+          ref={addDonationCardRef}
+          className={`rounded-2xl transition-all duration-300 ${
+            highlightAddCard
+              ? "ring-2 ring-emerald-400/70 ring-offset-2 ring-offset-transparent shadow-[0_0_0_6px_rgba(16,185,129,0.12)] motion-safe:animate-[pulse_700ms_ease-out_1]"
+              : ""
+          }`}
+        >
+          <Card>
           <CardTitle>Add Donation</CardTitle>
           <form className="mt-3 grid gap-3" onSubmit={submitNewDonation}>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -581,6 +613,7 @@ export default function FrankDeeniePage() {
               <label className="text-xs font-semibold text-zinc-500">
                 Name
                 <input
+                  ref={addDonationNameInputRef}
                   type="text"
                   value={newDraft.name}
                   onChange={(event) => setNewDraft((current) => ({ ...current, name: event.target.value }))}
@@ -648,10 +681,11 @@ export default function FrankDeeniePage() {
               ) : null}
             </div>
           </form>
-        </Card>
+          </Card>
+        </div>
       ) : null}
 
-      {user.role === "oversight" ? (
+      {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
         <Card>
           <CardTitle>Import Frank &amp; Deenie CSV</CardTitle>
           <p className="mt-1 text-sm text-zinc-500">
