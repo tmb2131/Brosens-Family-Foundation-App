@@ -87,6 +87,7 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_mandate_policy_notifications.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_push_notifications.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_email_notifications.sql`
+- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_frank_deenie_donations.sql`
 - Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_discretionary_vote_choices.sql`
 - Edge function stub: `/Users/tombrosens/brosens-family-foundation/supabase/functions/notify-admin/index.ts`
 

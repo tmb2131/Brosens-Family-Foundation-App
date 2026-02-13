@@ -117,6 +117,33 @@ export interface FoundationSnapshot {
   };
 }
 
+export type DonationLedgerSource = "frank_deenie" | "children";
+
+export interface FrankDeenieDonationRow {
+  id: string;
+  source: DonationLedgerSource;
+  date: string;
+  type: string;
+  name: string;
+  memo: string;
+  split: string;
+  amount: number;
+  status: string;
+  editable: boolean;
+}
+
+export interface FrankDeenieSnapshot {
+  year: number | null;
+  availableYears: number[];
+  includeChildren: boolean;
+  totals: {
+    frankDeenie: number;
+    children: number;
+    overall: number;
+  };
+  rows: FrankDeenieDonationRow[];
+}
+
 export interface WorkspaceSnapshot {
   user: UserProfile;
   personalBudget: {

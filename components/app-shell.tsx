@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  HandCoins,
   Home,
   ListChecks,
   LogOut,
@@ -68,6 +69,12 @@ const fullNavItems: NavItem[] = [
     label: "Reports",
     icon: FileText,
     roles: ["oversight", "manager"]
+  },
+  {
+    href: "/frank-deenie" as Route,
+    label: "Frank & Deenie",
+    icon: HandCoins,
+    roles: ["oversight", "admin", "manager"]
   },
   {
     href: "/mandate" as Route,
@@ -197,6 +204,7 @@ export function AppShell({ children }: PropsWithChildren) {
         "/workspace": workspaceData?.actionItems.length ?? 0,
         "/meeting": meetingData?.proposals.length ?? 0,
         "/reports": 0,
+        "/frank-deenie": 0,
         "/mandate": policyNotificationSummary?.pendingCount ?? 0,
         "/admin": adminData?.proposals.length ?? 0,
         "/settings": 0,
