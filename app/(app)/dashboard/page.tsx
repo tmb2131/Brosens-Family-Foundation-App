@@ -4,10 +4,10 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
-import { currency, formatNumber, parseNumberInput, titleCase } from "@/lib/utils";
+import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { StatusPill } from "@/components/ui/status-pill";
 
 const HistoricalImpactChart = dynamic(
@@ -47,21 +47,24 @@ type SortDirection = "asc" | "desc";
 interface TableFilters {
   proposal: string;
   proposalType: "all" | "joint" | "discretionary";
-  amountMin: string;
-  amountMax: string;
   status: "all" | ProposalStatus;
+}
+
+interface ProposalExportRow {
+  proposal: string;
+  description: string;
+  type: string;
+  amount: string;
+  status: string;
   sentAt: string;
   notes: string;
+  requiredAction: string;
 }
 
 const DEFAULT_FILTERS: TableFilters = {
   proposal: "",
   proposalType: "all",
-  amountMin: "",
-  amountMax: "",
-  status: "all",
-  sentAt: "",
-  notes: ""
+  status: "all"
 };
 
 const STATUS_RANK: Record<ProposalStatus, number> = {
@@ -70,6 +73,17 @@ const STATUS_RANK: Record<ProposalStatus, number> = {
   sent: 2,
   declined: 3
 };
+
+const EXPORT_HEADERS = [
+  "Proposal",
+  "Description",
+  "Type",
+  "Amount",
+  "Status",
+  "Date Amount Sent",
+  "Notes",
+  "Required Action"
+] as const;
 
 function toAmountInput(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
@@ -217,6 +231,126 @@ function buildHistoricalUpdatePayload(draft: ProposalDraft) {
   };
 }
 
+function escapeCsvField(value: string) {
+  const nextValue = value.replace(/"/g, '""');
+  return /[",\n]/.test(nextValue) ? `"${nextValue}"` : nextValue;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function rowToExportValues(row: ProposalExportRow) {
+  return [
+    row.proposal,
+    row.description,
+    row.type,
+    row.amount,
+    row.status,
+    row.sentAt,
+    row.notes,
+    row.requiredAction
+  ];
+}
+
+function buildCsv(rows: ProposalExportRow[]) {
+  const headerLine = EXPORT_HEADERS.join(",");
+  const dataLines = rows.map((row) => rowToExportValues(row).map(escapeCsvField).join(","));
+  return [headerLine, ...dataLines].join("\n");
+}
+
+function buildTsv(rows: ProposalExportRow[]) {
+  const sanitize = (value: string) => value.replace(/\t/g, " ").replace(/\r?\n/g, " ");
+  const headerLine = EXPORT_HEADERS.join("\t");
+  const dataLines = rows.map((row) => rowToExportValues(row).map(sanitize).join("\t"));
+  return [headerLine, ...dataLines].join("\n");
+}
+
+function buildExcelHtml(rows: ProposalExportRow[], title: string, subtitle: string) {
+  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+  const body = rows
+    .map((row) => {
+      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Arial, sans-serif; padding: 16px; }
+      h1 { margin: 0 0 6px; font-size: 18px; }
+      p { margin: 0 0 12px; color: #555; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #d4d4d8; padding: 6px 8px; font-size: 12px; text-align: left; vertical-align: top; }
+      th { background: #f4f4f5; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    <table>
+      <thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </body>
+</html>`;
+}
+
+function buildPrintableHtml(rows: ProposalExportRow[], title: string, subtitle: string) {
+  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+  const body = rows
+    .map((row) => {
+      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      @page { margin: 0.5in; }
+      body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
+      h1 { margin: 0 0 6px; font-size: 18px; }
+      p { margin: 0 0 12px; color: #475569; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
+      th { background: #e2e8f0; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    <table>
+      <thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </body>
+</html>`;
+}
+
+function downloadFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const isOversight = user?.role === "oversight";
@@ -233,6 +367,9 @@ export default function DashboardPage() {
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [bulkMessage, setBulkMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
+    null
+  );
+  const [exportMessage, setExportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
 
@@ -299,9 +436,6 @@ export default function DashboardPage() {
     }
 
     const normalizedProposalFilter = filters.proposal.trim().toLowerCase();
-    const normalizedNotesFilter = filters.notes.trim().toLowerCase();
-    const minAmount = parseNumberInput(filters.amountMin);
-    const maxAmount = parseNumberInput(filters.amountMax);
 
     const filtered = data.proposals.filter((proposal) => {
       const searchableProposalText = `${proposal.title} ${proposal.description}`.toLowerCase();
@@ -315,26 +449,6 @@ export default function DashboardPage() {
       }
 
       if (filters.status !== "all" && proposal.status !== filters.status) {
-        return false;
-      }
-
-      if (minAmount !== null) {
-        if (proposal.progress.computedFinalAmount < minAmount) {
-          return false;
-        }
-      }
-
-      if (maxAmount !== null) {
-        if (proposal.progress.computedFinalAmount > maxAmount) {
-          return false;
-        }
-      }
-
-      if (filters.sentAt && (proposal.sentAt ?? "") !== filters.sentAt) {
-        return false;
-      }
-
-      if (normalizedNotesFilter && !(proposal.notes ?? "").toLowerCase().includes(normalizedNotesFilter)) {
         return false;
       }
 
@@ -429,27 +543,33 @@ export default function DashboardPage() {
 
   const setFilter = <K extends keyof TableFilters>(key: K, value: TableFilters[K]) => {
     setFilters((current) => ({ ...current, [key]: value }));
+    setExportMessage(null);
   };
-
-  let activeFilterCount = 0;
-  if (filters.proposal.trim()) activeFilterCount += 1;
-  if (filters.proposalType !== "all") activeFilterCount += 1;
-  if (filters.amountMin.trim()) activeFilterCount += 1;
-  if (filters.amountMax.trim()) activeFilterCount += 1;
-  if (filters.status !== "all") activeFilterCount += 1;
-  if (filters.sentAt) activeFilterCount += 1;
-  if (filters.notes.trim()) activeFilterCount += 1;
-
-  const parsedMinFilterAmount = parseNumberInput(filters.amountMin);
-  const parsedMaxFilterAmount = parseNumberInput(filters.amountMax);
-  const amountFilterPreview =
-    parsedMinFilterAmount !== null && parsedMaxFilterAmount !== null
-      ? `${currency(parsedMinFilterAmount)} to ${currency(parsedMaxFilterAmount)}`
-      : parsedMinFilterAmount !== null
-      ? `At least ${currency(parsedMinFilterAmount)}`
-      : parsedMaxFilterAmount !== null
-      ? `Up to ${currency(parsedMaxFilterAmount)}`
-      : "No amount filter";
+  const exportRows: ProposalExportRow[] = filteredAndSortedProposals.map((proposal) => {
+    const masked = proposal.progress.masked && proposal.status === "to_review";
+    const requiredAction = buildRequiredActionSummary(proposal, user?.role);
+    const requiredActionLabel =
+      requiredAction.owner === "None"
+        ? requiredAction.detail
+        : `${requiredAction.owner}: ${requiredAction.detail}`;
+    return {
+      proposal: proposal.title.trim(),
+      description: proposal.description.trim(),
+      type: titleCase(proposal.proposalType),
+      amount: masked ? "Blind until your vote is submitted" : proposal.progress.computedFinalAmount.toFixed(2),
+      status: titleCase(proposal.status),
+      sentAt: proposal.sentAt ?? "",
+      notes: proposal.notes?.trim() ?? "",
+      requiredAction: requiredActionLabel
+    };
+  });
+  const exportFilenameBase = `dashboard-grant-tracker-year-${selectedBudgetYear}-${toISODate(new Date())}`;
+  const exportTitle = "Dashboard Grant Tracker";
+  const exportSubtitle = `Budget Year ${selectedBudgetYear} | ${formatNumber(exportRows.length)} rows`;
+  const clearTrackerFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setExportMessage(null);
+  };
 
   const toggleSort = (nextSortKey: SortKey) => {
     if (sortKey === nextSortKey) {
@@ -722,6 +842,100 @@ export default function DashboardPage() {
     }
   };
 
+  const withExportRows = () => {
+    if (exportRows.length > 0) {
+      return true;
+    }
+
+    setExportMessage({
+      tone: "error",
+      text: "No rows are available to export for the current filters."
+    });
+    return false;
+  };
+
+  const exportCsv = () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+    setExportMessage({
+      tone: "success",
+      text: `CSV exported (${formatNumber(exportRows.length)} rows).`
+    });
+  };
+
+  const exportExcel = () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    downloadFile(
+      `${exportFilenameBase}.xls`,
+      buildExcelHtml(exportRows, exportTitle, exportSubtitle),
+      "application/vnd.ms-excel;charset=utf-8"
+    );
+    setExportMessage({
+      tone: "success",
+      text: `Excel file exported (${formatNumber(exportRows.length)} rows).`
+    });
+  };
+
+  const exportPdf = () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+    if (!printWindow) {
+      setExportMessage({
+        tone: "error",
+        text: "The PDF export window was blocked. Allow pop-ups and try again."
+      });
+      return;
+    }
+
+    printWindow.document.write(buildPrintableHtml(exportRows, exportTitle, exportSubtitle));
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+    }, 250);
+
+    setExportMessage({
+      tone: "success",
+      text: "Print dialog opened. Choose Save as PDF to finish."
+    });
+  };
+
+  const exportGoogleSheet = async () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(buildTsv(exportRows));
+
+      window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
+
+      setExportMessage({
+        tone: "success",
+        text: "Copied rows for Google Sheets. Paste into cell A1 in the new sheet."
+      });
+    } catch {
+      downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+      window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
+      setExportMessage({
+        tone: "error",
+        text: "Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets."
+      });
+    }
+  };
+
   return (
     <div className="space-y-4 pb-4">
       <Card className="rounded-3xl">
@@ -867,13 +1081,6 @@ export default function DashboardPage() {
                     </button>
                   </>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => setFilters(DEFAULT_FILTERS)}
-                  className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  Clear filters
-                </button>
               </>
             ) : null}
           </div>
@@ -946,29 +1153,25 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-        <details className="mb-3 rounded-xl border p-3 md:hidden">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Filters and Sort
-            {activeFilterCount > 0 ? (
-              <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent">
-                {activeFilterCount}
-              </span>
-            ) : null}
-          </summary>
-          <div className="mt-3 space-y-3">
-            <label className="block text-xs font-semibold text-zinc-500">
-              Search proposal
-              <input
-                type="text"
-                value={filters.proposal}
-                onChange={(event) => setFilter("proposal", event.target.value)}
-                placeholder="Title or description"
-                className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
-              />
-            </label>
-            <div className="grid grid-cols-1 gap-2">
+            <div className="mb-3">
+              <p className="text-xs text-zinc-500">
+                Showing {formatNumber(filteredAndSortedProposals.length)} proposals for budget year {selectedBudgetYear}
+              </p>
+            </div>
+
+            <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
               <label className="text-xs font-semibold text-zinc-500">
-                Proposal type
+                Search
+                <input
+                  type="text"
+                  value={filters.proposal}
+                  onChange={(event) => setFilter("proposal", event.target.value)}
+                  placeholder="Title or description"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+              <label className="text-xs font-semibold text-zinc-500">
+                Type
                 <select
                   value={filters.proposalType}
                   onChange={(event) =>
@@ -996,81 +1199,63 @@ export default function DashboardPage() {
                   ))}
                 </select>
               </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Sent date
-                <input
-                  type="date"
-                  value={filters.sentAt}
-                  onChange={(event) => setFilter("sentAt", event.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                />
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs font-semibold text-zinc-500">
-                  Min amount
-                  <input
-                    type="number"
-                    min={0}
-                    value={filters.amountMin}
-                    onChange={(event) => setFilter("amountMin", event.target.value)}
-                    placeholder="0"
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </label>
-                <label className="text-xs font-semibold text-zinc-500">
-                  Max amount
-                  <input
-                    type="number"
-                    min={0}
-                    value={filters.amountMax}
-                    onChange={(event) => setFilter("amountMax", event.target.value)}
-                    placeholder="Any"
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </label>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={clearTrackerFilters}
+                  className="min-h-10 w-full rounded-md border border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 xl:w-auto"
+                >
+                  Clear filters
+                </button>
               </div>
-              <p className="text-[11px] text-zinc-500">Amount filter preview: {amountFilterPreview}</p>
-              <label className="text-xs font-semibold text-zinc-500">
-                Notes
-                <input
-                  type="text"
-                  value={filters.notes}
-                  onChange={(event) => setFilter("notes", event.target.value)}
-                  placeholder="Filter notes"
-                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                />
-              </label>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs font-semibold text-zinc-500">
-                Sort by
-                <select
-                  value={sortKey}
-                  onChange={(event) => setSortKey(event.target.value as SortKey)}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+
+            <div className="mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-2 dark:border-zinc-700 dark:bg-zinc-900/40">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exportPdf}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  <option value="proposal">Proposal</option>
-                  <option value="type">Type</option>
-                  <option value="amount">Amount</option>
-                  <option value="status">Status</option>
-                  <option value="sentAt">Sent Date</option>
-                  <option value="notes">Notes</option>
-                </select>
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Direction
-                <select
-                  value={sortDirection}
-                  onChange={(event) => setSortDirection(event.target.value as SortDirection)}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                  <Download className="h-3.5 w-3.5" />
+                  Export PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={exportCsv}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  <option value="asc">Ascending</option>
-                  <option value="desc">Descending</option>
-                </select>
-              </label>
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={exportExcel}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  Export Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void exportGoogleSheet();
+                  }}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  Export Google Sheet
+                </button>
+              </div>
+              {exportMessage ? (
+                <p
+                  className={`mt-2 text-xs ${
+                    exportMessage.tone === "error"
+                      ? "text-rose-600"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  {exportMessage.text}
+                </p>
+              ) : null}
             </div>
-          </div>
-        </details>
 
         <div className="space-y-3 md:hidden">
           {filteredAndSortedProposals.length === 0 ? (
@@ -1293,85 +1478,6 @@ export default function DashboardPage() {
                   </button>
                 </th>
                 <th className="px-2 py-2">Required Action</th>
-              </tr>
-              <tr className="border-b text-xs text-zinc-500 [&>th]:align-top">
-                <th className="px-2 py-2">
-                  <input
-                    type="text"
-                    value={filters.proposal}
-                    onChange={(event) => setFilter("proposal", event.target.value)}
-                    placeholder="Filter text"
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </th>
-                <th className="px-2 py-2">
-                  <select
-                    value={filters.proposalType}
-                    onChange={(event) =>
-                      setFilter("proposalType", event.target.value as TableFilters["proposalType"])
-                    }
-                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    <option value="all">All</option>
-                    <option value="joint">Joint</option>
-                    <option value="discretionary">Discretionary</option>
-                  </select>
-                </th>
-                <th className="px-2 py-2">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        min={0}
-                        value={filters.amountMin}
-                        onChange={(event) => setFilter("amountMin", event.target.value)}
-                        placeholder="Min"
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        value={filters.amountMax}
-                        onChange={(event) => setFilter("amountMax", event.target.value)}
-                        placeholder="Max"
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                    </div>
-                    <p className="mt-2 text-[10px] normal-case text-zinc-500">{amountFilterPreview}</p>
-                  </div>
-                </th>
-                <th className="px-2 py-2">
-                  <select
-                    value={filters.status}
-                    onChange={(event) => setFilter("status", event.target.value as TableFilters["status"])}
-                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    <option value="all">All</option>
-                    {STATUS_OPTIONS.map((statusOption) => (
-                      <option key={statusOption} value={statusOption}>
-                        {titleCase(statusOption)}
-                      </option>
-                    ))}
-                  </select>
-                </th>
-                <th className="px-2 py-2">
-                  <input
-                    type="date"
-                    value={filters.sentAt}
-                    onChange={(event) => setFilter("sentAt", event.target.value)}
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </th>
-                <th className="px-2 py-2">
-                  <input
-                    type="text"
-                    value={filters.notes}
-                    onChange={(event) => setFilter("notes", event.target.value)}
-                    placeholder="Filter notes"
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </th>
-                <th className="px-2 py-2" />
               </tr>
             </thead>
             <tbody>
