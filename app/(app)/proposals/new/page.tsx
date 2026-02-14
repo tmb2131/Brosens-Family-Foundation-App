@@ -280,37 +280,47 @@ export default function NewProposalPage() {
             />
           </label>
 
-          <label className="block text-sm font-medium">
-            Organization website link (optional)
-            <input
-              type="url"
-              value={website}
-              onChange={(event) => setWebsite(event.target.value)}
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
-              placeholder="https://example.org"
-              inputMode="url"
-            />
-            <p className="mt-1 text-xs text-zinc-500">
-              Add the organization website for proposal context and to help Brynn complete the
-              donation.
-            </p>
-          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-medium">
+              Proposal type
+              <select
+                value={proposalType}
+                onChange={(event) => {
+                  const nextType = event.target.value as ProposalTypeOption;
+                  setProposalType(nextType);
 
-          <label className="block text-sm font-medium">
-            Charity Navigator link (optional)
-            <input
-              type="url"
-              value={charityNavigatorUrl}
-              onChange={(event) => setCharityNavigatorUrl(event.target.value)}
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
-              placeholder="https://www.charitynavigator.org/..."
-              inputMode="url"
-            />
-            <p className="mt-1 text-xs text-zinc-500">
-              Add the Charity Navigator profile URL. A future update can auto-populate the score
-              and summary from this link.
-            </p>
-          </label>
+                  if (nextType === "discretionary" && discretionaryLimit !== null) {
+                    setProposedAmount((current) => {
+                      const parsedCurrent = Number(current);
+                      if (!Number.isFinite(parsedCurrent) || parsedCurrent <= discretionaryLimit) {
+                        return current;
+                      }
+                      return String(discretionaryLimit);
+                    });
+                  }
+                }}
+                className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+                required
+              >
+                <option value="" disabled>
+                  Select
+                </option>
+                <option value="joint">Joint (75% pool)</option>
+                <option value="discretionary">Discretionary (25% pool)</option>
+              </select>
+            </label>
+
+            <div className="block text-sm font-medium">
+              Final amount rule
+              <p className="mt-1 w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900/40 dark:text-zinc-300">
+                {proposalType === "joint"
+                  ? "Final amount is still the sum of blind allocations. Proposed amount is guidance only."
+                  : proposalType === "discretionary"
+                  ? "Final amount is set by the proposer's proposed amount."
+                  : "Select a proposal type to see the final amount rule."}
+              </p>
+            </div>
+          </div>
 
           <label className="block text-sm font-medium">
             {proposalType === "joint"
@@ -353,47 +363,37 @@ export default function NewProposalPage() {
             </p>
           </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-medium">
-              Proposal type
-              <select
-                value={proposalType}
-                onChange={(event) => {
-                  const nextType = event.target.value as ProposalTypeOption;
-                  setProposalType(nextType);
+          <label className="block text-sm font-medium">
+            Organization website link (optional)
+            <input
+              type="url"
+              value={website}
+              onChange={(event) => setWebsite(event.target.value)}
+              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              placeholder="https://example.org"
+              inputMode="url"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Add the organization website for proposal context and to help Brynn complete the
+              donation.
+            </p>
+          </label>
 
-                  if (nextType === "discretionary" && discretionaryLimit !== null) {
-                    setProposedAmount((current) => {
-                      const parsedCurrent = Number(current);
-                      if (!Number.isFinite(parsedCurrent) || parsedCurrent <= discretionaryLimit) {
-                        return current;
-                      }
-                      return String(discretionaryLimit);
-                    });
-                  }
-                }}
-                className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
-                required
-              >
-                <option value="" disabled>
-                  Select
-                </option>
-                <option value="joint">Joint (75% pool)</option>
-                <option value="discretionary">Discretionary (25% pool)</option>
-              </select>
-            </label>
-
-            <div className="block text-sm font-medium">
-              Final amount rule
-              <p className="mt-1 w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900/40 dark:text-zinc-300">
-                {proposalType === "joint"
-                  ? "Final amount is still the sum of blind allocations. Proposed amount is guidance only."
-                  : proposalType === "discretionary"
-                  ? "Final amount is set by the proposer's proposed amount."
-                  : "Select a proposal type to see the final amount rule."}
-              </p>
-            </div>
-          </div>
+          <label className="block text-sm font-medium">
+            Charity Navigator link (optional)
+            <input
+              type="url"
+              value={charityNavigatorUrl}
+              onChange={(event) => setCharityNavigatorUrl(event.target.value)}
+              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              placeholder="https://www.charitynavigator.org/..."
+              inputMode="url"
+            />
+            <p className="mt-1 text-xs text-zinc-500">
+              Add the Charity Navigator profile URL. A future update can auto-populate the score
+              and summary from this link.
+            </p>
+          </label>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <button
