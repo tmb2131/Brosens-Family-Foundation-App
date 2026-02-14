@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Download, Plus } from "lucide-react";
+import { Download, Plus, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
@@ -366,6 +366,7 @@ export default function DashboardPage() {
   >({});
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [detailProposalId, setDetailProposalId] = useState<string | null>(null);
   const [bulkMessage, setBulkMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
@@ -514,6 +515,40 @@ export default function DashboardPage() {
       setBulkMessage(null);
     }
   }, [canEditHistorical]);
+
+  useEffect(() => {
+    if (showPendingTab) {
+      setDetailProposalId(null);
+    }
+  }, [showPendingTab]);
+
+  useEffect(() => {
+    if (!detailProposalId) {
+      return;
+    }
+
+    const stillExists = data?.proposals.some((proposal) => proposal.id === detailProposalId) ?? false;
+    if (!stillExists) {
+      setDetailProposalId(null);
+    }
+  }, [data, detailProposalId]);
+
+  useEffect(() => {
+    if (!detailProposalId) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDetailProposalId(null);
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [detailProposalId]);
 
   const dirtyHistoricalProposalIds = useMemo(() => {
     if (!canEditHistorical || !data) {
@@ -935,6 +970,39 @@ export default function DashboardPage() {
       });
     }
   };
+
+  const closeDetailDrawer = () => {
+    setDetailProposalId(null);
+  };
+
+  const detailProposal = detailProposalId
+    ? data.proposals.find((proposal) => proposal.id === detailProposalId) ?? null
+    : null;
+  const detailDraft = detailProposal ? drafts[detailProposal.id] ?? toProposalDraft(detailProposal) : null;
+  const detailMasked = Boolean(detailProposal?.progress.masked && detailProposal.status === "to_review");
+  const detailRequiredAction = detailProposal
+    ? buildRequiredActionSummary(detailProposal, user?.role)
+    : null;
+  const detailRequiredActionToneClass = detailRequiredAction
+    ? detailRequiredAction.tone === "attention"
+      ? "text-amber-700 dark:text-amber-300"
+      : detailRequiredAction.tone === "complete"
+      ? "text-emerald-700 dark:text-emerald-300"
+      : "text-zinc-700 dark:text-zinc-200"
+    : "";
+  const detailIsOwnProposal = Boolean(user && detailProposal && detailProposal.proposerId === user.id);
+  const detailIsRowEditable = Boolean(detailProposal && isHistoricalBulkEditEnabled);
+  const detailCanEditSentDate = Boolean(
+    detailProposal &&
+      (detailIsRowEditable || (!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent"))
+  );
+  const detailSentDateDisabled = detailProposal
+    ? detailIsRowEditable
+      ? detailDraft?.status !== "sent"
+      : !detailCanEditSentDate
+    : true;
+  const detailParsedDraftFinalAmount = detailDraft ? parseNumberInput(detailDraft.finalAmount) : null;
+  const detailRowState = detailProposal ? rowMessage[detailProposal.id] : null;
 
   return (
     <div className="space-y-4 pb-4">
@@ -1444,7 +1512,16 @@ export default function DashboardPage() {
         </div>
 
         <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-[980px] table-auto text-left text-sm">
+          <table className="w-full min-w-[980px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[20rem]" />
+              <col className="w-[6.5rem]" />
+              <col className="w-[8rem]" />
+              <col className="w-[8rem]" />
+              <col className="w-[7.5rem]" />
+              <col />
+              <col className="w-[4.5rem]" />
+            </colgroup>
             <thead>
               <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
                 <th className="px-2 py-2">
@@ -1463,21 +1540,17 @@ export default function DashboardPage() {
                   </button>
                 </th>
                 <th className="px-2 py-2">
+                  <button type="button" className="font-semibold" onClick={() => toggleSort("sentAt")}>
+                    Date Sent{sortMarker("sentAt")}
+                  </button>
+                </th>
+                <th className="px-2 py-2">
                   <button type="button" className="font-semibold" onClick={() => toggleSort("status")}>
                     Status{sortMarker("status")}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("sentAt")}>
-                    Date Amount Sent{sortMarker("sentAt")}
-                  </button>
-                </th>
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("notes")}>
-                    Notes{sortMarker("notes")}
-                  </button>
-                </th>
                 <th className="px-2 py-2">Required Action</th>
+                <th className="px-2 py-2 text-right">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -1491,164 +1564,78 @@ export default function DashboardPage() {
                 filteredAndSortedProposals.map((proposal) => {
                   const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
                   const masked = proposal.progress.masked && proposal.status === "to_review";
-                  const requiredAction = buildRequiredActionSummary(proposal, user?.role);
-                  const isOwnProposal = Boolean(user && proposal.proposerId === user.id);
-                  const isRowEditable = isHistoricalBulkEditEnabled;
-                  const canEditSentDate =
-                    isRowEditable || (!canEditHistorical && isOwnProposal && proposal.status === "sent");
-                  const sentDateDisabled = isRowEditable ? draft.status !== "sent" : !canEditSentDate;
                   const rowState = rowMessage[proposal.id];
                   const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
+                  const requiredAction = buildRequiredActionSummary(proposal, user?.role);
                   const requiredActionToneClass =
                     requiredAction.tone === "attention"
                       ? "text-amber-700 dark:text-amber-300"
                       : requiredAction.tone === "complete"
                       ? "text-emerald-700 dark:text-emerald-300"
                       : "text-zinc-700 dark:text-zinc-200";
+                  const amountDisplay =
+                    masked
+                      ? "Blind until your vote is submitted"
+                      : isHistoricalBulkEditEnabled
+                      ? parsedDraftFinalAmount !== null && parsedDraftFinalAmount >= 0
+                        ? currency(parsedDraftFinalAmount)
+                        : "Invalid amount"
+                      : currency(proposal.progress.computedFinalAmount);
+                  const amountToneClass =
+                    isHistoricalBulkEditEnabled &&
+                    !masked &&
+                    (parsedDraftFinalAmount === null || parsedDraftFinalAmount < 0)
+                      ? "text-rose-600"
+                      : "text-zinc-600 dark:text-zinc-300";
+                  const statusDisplay = isHistoricalBulkEditEnabled ? draft.status : proposal.status;
+                  const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt ?? "—";
 
                   return (
                     <tr key={proposal.id} className="border-b align-top">
+                      <td className="w-[20rem] max-w-[20rem] px-2 py-3">
+                        <p className="block max-w-full truncate font-semibold" title={proposal.title}>
+                          {proposal.title}
+                        </p>
+                        <p
+                          className="mt-1 block max-w-full truncate text-xs text-zinc-500"
+                          title={proposal.description}
+                        >
+                          {proposal.description}
+                        </p>
+                      </td>
+                      <td className="px-2 py-3 text-xs text-zinc-500">{titleCase(proposal.proposalType)}</td>
+                      <td className="px-2 py-3 text-xs">
+                        <p className={amountToneClass}>{amountDisplay}</p>
+                      </td>
+                      <td className="px-2 py-3 text-xs text-zinc-500">{sentAtDisplay}</td>
                       <td className="px-2 py-3">
-                        <p className="font-semibold">{proposal.title}</p>
-                        <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
-                      </td>
-                      <td className="px-2 py-3 text-xs text-zinc-500">
-                        {titleCase(proposal.proposalType)}
-                      </td>
-                      <td className="px-2 py-3 text-xs text-zinc-500">
-                        {isRowEditable ? (
-                          <div>
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={draft.finalAmount}
-                              onChange={(event) =>
-                                updateDraft(proposal.id, { finalAmount: event.target.value })
-                              }
-                              className="w-28 rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                            <p className="mt-1 text-[10px] text-zinc-500">
-                              {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-xs text-zinc-600 dark:text-zinc-300">
-                            {masked
-                              ? "Blind until your vote is submitted"
-                              : currency(proposal.progress.computedFinalAmount)}
-                          </p>
-                        )}
+                        <StatusPill status={statusDisplay} />
                       </td>
                       <td className="px-2 py-3">
-                        {isRowEditable ? (
-                          <select
-                            value={draft.status}
-                            onChange={(event) =>
-                              updateDraft(proposal.id, {
-                                status: event.target.value as ProposalStatus,
-                                ...(event.target.value === "sent" ? {} : { sentAt: "" })
-                              })
-                            }
-                            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        <p className={`text-xs ${requiredActionToneClass}`}>
+                          <span className="font-semibold">{requiredAction.owner}:</span> {requiredAction.detail}
+                        </p>
+                        {rowState ? (
+                          <p
+                            className={`mt-2 text-xs ${
+                              rowState.tone === "error"
+                                ? "text-rose-600"
+                                : "text-emerald-700 dark:text-emerald-300"
+                            }`}
                           >
-                            {STATUS_OPTIONS.map((statusOption) => (
-                              <option key={statusOption} value={statusOption}>
-                                {titleCase(statusOption)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <StatusPill status={proposal.status} />
-                        )}
-                      </td>
-                      <td className="px-2 py-3">
-                        {canEditSentDate ? (
-                          <input
-                            type="date"
-                            value={draft.sentAt}
-                            disabled={sentDateDisabled}
-                            onChange={(event) =>
-                              updateDraft(proposal.id, { sentAt: event.target.value })
-                            }
-                            className="w-36 rounded-md border border-zinc-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-                          />
-                        ) : (
-                          <p className="text-xs text-zinc-500">{proposal.sentAt ?? "—"}</p>
-                        )}
-                      </td>
-                      <td className="px-2 py-3">
-                        {isRowEditable ? (
-                          <input
-                            type="text"
-                            value={draft.notes}
-                            onChange={(event) => updateDraft(proposal.id, { notes: event.target.value })}
-                            placeholder="Optional notes"
-                            className="w-44 rounded-md border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                          />
-                        ) : (
-                          <p className="max-w-44 text-xs text-zinc-500">
-                            {proposal.notes?.trim() ? proposal.notes : "—"}
+                            {rowState.text}
                           </p>
-                        )}
+                        ) : null}
                       </td>
-                      <td className="px-2 py-3">
-                        <div className="space-y-2">
-                          <p className={`text-xs ${requiredActionToneClass}`}>
-                            <span className="font-semibold">{requiredAction.owner}:</span>{" "}
-                            {requiredAction.detail}
-                          </p>
-
-                          {requiredAction.href && requiredAction.ctaLabel ? (
-                            <Link
-                              href={requiredAction.href}
-                              className="inline-flex rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                            >
-                              {requiredAction.ctaLabel}
-                            </Link>
-                          ) : null}
-
-                          {!canEditHistorical && isOwnProposal && proposal.status === "sent" ? (
-                            <button
-                              type="button"
-                              disabled={savingProposalId === proposal.id}
-                              onClick={() => void saveProposalSentDate(proposal)}
-                              className="rounded-md bg-accent px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-                            >
-                              {savingProposalId === proposal.id ? "Saving..." : "Save date"}
-                            </button>
-                          ) : null}
-
-                          {user &&
-                          canVote &&
-                          proposal.status === "to_review" &&
-                          !proposal.progress.hasCurrentUserVoted ? (
-                            <VoteForm
-                              proposalId={proposal.id}
-                              proposalType={proposal.proposalType}
-                              proposedAmount={proposal.proposedAmount}
-                              totalRequiredVotes={proposal.progress.totalRequiredVotes}
-                              onSuccess={() => {
-                                void mutate();
-                                if (isOversight) {
-                                  void mutatePending();
-                                }
-                              }}
-                            />
-                          ) : null}
-
-                          {rowState ? (
-                            <p
-                              className={`text-xs ${
-                                rowState.tone === "error"
-                                  ? "text-rose-600"
-                                  : "text-emerald-700 dark:text-emerald-300"
-                              }`}
-                            >
-                              {rowState.text}
-                            </p>
-                          ) : null}
-                        </div>
+                      <td className="px-2 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setDetailProposalId(proposal.id)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-sm font-semibold leading-none text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          aria-label={`View details for ${proposal.title}`}
+                        >
+                          ...
+                        </button>
                       </td>
                     </tr>
                   );
@@ -1657,6 +1644,209 @@ export default function DashboardPage() {
             </tbody>
           </table>
         </div>
+
+        {detailProposal && detailDraft && detailRequiredAction ? (
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 py-4 sm:px-6 sm:py-6"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) {
+                closeDetailDrawer();
+              }
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="proposal-details-title"
+              className="w-full max-h-[92vh] overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-3xl sm:p-5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 id="proposal-details-title" className="text-base font-semibold">
+                    Proposal Details
+                  </h2>
+                  <p className="mt-1 text-xs text-zinc-500">{detailProposal.title}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDetailDrawer}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  aria-label="Close proposal details"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <dl className="mt-4 grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Proposal</dt>
+                  <dd className="mt-1 font-medium">{detailProposal.title}</dd>
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-500">
+                    {detailProposal.description || "—"}
+                  </p>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Type</dt>
+                  <dd className="mt-1 font-medium">{titleCase(detailProposal.proposalType)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Amount</dt>
+                  <dd className="mt-1 font-medium">
+                    {detailMasked
+                      ? "Blind until your vote is submitted"
+                      : currency(detailProposal.progress.computedFinalAmount)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Date Sent</dt>
+                  <dd className="mt-1 font-medium">{detailProposal.sentAt ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
+                  <dd className="mt-1 font-medium">{titleCase(detailProposal.status)}</dd>
+                </div>
+                <div className="md:col-span-2">
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Required Action</dt>
+                  <dd className={`mt-1 ${detailRequiredActionToneClass}`}>
+                    <span className="font-semibold">{detailRequiredAction.owner}:</span>{" "}
+                    {detailRequiredAction.detail}
+                  </dd>
+                </div>
+                <div className="md:col-span-2">
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Notes</dt>
+                  <dd className="mt-1 whitespace-pre-wrap font-medium">{detailProposal.notes?.trim() || "—"}</dd>
+                </div>
+              </dl>
+
+              {detailIsRowEditable || detailCanEditSentDate ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {detailIsRowEditable ? (
+                    <label className="text-xs font-semibold text-zinc-500">
+                      Amount
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={detailDraft.finalAmount}
+                        onChange={(event) =>
+                          updateDraft(detailProposal.id, { finalAmount: event.target.value })
+                        }
+                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                      <span className="mt-1 block text-[11px] text-zinc-500">
+                        Amount preview:{" "}
+                        {detailParsedDraftFinalAmount !== null && detailParsedDraftFinalAmount >= 0
+                          ? currency(detailParsedDraftFinalAmount)
+                          : "Invalid amount"}
+                      </span>
+                    </label>
+                  ) : null}
+
+                  {detailIsRowEditable ? (
+                    <label className="text-xs font-semibold text-zinc-500">
+                      Status
+                      <select
+                        value={detailDraft.status}
+                        onChange={(event) =>
+                          updateDraft(detailProposal.id, {
+                            status: event.target.value as ProposalStatus,
+                            ...(event.target.value === "sent" ? {} : { sentAt: "" })
+                          })
+                        }
+                        className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      >
+                        {STATUS_OPTIONS.map((statusOption) => (
+                          <option key={statusOption} value={statusOption}>
+                            {titleCase(statusOption)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+
+                  {detailCanEditSentDate ? (
+                    <label className="text-xs font-semibold text-zinc-500">
+                      Date amount sent
+                      <input
+                        type="date"
+                        value={detailDraft.sentAt}
+                        disabled={detailSentDateDisabled}
+                        onChange={(event) => updateDraft(detailProposal.id, { sentAt: event.target.value })}
+                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                    </label>
+                  ) : null}
+
+                  {detailIsRowEditable ? (
+                    <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                      Notes
+                      <input
+                        type="text"
+                        value={detailDraft.notes}
+                        onChange={(event) => updateDraft(detailProposal.id, { notes: event.target.value })}
+                        placeholder="Optional notes"
+                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
+                  <Link
+                    href={detailRequiredAction.href}
+                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    {detailRequiredAction.ctaLabel}
+                  </Link>
+                ) : null}
+                {!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent" ? (
+                  <button
+                    type="button"
+                    disabled={savingProposalId === detailProposal.id}
+                    onClick={() => void saveProposalSentDate(detailProposal)}
+                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {savingProposalId === detailProposal.id ? "Saving..." : "Save date"}
+                  </button>
+                ) : null}
+              </div>
+
+              {user &&
+              canVote &&
+              detailProposal.status === "to_review" &&
+              !detailProposal.progress.hasCurrentUserVoted ? (
+                <div className="mt-4">
+                  <VoteForm
+                    proposalId={detailProposal.id}
+                    proposalType={detailProposal.proposalType}
+                    proposedAmount={detailProposal.proposedAmount}
+                    totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
+                    onSuccess={() => {
+                      void mutate();
+                      if (isOversight) {
+                        void mutatePending();
+                      }
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              {detailRowState ? (
+                <p
+                  className={`mt-3 text-xs ${
+                    detailRowState.tone === "error"
+                      ? "text-rose-600"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  {detailRowState.text}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
           </>
         )}
       </Card>
