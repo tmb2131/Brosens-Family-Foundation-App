@@ -120,6 +120,15 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 
 - Category worker:
   - `/api/organizations/categories/process` (supports `Authorization: Bearer $ORG_CATEGORY_WORKER_SECRET`)
+- NTEE-style broad categories used in the app:
+  - Arts, Culture & Humanities
+  - Education
+  - Environment & Animals
+  - Health
+  - Human Services
+  - International & Foreign Affairs
+  - Public & Societal Benefit
+  - Other
 - Categorization strategy:
   - rules first
   - Gemini fallback (`GOOGLE_GENERATIVE_AI_API_KEY`, optional `GEMINI_MODEL`)

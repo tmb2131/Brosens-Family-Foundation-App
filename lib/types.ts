@@ -16,24 +16,24 @@ export type DirectionalCategory =
 export type DirectionalCategorySource = "rule" | "ai" | "manual" | "fallback";
 
 export const DIRECTIONAL_CATEGORIES: DirectionalCategory[] = [
-  "education",
-  "health",
-  "environment",
-  "housing",
-  "food_security",
   "arts_culture",
+  "education",
+  "environment",
+  "health",
+  "housing",
   "international_aid",
+  "food_security",
   "other"
 ];
 
 export const DIRECTIONAL_CATEGORY_LABELS: Record<DirectionalCategory, string> = {
+  arts_culture: "Arts, Culture & Humanities",
   education: "Education",
+  environment: "Environment & Animals",
   health: "Health",
-  environment: "Environment",
-  housing: "Housing",
-  food_security: "Food Security",
-  arts_culture: "Arts & Culture",
-  international_aid: "International Aid",
+  housing: "Human Services",
+  international_aid: "International & Foreign Affairs",
+  food_security: "Public & Societal Benefit",
   other: "Other"
 };
 

@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
 import {
   DirectionalCategory,
+  DIRECTIONAL_CATEGORY_LABELS,
   DirectionalCategorySource,
   DIRECTIONAL_CATEGORIES
 } from "@/lib/types";
@@ -16,6 +17,23 @@ const DIRECTIONAL_CATEGORY_SET = new Set<string>(DIRECTIONAL_CATEGORIES);
 const DIRECTIONAL_CATEGORY_SOURCE_SET = new Set<string>(["rule", "ai", "manual", "fallback"]);
 
 const CATEGORY_RULE_KEYWORDS: Record<DirectionalCategory, string[]> = {
+  arts_culture: [
+    "arts",
+    "art",
+    "culture",
+    "humanities",
+    "museum",
+    "music",
+    "media",
+    "theater",
+    "theatre",
+    "dance",
+    "heritage",
+    "history",
+    "literature",
+    "library",
+    "libraries"
+  ],
   education: [
     "education",
     "school",
@@ -54,7 +72,14 @@ const CATEGORY_RULE_KEYWORDS: Record<DirectionalCategory, string[]> = {
     "water",
     "nature",
     "sustainability",
-    "earth"
+    "earth",
+    "animal",
+    "animals",
+    "vet",
+    "veterinary",
+    "sanctuary",
+    "park",
+    "parks"
   ],
   housing: [
     "housing",
@@ -64,10 +89,7 @@ const CATEGORY_RULE_KEYWORDS: Record<DirectionalCategory, string[]> = {
     "homes",
     "tenant",
     "rent",
-    "habitat",
-    "residence"
-  ],
-  food_security: [
+    "residence",
     "food",
     "hunger",
     "meal",
@@ -76,20 +98,13 @@ const CATEGORY_RULE_KEYWORDS: Record<DirectionalCategory, string[]> = {
     "pantry",
     "kitchen",
     "feeding",
-    "farm",
     "foodbank",
-    "food-bank"
-  ],
-  arts_culture: [
-    "arts",
-    "art",
-    "culture",
-    "museum",
-    "music",
-    "theater",
-    "theatre",
-    "dance",
-    "heritage"
+    "youth",
+    "job",
+    "training",
+    "workforce",
+    "services",
+    "support"
   ],
   international_aid: [
     "international",
@@ -101,9 +116,38 @@ const CATEGORY_RULE_KEYWORDS: Record<DirectionalCategory, string[]> = {
     "disaster",
     "aid",
     "poverty",
-    "development"
+    "development",
+    "foreign",
+    "rights"
+  ],
+  food_security: [
+    "civil",
+    "rights",
+    "community",
+    "foundation",
+    "foundations",
+    "public",
+    "societal",
+    "benefit",
+    "policy",
+    "advocacy",
+    "legal",
+    "justice",
+    "democracy",
+    "civic"
   ],
   other: []
+};
+
+const CATEGORY_AI_GUIDANCE: Record<DirectionalCategory, string> = {
+  arts_culture: "Arts, Culture & Humanities (museums, performing arts, media, humanities).",
+  education: "Education (schools, universities, PTAs, libraries, scholarships).",
+  environment: "Environment & Animals (parks, conservation, wildlife sanctuaries, vet services).",
+  health: "Health (hospitals, mental health, medical research, public health).",
+  housing: "Human Services (housing, food banks, youth centers, job training, social services).",
+  international_aid: "International & Foreign Affairs (human rights, relief, international development).",
+  food_security: "Public & Societal Benefit (civil rights, legal advocacy, community foundations).",
+  other: "Other (does not strongly fit the categories above)."
 };
 
 interface OrganizationForCategorizationRow {
@@ -146,9 +190,32 @@ export interface ProcessOrganizationCategoryJobsResult {
 }
 
 function toDirectionalCategory(value: unknown): DirectionalCategory {
-  const normalized = String(value ?? "").trim();
+  const normalized = String(value ?? "").trim().toLowerCase();
   if (DIRECTIONAL_CATEGORY_SET.has(normalized)) {
     return normalized as DirectionalCategory;
+  }
+
+  const collapsed = normalized
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const aliasMap: Record<string, DirectionalCategory> = {
+    "arts culture humanities": "arts_culture",
+    "arts and culture humanities": "arts_culture",
+    "environment animals": "environment",
+    "environment and animals": "environment",
+    "human services": "housing",
+    "international foreign affairs": "international_aid",
+    "international and foreign affairs": "international_aid",
+    "public societal benefit": "food_security",
+    "public and societal benefit": "food_security"
+  };
+
+  const aliased = aliasMap[collapsed];
+  if (aliased) {
+    return aliased;
   }
   return "other";
 }
@@ -395,10 +462,16 @@ function buildAiPrompt(
   const contextBlock = serperContext.length
     ? serperContext.map((snippet, index) => `${index + 1}. ${snippet}`).join("\n")
     : "(none)";
+  const categoryGuide = DIRECTIONAL_CATEGORIES.map(
+    (category) =>
+      `- ${category} (${DIRECTIONAL_CATEGORY_LABELS[category]}): ${CATEGORY_AI_GUIDANCE[category]}`
+  ).join("\n");
 
   return [
     "Classify the organization into exactly one directional category.",
-    `Allowed categories: ${DIRECTIONAL_CATEGORIES.join(", ")}.`,
+    `Allowed category keys: ${DIRECTIONAL_CATEGORIES.join(", ")}.`,
+    "Use the key values exactly in JSON output.",
+    `Category guide:\n${categoryGuide}`,
     "Return strict JSON with keys: category, confidence.",
     'Example: {"category":"education","confidence":0.82}',
     `Organization name: ${input.organizationName || "(blank)"}`,

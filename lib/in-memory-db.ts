@@ -50,7 +50,7 @@ const seedState: DataState = {
       website: "https://example.org/food-bank",
       charityNavigatorScore: 94,
       causeArea: "Food Security",
-      directionalCategory: "food_security",
+      directionalCategory: "housing",
       directionalCategorySource: "rule",
       directionalCategoryConfidence: 0.91,
       directionalCategoryLocked: false,
