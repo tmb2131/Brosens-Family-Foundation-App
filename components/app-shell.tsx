@@ -23,7 +23,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { AppRole, FoundationSnapshot, WorkspaceSnapshot } from "@/lib/types";
+import { AppRole, FoundationSnapshot, UserProfile, WorkspaceSnapshot } from "@/lib/types";
 
 type NavItem = {
   href: Route;
@@ -31,6 +31,15 @@ type NavItem = {
   icon: ComponentType<{ className?: string }>;
   roles?: AppRole[];
 };
+
+type NavOutstandingCounts = Partial<Record<Route, number>>;
+type NavSectionId = "work" | "governance" | "system";
+
+interface NavSection {
+  id: NavSectionId;
+  label: string;
+  items: NavItem[];
+}
 
 interface MeetingResponse {
   proposals: FoundationSnapshot["proposals"];
@@ -43,6 +52,8 @@ interface AdminQueueResponse {
 interface PolicyNotificationSummaryResponse {
   pendingCount: number;
 }
+
+const DESKTOP_SIDEBAR_STORAGE_KEY = "bf_desktop_sidebar_open";
 
 const fullNavItems: NavItem[] = [
   {
@@ -107,11 +118,297 @@ const focusNavItems: NavItem[] = [
   { href: "/dashboard", label: "Full Details", icon: FileText }
 ];
 
+const fullNavSections: Array<{ id: NavSectionId; label: string }> = [
+  { id: "work", label: "Work" },
+  { id: "governance", label: "Governance" },
+  { id: "system", label: "System" }
+];
+
+const fullNavSectionByHref: Record<string, NavSectionId> = {
+  "/dashboard": "work",
+  "/workspace": "work",
+  "/meeting": "work",
+  "/reports": "work",
+  "/frank-deenie": "governance",
+  "/mandate": "governance",
+  "/admin": "governance",
+  "/settings": "system"
+};
+
+function groupFullNavItems(items: NavItem[]): NavSection[] {
+  const grouped = {
+    work: [] as NavItem[],
+    governance: [] as NavItem[],
+    system: [] as NavItem[]
+  };
+
+  for (const item of items) {
+    const section = fullNavSectionByHref[item.href] ?? "work";
+    grouped[section].push(item);
+  }
+
+  return fullNavSections
+    .map((section) => ({
+      ...section,
+      items: grouped[section.id]
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
+function isRouteActive(pathname: string, href: Route) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function OutstandingBadge({ count }: { count: number }) {
+  if (count <= 0) {
+    return null;
+  }
+
+  return <span className="nav-outstanding-badge">{count > 99 ? "99+" : count}</span>;
+}
+
+interface SidebarProfileCardProps {
+  isOpen: boolean;
+  user: UserProfile | null;
+  onSignOut: () => void;
+}
+
+function SidebarProfileCard({ isOpen, user, onSignOut }: SidebarProfileCardProps) {
+  return (
+    <section className={cn("mb-2 rounded-2xl border bg-card/70", isOpen ? "p-3" : "p-2")}>
+      {isOpen ? (
+        <>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
+          <h1 className="mt-1 text-lg font-semibold leading-tight">Grant Management</h1>
+          {user ? (
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              <span className="truncate">{user.name}</span>
+              <RolePill role={user.role} />
+            </div>
+          ) : null}
+          <div className="mt-3 flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              onClick={onSignOut}
+              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
+              type="button"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card text-[11px] font-semibold tracking-wide"
+            title="Brosens Family Foundation"
+          >
+            BF
+          </span>
+          <ThemeToggle />
+          <button
+            onClick={onSignOut}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card"
+            type="button"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface DesktopNavLinkProps {
+  item: NavItem;
+  isOpen: boolean;
+  active: boolean;
+  outstandingCount: number;
+}
+
+function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLinkProps) {
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "sidebar-link",
+        isOpen ? "sidebar-link--expanded" : "sidebar-link--collapsed",
+        active && "sidebar-link--active"
+      )}
+      title={isOpen ? undefined : item.label}
+      aria-current={active ? "page" : undefined}
+      data-nav-href={item.href}
+    >
+      <span
+        className={cn(
+          "sidebar-link__active-indicator",
+          active ? "sidebar-link__active-indicator--visible" : "sidebar-link__active-indicator--hidden"
+        )}
+        aria-hidden
+      />
+      <span className="relative inline-flex shrink-0">
+        <item.icon className="h-4 w-4" />
+        <OutstandingBadge count={outstandingCount} />
+      </span>
+      <span className={cn("truncate", !isOpen && "sr-only")}>{item.label}</span>
+      {!isOpen ? (
+        <span className="sidebar-link__tooltip" aria-hidden>
+          {item.label}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+interface DesktopSidebarNavProps {
+  pathname: string;
+  isOpen: boolean;
+  sections: NavSection[];
+  outstandingByHref: NavOutstandingCounts;
+}
+
+function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: DesktopSidebarNavProps) {
+  return (
+    <nav id="desktop-sidebar-navigation" className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" aria-label="Primary">
+      {sections.map((section, sectionIndex) => (
+        <section key={section.id} className={cn(sectionIndex > 0 && "mt-3 border-t border-border/80 pt-3")}>
+          {isOpen ? (
+            <p className="sidebar-section-label">{section.label}</p>
+          ) : (
+            <div className="mx-auto mb-2 h-px w-6 rounded-full bg-border/80" aria-hidden />
+          )}
+          <ul className="space-y-1">
+            {section.items.map((item) => {
+              const active = isRouteActive(pathname, item.href);
+              const outstandingCount = outstandingByHref[item.href] ?? 0;
+              return (
+                <li key={item.href} className="min-w-0">
+                  <DesktopNavLink
+                    item={item}
+                    isOpen={isOpen}
+                    active={active}
+                    outstandingCount={outstandingCount}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </nav>
+  );
+}
+
+interface DesktopSidebarProps {
+  user: UserProfile | null;
+  pathname: string;
+  isOpen: boolean;
+  sections: NavSection[];
+  outstandingByHref: NavOutstandingCounts;
+  onToggle: () => void;
+  onSignOut: () => void;
+}
+
+function DesktopSidebar({
+  user,
+  pathname,
+  isOpen,
+  sections,
+  outstandingByHref,
+  onToggle,
+  onSignOut
+}: DesktopSidebarProps) {
+  return (
+    <aside
+      className={cn(
+        "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 print:hidden sm:flex sm:transition-[width]",
+        isOpen ? "w-64" : "w-[4.75rem]"
+      )}
+    >
+      <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
+        <SidebarProfileCard isOpen={isOpen} user={user} onSignOut={onSignOut} />
+
+        <div className={cn("mb-2 flex items-center", isOpen ? "justify-between" : "justify-center")}>
+          {isOpen ? <p className="sidebar-section-label mb-0">Navigation</p> : null}
+          <button
+            onClick={onToggle}
+            className="sidebar-control-button"
+            type="button"
+            aria-expanded={isOpen}
+            aria-controls="desktop-sidebar-navigation"
+            aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+            title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {isOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+        </div>
+
+        <DesktopSidebarNav
+          pathname={pathname}
+          isOpen={isOpen}
+          sections={sections}
+          outstandingByHref={outstandingByHref}
+        />
+      </div>
+    </aside>
+  );
+}
+
+interface MobileBottomNavProps {
+  pathname: string;
+  navItems: NavItem[];
+  outstandingByHref: NavOutstandingCounts;
+}
+
+function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottomNavProps) {
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden"
+      aria-label="Mobile primary navigation"
+    >
+      <ul
+        className="grid gap-1"
+        style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length, 1)}, minmax(0, 1fr))` }}
+      >
+        {navItems.map((item) => {
+          const active = isRouteActive(pathname, item.href);
+          const outstandingCount = outstandingByHref[item.href] ?? 0;
+          const isNewProposalShortcut = item.href === "/proposals/new";
+          const showNewProposalCta = isNewProposalShortcut && !active;
+          return (
+            <li key={item.href} className="min-w-0">
+              <Link
+                href={item.href}
+                className={cn(
+                  "mobile-nav-link",
+                  active && "mobile-nav-link--active",
+                  showNewProposalCta && "mobile-nav-link--cta"
+                )}
+                aria-current={active ? "page" : undefined}
+                data-nav-href={item.href}
+              >
+                <span className={cn("mobile-nav-link__icon", showNewProposalCta && "mobile-nav-link__icon--cta")}>
+                  <item.icon className="h-4 w-4" />
+                  <OutstandingBadge count={outstandingCount} />
+                </span>
+                <span className="max-w-[4.25rem] truncate text-[10px] leading-tight">{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [isSmallViewport, setIsSmallViewport] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [hasLoadedSidebarPreference, setHasLoadedSidebarPreference] = useState(false);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 639px)");
@@ -128,6 +425,28 @@ export function AppShell({ children }: PropsWithChildren) {
     return () => mediaQuery.removeListener(syncViewport);
   }, []);
 
+  useEffect(() => {
+    const storedPreference = window.localStorage.getItem(DESKTOP_SIDEBAR_STORAGE_KEY);
+
+    if (storedPreference === "0") {
+      setIsDesktopSidebarOpen(false);
+    }
+
+    if (storedPreference === "1") {
+      setIsDesktopSidebarOpen(true);
+    }
+
+    setHasLoadedSidebarPreference(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSidebarPreference) {
+      return;
+    }
+
+    window.localStorage.setItem(DESKTOP_SIDEBAR_STORAGE_KEY, isDesktopSidebarOpen ? "1" : "0");
+  }, [hasLoadedSidebarPreference, isDesktopSidebarOpen]);
+
   const availableFullNav = useMemo(() => {
     if (!user) {
       return [];
@@ -143,6 +462,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
     return focusNavItems.filter((item) => !item.roles || item.roles.includes(user.role));
   }, [user]);
+  const desktopNavSections = useMemo(() => groupFullNavItems(availableFullNav), [availableFullNav]);
 
   const showMobileFocusNav =
     isSmallViewport &&
@@ -209,7 +529,7 @@ export function AppShell({ children }: PropsWithChildren) {
         "/admin": adminData?.proposals.length ?? 0,
         "/settings": 0,
         "/proposals/new": 0
-      }) as Partial<Record<Route, number>>,
+      }) as NavOutstandingCounts,
     [adminData, foundationData, meetingData, policyNotificationSummary, workspaceData]
   );
 
@@ -218,122 +538,15 @@ export function AppShell({ children }: PropsWithChildren) {
       className="page-enter flex min-h-screen w-full flex-col px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8"
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
-      <aside
-        className={cn(
-          "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 print:hidden sm:flex sm:transition-[width]",
-          isDesktopSidebarOpen ? "w-64" : "w-[4.75rem]"
-        )}
-      >
-        <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
-          <section className={cn("mb-2 rounded-2xl border bg-card/70", isDesktopSidebarOpen ? "p-3" : "p-2")}>
-            {isDesktopSidebarOpen ? (
-              <>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                  Brosens Family Foundation
-                </p>
-                <h1 className="mt-1 text-lg font-semibold leading-tight">Grant Management</h1>
-                {user ? (
-                  <div className="mt-2 flex items-center gap-2 text-sm">
-                    <span className="truncate">{user.name}</span>
-                    <RolePill role={user.role} />
-                  </div>
-                ) : null}
-                <div className="mt-3 flex items-center gap-2">
-                  <ThemeToggle />
-                  <button
-                    onClick={() => void signOut()}
-                    className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
-                    type="button"
-                  >
-                    <LogOut className="h-3.5 w-3.5" /> Sign out
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <span
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card text-[11px] font-semibold tracking-wide"
-                  title="Brosens Family Foundation"
-                >
-                  BF
-                </span>
-                <ThemeToggle />
-                <button
-                  onClick={() => void signOut()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card"
-                  type="button"
-                  aria-label="Sign out"
-                  title="Sign out"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-          </section>
-
-          <div
-            className={cn(
-              "mb-2 flex items-center",
-              isDesktopSidebarOpen ? "justify-between" : "justify-center"
-            )}
-          >
-            {isDesktopSidebarOpen ? (
-              <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
-                Navigation
-              </p>
-            ) : null}
-            <button
-              onClick={() => setIsDesktopSidebarOpen((current) => !current)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-card text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              type="button"
-              aria-expanded={isDesktopSidebarOpen}
-              aria-label={isDesktopSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              {isDesktopSidebarOpen ? (
-                <ChevronLeft className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-
-          <nav className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-            <ul className="space-y-1">
-              {renderedNav.map((item) => {
-                const active = pathname.startsWith(item.href);
-                const outstandingCount = outstandingByHref[item.href] ?? 0;
-                return (
-                  <li key={item.href} className="min-w-0">
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex min-h-11 min-w-0 items-center rounded-xl py-2 text-sm font-semibold transition-colors",
-                        isDesktopSidebarOpen ? "gap-2 px-3" : "justify-center px-2",
-                        active
-                          ? "bg-accent text-white"
-                          : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      )}
-                      title={isDesktopSidebarOpen ? undefined : item.label}
-                    >
-                      <span className="relative inline-flex shrink-0">
-                        <item.icon className="h-4 w-4" />
-                        {outstandingCount > 0 ? (
-                          <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
-                            {outstandingCount > 99 ? "99+" : outstandingCount}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className={cn("truncate", !isDesktopSidebarOpen && "sr-only")}>
-                        {item.label}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-        </div>
-      </aside>
+      <DesktopSidebar
+        user={user}
+        pathname={pathname}
+        isOpen={isDesktopSidebarOpen}
+        sections={desktopNavSections}
+        outstandingByHref={outstandingByHref}
+        onToggle={() => setIsDesktopSidebarOpen((current) => !current)}
+        onSignOut={() => void signOut()}
+      />
 
       <div className="min-w-0 flex-1">
         {hideShellHeader ? null : (
@@ -366,52 +579,7 @@ export function AppShell({ children }: PropsWithChildren) {
         <main className="min-w-0 flex-1">{children}</main>
       </div>
 
-      <nav
-        className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden"
-      >
-        <ul
-          className="grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${Math.max(renderedNav.length, 1)}, minmax(0, 1fr))` }}
-        >
-          {renderedNav.map((item) => {
-            const active = pathname.startsWith(item.href);
-            const outstandingCount = outstandingByHref[item.href] ?? 0;
-            const isNewProposalShortcut = item.href === "/proposals/new";
-            const showNewProposalCta = isNewProposalShortcut && !active;
-            return (
-              <li key={item.href} className="min-w-0">
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold transition-[background-color,border-color,color,box-shadow] duration-200",
-                    active
-                      ? "bg-accent text-white"
-                      : showNewProposalCta
-                        ? "border border-[#316AD8]/50 bg-[#316AD8]/12 text-[#2154c2] shadow-[0_10px_20px_-16px_rgba(49,106,216,1)] hover:bg-[#316AD8]/18 dark:border-[#3F80DE]/60 dark:bg-[#3F80DE]/20 dark:text-[#D9E8FF] dark:shadow-[0_12px_22px_-16px_rgba(63,128,222,1)] dark:hover:bg-[#3F80DE]/28"
-                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "relative inline-flex",
-                      showNewProposalCta &&
-                        "h-6 w-6 items-center justify-center rounded-full bg-[#316AD8] text-white shadow-[0_6px_12px_-8px_rgba(49,106,216,1)] motion-safe:animate-[pulse_900ms_ease-out_1] dark:bg-[#3F80DE] dark:shadow-[0_6px_12px_-8px_rgba(63,128,222,1)]"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {outstandingCount > 0 ? (
-                      <span className="absolute -right-2 -top-2 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white">
-                        {outstandingCount > 99 ? "99+" : outstandingCount}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="max-w-[4.5rem] truncate text-[10px] leading-tight">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      <MobileBottomNav pathname={pathname} navItems={renderedNav} outstandingByHref={outstandingByHref} />
     </div>
   );
 }

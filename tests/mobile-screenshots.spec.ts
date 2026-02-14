@@ -14,6 +14,8 @@ const APP_ROUTES = [
   "/proposals/new"
 ];
 
+const FOCUS_NAV_ROUTES = new Set(["/mobile", "/meeting", "/dashboard", "/proposals/new"]);
+
 function routeToSlug(route: string) {
   if (route === "/") {
     return "home";
@@ -36,6 +38,41 @@ async function assertNoHorizontalOverflow(page: Page, route: string) {
   expect(scrollWidth, `Expected no horizontal overflow on route ${route}`).toBeLessThanOrEqual(
     innerWidth + 1
   );
+}
+
+async function assertSingleCurrentMobileNavItem(page: Page, route: string) {
+  const activeNavLink = page.locator(
+    "nav[aria-label='Mobile primary navigation'] a[aria-current='page']"
+  );
+  await expect(activeNavLink, `Expected exactly one active mobile nav item on route ${route}`).toHaveCount(1);
+
+  const activeHref = await activeNavLink.first().getAttribute("href");
+  if (!activeHref) {
+    throw new Error(`Unable to determine active mobile nav href on route ${route}.`);
+  }
+
+  expect(
+    route === activeHref || route.startsWith(`${activeHref}/`),
+    `Expected active nav href ${activeHref} to match route ${route}`
+  ).toBeTruthy();
+}
+
+async function assertNewProposalCtaState(page: Page, route: string) {
+  if (!FOCUS_NAV_ROUTES.has(route)) {
+    return;
+  }
+
+  const newProposalLink = page.locator(
+    "nav[aria-label='Mobile primary navigation'] a[data-nav-href='/proposals/new']"
+  );
+  await expect(newProposalLink).toHaveCount(1);
+
+  if (route === "/proposals/new") {
+    await expect(newProposalLink).not.toHaveClass(/mobile-nav-link--cta/);
+    return;
+  }
+
+  await expect(newProposalLink).toHaveClass(/mobile-nav-link--cta/);
 }
 
 async function capture(page: Page, route: string) {
@@ -108,6 +145,8 @@ test("captures mobile app screens with no horizontal overflow", async ({ page })
     if (route === "/dashboard") {
       await assertHistoricalImpactHoverState(page);
     }
+    await assertSingleCurrentMobileNavItem(page, route);
+    await assertNewProposalCtaState(page, route);
     await assertNoHorizontalOverflow(page, route);
     await capture(page, route);
   }
