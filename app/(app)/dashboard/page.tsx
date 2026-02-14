@@ -1805,8 +1805,11 @@ export default function DashboardPage() {
       </Card>
 
       {detailProposal && detailDraft && detailRequiredAction ? (
-        <ModalOverlay onClose={closeDetailDrawer}>
-          <ModalPanel aria-labelledby="proposal-details-title" className="sm:max-w-3xl">
+        <ModalOverlay
+          onClose={closeDetailDrawer}
+          placement="center"
+        >
+          <ModalPanel aria-labelledby="proposal-details-title" className="max-w-3xl rounded-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">

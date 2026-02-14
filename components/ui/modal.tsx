@@ -1,11 +1,14 @@
 "use client";
 
 import type { HTMLAttributes, PropsWithChildren } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 interface ModalOverlayProps extends PropsWithChildren {
   onClose?: () => void;
   closeOnBackdrop?: boolean;
+  placement?: "bottom" | "center";
   className?: string;
 }
 
@@ -13,12 +16,27 @@ export function ModalOverlay({
   children,
   onClose,
   closeOnBackdrop = true,
+  placement = "bottom",
   className
 }: ModalOverlayProps) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6",
+        "fixed inset-0 z-40 flex justify-center bg-black/50",
+        placement === "center"
+          ? "items-center px-4 py-6 sm:px-6 sm:py-6"
+          : "items-end px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6",
         className
       )}
       onMouseDown={(event) => {
@@ -31,7 +49,8 @@ export function ModalOverlay({
       }}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   );
 }
 
