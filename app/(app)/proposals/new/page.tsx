@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ChevronDown } from "lucide-react";
@@ -84,6 +84,13 @@ export default function NewProposalPage() {
   const showCreateTitleOption = Boolean(organizationName.trim()) && !hasExactTitleSuggestion;
   const hasAnyTitleSuggestions = matchingTitleSuggestions.length > 0 || showCreateTitleOption;
   const showTitleSuggestionsPanel = isTitleSuggestionsOpen && hasAnyTitleSuggestions;
+  const isManager = user?.role === "manager";
+
+  useEffect(() => {
+    if (isManager && proposalType !== "joint") {
+      setProposalType("joint");
+    }
+  }, [isManager, proposalType]);
 
   if (!user) {
     return null;
@@ -92,6 +99,11 @@ export default function NewProposalPage() {
   const confirmSubmit = async () => {
     if (!proposalType) {
       setError("Select a proposal type before submitting.");
+      return;
+    }
+
+    if (isManager && proposalType !== "joint") {
+      setError("Managers can only submit joint proposals.");
       return;
     }
 
@@ -134,6 +146,10 @@ export default function NewProposalPage() {
       setError("Select a proposal type before submitting.");
       return;
     }
+    if (isManager && proposalType !== "joint") {
+      setError("Managers can only submit joint proposals.");
+      return;
+    }
     setIsConfirmDialogOpen(true);
   };
 
@@ -149,12 +165,16 @@ export default function NewProposalPage() {
       </Card>
 
       <Card>
-        <CardTitle>Your Individual Budget</CardTitle>
+        <CardTitle>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardTitle>
         {workspaceQuery.isLoading ? (
           <p className="mt-2 text-sm text-zinc-500">Loading budget details...</p>
         ) : workspaceQuery.error || !workspaceQuery.data ? (
           <p className="mt-2 text-sm text-rose-600">
             Could not load your budget details. You can still submit a proposal.
+          </p>
+        ) : isManager ? (
+          <p className="mt-2 text-sm text-zinc-500">
+            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
           </p>
         ) : (
           <>
@@ -295,9 +315,13 @@ export default function NewProposalPage() {
                 value={proposalType}
                 onChange={(event) => {
                   const nextType = event.target.value as ProposalTypeOption;
+                  if (isManager && nextType !== "joint") {
+                    setProposalType("joint");
+                    return;
+                  }
                   setProposalType(nextType);
 
-                if (nextType === "discretionary" && discretionaryLimit !== null) {
+                  if (nextType === "discretionary" && discretionaryLimit !== null) {
                     setProposedAmount((current) => {
                       const parsedCurrent = Number(current);
                       if (!Number.isFinite(parsedCurrent) || parsedCurrent <= discretionaryLimit) {
@@ -308,14 +332,24 @@ export default function NewProposalPage() {
                   }
                 }}
                 className="field-control mt-1 w-full rounded-xl"
+                disabled={isManager}
                 required
               >
-                <option value="" disabled>
-                  Select
-                </option>
-                <option value="joint">Joint (75% pool)</option>
-                <option value="discretionary">Discretionary (25% pool)</option>
+                {isManager ? (
+                  <option value="joint">Joint (75% pool)</option>
+                ) : (
+                  <>
+                    <option value="" disabled>
+                      Select
+                    </option>
+                    <option value="joint">Joint (75% pool)</option>
+                    <option value="discretionary">Discretionary (25% pool)</option>
+                  </>
+                )}
               </select>
+              {isManager ? (
+                <p className="mt-1 text-xs text-zinc-500">Managers can submit joint proposals only.</p>
+              ) : null}
             </label>
 
             <div className="block text-sm font-medium">
@@ -424,7 +458,7 @@ export default function NewProposalPage() {
             </button>
             <button
               type="submit"
-              disabled={saving || !proposalType}
+              disabled={saving || !proposalType || (isManager && proposalType !== "joint")}
               className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {saving ? "Submitting..." : "Submit Proposal"}

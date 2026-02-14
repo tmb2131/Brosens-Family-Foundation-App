@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { UserProfile } from "@/lib/types";
 
 const allowedRedirects = [
   "/mobile",
@@ -22,6 +23,28 @@ function sanitizeRedirect(target: string): Route {
     return target as Route;
   }
   return "/mobile";
+}
+
+function resolvePostLoginRedirect(role: UserProfile["role"] | null | undefined, fallback: Route): Route {
+  if (role === "admin") {
+    return "/admin";
+  }
+
+  return fallback;
+}
+
+async function loadSignedInProfile() {
+  const response = await fetch("/api/auth/me", {
+    method: "GET",
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = await response.json().catch(() => null);
+  return (payload?.user ?? null) as UserProfile | null;
 }
 
 function parseLoginError(error: unknown): { message: string; allowRecovery: boolean } {
@@ -86,7 +109,7 @@ export default function LoginPage() {
     }
 
     if (user) {
-      router.replace(safeRedirect);
+      router.replace(resolvePostLoginRedirect(user.role, safeRedirect));
     }
   }, [router, safeRedirect, user, recoveryMode]);
 
@@ -106,8 +129,9 @@ export default function LoginPage() {
     setShowForgotPassword(false);
     try {
       await signIn(email.trim(), password);
+      const profile = await loadSignedInProfile();
       await refreshProfile();
-      router.replace(safeRedirect);
+      router.replace(resolvePostLoginRedirect(profile?.role, safeRedirect));
     } catch (err) {
       const parsedError = parseLoginError(err);
       setError(parsedError.message);

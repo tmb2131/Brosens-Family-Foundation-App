@@ -40,6 +40,7 @@ export default function WorkspacePage() {
 
   const workspace = workspaceQuery.data;
   const foundation = foundationQuery.data;
+  const isManager = workspace.user.role === "manager";
   const totalIndividualAllocated =
     workspace.personalBudget.jointAllocated + workspace.personalBudget.discretionaryAllocated;
   const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
@@ -54,7 +55,9 @@ export default function WorkspacePage() {
               <CardValue>{workspace.user.name}</CardValue>
               <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
                 <span className="status-dot bg-emerald-500" />
-                Track your joint/discretionary balances, action items, and personal voting history.
+                {isManager
+                  ? "Track action items, submitted proposals, and voting history. Manager profiles do not have individual budgets."
+                  : "Track your joint/discretionary balances, action items, and personal voting history."}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
                 <span>{formatNumber(workspace.actionItems.length)} action item(s)</span>
@@ -67,25 +70,36 @@ export default function WorkspacePage() {
             </Link>
           </div>
         </Card>
-        <PersonalBudgetBars
-          title="Total Individual Budget Tracker"
-          allocated={totalIndividualAllocated}
-          total={totalIndividualTarget}
-        />
+        {isManager ? (
+          <Card className="rounded-3xl">
+            <CardTitle>Individual Budget</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              Managers do not have an individual budget. Joint proposals are still available.
+            </p>
+          </Card>
+        ) : (
+          <PersonalBudgetBars
+            title="Total Individual Budget Tracker"
+            allocated={totalIndividualAllocated}
+            total={totalIndividualTarget}
+          />
+        )}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <PersonalBudgetBars
-          title="Joint Budget Tracker"
-          allocated={workspace.personalBudget.jointAllocated}
-          total={workspace.personalBudget.jointTarget}
-        />
-        <PersonalBudgetBars
-          title="Discretionary Budget Tracker"
-          allocated={workspace.personalBudget.discretionaryAllocated}
-          total={workspace.personalBudget.discretionaryCap}
-        />
-      </section>
+      {!isManager ? (
+        <section className="grid gap-3 sm:grid-cols-2">
+          <PersonalBudgetBars
+            title="Joint Budget Tracker"
+            allocated={workspace.personalBudget.jointAllocated}
+            total={workspace.personalBudget.jointTarget}
+          />
+          <PersonalBudgetBars
+            title="Discretionary Budget Tracker"
+            allocated={workspace.personalBudget.discretionaryAllocated}
+            total={workspace.personalBudget.discretionaryCap}
+          />
+        </section>
+      ) : null}
 
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

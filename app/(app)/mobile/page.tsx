@@ -57,6 +57,7 @@ export default function MobileFocusPage() {
 
   const workspace = workspaceQuery.data;
   const foundation = foundationQuery.data;
+  const isManager = workspace.user.role === "manager";
   const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
 
@@ -176,22 +177,30 @@ export default function MobileFocusPage() {
           </span>
           <CardTitle>Personal Budget</CardTitle>
         </div>
-        <div className="mt-2 space-y-2">
-          <PersonalBudgetBars
-            title="Joint Budget Tracker"
-            allocated={workspace.personalBudget.jointAllocated}
-            total={workspace.personalBudget.jointTarget}
-          />
-          <PersonalBudgetBars
-            title="Discretionary Budget Tracker"
-            allocated={workspace.personalBudget.discretionaryAllocated}
-            total={workspace.personalBudget.discretionaryCap}
-          />
-        </div>
-        <div className="mt-2 grid gap-1 text-xs text-zinc-500">
-          <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
-          <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
-        </div>
+        {isManager ? (
+          <p className="mt-2 text-sm text-zinc-500">
+            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 space-y-2">
+              <PersonalBudgetBars
+                title="Joint Budget Tracker"
+                allocated={workspace.personalBudget.jointAllocated}
+                total={workspace.personalBudget.jointTarget}
+              />
+              <PersonalBudgetBars
+                title="Discretionary Budget Tracker"
+                allocated={workspace.personalBudget.discretionaryAllocated}
+                total={workspace.personalBudget.discretionaryCap}
+              />
+            </div>
+            <div className="mt-2 grid gap-1 text-xs text-zinc-500">
+              <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
+              <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
