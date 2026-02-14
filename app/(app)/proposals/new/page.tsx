@@ -336,6 +336,16 @@ export default function NewProposalPage() {
               min={0}
               max={proposalType === "discretionary" && discretionaryLimit !== null ? discretionaryLimit : undefined}
               value={proposedAmount}
+              onFocus={(event) => {
+                if (event.target.value === "0") {
+                  setProposedAmount("");
+                }
+              }}
+              onBlur={(event) => {
+                if (event.target.value === "") {
+                  setProposedAmount("0");
+                }
+              }}
               onChange={(event) => {
                 const nextValue = event.target.value;
 
@@ -349,7 +359,7 @@ export default function NewProposalPage() {
 
                 setProposedAmount(nextValue);
               }}
-              className="field-control mt-1 w-full rounded-xl"
+              className="field-control field-control--no-spinner mt-1 w-full rounded-xl"
               required
             />
             <p className="mt-1 text-xs text-zinc-500">
