@@ -2,7 +2,7 @@
 
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { Download, MoreHorizontal, Plus, Users, X } from "lucide-react";
+import { ChevronDown, Download, MoreHorizontal, Plus, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -229,6 +229,7 @@ export default function FrankDeeniePage() {
   const [exportMessage, setExportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DonationDraft | null>(null);
@@ -240,6 +241,7 @@ export default function FrankDeeniePage() {
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
   const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -333,6 +335,33 @@ export default function FrankDeeniePage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [detailRowId, editingId, isCreating, showAddForm]);
+
+  useEffect(() => {
+    if (!isExportMenuOpen) {
+      return;
+    }
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (exportMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+      setIsExportMenuOpen(false);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsExportMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isExportMenuOpen]);
 
   const typeOptions = useMemo(() => {
     if (!data) {
@@ -755,6 +784,7 @@ export default function FrankDeeniePage() {
       tone: "success",
       text: `CSV exported (${formatNumber(exportRows.length)} rows).`
     });
+    setIsExportMenuOpen(false);
   };
 
   const exportExcel = () => {
@@ -771,6 +801,7 @@ export default function FrankDeeniePage() {
       tone: "success",
       text: `Excel file exported (${formatNumber(exportRows.length)} rows).`
     });
+    setIsExportMenuOpen(false);
   };
 
   const exportPdf = () => {
@@ -798,6 +829,7 @@ export default function FrankDeeniePage() {
       tone: "success",
       text: "Print dialog opened. Choose Save as PDF to finish."
     });
+    setIsExportMenuOpen(false);
   };
 
   const exportGoogleSheet = async () => {
@@ -817,6 +849,7 @@ export default function FrankDeeniePage() {
         tone: "success",
         text: "Copied rows for Google Sheets. Paste into cell A1 in the new sheet."
       });
+      setIsExportMenuOpen(false);
     } catch {
       downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
@@ -824,6 +857,7 @@ export default function FrankDeeniePage() {
         tone: "error",
         text: "Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets."
       });
+      setIsExportMenuOpen(false);
     }
   };
 
@@ -906,11 +940,63 @@ export default function FrankDeeniePage() {
 
       <section className="grid gap-3 2xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] 2xl:items-start">
         <Card className="min-h-0">
-          <div className="mb-3">
-            <CardTitle>Donations</CardTitle>
-            <p className="text-xs text-zinc-500">
-              Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
-            </p>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <CardTitle>Donations</CardTitle>
+              <p className="text-xs text-zinc-500">
+                Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
+              </p>
+            </div>
+            <div className="relative shrink-0" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExportMenuOpen((current) => !current);
+                  setExportMessage(null);
+                }}
+                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                aria-haspopup="menu"
+                aria-expanded={isExportMenuOpen}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isExportMenuOpen ? (
+                <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                  <button
+                    type="button"
+                    onClick={exportPdf}
+                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Export as PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Export as CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportExcel}
+                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Export as Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void exportGoogleSheet();
+                    }}
+                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Export to Google Sheet
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
@@ -961,6 +1047,7 @@ export default function FrankDeeniePage() {
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);
                   setExportMessage(null);
+                  setIsExportMenuOpen(false);
                 }}
                 className="min-h-10 w-full rounded-md border border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 xl:w-auto"
               >
@@ -969,56 +1056,22 @@ export default function FrankDeeniePage() {
             </div>
           </div>
 
-          <div className="mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-2 dark:border-zinc-700 dark:bg-zinc-900/40">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={exportPdf}
-                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export PDF
-              </button>
-              <button
-                type="button"
-                onClick={exportCsv}
-                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                Export CSV
-              </button>
-              <button
-                type="button"
-                onClick={exportExcel}
-                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                Export Excel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void exportGoogleSheet();
-                }}
-                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                Export Google Sheet
-              </button>
-            </div>
-            {exportMessage ? (
-              <p
-                className={`mt-2 text-xs ${
-                  exportMessage.tone === "error"
-                    ? "text-rose-600"
-                    : "text-emerald-700 dark:text-emerald-300"
-                }`}
-              >
-                {exportMessage.text}
-              </p>
-            ) : null}
-          </div>
+          {exportMessage ? (
+            <p
+              className={`mb-3 text-xs ${
+                exportMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"
+              }`}
+            >
+              {exportMessage.text}
+            </p>
+          ) : null}
 
           <div
             className="max-h-[62vh] overflow-auto rounded-xl border border-zinc-200/80 dark:border-zinc-800"
-            onClick={() => setOpenActionMenuRowId(null)}
+            onClick={() => {
+              setOpenActionMenuRowId(null);
+              setIsExportMenuOpen(false);
+            }}
           >
             <table className="w-full table-fixed text-left text-sm">
               <colgroup>

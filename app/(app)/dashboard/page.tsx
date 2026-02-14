@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { Download, Plus, X } from "lucide-react";
+import { ChevronDown, Download, Plus, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
@@ -373,6 +373,8 @@ export default function DashboardPage() {
   const [exportMessage, setExportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const foundationKey = useMemo(() => {
     if (!user) {
@@ -430,6 +432,33 @@ export default function DashboardPage() {
       setActiveTab("tracker");
     }
   }, [isOversight]);
+
+  useEffect(() => {
+    if (!isExportMenuOpen) {
+      return;
+    }
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (exportMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+      setIsExportMenuOpen(false);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsExportMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isExportMenuOpen]);
 
   const filteredAndSortedProposals = useMemo(() => {
     if (!data) {
@@ -583,6 +612,7 @@ export default function DashboardPage() {
   const setFilter = <K extends keyof TableFilters>(key: K, value: TableFilters[K]) => {
     setFilters((current) => ({ ...current, [key]: value }));
     setExportMessage(null);
+    setIsExportMenuOpen(false);
   };
   const exportRows: ProposalExportRow[] = filteredAndSortedProposals.map((proposal) => {
     const masked = proposal.progress.masked && proposal.status === "to_review";
@@ -608,6 +638,7 @@ export default function DashboardPage() {
   const clearTrackerFilters = () => {
     setFilters(DEFAULT_FILTERS);
     setExportMessage(null);
+    setIsExportMenuOpen(false);
   };
 
   const toggleSort = (nextSortKey: SortKey) => {
@@ -895,6 +926,7 @@ export default function DashboardPage() {
 
   const exportCsv = () => {
     if (!withExportRows()) {
+      setIsExportMenuOpen(false);
       return;
     }
 
@@ -903,10 +935,12 @@ export default function DashboardPage() {
       tone: "success",
       text: `CSV exported (${formatNumber(exportRows.length)} rows).`
     });
+    setIsExportMenuOpen(false);
   };
 
   const exportExcel = () => {
     if (!withExportRows()) {
+      setIsExportMenuOpen(false);
       return;
     }
 
@@ -919,10 +953,12 @@ export default function DashboardPage() {
       tone: "success",
       text: `Excel file exported (${formatNumber(exportRows.length)} rows).`
     });
+    setIsExportMenuOpen(false);
   };
 
   const exportPdf = () => {
     if (!withExportRows()) {
+      setIsExportMenuOpen(false);
       return;
     }
 
@@ -932,6 +968,7 @@ export default function DashboardPage() {
         tone: "error",
         text: "The PDF export window was blocked. Allow pop-ups and try again."
       });
+      setIsExportMenuOpen(false);
       return;
     }
 
@@ -946,10 +983,12 @@ export default function DashboardPage() {
       tone: "success",
       text: "Print dialog opened. Choose Save as PDF to finish."
     });
+    setIsExportMenuOpen(false);
   };
 
   const exportGoogleSheet = async () => {
     if (!withExportRows()) {
+      setIsExportMenuOpen(false);
       return;
     }
 
@@ -965,6 +1004,7 @@ export default function DashboardPage() {
         tone: "success",
         text: "Copied rows for Google Sheets. Paste into cell A1 in the new sheet."
       });
+      setIsExportMenuOpen(false);
     } catch {
       downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
@@ -972,6 +1012,7 @@ export default function DashboardPage() {
         tone: "error",
         text: "Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets."
       });
+      setIsExportMenuOpen(false);
     }
   };
 
@@ -1225,10 +1266,60 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="mb-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
               <p className="text-xs text-zinc-500">
                 Showing {formatNumber(filteredAndSortedProposals.length)} proposals for budget year {selectedBudgetYear}
               </p>
+              <div className="relative shrink-0" ref={exportMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen((current) => !current);
+                    setExportMessage(null);
+                  }}
+                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  aria-haspopup="menu"
+                  aria-expanded={isExportMenuOpen}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {isExportMenuOpen ? (
+                  <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                    <button
+                      type="button"
+                      onClick={exportPdf}
+                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      Export as PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exportCsv}
+                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      Export as CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exportExcel}
+                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      Export as Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void exportGoogleSheet();
+                      }}
+                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    >
+                      Export to Google Sheet
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
@@ -1282,54 +1373,19 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-2 dark:border-zinc-700 dark:bg-zinc-900/40">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={exportPdf}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  Export CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={exportExcel}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  Export Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void exportGoogleSheet();
-                  }}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  Export Google Sheet
-                </button>
-              </div>
-              {exportMessage ? (
-                <p
-                  className={`mt-2 text-xs ${
-                    exportMessage.tone === "error"
-                      ? "text-rose-600"
-                      : "text-emerald-700 dark:text-emerald-300"
-                  }`}
-                >
-                  {exportMessage.text}
-                </p>
-              ) : null}
-            </div>
+            {exportMessage ? (
+              <p
+                className={`mb-3 text-xs ${
+                  exportMessage.tone === "error"
+                    ? "text-rose-600"
+                    : "text-emerald-700 dark:text-emerald-300"
+                }`}
+              >
+                {exportMessage.text}
+              </p>
+            ) : null}
 
-        <div className="space-y-3 md:hidden">
+        <div className="space-y-3 md:hidden" onClick={() => setIsExportMenuOpen(false)}>
           {filteredAndSortedProposals.length === 0 ? (
             <p className="rounded-xl border p-4 text-sm text-zinc-500">
               No proposals match the current filters for budget year {data.budget.year}.
@@ -1515,7 +1571,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
+        <div className="hidden overflow-x-auto md:block" onClick={() => setIsExportMenuOpen(false)}>
           <table className="w-full min-w-[980px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-[20rem]" />
