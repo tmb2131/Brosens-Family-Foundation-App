@@ -1364,11 +1364,6 @@ export default function DashboardPage() {
             ) : null}
             {!showPendingTab ? (
               <>
-                {canEditHistorical && !allowHistoricalBulkEdit ? (
-                  <p className="text-xs text-zinc-500">
-                    Historical year {selectedBudgetYear}. Bulk edit is unavailable for Oversight profiles.
-                  </p>
-                ) : null}
                 {allowHistoricalBulkEdit && canEditHistorical && !isHistoricalBulkEditEnabled ? (
                   <button
                     type="button"
