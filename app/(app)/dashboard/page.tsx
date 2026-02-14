@@ -538,6 +538,9 @@ export default function DashboardPage() {
       return;
     }
 
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setDetailProposalId(null);
@@ -546,6 +549,7 @@ export default function DashboardPage() {
 
     document.addEventListener("keydown", onKeyDown);
     return () => {
+      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [detailProposalId]);
@@ -1573,6 +1577,9 @@ export default function DashboardPage() {
                       : requiredAction.tone === "complete"
                       ? "text-emerald-700 dark:text-emerald-300"
                       : "text-zinc-700 dark:text-zinc-200";
+                  const showRequiredActionButton =
+                    requiredAction.tone === "attention" &&
+                    Boolean(requiredAction.href && requiredAction.ctaLabel);
                   const amountDisplay =
                     masked
                       ? "Blind until your vote is submitted"
@@ -1615,6 +1622,14 @@ export default function DashboardPage() {
                         <p className={`text-xs ${requiredActionToneClass}`}>
                           <span className="font-semibold">{requiredAction.owner}:</span> {requiredAction.detail}
                         </p>
+                        {showRequiredActionButton ? (
+                          <Link
+                            href={requiredAction.href!}
+                            className="mt-2 inline-flex rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          >
+                            {requiredAction.ctaLabel}
+                          </Link>
+                        ) : null}
                         {rowState ? (
                           <p
                             className={`mt-2 text-xs ${
@@ -1645,211 +1660,212 @@ export default function DashboardPage() {
           </table>
         </div>
 
-        {detailProposal && detailDraft && detailRequiredAction ? (
-          <div
-            className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-4 py-4 sm:px-6 sm:py-6"
-            onMouseDown={(event) => {
-              if (event.currentTarget === event.target) {
-                closeDetailDrawer();
-              }
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="proposal-details-title"
-              className="w-full max-h-[92vh] overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-3xl sm:p-5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 id="proposal-details-title" className="text-base font-semibold">
-                    Proposal Details
-                  </h2>
-                  <p className="mt-1 text-xs text-zinc-500">{detailProposal.title}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeDetailDrawer}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  aria-label="Close proposal details"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <dl className="mt-4 grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Proposal</dt>
-                  <dd className="mt-1 font-medium">{detailProposal.title}</dd>
-                  <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-500">
-                    {detailProposal.description || "—"}
-                  </p>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Type</dt>
-                  <dd className="mt-1 font-medium">{titleCase(detailProposal.proposalType)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Amount</dt>
-                  <dd className="mt-1 font-medium">
-                    {detailMasked
-                      ? "Blind until your vote is submitted"
-                      : currency(detailProposal.progress.computedFinalAmount)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Date Sent</dt>
-                  <dd className="mt-1 font-medium">{detailProposal.sentAt ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
-                  <dd className="mt-1 font-medium">{titleCase(detailProposal.status)}</dd>
-                </div>
-                <div className="md:col-span-2">
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Required Action</dt>
-                  <dd className={`mt-1 ${detailRequiredActionToneClass}`}>
-                    <span className="font-semibold">{detailRequiredAction.owner}:</span>{" "}
-                    {detailRequiredAction.detail}
-                  </dd>
-                </div>
-                <div className="md:col-span-2">
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Notes</dt>
-                  <dd className="mt-1 whitespace-pre-wrap font-medium">{detailProposal.notes?.trim() || "—"}</dd>
-                </div>
-              </dl>
-
-              {detailIsRowEditable || detailCanEditSentDate ? (
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {detailIsRowEditable ? (
-                    <label className="text-xs font-semibold text-zinc-500">
-                      Amount
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={detailDraft.finalAmount}
-                        onChange={(event) =>
-                          updateDraft(detailProposal.id, { finalAmount: event.target.value })
-                        }
-                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                      <span className="mt-1 block text-[11px] text-zinc-500">
-                        Amount preview:{" "}
-                        {detailParsedDraftFinalAmount !== null && detailParsedDraftFinalAmount >= 0
-                          ? currency(detailParsedDraftFinalAmount)
-                          : "Invalid amount"}
-                      </span>
-                    </label>
-                  ) : null}
-
-                  {detailIsRowEditable ? (
-                    <label className="text-xs font-semibold text-zinc-500">
-                      Status
-                      <select
-                        value={detailDraft.status}
-                        onChange={(event) =>
-                          updateDraft(detailProposal.id, {
-                            status: event.target.value as ProposalStatus,
-                            ...(event.target.value === "sent" ? {} : { sentAt: "" })
-                          })
-                        }
-                        className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                      >
-                        {STATUS_OPTIONS.map((statusOption) => (
-                          <option key={statusOption} value={statusOption}>
-                            {titleCase(statusOption)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
-
-                  {detailCanEditSentDate ? (
-                    <label className="text-xs font-semibold text-zinc-500">
-                      Date amount sent
-                      <input
-                        type="date"
-                        value={detailDraft.sentAt}
-                        disabled={detailSentDateDisabled}
-                        onChange={(event) => updateDraft(detailProposal.id, { sentAt: event.target.value })}
-                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                    </label>
-                  ) : null}
-
-                  {detailIsRowEditable ? (
-                    <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
-                      Notes
-                      <input
-                        type="text"
-                        value={detailDraft.notes}
-                        onChange={(event) => updateDraft(detailProposal.id, { notes: event.target.value })}
-                        placeholder="Optional notes"
-                        className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                      />
-                    </label>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
-                  <Link
-                    href={detailRequiredAction.href}
-                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    {detailRequiredAction.ctaLabel}
-                  </Link>
-                ) : null}
-                {!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent" ? (
-                  <button
-                    type="button"
-                    disabled={savingProposalId === detailProposal.id}
-                    onClick={() => void saveProposalSentDate(detailProposal)}
-                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                  >
-                    {savingProposalId === detailProposal.id ? "Saving..." : "Save date"}
-                  </button>
-                ) : null}
-              </div>
-
-              {user &&
-              canVote &&
-              detailProposal.status === "to_review" &&
-              !detailProposal.progress.hasCurrentUserVoted ? (
-                <div className="mt-4">
-                  <VoteForm
-                    proposalId={detailProposal.id}
-                    proposalType={detailProposal.proposalType}
-                    proposedAmount={detailProposal.proposedAmount}
-                    totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                    onSuccess={() => {
-                      void mutate();
-                      if (isOversight) {
-                        void mutatePending();
-                      }
-                    }}
-                  />
-                </div>
-              ) : null}
-
-              {detailRowState ? (
-                <p
-                  className={`mt-3 text-xs ${
-                    detailRowState.tone === "error"
-                      ? "text-rose-600"
-                      : "text-emerald-700 dark:text-emerald-300"
-                  }`}
-                >
-                  {detailRowState.text}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
           </>
         )}
       </Card>
+
+      {detailProposal && detailDraft && detailRequiredAction ? (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              closeDetailDrawer();
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="proposal-details-title"
+            className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-3xl sm:rounded-3xl sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="proposal-details-title" className="text-base font-semibold">
+                  Proposal Details
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">{detailProposal.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDetailDrawer}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                aria-label="Close proposal details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <dl className="mt-4 grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Proposal</dt>
+                <dd className="mt-1 font-medium">{detailProposal.title}</dd>
+                <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-500">
+                  {detailProposal.description || "—"}
+                </p>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Type</dt>
+                <dd className="mt-1 font-medium">{titleCase(detailProposal.proposalType)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Amount</dt>
+                <dd className="mt-1 font-medium">
+                  {detailMasked
+                    ? "Blind until your vote is submitted"
+                    : currency(detailProposal.progress.computedFinalAmount)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Date Sent</dt>
+                <dd className="mt-1 font-medium">{detailProposal.sentAt ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
+                <dd className="mt-1 font-medium">{titleCase(detailProposal.status)}</dd>
+              </div>
+              <div className="md:col-span-2">
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Required Action</dt>
+                <dd className={`mt-1 ${detailRequiredActionToneClass}`}>
+                  <span className="font-semibold">{detailRequiredAction.owner}:</span>{" "}
+                  {detailRequiredAction.detail}
+                </dd>
+              </div>
+              <div className="md:col-span-2">
+                <dt className="text-xs uppercase tracking-wide text-zinc-500">Notes</dt>
+                <dd className="mt-1 whitespace-pre-wrap font-medium">{detailProposal.notes?.trim() || "—"}</dd>
+              </div>
+            </dl>
+
+            {detailIsRowEditable || detailCanEditSentDate ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {detailIsRowEditable ? (
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Amount
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={detailDraft.finalAmount}
+                      onChange={(event) =>
+                        updateDraft(detailProposal.id, { finalAmount: event.target.value })
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                    <span className="mt-1 block text-[11px] text-zinc-500">
+                      Amount preview:{" "}
+                      {detailParsedDraftFinalAmount !== null && detailParsedDraftFinalAmount >= 0
+                        ? currency(detailParsedDraftFinalAmount)
+                        : "Invalid amount"}
+                    </span>
+                  </label>
+                ) : null}
+
+                {detailIsRowEditable ? (
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Status
+                    <select
+                      value={detailDraft.status}
+                      onChange={(event) =>
+                        updateDraft(detailProposal.id, {
+                          status: event.target.value as ProposalStatus,
+                          ...(event.target.value === "sent" ? {} : { sentAt: "" })
+                        })
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+                      {STATUS_OPTIONS.map((statusOption) => (
+                        <option key={statusOption} value={statusOption}>
+                          {titleCase(statusOption)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                {detailCanEditSentDate ? (
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Date amount sent
+                    <input
+                      type="date"
+                      value={detailDraft.sentAt}
+                      disabled={detailSentDateDisabled}
+                      onChange={(event) => updateDraft(detailProposal.id, { sentAt: event.target.value })}
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                ) : null}
+
+                {detailIsRowEditable ? (
+                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                    Notes
+                    <input
+                      type="text"
+                      value={detailDraft.notes}
+                      onChange={(event) => updateDraft(detailProposal.id, { notes: event.target.value })}
+                      placeholder="Optional notes"
+                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
+                <Link
+                  href={detailRequiredAction.href}
+                  className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  {detailRequiredAction.ctaLabel}
+                </Link>
+              ) : null}
+              {!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent" ? (
+                <button
+                  type="button"
+                  disabled={savingProposalId === detailProposal.id}
+                  onClick={() => void saveProposalSentDate(detailProposal)}
+                  className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  {savingProposalId === detailProposal.id ? "Saving..." : "Save date"}
+                </button>
+              ) : null}
+            </div>
+
+            {user &&
+            canVote &&
+            detailProposal.status === "to_review" &&
+            !detailProposal.progress.hasCurrentUserVoted ? (
+              <div className="mt-4">
+                <VoteForm
+                  proposalId={detailProposal.id}
+                  proposalType={detailProposal.proposalType}
+                  proposedAmount={detailProposal.proposedAmount}
+                  totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
+                  onSuccess={() => {
+                    void mutate();
+                    if (isOversight) {
+                      void mutatePending();
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
+
+            {detailRowState ? (
+              <p
+                className={`mt-3 text-xs ${
+                  detailRowState.tone === "error"
+                    ? "text-rose-600"
+                    : "text-emerald-700 dark:text-emerald-300"
+                }`}
+              >
+                {detailRowState.text}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
