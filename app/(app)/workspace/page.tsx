@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import useSWR from "swr";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { WorkspaceSnapshot, FoundationSnapshot } from "@/lib/types";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -47,11 +48,18 @@ export default function WorkspacePage() {
     <div className="space-y-4 pb-4">
       <section className="grid gap-3 xl:grid-cols-[2fr_1fr]">
         <Card className="rounded-3xl">
-          <CardTitle>My Workspace</CardTitle>
-          <CardValue>{workspace.user.name}</CardValue>
-          <p className="mt-1 text-sm text-zinc-500">
-            Track your joint/discretionary balances, action items, and personal voting history.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>My Workspace</CardTitle>
+              <CardValue>{workspace.user.name}</CardValue>
+              <p className="mt-1 text-sm text-zinc-500">
+                Track your joint/discretionary balances, action items, and personal voting history.
+              </p>
+            </div>
+            <Link href="/proposals/new" className="new-proposal-cta sm:min-h-11 sm:px-4 sm:text-sm">
+              <Plus className="h-4 w-4" /> New Proposal
+            </Link>
+          </div>
         </Card>
         <PersonalBudgetBars
           title="Total Individual Budget Tracker"

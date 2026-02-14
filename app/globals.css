@@ -11,6 +11,11 @@
   --border: 212 24% 85%;
   --success: 154 61% 37%;
   --danger: 0 72% 50%;
+  --proposal-cta: 49 106 216;
+  --proposal-cta-hover: 43 94 192;
+  --proposal-cta-border: 41 90 184;
+  --proposal-cta-ring: 92 139 226;
+  --proposal-cta-foreground: 255 255 255;
 }
 
 .dark {
@@ -22,6 +27,11 @@
   --border: 220 16% 27%;
   --success: 154 56% 44%;
   --danger: 0 78% 62%;
+  --proposal-cta: 63 128 222;
+  --proposal-cta-hover: 78 140 229;
+  --proposal-cta-border: 111 160 233;
+  --proposal-cta-ring: 162 196 245;
+  --proposal-cta-foreground: 236 245 255;
 }
 
 * {
@@ -56,6 +66,41 @@ body {
 
 .status-dot {
   @apply inline-block h-2.5 w-2.5 rounded-full;
+}
+
+.new-proposal-cta {
+  @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-[background-color,box-shadow,color] duration-200;
+  background-color: rgb(var(--proposal-cta));
+  border-color: rgb(var(--proposal-cta-border));
+  color: rgb(var(--proposal-cta-foreground));
+  box-shadow: 0 12px 24px -16px rgb(var(--proposal-cta) / 0.95);
+}
+
+.new-proposal-cta:hover {
+  background-color: rgb(var(--proposal-cta-hover));
+  box-shadow: 0 14px 28px -16px rgb(var(--proposal-cta) / 1);
+}
+
+.new-proposal-cta:focus-visible {
+  outline: 2px solid rgb(var(--proposal-cta-ring));
+  outline-offset: 2px;
+}
+
+.prominent-accent-cta {
+  @apply inline-flex min-h-10 items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-semibold text-white transition-[background-color,box-shadow] duration-200;
+  background-color: hsl(var(--accent));
+  border-color: hsl(var(--accent) / 0.78);
+  box-shadow: 0 12px 24px -16px hsl(var(--accent) / 0.96);
+}
+
+.prominent-accent-cta:hover {
+  background-color: hsl(var(--accent) / 0.9);
+  box-shadow: 0 14px 28px -16px hsl(var(--accent) / 1);
+}
+
+.prominent-accent-cta:focus-visible {
+  outline: 2px solid hsl(var(--accent) / 0.45);
+  outline-offset: 2px;
 }
 
 /* Prevent iOS Safari from zooming when focusing form controls */

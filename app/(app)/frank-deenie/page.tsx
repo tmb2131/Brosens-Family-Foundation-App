@@ -583,7 +583,7 @@ export default function FrankDeeniePage() {
                 setCreateMessage(null);
                 setNewDraft(initialDraftForYear(selectedYear));
               }}
-              className="inline-flex min-h-10 items-center justify-center gap-1 rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white"
+              className="prominent-accent-cta"
             >
               {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {showAddForm ? "Close" : "Add Donation"}

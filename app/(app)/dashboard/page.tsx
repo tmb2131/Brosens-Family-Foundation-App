@@ -455,7 +455,7 @@ export default function DashboardPage() {
             </label>
             <Link
               href="/proposals/new"
-              className="inline-flex items-center gap-1 rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white"
+              className="new-proposal-cta sm:min-h-11 sm:px-4 sm:text-sm"
             >
               <Plus className="h-4 w-4" /> New Proposal
             </Link>
