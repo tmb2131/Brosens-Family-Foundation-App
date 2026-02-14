@@ -14,7 +14,7 @@ const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
   { ssr: false, loading: () => <div className="h-[220px] w-full" /> }
 );
-import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
+import { AppRole, FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
@@ -31,6 +31,14 @@ interface ProposalDraft {
   finalAmount: string;
   sentAt: string;
   notes: string;
+}
+
+interface RequiredActionSummary {
+  owner: string;
+  detail: string;
+  tone: "neutral" | "attention" | "complete";
+  href?: string;
+  ctaLabel?: string;
 }
 
 type SortKey = "proposal" | "type" | "amount" | "status" | "sentAt" | "notes";
@@ -76,11 +84,28 @@ function toProposalDraft(proposal: ProposalView): ProposalDraft {
   };
 }
 
-function buildPendingActionRequiredLabel(proposal: ProposalView) {
-  if (proposal.status === "approved") {
-    return "Approved and ready for disbursement. Mark as Sent once funds are sent.";
+function normalizeDraftNotes(notes: string) {
+  const trimmed = notes.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeDraftSentAt(draft: ProposalDraft) {
+  if (draft.status !== "sent") {
+    return null;
   }
 
+  const trimmed = draft.sentAt.trim();
+  return trimmed ? trimmed : null;
+}
+
+function amountsDiffer(left: number, right: number) {
+  return Math.abs(left - right) > 0.009;
+}
+
+function buildRequiredActionSummary(
+  proposal: ProposalView,
+  viewerRole?: AppRole
+): RequiredActionSummary {
   if (proposal.status === "to_review") {
     const remainingVotes = Math.max(
       proposal.progress.totalRequiredVotes - proposal.progress.votesSubmitted,
@@ -89,17 +114,107 @@ function buildPendingActionRequiredLabel(proposal: ProposalView) {
 
     if (remainingVotes > 0) {
       const memberLabel = remainingVotes === 1 ? "member" : "members";
-      if (proposal.proposalType === "joint") {
-        return `${formatNumber(remainingVotes)} voting ${memberLabel} need to submit allocations.`;
+      const voteDetail =
+        proposal.proposalType === "joint"
+          ? `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit allocations.`
+          : `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit acknowledgement/flag votes.`;
+      const viewerCanVote = viewerRole === "member" || viewerRole === "oversight";
+      const viewerNeedsToVote = viewerCanVote && !proposal.progress.hasCurrentUserVoted;
+
+      if (viewerNeedsToVote) {
+        return {
+          owner: "You",
+          detail: `Submit your vote. ${voteDetail}`,
+          tone: "attention"
+        };
       }
 
-      return `${formatNumber(remainingVotes)} voting ${memberLabel} need to submit acknowledgement/flag votes.`;
+      return {
+        owner: "Voting members",
+        detail: voteDetail,
+        tone: "attention"
+      };
     }
 
-    return "All votes submitted. Oversight/Manager needs to record the meeting decision.";
+    const needsViewerAction = viewerRole === "oversight" || viewerRole === "manager";
+    return {
+      owner: "Oversight/Manager",
+      detail: "Record Approved or Declined in Meeting.",
+      tone: needsViewerAction ? "attention" : "neutral",
+      href: "/meeting",
+      ctaLabel: "Open Meeting"
+    };
   }
 
-  return "Pending workflow update.";
+  if (proposal.status === "approved") {
+    return {
+      owner: "Admin",
+      detail: "Mark as Sent in Admin after funds are disbursed.",
+      tone: viewerRole === "admin" ? "attention" : "neutral",
+      href: "/admin",
+      ctaLabel: "Open Admin Queue"
+    };
+  }
+
+  if (proposal.status === "sent") {
+    return {
+      owner: "None",
+      detail: "Completed. No action required.",
+      tone: "complete"
+    };
+  }
+
+  return {
+    owner: "None",
+    detail: "Closed. No action required.",
+    tone: "complete"
+  };
+}
+
+function buildPendingActionRequiredLabel(proposal: ProposalView) {
+  const summary = buildRequiredActionSummary(proposal);
+  if (summary.owner === "None") {
+    return summary.detail;
+  }
+  return `${summary.owner}: ${summary.detail}`;
+}
+
+function isHistoricalDraftDirty(proposal: ProposalView, draft: ProposalDraft) {
+  const parsedFinalAmount = parseNumberInput(draft.finalAmount);
+  if (parsedFinalAmount === null || parsedFinalAmount < 0) {
+    return true;
+  }
+
+  const proposalNotes = normalizeDraftNotes(proposal.notes ?? "");
+  const draftNotes = normalizeDraftNotes(draft.notes);
+  const proposalSentAt = proposal.sentAt ?? null;
+  const draftSentAt = normalizeDraftSentAt(draft);
+
+  return (
+    proposal.status !== draft.status ||
+    amountsDiffer(parsedFinalAmount, proposal.progress.computedFinalAmount) ||
+    proposalNotes !== draftNotes ||
+    proposalSentAt !== draftSentAt
+  );
+}
+
+function buildHistoricalUpdatePayload(draft: ProposalDraft) {
+  const finalAmount = parseNumberInput(draft.finalAmount);
+  if (finalAmount === null || finalAmount < 0) {
+    return {
+      payload: null,
+      error: "Final amount must be a non-negative number."
+    };
+  }
+
+  return {
+    payload: {
+      status: draft.status,
+      finalAmount,
+      notes: draft.notes,
+      sentAt: normalizeDraftSentAt(draft)
+    } as Record<string, unknown>
+  };
 }
 
 export default function DashboardPage() {
@@ -115,6 +230,11 @@ export default function DashboardPage() {
   const [rowMessage, setRowMessage] = useState<
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
+  const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
+    null
+  );
 
   const foundationKey = useMemo(() => {
     if (!user) {
@@ -263,6 +383,38 @@ export default function DashboardPage() {
       });
   }, [pendingData]);
 
+  const currentCalendarYear = new Date().getFullYear();
+  const selectedBudgetYear = selectedYear ?? data?.budget.year ?? currentCalendarYear;
+  const canVote = Boolean(user && ["member", "oversight"].includes(user.role));
+  const isHistoricalView = selectedBudgetYear < currentCalendarYear;
+  const canEditHistorical = Boolean(user?.role === "oversight" && isHistoricalView);
+  const isHistoricalBulkEditEnabled = canEditHistorical && isBulkEditMode;
+  const showPendingTab = isOversight && activeTab === "pending";
+  const totalAllocatedForYear = data
+    ? data.budget.jointAllocated + data.budget.discretionaryAllocated
+    : 0;
+
+  useEffect(() => {
+    if (!canEditHistorical) {
+      setIsBulkEditMode(false);
+      setBulkMessage(null);
+    }
+  }, [canEditHistorical]);
+
+  const dirtyHistoricalProposalIds = useMemo(() => {
+    if (!canEditHistorical || !data) {
+      return [];
+    }
+
+    return data.proposals
+      .filter((proposal) => {
+        const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
+        return isHistoricalDraftDirty(proposal, draft);
+      })
+      .map((proposal) => proposal.id);
+  }, [canEditHistorical, data, drafts]);
+  const dirtyHistoricalCount = dirtyHistoricalProposalIds.length;
+
   if (isLoading) {
     return <p className="text-sm text-zinc-500">Loading foundation dashboard...</p>;
   }
@@ -274,13 +426,6 @@ export default function DashboardPage() {
       </p>
     );
   }
-
-  const canVote = Boolean(user && ["member", "oversight"].includes(user.role));
-  const isHistoricalView =
-    selectedYear !== null ? selectedYear < new Date().getFullYear() : data.budget.year < new Date().getFullYear();
-  const canEditHistorical = Boolean(user?.role === "oversight" && isHistoricalView);
-  const showPendingTab = isOversight && activeTab === "pending";
-  const totalAllocatedForYear = data.budget.jointAllocated + data.budget.discretionaryAllocated;
 
   const setFilter = <K extends keyof TableFilters>(key: K, value: TableFilters[K]) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -331,6 +476,7 @@ export default function DashboardPage() {
         ...patch
       }
     }));
+    setBulkMessage(null);
     setRowMessage((current) => {
       if (!current[proposalId]) {
         return current;
@@ -342,37 +488,34 @@ export default function DashboardPage() {
     });
   };
 
-  const saveProposal = async (proposal: ProposalView, mode: "historical" | "sentDate") => {
+  const applyProposalPatch = async (proposalId: string, payload: Record<string, unknown>) => {
+    const response = await fetch(`/api/foundation/proposals/${proposalId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const responseBody = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
+      throw new Error(String(responseBody.error ?? "Failed to update proposal."));
+    }
+
+    const updatedProposal = responseBody.proposal as ProposalView | undefined;
+    if (!updatedProposal) {
+      throw new Error("Proposal update response did not include the updated proposal.");
+    }
+
+    return updatedProposal;
+  };
+
+  const saveProposalSentDate = async (proposal: ProposalView) => {
     const draft = drafts[proposal.id];
     if (!draft) {
       return;
     }
 
-    const payload: Record<string, unknown> = {};
-
-    if (mode === "historical") {
-      const finalAmount = parseNumberInput(draft.finalAmount);
-      if (finalAmount === null || finalAmount < 0) {
-        setRowMessage((current) => ({
-          ...current,
-          [proposal.id]: {
-            tone: "error",
-            text: "Final amount must be a non-negative number."
-          }
-        }));
-        return;
-      }
-
-      payload.status = draft.status;
-      payload.finalAmount = finalAmount;
-      payload.notes = draft.notes;
-      payload.sentAt =
-        draft.status === "sent" && draft.sentAt.trim() ? draft.sentAt.trim() : null;
-    } else {
-      payload.sentAt = draft.sentAt.trim() ? draft.sentAt.trim() : null;
-    }
-
     setSavingProposalId(proposal.id);
+    setBulkMessage(null);
     setRowMessage((current) => {
       const next = { ...current };
       delete next[proposal.id];
@@ -380,31 +523,19 @@ export default function DashboardPage() {
     });
 
     try {
-      const response = await fetch(`/api/foundation/proposals/${proposal.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
+      const updatedProposal = await applyProposalPatch(proposal.id, {
+        sentAt: draft.sentAt.trim() ? draft.sentAt.trim() : null
       });
-
-      const responseBody = await response.json().catch(() => ({} as Record<string, unknown>));
-
-      if (!response.ok) {
-        throw new Error(String(responseBody.error ?? "Failed to update proposal."));
-      }
-
-      const updatedProposal = responseBody.proposal as ProposalView | undefined;
-      if (updatedProposal) {
-        setDrafts((current) => ({
-          ...current,
-          [proposal.id]: toProposalDraft(updatedProposal)
-        }));
-      }
+      setDrafts((current) => ({
+        ...current,
+        [proposal.id]: toProposalDraft(updatedProposal)
+      }));
 
       setRowMessage((current) => ({
         ...current,
         [proposal.id]: {
           tone: "success",
-          text: mode === "historical" ? "Historical proposal updated." : "Sent date updated."
+          text: "Sent date updated."
         }
       }));
 
@@ -423,6 +554,171 @@ export default function DashboardPage() {
       }));
     } finally {
       setSavingProposalId(null);
+    }
+  };
+
+  const cancelBulkEdit = () => {
+    if (!canEditHistorical) {
+      return;
+    }
+
+    setDrafts(
+      Object.fromEntries(data.proposals.map((proposal) => [proposal.id, toProposalDraft(proposal)]))
+    );
+    setRowMessage({});
+    setBulkMessage(null);
+    setIsBulkEditMode(false);
+  };
+
+  const saveHistoricalBulk = async () => {
+    if (!canEditHistorical || !isHistoricalBulkEditEnabled) {
+      return;
+    }
+
+    if (!dirtyHistoricalCount) {
+      setBulkMessage({
+        tone: "success",
+        text: "No changes to save."
+      });
+      return;
+    }
+
+    const proposalById = new Map(data.proposals.map((proposal) => [proposal.id, proposal]));
+    const validationMessages: Record<string, { tone: "success" | "error"; text: string }> = {};
+    const updates: Array<{ proposalId: string; payload: Record<string, unknown> }> = [];
+
+    for (const proposalId of dirtyHistoricalProposalIds) {
+      const proposal = proposalById.get(proposalId);
+      if (!proposal) {
+        continue;
+      }
+
+      const draft = drafts[proposalId] ?? toProposalDraft(proposal);
+      const { payload, error } = buildHistoricalUpdatePayload(draft);
+      if (!payload) {
+        validationMessages[proposalId] = {
+          tone: "error",
+          text: error ?? "Invalid row values."
+        };
+        continue;
+      }
+
+      updates.push({ proposalId, payload });
+    }
+
+    setRowMessage((current) => {
+      const next = { ...current };
+      for (const proposalId of dirtyHistoricalProposalIds) {
+        delete next[proposalId];
+      }
+      return {
+        ...next,
+        ...validationMessages
+      };
+    });
+
+    if (!updates.length) {
+      setBulkMessage({
+        tone: "error",
+        text: "Bulk save blocked. Fix row errors and try again."
+      });
+      return;
+    }
+
+    setIsBulkSaving(true);
+    setBulkMessage(null);
+
+    try {
+      const results: Array<
+        { proposalId: string; updatedProposal: ProposalView } | { proposalId: string; error: unknown }
+      > = await Promise.all(
+        updates.map(async (update) => {
+          try {
+            const updatedProposal = await applyProposalPatch(update.proposalId, update.payload);
+            return {
+              proposalId: update.proposalId,
+              updatedProposal
+            };
+          } catch (error) {
+            return {
+              proposalId: update.proposalId,
+              error
+            };
+          }
+        })
+      );
+
+      let savedCount = 0;
+      let failedCount = 0;
+      const resultMessages: Record<string, { tone: "success" | "error"; text: string }> = {
+        ...validationMessages
+      };
+      const draftUpdates: Record<string, ProposalDraft> = {};
+      for (const result of results) {
+        if ("error" in result) {
+          failedCount += 1;
+          resultMessages[result.proposalId] = {
+            tone: "error",
+            text:
+              result.error instanceof Error ? result.error.message : "Failed to update proposal."
+          };
+          continue;
+        }
+
+        savedCount += 1;
+        draftUpdates[result.proposalId] = toProposalDraft(result.updatedProposal);
+        resultMessages[result.proposalId] = {
+          tone: "success",
+          text: "Saved."
+        };
+      }
+
+      if (Object.keys(draftUpdates).length) {
+        setDrafts((current) => ({
+          ...current,
+          ...draftUpdates
+        }));
+      }
+
+      setRowMessage((current) => {
+        const next = { ...current };
+        for (const proposalId of dirtyHistoricalProposalIds) {
+          delete next[proposalId];
+        }
+        return {
+          ...next,
+          ...resultMessages
+        };
+      });
+
+      const validationErrorCount = Object.keys(validationMessages).length;
+      if (savedCount > 0 && failedCount === 0 && validationErrorCount === 0) {
+        setBulkMessage({
+          tone: "success",
+          text: `Saved ${formatNumber(savedCount)} historical proposal${savedCount === 1 ? "" : "s"}.`
+        });
+        setIsBulkEditMode(false);
+      } else if (savedCount > 0) {
+        const issueCount = failedCount + validationErrorCount;
+        setBulkMessage({
+          tone: "error",
+          text: `Saved ${formatNumber(savedCount)} proposal${savedCount === 1 ? "" : "s"}. ${formatNumber(issueCount)} row${issueCount === 1 ? "" : "s"} need attention.`
+        });
+      } else {
+        setBulkMessage({
+          tone: "error",
+          text: "No proposals were saved. Fix row errors and try again."
+        });
+      }
+
+      if (savedCount > 0) {
+        await mutate();
+        if (isOversight) {
+          await mutatePending();
+        }
+      }
+    } finally {
+      setIsBulkSaving(false);
     }
   };
 
@@ -533,8 +829,43 @@ export default function DashboardPage() {
               <>
                 {canEditHistorical ? (
                   <p className="text-xs text-zinc-500">
-                    Oversight editing enabled for historical year {data.budget.year}.
+                    Historical year {data.budget.year}. Use Bulk Edit to update rows, then Bulk Save.
                   </p>
+                ) : null}
+                {canEditHistorical && !isHistoricalBulkEditEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsBulkEditMode(true);
+                      setBulkMessage(null);
+                      setRowMessage({});
+                    }}
+                    className="rounded-md bg-accent px-2 py-1 text-xs font-semibold text-white"
+                  >
+                    Bulk Edit
+                  </button>
+                ) : null}
+                {canEditHistorical && isHistoricalBulkEditEnabled ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void saveHistoricalBulk()}
+                      disabled={isBulkSaving || dirtyHistoricalCount === 0}
+                      className="rounded-md bg-accent px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      {isBulkSaving
+                        ? "Saving..."
+                        : `Bulk Save${dirtyHistoricalCount > 0 ? ` (${formatNumber(dirtyHistoricalCount)})` : ""}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelBulkEdit}
+                      disabled={isBulkSaving}
+                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      Cancel
+                    </button>
+                  </>
                 ) : null}
                 <button
                   type="button"
@@ -547,6 +878,17 @@ export default function DashboardPage() {
             ) : null}
           </div>
         </div>
+        {!showPendingTab && bulkMessage ? (
+          <p
+            className={`mb-3 text-xs ${
+              bulkMessage.tone === "error"
+                ? "text-rose-600"
+                : "text-emerald-700 dark:text-emerald-300"
+            }`}
+          >
+            {bulkMessage.text}
+          </p>
+        ) : null}
 
         {showPendingTab ? (
           <div className="overflow-x-auto">
@@ -568,7 +910,7 @@ export default function DashboardPage() {
                     <th className="px-2 py-2">Type</th>
                     <th className="px-2 py-2">Amount</th>
                     <th className="px-2 py-2">Status</th>
-                    <th className="px-2 py-2">Action Required</th>
+                    <th className="px-2 py-2">Required Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -739,11 +1081,20 @@ export default function DashboardPage() {
             filteredAndSortedProposals.map((proposal) => {
               const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
               const masked = proposal.progress.masked && proposal.status === "to_review";
+              const requiredAction = buildRequiredActionSummary(proposal, user?.role);
               const isOwnProposal = Boolean(user && proposal.proposerId === user.id);
-              const canEditSentDate = canEditHistorical || (isOwnProposal && proposal.status === "sent");
-              const sentDateDisabled = canEditHistorical ? draft.status !== "sent" : !canEditSentDate;
+              const isRowEditable = isHistoricalBulkEditEnabled;
+              const canEditSentDate =
+                isRowEditable || (!canEditHistorical && isOwnProposal && proposal.status === "sent");
+              const sentDateDisabled = isRowEditable ? draft.status !== "sent" : !canEditSentDate;
               const rowState = rowMessage[proposal.id];
               const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
+              const requiredActionToneClass =
+                requiredAction.tone === "attention"
+                  ? "text-amber-700 dark:text-amber-300"
+                  : requiredAction.tone === "complete"
+                  ? "text-emerald-700 dark:text-emerald-300"
+                  : "text-zinc-700 dark:text-zinc-200";
 
               return (
                 <article key={proposal.id} className="rounded-xl border p-3">
@@ -760,10 +1111,28 @@ export default function DashboardPage() {
                     <p>Sent: {proposal.sentAt ?? "—"}</p>
                   </div>
 
+                  <div className="mt-3 rounded-lg border border-zinc-200 p-2 dark:border-zinc-800">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Required Action
+                    </p>
+                    <p className={`mt-1 text-xs ${requiredActionToneClass}`}>
+                      <span className="font-semibold">{requiredAction.owner}:</span>{" "}
+                      {requiredAction.detail}
+                    </p>
+                    {requiredAction.href && requiredAction.ctaLabel ? (
+                      <Link
+                        href={requiredAction.href}
+                        className="mt-2 inline-flex rounded-md border border-zinc-300 px-2 py-1 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        {requiredAction.ctaLabel}
+                      </Link>
+                    ) : null}
+                  </div>
+
                   <div className="mt-3 space-y-2">
                     <div>
                       <p className="text-xs font-semibold text-zinc-500">Amount</p>
-                      {canEditHistorical ? (
+                      {isRowEditable ? (
                         <>
                           <input
                             type="number"
@@ -788,7 +1157,7 @@ export default function DashboardPage() {
 
                     <div>
                       <p className="text-xs font-semibold text-zinc-500">Status</p>
-                      {canEditHistorical ? (
+                      {isRowEditable ? (
                         <select
                           value={draft.status}
                           onChange={(event) =>
@@ -805,7 +1174,11 @@ export default function DashboardPage() {
                             </option>
                           ))}
                         </select>
-                      ) : null}
+                      ) : (
+                        <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                          {titleCase(proposal.status)}
+                        </p>
+                      )}
                     </div>
 
                     {canEditSentDate ? (
@@ -819,9 +1192,11 @@ export default function DashboardPage() {
                           className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
                         />
                       </label>
-                    ) : null}
+                    ) : (
+                      <p className="text-xs text-zinc-500">Date amount sent: {proposal.sentAt ?? "—"}</p>
+                    )}
 
-                    {canEditHistorical ? (
+                    {isRowEditable ? (
                       <label className="block text-xs font-semibold text-zinc-500">
                         Notes
                         <input
@@ -836,20 +1211,11 @@ export default function DashboardPage() {
                       <p className="text-xs text-zinc-500">Notes: {proposal.notes}</p>
                     ) : null}
 
-                    {canEditHistorical ? (
+                    {!canEditHistorical && isOwnProposal && proposal.status === "sent" ? (
                       <button
                         type="button"
                         disabled={savingProposalId === proposal.id}
-                        onClick={() => void saveProposal(proposal, "historical")}
-                        className="w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                      >
-                        {savingProposalId === proposal.id ? "Saving..." : "Save row"}
-                      </button>
-                    ) : isOwnProposal && proposal.status === "sent" ? (
-                      <button
-                        type="button"
-                        disabled={savingProposalId === proposal.id}
-                        onClick={() => void saveProposal(proposal, "sentDate")}
+                        onClick={() => void saveProposalSentDate(proposal)}
                         className="w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                       >
                         {savingProposalId === proposal.id ? "Saving..." : "Save date"}
@@ -926,7 +1292,7 @@ export default function DashboardPage() {
                     Notes{sortMarker("notes")}
                   </button>
                 </th>
-                <th className="px-2 py-2">Actions</th>
+                <th className="px-2 py-2">Required Action</th>
               </tr>
               <tr className="border-b text-xs text-zinc-500 [&>th]:align-top">
                 <th className="px-2 py-2">
@@ -1019,11 +1385,20 @@ export default function DashboardPage() {
                 filteredAndSortedProposals.map((proposal) => {
                   const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
                   const masked = proposal.progress.masked && proposal.status === "to_review";
+                  const requiredAction = buildRequiredActionSummary(proposal, user?.role);
                   const isOwnProposal = Boolean(user && proposal.proposerId === user.id);
-                  const canEditSentDate = canEditHistorical || (isOwnProposal && proposal.status === "sent");
-                  const sentDateDisabled = canEditHistorical ? draft.status !== "sent" : !canEditSentDate;
+                  const isRowEditable = isHistoricalBulkEditEnabled;
+                  const canEditSentDate =
+                    isRowEditable || (!canEditHistorical && isOwnProposal && proposal.status === "sent");
+                  const sentDateDisabled = isRowEditable ? draft.status !== "sent" : !canEditSentDate;
                   const rowState = rowMessage[proposal.id];
                   const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
+                  const requiredActionToneClass =
+                    requiredAction.tone === "attention"
+                      ? "text-amber-700 dark:text-amber-300"
+                      : requiredAction.tone === "complete"
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : "text-zinc-700 dark:text-zinc-200";
 
                   return (
                     <tr key={proposal.id} className="border-b align-top">
@@ -1035,7 +1410,7 @@ export default function DashboardPage() {
                         {titleCase(proposal.proposalType)}
                       </td>
                       <td className="px-2 py-3 text-xs text-zinc-500">
-                        {canEditHistorical ? (
+                        {isRowEditable ? (
                           <div>
                             <input
                               type="number"
@@ -1060,7 +1435,7 @@ export default function DashboardPage() {
                         )}
                       </td>
                       <td className="px-2 py-3">
-                        {canEditHistorical ? (
+                        {isRowEditable ? (
                           <select
                             value={draft.status}
                             onChange={(event) =>
@@ -1097,7 +1472,7 @@ export default function DashboardPage() {
                         )}
                       </td>
                       <td className="px-2 py-3">
-                        {canEditHistorical ? (
+                        {isRowEditable ? (
                           <input
                             type="text"
                             value={draft.notes}
@@ -1113,20 +1488,25 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-2 py-3">
                         <div className="space-y-2">
-                          {canEditHistorical ? (
-                            <button
-                              type="button"
-                              disabled={savingProposalId === proposal.id}
-                              onClick={() => void saveProposal(proposal, "historical")}
-                              className="rounded-md bg-accent px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                          <p className={`text-xs ${requiredActionToneClass}`}>
+                            <span className="font-semibold">{requiredAction.owner}:</span>{" "}
+                            {requiredAction.detail}
+                          </p>
+
+                          {requiredAction.href && requiredAction.ctaLabel ? (
+                            <Link
+                              href={requiredAction.href}
+                              className="inline-flex rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
-                              {savingProposalId === proposal.id ? "Saving..." : "Save row"}
-                            </button>
-                          ) : isOwnProposal && proposal.status === "sent" ? (
+                              {requiredAction.ctaLabel}
+                            </Link>
+                          ) : null}
+
+                          {!canEditHistorical && isOwnProposal && proposal.status === "sent" ? (
                             <button
                               type="button"
                               disabled={savingProposalId === proposal.id}
-                              onClick={() => void saveProposal(proposal, "sentDate")}
+                              onClick={() => void saveProposalSentDate(proposal)}
                               className="rounded-md bg-accent px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
                             >
                               {savingProposalId === proposal.id ? "Saving..." : "Save date"}
