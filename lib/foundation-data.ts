@@ -10,6 +10,9 @@ import {
 import {
   AppRole,
   AllocationMode,
+  DirectionalCategory,
+  DirectionalCategorySource,
+  DIRECTIONAL_CATEGORIES,
   FoundationSnapshot,
   GrantProposal,
   HistoryByYearPoint,
@@ -22,6 +25,10 @@ import {
   WorkspaceSnapshot
 } from "@/lib/types";
 import { isVotingRole } from "@/lib/auth-server";
+import {
+  enqueueOrganizationCategoryJob,
+  enqueueOrganizationCategoryJobs
+} from "@/lib/organization-categorization";
 
 type AdminClient = SupabaseClient;
 
@@ -73,6 +80,11 @@ interface OrganizationRow {
   charity_navigator_score: number | string | null;
   charity_navigator_url: string | null;
   cause_area: string | null;
+  directional_category: string | null;
+  directional_category_source: string | null;
+  directional_category_confidence: number | null;
+  directional_category_locked: boolean | null;
+  directional_category_updated_at: string | null;
 }
 
 const PROPOSAL_SELECT =
@@ -81,7 +93,7 @@ const PROPOSAL_SELECT =
 const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
 export interface HistoricalProposalImportRow {
-  title: string;
+  title?: string;
   description: string;
   organizationName: string;
   budgetYear: number;
@@ -112,6 +124,30 @@ function unique<T>(values: T[]) {
 
 function normalizeLookupValue(value: string) {
   return value.trim().toLowerCase();
+}
+
+function toDirectionalCategory(value: unknown): DirectionalCategory {
+  const normalized = String(value ?? "").trim();
+  if ((DIRECTIONAL_CATEGORIES as readonly string[]).includes(normalized)) {
+    return normalized as DirectionalCategory;
+  }
+  return "other";
+}
+
+function toDirectionalCategorySource(value: unknown): DirectionalCategorySource {
+  const normalized = String(value ?? "").trim();
+  if (["rule", "ai", "manual", "fallback"].includes(normalized)) {
+    return normalized as DirectionalCategorySource;
+  }
+  return "fallback";
+}
+
+function resolveHistoricalGrantTitle(row: HistoricalProposalImportRow) {
+  const providedTitle = String(row.title ?? "").trim();
+  if (providedTitle) {
+    return providedTitle;
+  }
+  return row.organizationName.trim();
 }
 
 function roundCurrency(value: number) {
@@ -159,13 +195,23 @@ async function loadProposalTitle(admin: AdminClient, grantMasterId: string) {
 }
 
 function mapOrganization(row: OrganizationRow): Organization {
+  const directionalCategoryConfidence =
+    row.directional_category_confidence === null || row.directional_category_confidence === undefined
+      ? null
+      : toNumber(row.directional_category_confidence);
+
   return {
     id: row.id,
     name: row.name,
     website: row.website ?? "",
     charityNavigatorScore: toNumber(row.charity_navigator_score),
     charityNavigatorUrl: row.charity_navigator_url,
-    causeArea: row.cause_area ?? "General"
+    causeArea: row.cause_area ?? "General",
+    directionalCategory: toDirectionalCategory(row.directional_category),
+    directionalCategorySource: toDirectionalCategorySource(row.directional_category_source),
+    directionalCategoryConfidence,
+    directionalCategoryLocked: Boolean(row.directional_category_locked),
+    directionalCategoryUpdatedAt: row.directional_category_updated_at
   };
 }
 
@@ -473,7 +519,9 @@ async function loadOrganizationRows(admin: AdminClient, organizationIds: string[
 
   const { data, error } = await admin
     .from("organizations")
-    .select("id, name, website, charity_navigator_score, charity_navigator_url, cause_area")
+    .select(
+      "id, name, website, charity_navigator_score, charity_navigator_url, cause_area, directional_category, directional_category_source, directional_category_confidence, directional_category_locked, directional_category_updated_at"
+    )
     .in("id", organizationIds)
     .returns<OrganizationRow[]>();
 
@@ -560,6 +608,7 @@ function buildProposalViews(input: {
       organizationName: organization?.name ?? "Unknown Organization",
       organizationWebsite: organization?.website ?? null,
       charityNavigatorUrl: organization?.charity_navigator_url ?? null,
+      organizationDirectionalCategory: toDirectionalCategory(organization?.directional_category),
       voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,
         choice: vote.choice,
@@ -850,7 +899,9 @@ export async function getWorkspaceSnapshot(
 export async function listOrganizations(admin: AdminClient) {
   const { data, error } = await admin
     .from("organizations")
-    .select("id, name, website, charity_navigator_score, charity_navigator_url, cause_area")
+    .select(
+      "id, name, website, charity_navigator_score, charity_navigator_url, cause_area, directional_category, directional_category_source, directional_category_confidence, directional_category_locked, directional_category_updated_at"
+    )
     .order("name", { ascending: true })
     .returns<OrganizationRow[]>();
 
@@ -866,32 +917,32 @@ export async function listProposalTitleSuggestions(admin: AdminClient, limit = 2
   const queryLimit = Math.max(25, Math.min(500, safeLimit * 5));
 
   const { data, error } = await admin
-    .from("grants_master")
-    .select("title")
+    .from("organizations")
+    .select("name")
     .order("created_at", { ascending: false })
     .limit(queryLimit)
-    .returns<Array<Pick<GrantMasterRow, "title">>>();
+    .returns<Array<Pick<OrganizationRow, "name">>>();
 
   if (error) {
-    throw new HttpError(500, `Could not load proposal title suggestions: ${error.message}`);
+    throw new HttpError(500, `Could not load organization name suggestions: ${error.message}`);
   }
 
   const seen = new Set<string>();
   const suggestions: string[] = [];
 
   for (const row of data ?? []) {
-    const title = String(row.title ?? "").trim();
-    if (!title) {
+    const name = String(row.name ?? "").trim();
+    if (!name) {
       continue;
     }
 
-    const normalizedTitle = normalizeLookupValue(title);
-    if (seen.has(normalizedTitle)) {
+    const normalizedName = normalizeLookupValue(name);
+    if (seen.has(normalizedName)) {
       continue;
     }
 
-    seen.add(normalizedTitle);
-    suggestions.push(title);
+    seen.add(normalizedName);
+    suggestions.push(name);
 
     if (suggestions.length >= safeLimit) {
       break;
@@ -904,7 +955,7 @@ export async function listProposalTitleSuggestions(admin: AdminClient, limit = 2
 export async function submitProposal(
   admin: AdminClient,
   input: {
-    title: string;
+    organizationName: string;
     description: string;
     proposalType: ProposalType;
     allocationMode: AllocationMode;
@@ -914,6 +965,11 @@ export async function submitProposal(
     proposer: UserProfile;
   }
 ) {
+  const normalizedOrganizationName = input.organizationName.trim();
+  if (!normalizedOrganizationName) {
+    throw new HttpError(400, "Organization name is required.");
+  }
+
   const normalizedProposedAmount = roundCurrency(input.proposedAmount);
   const normalizedWebsite = String(input.website ?? "").trim() || null;
   const normalizedCharityNavigatorUrl = String(input.charityNavigatorUrl ?? "").trim() || null;
@@ -940,20 +996,22 @@ export async function submitProposal(
   const budget = await getCurrentBudget(admin);
   const allocationMode: AllocationMode = input.proposalType === "joint" ? "sum" : input.allocationMode;
 
-  const { data: existingGrant, error: existingGrantError } = await admin
-    .from("grants_master")
-    .select("id, organization_id")
-    .eq("title", input.title)
+  const { data: existingOrganizationByName, error: existingOrganizationError } = await admin
+    .from("organizations")
+    .select("id, website, charity_navigator_url")
+    .eq("name", normalizedOrganizationName)
     .order("created_at", { ascending: true })
     .limit(1)
-    .maybeSingle<{ id: string; organization_id: string | null }>();
+    .maybeSingle<{ id: string; website: string | null; charity_navigator_url: string | null }>();
 
-  if (existingGrantError) {
-    throw new HttpError(500, `Could not check existing grant: ${existingGrantError.message}`);
+  if (existingOrganizationError) {
+    throw new HttpError(
+      500,
+      `Could not look up organization by name: ${existingOrganizationError.message}`
+    );
   }
 
-  let grantMasterId = existingGrant?.id;
-  let organizationId = existingGrant?.organization_id ?? null;
+  let organizationId: string | null = existingOrganizationByName?.id ?? null;
 
   const syncMissingOrganizationLinks = async (
     targetOrganizationId: string,
@@ -1010,60 +1068,56 @@ export async function submitProposal(
   if (organizationId) {
     await syncMissingOrganizationLinks(organizationId);
   } else {
-    const { data: existingOrganizationByTitle, error: existingOrganizationLookupError } = await admin
+    const { data: insertedOrganization, error: insertOrganizationError } = await admin
       .from("organizations")
-      .select("id, website, charity_navigator_url")
-      .eq("name", input.title)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle<{ id: string; website: string | null; charity_navigator_url: string | null }>();
+      .insert({
+        name: normalizedOrganizationName,
+        website: normalizedWebsite,
+        charity_navigator_url: normalizedCharityNavigatorUrl,
+        cause_area: "General"
+      })
+      .select("id")
+      .single<{ id: string }>();
 
-    if (existingOrganizationLookupError) {
+    if (insertOrganizationError || !insertedOrganization) {
       throw new HttpError(
         500,
-        `Could not look up organization for proposal title: ${existingOrganizationLookupError.message}`
+        `Could not create organization for proposal links: ${
+          insertOrganizationError?.message ?? "missing row"
+        }`
       );
     }
 
-    if (existingOrganizationByTitle) {
-      organizationId = existingOrganizationByTitle.id;
-      await syncMissingOrganizationLinks(organizationId, {
-        website: existingOrganizationByTitle.website,
-        charity_navigator_url: existingOrganizationByTitle.charity_navigator_url
-      });
-    } else if (normalizedWebsite || normalizedCharityNavigatorUrl) {
-      const { data: insertedOrganization, error: insertOrganizationError } = await admin
-        .from("organizations")
-        .insert({
-          name: input.title,
-          website: normalizedWebsite,
-          charity_navigator_url: normalizedCharityNavigatorUrl,
-          cause_area: "General"
-        })
-        .select("id")
-        .single<{ id: string }>();
-
-      if (insertOrganizationError || !insertedOrganization) {
-        throw new HttpError(
-          500,
-          `Could not create organization for proposal links: ${
-            insertOrganizationError?.message ?? "missing row"
-          }`
-        );
-      }
-
-      organizationId = insertedOrganization.id;
-    }
+    organizationId = insertedOrganization.id;
   }
 
+  const resolvedOrganizationId = must(
+    organizationId,
+    "Organization resolution failed while submitting proposal."
+  );
+
+  const { data: existingGrant, error: existingGrantError } = await admin
+    .from("grants_master")
+    .select("id")
+    .eq("organization_id", resolvedOrganizationId)
+    .eq("title", normalizedOrganizationName)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  if (existingGrantError) {
+    throw new HttpError(500, `Could not check existing grant: ${existingGrantError.message}`);
+  }
+
+  let grantMasterId = existingGrant?.id;
   if (!grantMasterId) {
     const { data: insertedGrant, error: insertGrantError } = await admin
       .from("grants_master")
       .insert({
-        title: input.title,
+        title: normalizedOrganizationName,
         description: input.description,
         cause_area: "General",
-        organization_id: organizationId,
+        organization_id: resolvedOrganizationId,
         created_by: input.proposer.id
       })
       .select("id")
@@ -1077,22 +1131,13 @@ export async function submitProposal(
     }
 
     grantMasterId = insertedGrant.id;
-  } else if (!existingGrant?.organization_id && organizationId) {
-    const { error: updateGrantError } = await admin
-      .from("grants_master")
-      .update({ organization_id: organizationId })
-      .eq("id", grantMasterId);
-
-    if (updateGrantError) {
-      throw new HttpError(500, `Could not link grant to organization: ${updateGrantError.message}`);
-    }
   }
 
   const { data: insertedProposal, error: insertProposalError } = await admin
     .from("grant_proposals")
     .insert({
       grant_master_id: grantMasterId,
-      organization_id: organizationId,
+      organization_id: resolvedOrganizationId,
       proposer_id: input.proposer.id,
       budget_year: budget.budget_year,
       proposal_type: input.proposalType,
@@ -1111,6 +1156,10 @@ export async function submitProposal(
     );
   }
 
+  void enqueueOrganizationCategoryJob(admin, resolvedOrganizationId).catch((error) => {
+    logNotificationError("submitProposal enqueue organization categorization", error);
+  });
+
   const recipients = (await getVotingMemberIds(admin)).filter((userId) => userId !== input.proposer.id);
   if (recipients.length) {
     void queuePushEvent(admin, {
@@ -1118,7 +1167,7 @@ export async function submitProposal(
       actorUserId: input.proposer.id,
       entityId: insertedProposal.id,
       title: "New Proposal Submitted",
-      body: `${input.proposer.name} submitted "${input.title}".`,
+      body: `${input.proposer.name} submitted "${normalizedOrganizationName}".`,
       linkPath: "/workspace",
       payload: {
         proposalId: insertedProposal.id,
@@ -1132,7 +1181,7 @@ export async function submitProposal(
 
     void queueVoteRequiredActionEmails(admin, {
       proposalId: insertedProposal.id,
-      proposalTitle: input.title,
+      proposalTitle: normalizedOrganizationName,
       proposalType: input.proposalType,
       recipientUserIds: recipients,
       actorUserId: input.proposer.id
@@ -1544,6 +1593,12 @@ export async function updateProposalRecord(
     throw new HttpError(500, `Could not update proposal: ${error.message}`);
   }
 
+  if (proposal.organization_id) {
+    void enqueueOrganizationCategoryJob(admin, proposal.organization_id).catch((enqueueError) => {
+      logNotificationError("updateProposalRecord enqueue organization categorization", enqueueError);
+    });
+  }
+
   return getProposalViewById(admin, input.proposalId, input.currentUserId);
 }
 
@@ -1750,7 +1805,8 @@ export async function importHistoricalProposals(
       continue;
     }
 
-    const grantLookup = `${organizationId}::${normalizeLookupValue(row.title)}`;
+    const grantTitle = resolveHistoricalGrantTitle(row);
+    const grantLookup = `${organizationId}::${normalizeLookupValue(grantTitle)}`;
     if (grantIdByLookup.has(grantLookup)) {
       continue;
     }
@@ -1767,7 +1823,7 @@ export async function importHistoricalProposals(
     }
 
     grantsToCreateByLookup.set(grantLookup, {
-      title: row.title,
+      title: grantTitle,
       description: row.description,
       cause_area: row.causeArea ?? "General",
       organization_id: organizationId,
@@ -1809,10 +1865,13 @@ export async function importHistoricalProposals(
       }
 
       const grantId = grantIdByLookup.get(
-        `${organizationId}::${normalizeLookupValue(row.title)}`
+        `${organizationId}::${normalizeLookupValue(resolveHistoricalGrantTitle(row))}`
       );
       if (!grantId) {
-        throw new HttpError(500, `Grant resolution failed for "${row.title}" during import.`);
+        throw new HttpError(
+          500,
+          `Grant resolution failed for "${resolveHistoricalGrantTitle(row)}" during import.`
+        );
       }
 
       return grantId;
@@ -1870,9 +1929,14 @@ export async function importHistoricalProposals(
       throw new HttpError(500, `Organization resolution failed for "${row.organizationName}".`);
     }
 
-    const grantId = grantIdByLookup.get(`${organizationId}::${normalizeLookupValue(row.title)}`);
+    const grantId = grantIdByLookup.get(
+      `${organizationId}::${normalizeLookupValue(resolveHistoricalGrantTitle(row))}`
+    );
     if (!grantId) {
-      throw new HttpError(500, `Grant resolution failed for "${row.title}".`);
+      throw new HttpError(
+        500,
+        `Grant resolution failed for "${resolveHistoricalGrantTitle(row)}".`
+      );
     }
 
     const proposalKey = `${grantId}::${row.budgetYear}::${row.status}::${row.proposalType}`;
@@ -1931,6 +1995,10 @@ export async function importHistoricalProposals(
       );
     }
   }
+
+  void enqueueOrganizationCategoryJobs(admin, organizationIdsForRows).catch((error) => {
+    logNotificationError("importHistoricalProposals enqueue organization categorization", error);
+  });
 
   return {
     insertedCount: proposalRowsToInsert.length,

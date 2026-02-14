@@ -21,7 +21,13 @@ import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow } from "@/components/ui/data-table";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
+import {
+  DirectionalCategory,
+  DIRECTIONAL_CATEGORIES,
+  DIRECTIONAL_CATEGORY_LABELS,
+  FoundationSnapshot,
+  ProposalStatus
+} from "@/lib/types";
 import { compactCurrency, currency, formatNumber, titleCase } from "@/lib/utils";
 import { chartPalette, chartText } from "@/lib/chart-styles";
 
@@ -35,6 +41,7 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
 
 type StatusFilterState = Record<ProposalStatus, boolean>;
 type SelectedYear = number | "all" | null;
+type CategoryFilter = "all" | DirectionalCategory;
 
 const DEFAULT_STATUS_FILTERS: StatusFilterState = {
   to_review: true,
@@ -59,6 +66,7 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
   const canAccess = user ? user.role === "oversight" || user.role === "manager" : false;
 
@@ -112,10 +120,16 @@ export default function ReportsPage() {
     if (!data) {
       return [];
     }
+
     return data.proposals
       .filter((proposal) => statusFilters[proposal.status])
+      .filter((proposal) =>
+        categoryFilter === "all"
+          ? true
+          : proposal.organizationDirectionalCategory === categoryFilter
+      )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [data, statusFilters]);
+  }, [categoryFilter, data, statusFilters]);
 
   const statusCounts = useMemo<StatusCountDatum[]>(
     () =>
@@ -283,6 +297,41 @@ export default function ReportsPage() {
             </label>
           ))}
         </div>
+        <div className="mt-2 flex flex-wrap gap-2 print:hidden">
+          <label
+            className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+              categoryFilter === "all"
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-zinc-300 text-zinc-500 dark:border-zinc-700"
+            }`}
+          >
+            <input
+              type="radio"
+              className="sr-only"
+              checked={categoryFilter === "all"}
+              onChange={() => setCategoryFilter("all")}
+            />
+            All categories
+          </label>
+          {DIRECTIONAL_CATEGORIES.map((category) => (
+            <label
+              key={category}
+              className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+                categoryFilter === category
+                  ? "border-accent bg-accent/10 text-accent"
+                  : "border-zinc-300 text-zinc-500 dark:border-zinc-700"
+              }`}
+            >
+              <input
+                type="radio"
+                className="sr-only"
+                checked={categoryFilter === category}
+                onChange={() => setCategoryFilter(category)}
+              />
+              {DIRECTIONAL_CATEGORY_LABELS[category]}
+            </label>
+          ))}
+        </div>
       </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -431,6 +480,7 @@ export default function ReportsPage() {
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <p>Type: {titleCase(proposal.proposalType)}</p>
                   <p>Sent: {proposal.sentAt ?? "—"}</p>
+                  <p>Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}</p>
                   <p>Created: {proposal.createdAt.slice(0, 10)}</p>
                 </div>
               </article>
@@ -444,6 +494,7 @@ export default function ReportsPage() {
               <DataTableHeadRow>
                 <th className="px-2 py-2">Proposal</th>
                 <th className="px-2 py-2">Type</th>
+                <th className="px-2 py-2">Category</th>
                 <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Amount</th>
                 <th className="px-2 py-2">Sent Date</th>
@@ -453,7 +504,7 @@ export default function ReportsPage() {
             <tbody>
               {filteredProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-2 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={7} className="px-2 py-6 text-center text-sm text-zinc-500">
                     No proposals match the selected status filters.
                   </td>
                 </tr>
@@ -465,6 +516,9 @@ export default function ReportsPage() {
                     </td>
                     <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
                       {titleCase(proposal.proposalType)}
+                    </td>
+                    <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+                      {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
                     </td>
                     <td className="px-2 py-2">
                       <StatusPill status={proposal.status} />

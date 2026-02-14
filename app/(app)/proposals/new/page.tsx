@@ -29,7 +29,7 @@ export default function NewProposalPage() {
     user ? "/api/proposals/titles" : null
   );
 
-  const [title, setTitle] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [description, setDescription] = useState("");
   const [website, setWebsite] = useState("");
   const [charityNavigatorUrl, setCharityNavigatorUrl] = useState("");
@@ -44,14 +44,17 @@ export default function NewProposalPage() {
   const discretionaryLimit = workspaceQuery.data
     ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
     : null;
-  const allTitleSuggestions = useMemo(() => titleSuggestionsQuery.data?.titles ?? [], [titleSuggestionsQuery.data?.titles]);
-  const normalizedTitle = title.trim().toLowerCase();
+  const allTitleSuggestions = useMemo(
+    () => titleSuggestionsQuery.data?.titles ?? [],
+    [titleSuggestionsQuery.data?.titles]
+  );
+  const normalizedOrganizationName = organizationName.trim().toLowerCase();
   const matchingTitleSuggestions = useMemo(() => {
     if (!allTitleSuggestions.length) {
       return [];
     }
 
-    if (!normalizedTitle) {
+    if (!normalizedOrganizationName) {
       return allTitleSuggestions.slice(0, 12);
     }
 
@@ -60,11 +63,11 @@ export default function NewProposalPage() {
 
     for (const suggestion of allTitleSuggestions) {
       const normalizedSuggestion = suggestion.trim().toLowerCase();
-      if (!normalizedSuggestion.includes(normalizedTitle)) {
+      if (!normalizedSuggestion.includes(normalizedOrganizationName)) {
         continue;
       }
 
-      if (normalizedSuggestion.startsWith(normalizedTitle)) {
+      if (normalizedSuggestion.startsWith(normalizedOrganizationName)) {
         startsWithMatches.push(suggestion);
       } else {
         containsMatches.push(suggestion);
@@ -72,11 +75,13 @@ export default function NewProposalPage() {
     }
 
     return [...startsWithMatches, ...containsMatches].slice(0, 12);
-  }, [allTitleSuggestions, normalizedTitle]);
-  const hasExactTitleSuggestion = normalizedTitle
-    ? allTitleSuggestions.some((suggestion) => suggestion.trim().toLowerCase() === normalizedTitle)
+  }, [allTitleSuggestions, normalizedOrganizationName]);
+  const hasExactTitleSuggestion = normalizedOrganizationName
+    ? allTitleSuggestions.some(
+        (suggestion) => suggestion.trim().toLowerCase() === normalizedOrganizationName
+      )
     : false;
-  const showCreateTitleOption = Boolean(title.trim()) && !hasExactTitleSuggestion;
+  const showCreateTitleOption = Boolean(organizationName.trim()) && !hasExactTitleSuggestion;
   const hasAnyTitleSuggestions = matchingTitleSuggestions.length > 0 || showCreateTitleOption;
   const showTitleSuggestionsPanel = isTitleSuggestionsOpen && hasAnyTitleSuggestions;
 
@@ -98,7 +103,7 @@ export default function NewProposalPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          title,
+          organizationName,
           description,
           website,
           charityNavigatorUrl,
@@ -190,7 +195,7 @@ export default function NewProposalPage() {
       <Card>
         <form className="space-y-4" onSubmit={submit}>
           <label className="block text-sm font-medium">
-            Proposal title
+            Organization name
             <div
               className="relative mt-1"
               onBlur={(event) => {
@@ -200,9 +205,9 @@ export default function NewProposalPage() {
               }}
             >
               <input
-                value={title}
+                value={organizationName}
                 onChange={(event) => {
-                  setTitle(event.target.value);
+                  setOrganizationName(event.target.value);
                   setIsTitleSuggestionsOpen(true);
                 }}
                 onFocus={() => setIsTitleSuggestionsOpen(true)}
@@ -220,15 +225,15 @@ export default function NewProposalPage() {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setIsTitleSuggestionsOpen((open) => !open)}
                 className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-xl border-l bg-zinc-50 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                aria-label="Toggle proposal title suggestions"
+                aria-label="Toggle organization name suggestions"
                 aria-expanded={showTitleSuggestionsPanel}
-                aria-controls="proposal-title-suggestions-list"
+                aria-controls="organization-name-suggestions-list"
               >
                 <ChevronDown aria-hidden="true" size={16} />
               </button>
               {showTitleSuggestionsPanel ? (
                 <div
-                  id="proposal-title-suggestions-list"
+                  id="organization-name-suggestions-list"
                   role="listbox"
                   className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
                 >
@@ -238,7 +243,7 @@ export default function NewProposalPage() {
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
-                        setTitle(suggestion);
+                        setOrganizationName(suggestion);
                         setIsTitleSuggestionsOpen(false);
                       }}
                       className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
@@ -251,12 +256,12 @@ export default function NewProposalPage() {
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
-                        setTitle(title.trim());
+                        setOrganizationName(organizationName.trim());
                         setIsTitleSuggestionsOpen(false);
                       }}
                       className="mt-1 block w-full rounded-lg border border-dashed border-zinc-300 px-2 py-1.5 text-left text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
-                      Add as new title: {title.trim()}
+                      Add as new organization: {organizationName.trim()}
                     </button>
                   ) : null}
                 </div>
@@ -264,12 +269,12 @@ export default function NewProposalPage() {
             </div>
             <p className="mt-1 text-xs text-zinc-500">
               {titleSuggestionsQuery.isLoading
-                ? "Loading previous proposal titles..."
+                ? "Loading known organization names..."
                 : !allTitleSuggestions.length
-                ? "No previous proposal titles found. Enter a new proposal title."
-                : title.trim() && !hasExactTitleSuggestion
-                ? "No exact match found. Submitting will add this as a new proposal title."
-                : "Suggestions are based on previous proposal titles in the database. Use the arrow button to open suggestions."}
+                ? "No organization names found yet. Enter a new organization name."
+                : organizationName.trim() && !hasExactTitleSuggestion
+                ? "No exact match found. Submitting will add this as a new organization name."
+                : "Suggestions are based on organization names in the database. Use the arrow button to open suggestions."}
             </p>
           </label>
 
@@ -460,9 +465,9 @@ export default function NewProposalPage() {
             <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40">
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                  Title
+                  Organization
                 </dt>
-                <dd className="text-right font-medium">{title.trim()}</dd>
+                <dd className="text-right font-medium">{organizationName.trim()}</dd>
               </div>
               <div className="flex items-start justify-between gap-3">
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">

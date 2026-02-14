@@ -137,14 +137,13 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
   };
 
   if (
-    headerIndexes.title < 0 ||
     headerIndexes.organizationName < 0 ||
     headerIndexes.budgetYear < 0 ||
     headerIndexes.finalAmount < 0
   ) {
     throw new HttpError(
       400,
-      "CSV is missing required headers. Required: title, organization, budget_year, final_amount."
+      "CSV is missing required headers. Required: organization, budget_year, final_amount."
     );
   }
 
@@ -170,10 +169,10 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
     const causeArea = getCell(row, headerIndexes.causeArea);
     const charityNavigatorScoreRaw = getCell(row, headerIndexes.charityNavigatorScore);
 
-    if (!title || !organizationName || !budgetYearRaw || !finalAmountRaw) {
+    if (!organizationName || !budgetYearRaw || !finalAmountRaw) {
       throw new HttpError(
         400,
-        `Row ${lineNumber}: title, organization, budget_year, and final_amount are required.`
+        `Row ${lineNumber}: organization, budget_year, and final_amount are required.`
       );
     }
 
@@ -257,7 +256,6 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
     );
 
     parsedRows.push({
-      title,
       description,
       organizationName,
       budgetYear,
@@ -266,6 +264,7 @@ function parseCsvImportRows(csvText: string): HistoricalProposalImportRow[] {
       proposalType,
       allocationMode,
       notes,
+      ...(title ? { title } : {}),
       ...(sentAt ? { sentAt } : {}),
       ...(createdAt ? { createdAt } : {}),
       ...(website ? { website } : {}),

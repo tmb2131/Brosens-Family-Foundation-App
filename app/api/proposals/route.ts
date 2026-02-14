@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     assertRole(profile, ["member", "oversight", "manager"]);
 
     const body = await request.json();
-    const title = String(body.title ?? "").trim();
+    const organizationName = String(body.organizationName ?? body.title ?? "").trim();
     const description = String(body.description ?? "").trim();
     const proposalType = String(body.proposalType ?? "joint") as ProposalType;
     const requestedAllocationMode = String(body.allocationMode ?? "sum") as AllocationMode;
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       "charity navigator link"
     );
 
-    if (!title || !description) {
+    if (!organizationName || !description) {
       throw new HttpError(400, "Missing required fields.");
     }
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     const allocationMode: AllocationMode = proposalType === "joint" ? "sum" : requestedAllocationMode;
 
     const proposal = await submitProposal(admin, {
-      title,
+      organizationName,
       description,
       proposalType,
       allocationMode,

@@ -7,6 +7,11 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
+import {
+  DirectionalCategory,
+  DIRECTIONAL_CATEGORIES,
+  DIRECTIONAL_CATEGORY_LABELS
+} from "@/lib/types";
 import { currency, formatNumber, parseNumberInput } from "@/lib/utils";
 
 interface BudgetResponse {
@@ -23,10 +28,36 @@ interface BudgetResponse {
   };
 }
 
+interface OrganizationCategoryRow {
+  id: string;
+  name: string;
+  directionalCategory: DirectionalCategory;
+  directionalCategorySource: string;
+  directionalCategoryConfidence: number | null;
+  directionalCategoryLocked: boolean;
+  directionalCategoryUpdatedAt: string | null;
+}
+
+interface OrganizationCategoriesResponse {
+  organizations: OrganizationCategoryRow[];
+}
+
+interface OrganizationCategoryProcessResponse {
+  processed: number;
+  categorized: number;
+  skippedLocked: number;
+  failed: number;
+  pendingRetries: number;
+}
+
 export default function SettingsPage() {
   const { user, sendPasswordReset } = useAuth();
   const canManageBudget = Boolean(user && ["oversight", "manager"].includes(user.role));
+  const canManageOrganizationCategories = user?.role === "oversight";
   const { data, mutate, isLoading, error } = useSWR<BudgetResponse>(canManageBudget ? "/api/budgets" : null);
+  const organizationCategoriesQuery = useSWR<OrganizationCategoriesResponse>(
+    canManageOrganizationCategories ? "/api/organizations/categories" : null
+  );
 
   const [year, setYear] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
@@ -41,6 +72,19 @@ export default function SettingsPage() {
   const [historicalImporting, setHistoricalImporting] = useState(false);
   const [historicalImportInputKey, setHistoricalImportInputKey] = useState(0);
   const [historicalImportMessage, setHistoricalImportMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<DirectionalCategory>("other");
+  const [selectedCategoryLocked, setSelectedCategoryLocked] = useState(false);
+  const [savingCategoryOverride, setSavingCategoryOverride] = useState(false);
+  const [categoryOverrideMessage, setCategoryOverrideMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [runningCategoryWorker, setRunningCategoryWorker] = useState(false);
+  const [categoryWorkerMessage, setCategoryWorkerMessage] = useState<{
     tone: "success" | "error";
     text: string;
   } | null>(null);
@@ -69,6 +113,26 @@ export default function SettingsPage() {
     setTotalAmount(String(data.budget.total - data.budget.rolloverFromPreviousYear));
     setRollover(String(data.budget.rolloverFromPreviousYear));
   }, [data]);
+
+  useEffect(() => {
+    const organizations = organizationCategoriesQuery.data?.organizations ?? [];
+    if (!organizations.length) {
+      setSelectedOrganizationId("");
+      setSelectedCategory("other");
+      setSelectedCategoryLocked(false);
+      return;
+    }
+
+    const selectedOrganization =
+      organizations.find((organization) => organization.id === selectedOrganizationId) ?? organizations[0];
+
+    if (selectedOrganizationId !== selectedOrganization.id) {
+      setSelectedOrganizationId(selectedOrganization.id);
+    }
+
+    setSelectedCategory(selectedOrganization.directionalCategory);
+    setSelectedCategoryLocked(selectedOrganization.directionalCategoryLocked);
+  }, [organizationCategoriesQuery.data?.organizations, selectedOrganizationId]);
 
   if (!user) {
     return <p className="text-sm text-zinc-500">Loading settings...</p>;
@@ -173,6 +237,99 @@ export default function SettingsPage() {
     }
   };
 
+  const saveCategoryOverride = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!selectedOrganizationId) {
+      setCategoryOverrideMessage({
+        tone: "error",
+        text: "Select an organization before saving."
+      });
+      return;
+    }
+
+    setSavingCategoryOverride(true);
+    setCategoryOverrideMessage(null);
+
+    try {
+      const response = await fetch(`/api/organizations/${selectedOrganizationId}/category`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          category: selectedCategory,
+          lock: selectedCategoryLocked
+        })
+      });
+
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to save category override."));
+      }
+
+      await organizationCategoriesQuery.mutate();
+      setCategoryOverrideMessage({
+        tone: "success",
+        text: "Organization category override saved."
+      });
+    } catch (error) {
+      setCategoryOverrideMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Failed to save category override."
+      });
+    } finally {
+      setSavingCategoryOverride(false);
+    }
+  };
+
+  const runCategoryWorker = async () => {
+    setRunningCategoryWorker(true);
+    setCategoryWorkerMessage(null);
+
+    try {
+      const response = await fetch("/api/organizations/categories/process", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ limit: 100 })
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as Partial<
+        OrganizationCategoryProcessResponse & { error: string }
+      >;
+
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to run organization categorization worker."));
+      }
+
+      const processed = Number(payload.processed ?? 0);
+      const categorized = Number(payload.categorized ?? 0);
+      const skippedLocked = Number(payload.skippedLocked ?? 0);
+      const failed = Number(payload.failed ?? 0);
+      const pendingRetries = Number(payload.pendingRetries ?? 0);
+
+      setCategoryWorkerMessage({
+        tone: "success",
+        text: `Worker completed: processed ${formatNumber(processed)}, categorized ${formatNumber(
+          categorized
+        )}, skipped locked ${formatNumber(skippedLocked)}, failed ${formatNumber(
+          failed
+        )}, pending retries ${formatNumber(pendingRetries)}.`
+      });
+
+      await organizationCategoriesQuery.mutate();
+    } catch (error) {
+      setCategoryWorkerMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Failed to run organization categorization worker."
+      });
+    } finally {
+      setRunningCategoryWorker(false);
+    }
+  };
+
+  const selectedOrganization = (organizationCategoriesQuery.data?.organizations ?? []).find(
+    (organization) => organization.id === selectedOrganizationId
+  );
+
   return (
     <div className="page-stack pb-4">
       <Card className="rounded-3xl">
@@ -212,12 +369,12 @@ export default function SettingsPage() {
           <p className="mt-1 text-sm text-zinc-500">
             Upload historical proposal records. Required headers:{" "}
             <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
-              title, organization, budget_year, final_amount
+              organization, budget_year, final_amount
             </code>
             .
           </p>
           <p className="mt-1 text-xs text-zinc-500">
-            Optional headers: description, status, proposal_type, allocation_mode, notes, sent_at, created_at, website,
+            Optional headers: title, description, status, proposal_type, allocation_mode, notes, sent_at, created_at, website,
             cause_area, charity_navigator_score.
           </p>
           <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importHistoricalCsv}>
@@ -250,6 +407,142 @@ export default function SettingsPage() {
               {historicalImportMessage.text}
             </p>
           ) : null}
+        </Card>
+      ) : null}
+
+      {canManageOrganizationCategories ? (
+        <Card>
+          <CardTitle>Organization Category Worker</CardTitle>
+          <p className="mt-1 text-sm text-zinc-500">
+            Trigger organization categorization now without waiting for scheduled worker runs.
+          </p>
+          <button
+            type="button"
+            onClick={() => void runCategoryWorker()}
+            disabled={runningCategoryWorker}
+            className="mt-3 min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+          >
+            {runningCategoryWorker ? "Running..." : "Run Categorization Worker"}
+          </button>
+          {categoryWorkerMessage ? (
+            <p
+              className={`mt-2 text-xs ${
+                categoryWorkerMessage.tone === "error"
+                  ? "text-rose-600"
+                  : "text-emerald-700 dark:text-emerald-300"
+              }`}
+            >
+              {categoryWorkerMessage.text}
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {canManageOrganizationCategories ? (
+        <Card>
+          <CardTitle>Organization Category Overrides</CardTitle>
+          {organizationCategoriesQuery.isLoading ? (
+            <p className="mt-2 text-sm text-zinc-500">Loading organizations...</p>
+          ) : organizationCategoriesQuery.error ? (
+            <p className="mt-2 text-sm text-rose-600">
+              Could not load organizations: {organizationCategoriesQuery.error.message}
+            </p>
+          ) : !organizationCategoriesQuery.data?.organizations.length ? (
+            <p className="mt-2 text-sm text-zinc-500">No organizations available yet.</p>
+          ) : (
+            <form className="mt-3 space-y-3" onSubmit={saveCategoryOverride}>
+              <label className="block text-sm font-medium">
+                Organization
+                <select
+                  className="field-control mt-1 w-full rounded-xl"
+                  value={selectedOrganizationId}
+                  onChange={(event) => {
+                    const organizationId = event.target.value;
+                    setSelectedOrganizationId(organizationId);
+                    const nextOrganization = (organizationCategoriesQuery.data?.organizations ?? []).find(
+                      (organization) => organization.id === organizationId
+                    );
+                    if (nextOrganization) {
+                      setSelectedCategory(nextOrganization.directionalCategory);
+                      setSelectedCategoryLocked(nextOrganization.directionalCategoryLocked);
+                    }
+                    setCategoryOverrideMessage(null);
+                  }}
+                >
+                  {(organizationCategoriesQuery.data?.organizations ?? []).map((organization) => (
+                    <option key={organization.id} value={organization.id}>
+                      {organization.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-medium">
+                Directional category
+                <select
+                  className="field-control mt-1 w-full rounded-xl"
+                  value={selectedCategory}
+                  onChange={(event) => {
+                    setSelectedCategory(event.target.value as DirectionalCategory);
+                    setCategoryOverrideMessage(null);
+                  }}
+                >
+                  {DIRECTIONAL_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {DIRECTIONAL_CATEGORY_LABELS[category]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedCategoryLocked}
+                  onChange={(event) => {
+                    setSelectedCategoryLocked(event.target.checked);
+                    setCategoryOverrideMessage(null);
+                  }}
+                  className="h-4 w-4 accent-[hsl(var(--accent))]"
+                />
+                Lock category (worker will not overwrite)
+              </label>
+
+              {selectedOrganization ? (
+                <p className="text-xs text-zinc-500">
+                  Current source: {selectedOrganization.directionalCategorySource}. Confidence:{" "}
+                  {selectedOrganization.directionalCategoryConfidence === null
+                    ? "—"
+                    : `${Math.round(selectedOrganization.directionalCategoryConfidence * 100)}%`}
+                  . Last updated:{" "}
+                  {selectedOrganization.directionalCategoryUpdatedAt
+                    ? selectedOrganization.directionalCategoryUpdatedAt.slice(0, 10)
+                    : "—"}
+                  .
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={savingCategoryOverride}
+                className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+              >
+                {savingCategoryOverride ? "Saving..." : "Save Category Override"}
+              </button>
+
+              {categoryOverrideMessage ? (
+                <p
+                  className={`text-xs ${
+                    categoryOverrideMessage.tone === "error"
+                      ? "text-rose-600"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  {categoryOverrideMessage.text}
+                </p>
+              ) : null}
+            </form>
+          )}
         </Card>
       ) : null}
 

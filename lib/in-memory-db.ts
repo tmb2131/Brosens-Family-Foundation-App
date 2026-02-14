@@ -49,28 +49,48 @@ const seedState: DataState = {
       name: "National Food Bank Network",
       website: "https://example.org/food-bank",
       charityNavigatorScore: 94,
-      causeArea: "Food Security"
+      causeArea: "Food Security",
+      directionalCategory: "food_security",
+      directionalCategorySource: "rule",
+      directionalCategoryConfidence: 0.91,
+      directionalCategoryLocked: false,
+      directionalCategoryUpdatedAt: isoNow(-20_000)
     },
     {
       id: "org-2",
       name: "STEM Scholars Alliance",
       website: "https://example.org/stem-scholars",
       charityNavigatorScore: 91,
-      causeArea: "Education"
+      causeArea: "Education",
+      directionalCategory: "education",
+      directionalCategorySource: "rule",
+      directionalCategoryConfidence: 0.9,
+      directionalCategoryLocked: false,
+      directionalCategoryUpdatedAt: isoNow(-20_000)
     },
     {
       id: "org-3",
       name: "Wildlife Recovery Fund",
       website: "https://example.org/wildlife-recovery",
       charityNavigatorScore: 88,
-      causeArea: "Environment"
+      causeArea: "Environment",
+      directionalCategory: "environment",
+      directionalCategorySource: "rule",
+      directionalCategoryConfidence: 0.9,
+      directionalCategoryLocked: false,
+      directionalCategoryUpdatedAt: isoNow(-20_000)
     },
     {
       id: "org-4",
       name: "Emergency Housing Partners",
       website: "https://example.org/emergency-housing",
       charityNavigatorScore: 90,
-      causeArea: "Housing"
+      causeArea: "Housing",
+      directionalCategory: "housing",
+      directionalCategorySource: "rule",
+      directionalCategoryConfidence: 0.9,
+      directionalCategoryLocked: false,
+      directionalCategoryUpdatedAt: isoNow(-20_000)
     }
   ],
   grantsMaster: [
@@ -354,6 +374,7 @@ function withProgress(proposal: GrantProposal, userId?: string, revealOverride =
     organizationName: org?.name ?? "Unknown Organization",
     organizationWebsite: org?.website ?? null,
     charityNavigatorUrl: org?.charityNavigatorUrl ?? null,
+    organizationDirectionalCategory: org?.directionalCategory ?? "other",
     voteBreakdown: votes.map((vote) => ({
       userId: vote.userId,
       choice: vote.choice,

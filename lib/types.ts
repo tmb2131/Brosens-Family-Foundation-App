@@ -4,6 +4,38 @@ export type ProposalStatus = "to_review" | "approved" | "sent" | "declined";
 export type ProposalType = "joint" | "discretionary";
 export type AllocationMode = "average" | "sum";
 export type VoteChoice = "yes" | "no" | "acknowledged" | "flagged";
+export type DirectionalCategory =
+  | "education"
+  | "health"
+  | "environment"
+  | "housing"
+  | "food_security"
+  | "arts_culture"
+  | "international_aid"
+  | "other";
+export type DirectionalCategorySource = "rule" | "ai" | "manual" | "fallback";
+
+export const DIRECTIONAL_CATEGORIES: DirectionalCategory[] = [
+  "education",
+  "health",
+  "environment",
+  "housing",
+  "food_security",
+  "arts_culture",
+  "international_aid",
+  "other"
+];
+
+export const DIRECTIONAL_CATEGORY_LABELS: Record<DirectionalCategory, string> = {
+  education: "Education",
+  health: "Health",
+  environment: "Environment",
+  housing: "Housing",
+  food_security: "Food Security",
+  arts_culture: "Arts & Culture",
+  international_aid: "International Aid",
+  other: "Other"
+};
 
 export interface UserProfile {
   id: string;
@@ -19,6 +51,11 @@ export interface Organization {
   charityNavigatorScore: number;
   charityNavigatorUrl?: string | null;
   causeArea: string;
+  directionalCategory: DirectionalCategory;
+  directionalCategorySource: DirectionalCategorySource;
+  directionalCategoryConfidence?: number | null;
+  directionalCategoryLocked: boolean;
+  directionalCategoryUpdatedAt?: string | null;
 }
 
 export interface GrantMaster {
@@ -100,6 +137,7 @@ export interface FoundationSnapshot {
       organizationName: string;
       organizationWebsite?: string | null;
       charityNavigatorUrl?: string | null;
+      organizationDirectionalCategory: DirectionalCategory;
       voteBreakdown: Array<{
         userId: string;
         choice: VoteChoice;
