@@ -55,6 +55,10 @@ interface ProposalRow {
   final_amount: number | string;
   notes: string | null;
   sent_at: string | null;
+  proposal_title: string | null;
+  proposal_description: string | null;
+  proposal_website: string | null;
+  proposal_charity_navigator_url: string | null;
   created_at: string;
 }
 
@@ -88,7 +92,7 @@ interface OrganizationRow {
 }
 
 const PROPOSAL_SELECT =
-  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, created_at";
+  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
 
 const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
@@ -180,20 +184,6 @@ function logNotificationError(context: string, error: unknown) {
   console.error(`[notifications] ${context}: ${message}`);
 }
 
-async function loadProposalTitle(admin: AdminClient, grantMasterId: string) {
-  const { data, error } = await admin
-    .from("grants_master")
-    .select("title")
-    .eq("id", grantMasterId)
-    .maybeSingle<{ title: string }>();
-
-  if (error) {
-    throw new HttpError(500, `Could not load proposal title: ${error.message}`);
-  }
-
-  return data?.title?.trim() || "Proposal";
-}
-
 function mapOrganization(row: OrganizationRow): Organization {
   const directionalCategoryConfidence =
     row.directional_category_confidence === null || row.directional_category_confidence === undefined
@@ -227,12 +217,15 @@ function mapVote(row: VoteRow): Vote {
 }
 
 function mapProposal(row: ProposalRow, grant: GrantMasterRow | undefined): GrantProposal {
+  const proposalTitle = row.proposal_title?.trim() || grant?.title || "Untitled Proposal";
+  const proposalDescription = row.proposal_description ?? grant?.description ?? "";
+
   return {
     id: row.id,
     grantMasterId: row.grant_master_id,
     organizationId: row.organization_id ?? "",
-    title: grant?.title ?? "Untitled Proposal",
-    description: grant?.description ?? "",
+    title: proposalTitle,
+    description: proposalDescription,
     proposerId: row.proposer_id,
     budgetYear: row.budget_year,
     proposalType: row.proposal_type,
@@ -606,8 +599,9 @@ function buildProposalViews(input: {
     return {
       ...proposal,
       organizationName: organization?.name ?? "Unknown Organization",
-      organizationWebsite: organization?.website ?? null,
-      charityNavigatorUrl: organization?.charity_navigator_url ?? null,
+      organizationWebsite: row.proposal_website ?? organization?.website ?? null,
+      charityNavigatorUrl:
+        row.proposal_charity_navigator_url ?? organization?.charity_navigator_url ?? null,
       organizationDirectionalCategory: toDirectionalCategory(organization?.directional_category),
       voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,
@@ -879,17 +873,28 @@ export async function getWorkspaceSnapshot(
   const submittedGifts = submittedRows.map((row) =>
     mapProposal(row, submittedGrantById.get(row.grant_master_id))
   );
+  const hasIndividualBudget = user.role !== "manager";
+  const personalBudget = hasIndividualBudget
+    ? {
+        jointTarget,
+        jointAllocated,
+        jointRemaining: Math.max(0, jointTarget - jointAllocated),
+        discretionaryCap,
+        discretionaryAllocated: discretionaryProposed,
+        discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryProposed)
+      }
+    : {
+        jointTarget: 0,
+        jointAllocated: 0,
+        jointRemaining: 0,
+        discretionaryCap: 0,
+        discretionaryAllocated: 0,
+        discretionaryRemaining: 0
+      };
 
   return {
     user,
-    personalBudget: {
-      jointTarget,
-      jointAllocated,
-      jointRemaining: Math.max(0, jointTarget - jointAllocated),
-      discretionaryCap,
-      discretionaryAllocated: discretionaryProposed,
-      discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryProposed)
-    },
+    personalBudget,
     actionItems,
     voteHistory,
     submittedGifts
@@ -973,6 +978,10 @@ export async function submitProposal(
   const normalizedProposedAmount = roundCurrency(input.proposedAmount);
   const normalizedWebsite = String(input.website ?? "").trim() || null;
   const normalizedCharityNavigatorUrl = String(input.charityNavigatorUrl ?? "").trim() || null;
+
+  if (input.proposer.role === "manager" && input.proposalType !== "joint") {
+    throw new HttpError(403, "Managers can only submit joint proposals.");
+  }
 
   if (input.proposalType === "discretionary") {
     const workspace = await getWorkspaceSnapshot(admin, input.proposer);
@@ -1095,6 +1104,9 @@ export async function submitProposal(
     organizationId,
     "Organization resolution failed while submitting proposal."
   );
+  const proposalWebsiteSnapshot = normalizedWebsite || existingOrganizationByName?.website || null;
+  const proposalCharityNavigatorUrlSnapshot =
+    normalizedCharityNavigatorUrl || existingOrganizationByName?.charity_navigator_url || null;
 
   const { data: existingGrant, error: existingGrantError } = await admin
     .from("grants_master")
@@ -1144,7 +1156,11 @@ export async function submitProposal(
       allocation_mode: allocationMode,
       final_amount: normalizedProposedAmount,
       status: "to_review",
-      reveal_votes: false
+      reveal_votes: false,
+      proposal_title: normalizedOrganizationName,
+      proposal_description: input.description.trim(),
+      proposal_website: proposalWebsiteSnapshot,
+      proposal_charity_navigator_url: proposalCharityNavigatorUrlSnapshot
     })
     .select(PROPOSAL_SELECT)
     .single<ProposalRow>();
@@ -1181,7 +1197,7 @@ export async function submitProposal(
 
     void queueVoteRequiredActionEmails(admin, {
       proposalId: insertedProposal.id,
-      proposalTitle: normalizedOrganizationName,
+      proposalTitle: insertedProposal.proposal_title?.trim() || normalizedOrganizationName,
       proposalType: input.proposalType,
       recipientUserIds: recipients,
       actorUserId: input.proposer.id
@@ -1275,9 +1291,9 @@ export async function submitVote(
     }
 
     if ((votesSubmitted ?? 0) >= requiredVotes) {
-      const recipients = await listUserIdsByRoles(admin, ["oversight", "manager"]);
-      if (recipients.length) {
-        const proposalTitle = await loadProposalTitle(admin, proposal.grant_master_id);
+        const recipients = await listUserIdsByRoles(admin, ["oversight", "manager"]);
+        if (recipients.length) {
+        const proposalTitle = proposal.proposal_title?.trim() || "Proposal";
 
         void queuePushEvent(admin, {
           eventType: "proposal_ready_for_meeting",
@@ -1505,7 +1521,12 @@ export async function updateProposalRecord(
     requesterRole: AppRole;
     status?: ProposalStatus;
     finalAmount?: number;
+    title?: string;
+    description?: string;
+    proposedAmount?: number;
     notes?: string | null;
+    website?: string | null;
+    charityNavigatorUrl?: string | null;
     sentAt?: string | null;
     currentUserId?: string;
   }
@@ -1517,53 +1538,152 @@ export async function updateProposalRecord(
     throw new HttpError(404, "Proposal not found.");
   }
 
-  const isHistorical = proposal.budget_year < currentYear();
-  const canEditHistorical = input.requesterRole === "oversight" && isHistorical;
+  const proposalYear = proposal.budget_year;
+  const isHistorical = proposalYear < currentYear();
+  const isCurrentYear = proposalYear === currentYear();
+  const isOversight = input.requesterRole === "oversight";
+  const canEditHistorical = isOversight && isHistorical;
+  const canEditDetails = isOversight;
   const isProposer = proposal.proposer_id === input.requesterId;
-  const touchesHistoricalFields =
-    input.status !== undefined || input.finalAmount !== undefined || input.notes !== undefined;
+  const hasStatus = input.status !== undefined;
+  const hasFinalAmount = input.finalAmount !== undefined;
+  const hasTitle = input.title !== undefined;
+  const hasDescription = input.description !== undefined;
+  const hasProposedAmount = input.proposedAmount !== undefined;
+  const hasNotes = input.notes !== undefined;
+  const hasWebsite = input.website !== undefined;
+  const hasCharityNavigatorUrl = input.charityNavigatorUrl !== undefined;
+  const hasSentAt = input.sentAt !== undefined;
+  const hasContentFields = hasTitle || hasDescription || hasProposedAmount || hasNotes;
+  const hasUrlFields = hasWebsite || hasCharityNavigatorUrl;
+  const hasDetailFields = hasContentFields || hasUrlFields;
+  const hasHistoricalWorkflowFields = hasStatus || hasFinalAmount;
+  const isSentAtOnlyPatch =
+    hasSentAt &&
+    !hasHistoricalWorkflowFields &&
+    !hasDetailFields;
 
   if (!canEditHistorical) {
-    if (!isProposer || touchesHistoricalFields || input.sentAt === undefined) {
+    if (isSentAtOnlyPatch) {
+      if (!isProposer) {
+        throw new HttpError(
+          403,
+          "Only the proposal owner can update sent date outside historical oversight edits."
+        );
+      }
+
+      if (proposal.status !== "sent") {
+        throw new HttpError(400, "Sent date can only be recorded when the proposal status is Sent.");
+      }
+    } else if (!(canEditDetails && hasDetailFields && !hasHistoricalWorkflowFields && !hasSentAt)) {
       throw new HttpError(
         403,
-        "Only oversight can edit historical proposals. Other users may only update sent date on their own proposal."
+        "Only oversight can edit proposal details. Other users may only update sent date on their own sent proposal."
       );
     }
+  }
 
-    if (proposal.status !== "sent") {
-      throw new HttpError(400, "Sent date can only be recorded when the proposal status is Sent.");
+  if (!canEditDetails && hasDetailFields) {
+    throw new HttpError(403, "Only oversight can edit proposal title, description, amount, notes, and links.");
+  }
+
+  if (!canEditHistorical && hasHistoricalWorkflowFields) {
+    throw new HttpError(
+      403,
+      "Only oversight can edit historical proposal status or final amount. Use Meeting/Admin for active-year status updates."
+    );
+  }
+
+  if (hasSentAt && hasDetailFields && !canEditHistorical) {
+    throw new HttpError(
+      400,
+      "Sent date cannot be edited together with proposal detail fields in this flow."
+    );
+  }
+
+  if (canEditDetails && isCurrentYear && hasContentFields) {
+    const { count: submittedVotes, error: voteCountError } = await admin
+      .from("votes")
+      .select("id", { count: "exact", head: true })
+      .eq("proposal_id", input.proposalId);
+
+    if (voteCountError) {
+      throw new HttpError(500, `Could not validate proposal vote lock: ${voteCountError.message}`);
+    }
+
+    if ((submittedVotes ?? 0) > 0) {
+      throw new HttpError(
+        403,
+        "Active-year proposals with submitted votes can only update website links."
+      );
     }
   }
 
   const updates: Record<string, unknown> = {};
   let nextStatus: ProposalStatus = proposal.status;
 
-  if (canEditHistorical && input.status !== undefined) {
-    if (!EDITABLE_PROPOSAL_STATUSES.includes(input.status)) {
+  if (canEditHistorical && hasStatus) {
+    const status = input.status;
+    if (!status || !EDITABLE_PROPOSAL_STATUSES.includes(status)) {
       throw new HttpError(
         400,
         `Invalid status. Must be one of ${EDITABLE_PROPOSAL_STATUSES.join(", ")}.`
       );
     }
 
-    nextStatus = input.status;
-    updates.status = input.status;
+    nextStatus = status;
+    updates.status = status;
   }
 
-  if (canEditHistorical && input.finalAmount !== undefined) {
-    if (!Number.isFinite(input.finalAmount) || input.finalAmount < 0) {
+  if (canEditHistorical && hasFinalAmount) {
+    const finalAmount = input.finalAmount;
+    if (finalAmount === undefined || !Number.isFinite(finalAmount) || finalAmount < 0) {
       throw new HttpError(400, "finalAmount must be a non-negative number.");
     }
-    updates.final_amount = roundCurrency(input.finalAmount);
+    updates.final_amount = roundCurrency(finalAmount);
   }
 
-  if (canEditHistorical && input.notes !== undefined) {
+  if (hasTitle) {
+    const title = String(input.title).trim();
+    if (!title) {
+      throw new HttpError(400, "title is required.");
+    }
+    updates.proposal_title = title;
+  }
+
+  if (hasDescription) {
+    const description = String(input.description).trim();
+    if (!description) {
+      throw new HttpError(400, "description is required.");
+    }
+    updates.proposal_description = description;
+  }
+
+  if (hasProposedAmount) {
+    const proposedAmount = input.proposedAmount;
+    if (proposedAmount === undefined || !Number.isFinite(proposedAmount) || proposedAmount < 0) {
+      throw new HttpError(400, "proposedAmount must be a non-negative number.");
+    }
+    updates.final_amount = roundCurrency(proposedAmount);
+  }
+
+  if (hasNotes) {
     const notes = input.notes === null ? "" : String(input.notes);
     updates.notes = notes.trim() ? notes.trim() : null;
   }
 
-  if (input.sentAt !== undefined) {
+  if (hasWebsite) {
+    const website = input.website === null ? null : String(input.website).trim();
+    updates.proposal_website = website || null;
+  }
+
+  if (hasCharityNavigatorUrl) {
+    const charityNavigatorUrl =
+      input.charityNavigatorUrl === null ? null : String(input.charityNavigatorUrl).trim();
+    updates.proposal_charity_navigator_url = charityNavigatorUrl || null;
+  }
+
+  if (hasSentAt) {
     const sentAt =
       input.sentAt === null ? null : normalizeDateString(typeof input.sentAt === "string" ? input.sentAt : "");
 
@@ -1572,7 +1692,7 @@ export async function updateProposalRecord(
     }
 
     updates.sent_at = sentAt;
-  } else if (canEditHistorical && input.status !== undefined && nextStatus !== "sent") {
+  } else if (canEditHistorical && hasStatus && nextStatus !== "sent") {
     updates.sent_at = null;
   } else if (
     canEditHistorical &&
@@ -1917,6 +2037,10 @@ export async function importHistoricalProposals(
     reveal_votes: boolean;
     final_amount: number;
     notes: string | null;
+    proposal_title: string;
+    proposal_description: string;
+    proposal_website: string | null;
+    proposal_charity_navigator_url: string | null;
     sent_at?: string | null;
     created_at?: string;
   }> = [];
@@ -1956,6 +2080,10 @@ export async function importHistoricalProposals(
       reveal_votes: boolean;
       final_amount: number;
       notes: string | null;
+      proposal_title: string;
+      proposal_description: string;
+      proposal_website: string | null;
+      proposal_charity_navigator_url: string | null;
       sent_at?: string | null;
       created_at?: string;
     } = {
@@ -1968,7 +2096,11 @@ export async function importHistoricalProposals(
       status: row.status,
       reveal_votes: true,
       final_amount: Math.max(0, roundCurrency(row.finalAmount)),
-      notes: row.notes || null
+      notes: row.notes || null,
+      proposal_title: resolveHistoricalGrantTitle(row),
+      proposal_description: row.description,
+      proposal_website: row.website || null,
+      proposal_charity_navigator_url: null
     };
 
     if (row.sentAt) {

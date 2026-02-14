@@ -39,6 +39,15 @@ interface ProposalDraft {
   notes: string;
 }
 
+interface ProposalDetailEditDraft {
+  title: string;
+  description: string;
+  proposedAmount: string;
+  notes: string;
+  website: string;
+  charityNavigatorUrl: string;
+}
+
 interface RequiredActionSummary {
   owner: string;
   detail: string;
@@ -101,6 +110,17 @@ function toProposalDraft(proposal: ProposalView): ProposalDraft {
     finalAmount: toAmountInput(proposal.progress.computedFinalAmount),
     sentAt: proposal.sentAt ?? "",
     notes: proposal.notes ?? ""
+  };
+}
+
+function toProposalDetailEditDraft(proposal: ProposalView): ProposalDetailEditDraft {
+  return {
+    title: proposal.title,
+    description: proposal.description,
+    proposedAmount: toAmountInput(proposal.proposedAmount),
+    notes: proposal.notes ?? "",
+    website: proposal.organizationWebsite ?? "",
+    charityNavigatorUrl: proposal.charityNavigatorUrl ?? ""
   };
 }
 
@@ -373,6 +393,10 @@ export default function DashboardPage() {
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [detailProposalId, setDetailProposalId] = useState<string | null>(null);
+  const [isDetailEditMode, setIsDetailEditMode] = useState(false);
+  const [detailEditDraft, setDetailEditDraft] = useState<ProposalDetailEditDraft | null>(null);
+  const [isDetailSaving, setIsDetailSaving] = useState(false);
+  const [detailEditError, setDetailEditError] = useState<string | null>(null);
   const [bulkMessage, setBulkMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
@@ -552,7 +576,8 @@ export default function DashboardPage() {
   const canVote = Boolean(user && ["member", "oversight"].includes(user.role));
   const isHistoricalView = !isAllYearsView && selectedBudgetYear < currentCalendarYear;
   const canEditHistorical = Boolean(user?.role === "oversight" && isHistoricalView);
-  const isHistoricalBulkEditEnabled = canEditHistorical && isBulkEditMode;
+  const allowHistoricalBulkEdit = false;
+  const isHistoricalBulkEditEnabled = allowHistoricalBulkEdit && canEditHistorical && isBulkEditMode;
   const showPendingTab = isOversight && activeTab === "pending";
   const totalAllocatedForYear = data
     ? data.budget.jointAllocated + data.budget.discretionaryAllocated
@@ -565,11 +590,11 @@ export default function DashboardPage() {
     : 0;
 
   useEffect(() => {
-    if (!canEditHistorical) {
+    if (!canEditHistorical || !allowHistoricalBulkEdit) {
       setIsBulkEditMode(false);
       setBulkMessage(null);
     }
-  }, [canEditHistorical]);
+  }, [allowHistoricalBulkEdit, canEditHistorical]);
 
   useEffect(() => {
     if (showPendingTab) {
@@ -587,6 +612,16 @@ export default function DashboardPage() {
       setDetailProposalId(null);
     }
   }, [data, detailProposalId]);
+
+  useEffect(() => {
+    if (detailProposalId) {
+      return;
+    }
+    setIsDetailEditMode(false);
+    setDetailEditDraft(null);
+    setIsDetailSaving(false);
+    setDetailEditError(null);
+  }, [detailProposalId]);
 
   useEffect(() => {
     if (!detailProposalId) {
@@ -1042,6 +1077,112 @@ export default function DashboardPage() {
     }
   };
 
+  const updateDetailEditDraft = <K extends keyof ProposalDetailEditDraft>(
+    key: K,
+    value: ProposalDetailEditDraft[K]
+  ) => {
+    setDetailEditDraft((current) => (current ? { ...current, [key]: value } : current));
+    setDetailEditError(null);
+  };
+
+  const saveDetailProposalEdits = async () => {
+    if (!detailProposal || !detailEditDraft || !isOversight) {
+      return;
+    }
+
+    const isVoteLocked =
+      detailProposal.budgetYear === currentCalendarYear && detailProposal.progress.votesSubmitted > 0;
+    const payload: Record<string, unknown> = {};
+
+    if (!isVoteLocked) {
+      const title = detailEditDraft.title.trim();
+      if (!title) {
+        setDetailEditError("Title is required.");
+        return;
+      }
+      if (title !== detailProposal.title.trim()) {
+        payload.title = title;
+      }
+
+      const description = detailEditDraft.description.trim();
+      if (!description) {
+        setDetailEditError("Description is required.");
+        return;
+      }
+      if (description !== detailProposal.description.trim()) {
+        payload.description = description;
+      }
+
+      const proposedAmount = parseNumberInput(detailEditDraft.proposedAmount);
+      if (proposedAmount === null || proposedAmount < 0) {
+        setDetailEditError("Proposed amount must be a non-negative number.");
+        return;
+      }
+      if (amountsDiffer(proposedAmount, detailProposal.proposedAmount)) {
+        payload.proposedAmount = proposedAmount;
+      }
+
+      const proposalNotes = normalizeDraftNotes(detailProposal.notes ?? "");
+      const nextNotes = normalizeDraftNotes(detailEditDraft.notes);
+      if (proposalNotes !== nextNotes) {
+        payload.notes = nextNotes;
+      }
+    }
+
+    const website = detailEditDraft.website.trim();
+    const proposalWebsite = (detailProposal.organizationWebsite ?? "").trim();
+    if (website !== proposalWebsite) {
+      payload.website = website || null;
+    }
+
+    const charityNavigatorUrl = detailEditDraft.charityNavigatorUrl.trim();
+    const proposalCharityNavigatorUrl = (detailProposal.charityNavigatorUrl ?? "").trim();
+    if (charityNavigatorUrl !== proposalCharityNavigatorUrl) {
+      payload.charityNavigatorUrl = charityNavigatorUrl || null;
+    }
+
+    if (!Object.keys(payload).length) {
+      setDetailEditError("No changes to save.");
+      return;
+    }
+
+    setIsDetailSaving(true);
+    setDetailEditError(null);
+    setRowMessage((current) => {
+      const next = { ...current };
+      delete next[detailProposal.id];
+      return next;
+    });
+
+    try {
+      const updatedProposal = await applyProposalPatch(detailProposal.id, payload);
+      setDrafts((current) => ({
+        ...current,
+        [detailProposal.id]: toProposalDraft(updatedProposal)
+      }));
+      setDetailEditDraft(toProposalDetailEditDraft(updatedProposal));
+      setIsDetailEditMode(false);
+      setRowMessage((current) => ({
+        ...current,
+        [detailProposal.id]: {
+          tone: "success",
+          text: "Proposal details updated."
+        }
+      }));
+
+      await mutate();
+      if (isOversight) {
+        await mutatePending();
+      }
+    } catch (saveError) {
+      setDetailEditError(
+        saveError instanceof Error ? saveError.message : "Failed to update proposal details."
+      );
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
   const closeDetailDrawer = () => {
     setDetailProposalId(null);
   };
@@ -1061,7 +1202,15 @@ export default function DashboardPage() {
       ? "text-emerald-700 dark:text-emerald-300"
       : "text-zinc-700 dark:text-zinc-200"
     : "";
+  const detailCanOversightEditProposal = Boolean(isOversight && detailProposal);
   const detailIsOwnProposal = Boolean(user && detailProposal && detailProposal.proposerId === user.id);
+  const detailIsVoteLocked = Boolean(
+    detailCanOversightEditProposal &&
+      detailProposal &&
+      detailProposal.budgetYear === currentCalendarYear &&
+      detailProposal.progress.votesSubmitted > 0
+  );
+  const detailCanEditNonUrlFields = detailCanOversightEditProposal && !detailIsVoteLocked;
   const detailIsRowEditable = Boolean(detailProposal && isHistoricalBulkEditEnabled);
   const detailCanEditSentDate = Boolean(
     detailProposal &&
@@ -1073,6 +1222,9 @@ export default function DashboardPage() {
       : !detailCanEditSentDate
     : true;
   const detailParsedDraftFinalAmount = detailDraft ? parseNumberInput(detailDraft.finalAmount) : null;
+  const detailParsedDraftProposedAmount = detailEditDraft
+    ? parseNumberInput(detailEditDraft.proposedAmount)
+    : null;
   const detailRowState = detailProposal ? rowMessage[detailProposal.id] : null;
 
   return (
@@ -1212,12 +1364,12 @@ export default function DashboardPage() {
             ) : null}
             {!showPendingTab ? (
               <>
-                {canEditHistorical ? (
+                {canEditHistorical && !allowHistoricalBulkEdit ? (
                   <p className="text-xs text-zinc-500">
-                    Historical year {selectedBudgetYear}. Use Bulk Edit to update rows, then Bulk Save.
+                    Historical year {selectedBudgetYear}. Bulk edit is unavailable for Oversight profiles.
                   </p>
                 ) : null}
-                {canEditHistorical && !isHistoricalBulkEditEnabled ? (
+                {allowHistoricalBulkEdit && canEditHistorical && !isHistoricalBulkEditEnabled ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1230,7 +1382,7 @@ export default function DashboardPage() {
                     Bulk Edit
                   </button>
                 ) : null}
-                {canEditHistorical && isHistoricalBulkEditEnabled ? (
+                {allowHistoricalBulkEdit && canEditHistorical && isHistoricalBulkEditEnabled ? (
                   <>
                     <button
                       type="button"
@@ -1871,6 +2023,40 @@ export default function DashboardPage() {
                 </dd>
               </div>
               <div className="md:col-span-2">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Organization Website</dt>
+                <dd className="mt-1.5 text-zinc-800 dark:text-zinc-100">
+                  {detailProposal.organizationWebsite ? (
+                    <a
+                      href={detailProposal.organizationWebsite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
+                    >
+                      {detailProposal.organizationWebsite}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div className="md:col-span-2">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Charity Navigator URL</dt>
+                <dd className="mt-1.5 text-zinc-800 dark:text-zinc-100">
+                  {detailProposal.charityNavigatorUrl ? (
+                    <a
+                      href={detailProposal.charityNavigatorUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
+                    >
+                      {detailProposal.charityNavigatorUrl}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div className="md:col-span-2">
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Notes</dt>
                 <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.notes?.trim() || "—"}</dd>
               </div>
@@ -1957,6 +2143,120 @@ export default function DashboardPage() {
               </>
             ) : null}
 
+            {detailCanOversightEditProposal && isDetailEditMode && detailEditDraft ? (
+              <>
+                <div className="mt-5 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+                    Proposal Content & Links
+                  </span>
+                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                </div>
+                {detailIsVoteLocked ? (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                    Votes have already been submitted for this active-year proposal. Only URL fields can be updated.
+                  </p>
+                ) : null}
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Proposal title
+                    <input
+                      type="text"
+                      value={detailEditDraft.title}
+                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("title", event.target.value)}
+                      className="field-control mt-1 w-full disabled:opacity-50"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Proposed amount
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={detailEditDraft.proposedAmount}
+                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("proposedAmount", event.target.value)}
+                      className="field-control mt-1 w-full disabled:opacity-50"
+                    />
+                    <span className="mt-1 block text-[11px] text-zinc-500">
+                      Amount preview:{" "}
+                      {detailParsedDraftProposedAmount !== null && detailParsedDraftProposedAmount >= 0
+                        ? currency(detailParsedDraftProposedAmount)
+                        : "Invalid amount"}
+                    </span>
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                    Description
+                    <textarea
+                      value={detailEditDraft.description}
+                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("description", event.target.value)}
+                      className="field-control mt-1 min-h-20 w-full disabled:opacity-50"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                    Notes
+                    <input
+                      type="text"
+                      value={detailEditDraft.notes}
+                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("notes", event.target.value)}
+                      placeholder="Optional notes"
+                      className="field-control mt-1 w-full disabled:opacity-50"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                    Organization website URL
+                    <input
+                      type="url"
+                      value={detailEditDraft.website}
+                      disabled={isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("website", event.target.value)}
+                      className="field-control mt-1 w-full disabled:opacity-50"
+                      placeholder="https://example.org"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                    Charity Navigator URL
+                    <input
+                      type="url"
+                      value={detailEditDraft.charityNavigatorUrl}
+                      disabled={isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("charityNavigatorUrl", event.target.value)}
+                      className="field-control mt-1 w-full disabled:opacity-50"
+                      placeholder="https://www.charitynavigator.org/..."
+                    />
+                  </label>
+                </div>
+                {detailEditError ? (
+                  <p className="mt-3 text-xs text-rose-600">{detailEditError}</p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
+                      setIsDetailEditMode(false);
+                      setDetailEditError(null);
+                    }}
+                    disabled={isDetailSaving}
+                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    Cancel edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveDetailProposalEdits()}
+                    disabled={isDetailSaving}
+                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {isDetailSaving ? "Saving..." : "Save proposal changes"}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
                 <Link
@@ -1965,6 +2265,25 @@ export default function DashboardPage() {
                 >
                   {detailRequiredAction.ctaLabel}
                 </Link>
+              ) : null}
+              {detailCanOversightEditProposal ? (
+                <button
+                  type="button"
+                  disabled={isDetailSaving}
+                  onClick={() => {
+                    if (isDetailEditMode) {
+                      setIsDetailEditMode(false);
+                      setDetailEditError(null);
+                      return;
+                    }
+                    setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
+                    setDetailEditError(null);
+                    setIsDetailEditMode(true);
+                  }}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  {isDetailEditMode ? "Close edit" : "Edit proposal"}
+                </button>
               ) : null}
               {!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent" ? (
                 <button

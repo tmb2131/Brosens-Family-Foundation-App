@@ -17,7 +17,7 @@ interface UserProfileRow {
 
 interface ProposalActionRow {
   id: string;
-  grant_master_id: string;
+  proposal_title: string | null;
   proposer_id: string;
   proposal_type: ProposalType;
   created_at: string;
@@ -25,18 +25,13 @@ interface ProposalActionRow {
 
 interface ApprovedProposalRow {
   id: string;
-  grant_master_id: string;
+  proposal_title: string | null;
   created_at: string;
 }
 
 interface VoteActionRow {
   proposal_id: string;
   voter_id: string;
-}
-
-interface GrantTitleRow {
-  id: string;
-  title: string;
 }
 
 interface EmailNotificationRow {
@@ -606,12 +601,12 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
       .returns<UserProfileRow[]>(),
     admin
       .from("grant_proposals")
-      .select("id, grant_master_id, proposer_id, proposal_type, created_at")
+      .select("id, proposal_title, proposer_id, proposal_type, created_at")
       .eq("status", "to_review")
       .returns<ProposalActionRow[]>(),
     admin
       .from("grant_proposals")
-      .select("id, grant_master_id, created_at")
+      .select("id, proposal_title, created_at")
       .eq("status", "approved")
       .returns<ApprovedProposalRow[]>()
   ]);
@@ -636,37 +631,23 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
   const toReviewProposals = toReviewResult.data ?? [];
   const approvedProposals = approvedResult.data ?? [];
   const toReviewIds = toReviewProposals.map((proposal) => proposal.id);
-  const grantIds = uniqueIds([
-    ...toReviewProposals.map((proposal) => proposal.grant_master_id),
-    ...approvedProposals.map((proposal) => proposal.grant_master_id)
-  ]);
 
-  const [votesResult, grantTitlesResult] = await Promise.all([
+  const votesResult = await (
     toReviewIds.length
       ? admin
           .from("votes")
           .select("proposal_id, voter_id")
           .in("proposal_id", toReviewIds)
           .returns<VoteActionRow[]>()
-      : Promise.resolve({ data: [] as VoteActionRow[], error: null }),
-    grantIds.length
-      ? admin.from("grants_master").select("id, title").in("id", grantIds).returns<GrantTitleRow[]>()
-      : Promise.resolve({ data: [] as GrantTitleRow[], error: null })
-  ]);
+      : Promise.resolve({ data: [] as VoteActionRow[], error: null })
+  );
 
   if (votesResult.error) {
     throw new HttpError(500, `Could not load votes for email notifications: ${votesResult.error.message}`);
   }
-  if (grantTitlesResult.error) {
-    throw new HttpError(
-      500,
-      `Could not load proposal titles for email notifications: ${grantTitlesResult.error.message}`
-    );
-  }
 
   const usersById = new Map(users.map((user) => [user.id, user]));
   const actionsByUserId = new Map<string, OutstandingAction[]>();
-  const titleByGrantId = new Map((grantTitlesResult.data ?? []).map((row) => [row.id, row.title.trim()]));
   const votingUserIds = users.filter((user) => user.role === "member" || user.role === "oversight").map((user) => user.id);
   const meetingUsers = users.filter((user) => user.role === "oversight" || user.role === "manager");
   const adminUsers = users.filter((user) => user.role === "admin");
@@ -685,7 +666,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
   };
 
   for (const proposal of toReviewProposals) {
-    const title = titleByGrantId.get(proposal.grant_master_id) || "Proposal";
+    const title = proposal.proposal_title?.trim() || "Proposal";
     const storedVotes = votesByProposalId.get(proposal.id) ?? new Set<string>();
     const eligibleVotes =
       proposal.proposal_type === "discretionary"
@@ -733,7 +714,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
   }
 
   for (const proposal of approvedProposals) {
-    const title = titleByGrantId.get(proposal.grant_master_id) || "Proposal";
+    const title = proposal.proposal_title?.trim() || "Proposal";
     for (const user of adminUsers) {
       pushAction(user.id, {
         id: `${proposal.id}:admin:${user.id}`,

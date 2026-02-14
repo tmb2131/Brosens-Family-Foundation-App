@@ -6,26 +6,7 @@ import {
 } from "@/lib/foundation-data";
 import { toErrorResponse, HttpError } from "@/lib/http-error";
 import { AllocationMode, ProposalType } from "@/lib/types";
-
-function normalizeOptionalHttpUrl(value: unknown, fieldLabel: string) {
-  const trimmed = String(value ?? "").trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    throw new HttpError(400, `${fieldLabel} must be a valid URL.`);
-  }
-
-  if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new HttpError(400, `${fieldLabel} must start with http:// or https://.`);
-  }
-
-  return parsed.toString();
-}
+import { normalizeOptionalHttpUrl } from "@/lib/url-validation";
 
 export async function GET() {
   try {
@@ -64,6 +45,10 @@ export async function POST(request: NextRequest) {
 
     if (!["joint", "discretionary"].includes(proposalType)) {
       throw new HttpError(400, "Invalid proposalType.");
+    }
+
+    if (profile.role === "manager" && proposalType !== "joint") {
+      throw new HttpError(403, "Managers can only submit joint proposals.");
     }
 
     if (!["average", "sum"].includes(requestedAllocationMode)) {
