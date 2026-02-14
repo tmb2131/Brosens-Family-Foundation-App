@@ -26,6 +26,7 @@ const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "decl
 
 type ProposalView = FoundationSnapshot["proposals"][number];
 type DashboardTab = "tracker" | "pending";
+type SelectedYear = number | "all" | null;
 
 interface PendingResponse {
   proposals: FoundationSnapshot["proposals"];
@@ -359,7 +360,7 @@ function downloadFile(filename: string, content: string, mimeType: string) {
 export default function DashboardPage() {
   const { user } = useAuth();
   const isOversight = user?.role === "oversight";
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
   const [filters, setFilters] = useState<TableFilters>(DEFAULT_FILTERS);
@@ -390,6 +391,10 @@ export default function DashboardPage() {
       return "/api/foundation";
     }
 
+    if (selectedYear === "all") {
+      return "/api/foundation?allYears=1";
+    }
+
     return `/api/foundation?budgetYear=${selectedYear}`;
   }, [selectedYear, user]);
 
@@ -417,7 +422,12 @@ export default function DashboardPage() {
       return;
     }
 
-    if (selectedYear === null || !availableYears.includes(selectedYear)) {
+    if (selectedYear === null) {
+      setSelectedYear(data.budget.year);
+      return;
+    }
+
+    if (selectedYear !== "all" && !availableYears.includes(selectedYear)) {
       setSelectedYear(data.budget.year);
     }
   }, [availableYears, data, selectedYear]);
@@ -533,9 +543,14 @@ export default function DashboardPage() {
   }, [pendingData]);
 
   const currentCalendarYear = new Date().getFullYear();
-  const selectedBudgetYear = selectedYear ?? data?.budget.year ?? currentCalendarYear;
+  const isAllYearsView = selectedYear === "all";
+  const selectedBudgetYear =
+    typeof selectedYear === "number" ? selectedYear : data?.budget.year ?? currentCalendarYear;
+  const selectedBudgetYearLabel = isAllYearsView ? "all budget years" : `budget year ${selectedBudgetYear}`;
+  const selectedYearFilterValue =
+    selectedYear === "all" ? "all" : String(selectedYear ?? selectedBudgetYear);
   const canVote = Boolean(user && ["member", "oversight"].includes(user.role));
-  const isHistoricalView = selectedBudgetYear < currentCalendarYear;
+  const isHistoricalView = !isAllYearsView && selectedBudgetYear < currentCalendarYear;
   const canEditHistorical = Boolean(user?.role === "oversight" && isHistoricalView);
   const isHistoricalBulkEditEnabled = canEditHistorical && isBulkEditMode;
   const showPendingTab = isOversight && activeTab === "pending";
@@ -643,9 +658,9 @@ export default function DashboardPage() {
       requiredAction: requiredActionLabel
     };
   });
-  const exportFilenameBase = `dashboard-grant-tracker-year-${selectedBudgetYear}-${toISODate(new Date())}`;
+  const exportFilenameBase = `dashboard-grant-tracker-${isAllYearsView ? "all-years" : `year-${selectedBudgetYear}`}-${toISODate(new Date())}`;
   const exportTitle = "Dashboard Grant Tracker";
-  const exportSubtitle = `Budget Year ${selectedBudgetYear} | ${formatNumber(exportRows.length)} rows`;
+  const exportSubtitle = `${isAllYearsView ? "All budget years" : `Budget Year ${selectedBudgetYear}`} | ${formatNumber(exportRows.length)} rows`;
   const clearTrackerFilters = () => {
     setFilters(DEFAULT_FILTERS);
     setExportMessage(null);
@@ -1066,7 +1081,9 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Annual Cycle</CardTitle>
-            <CardValue className="text-xl font-bold">{data.budget.year} Master List Status</CardValue>
+            <CardValue className="text-xl font-bold">
+              {isAllYearsView ? "All Years Master List Status" : `${selectedBudgetYear} Master List Status`}
+            </CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
               <span className="status-dot bg-emerald-500" />
               {data.annualCycle.monthHint}
@@ -1082,9 +1099,12 @@ export default function DashboardPage() {
               Budget year
               <select
                 className="field-control field-control--compact mt-1 block rounded-lg"
-                value={String(selectedYear ?? data.budget.year)}
-                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                value={selectedYearFilterValue}
+                onChange={(event) =>
+                  setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
+                }
               >
+                <option value="all">All years</option>
                 {availableYears.map((year) => (
                   <option key={year} value={year}>
                     {year}
@@ -1194,7 +1214,7 @@ export default function DashboardPage() {
               <>
                 {canEditHistorical ? (
                   <p className="text-xs text-zinc-500">
-                    Historical year {data.budget.year}. Use Bulk Edit to update rows, then Bulk Save.
+                    Historical year {selectedBudgetYear}. Use Bulk Edit to update rows, then Bulk Save.
                   </p>
                 ) : null}
                 {canEditHistorical && !isHistoricalBulkEditEnabled ? (
@@ -1306,7 +1326,7 @@ export default function DashboardPage() {
           <>
             <div className="mb-3 flex items-start justify-between gap-3">
               <p className="text-xs text-zinc-500">
-                Showing {formatNumber(filteredAndSortedProposals.length)} proposals for budget year {selectedBudgetYear}
+                Showing {formatNumber(filteredAndSortedProposals.length)} proposals for {selectedBudgetYearLabel}
               </p>
               <div className="relative shrink-0" ref={exportMenuRef}>
                 <button
@@ -1426,7 +1446,7 @@ export default function DashboardPage() {
         <div className="space-y-3 md:hidden" onClick={() => setIsExportMenuOpen(false)}>
           {filteredAndSortedProposals.length === 0 ? (
             <p className="rounded-xl border p-4 text-sm text-zinc-500">
-              No proposals match the current filters for budget year {data.budget.year}.
+              No proposals match the current filters for {selectedBudgetYearLabel}.
             </p>
           ) : (
             filteredAndSortedProposals.map((proposal) => {
@@ -1681,7 +1701,7 @@ export default function DashboardPage() {
               {filteredAndSortedProposals.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-2 py-6 text-center text-sm text-zinc-500">
-                    No proposals match the current filters for budget year {data.budget.year}.
+                    No proposals match the current filters for {selectedBudgetYearLabel}.
                   </td>
                 </tr>
               ) : (

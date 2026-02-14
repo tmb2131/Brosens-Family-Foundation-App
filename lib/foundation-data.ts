@@ -399,6 +399,21 @@ async function loadProposalRowsByYear(admin: AdminClient, budgetYear: number) {
   return data ?? [];
 }
 
+async function loadAllProposalRows(admin: AdminClient) {
+  const { data, error } = await admin
+    .from("grant_proposals")
+    .select(PROPOSAL_SELECT)
+    .order("budget_year", { ascending: false })
+    .order("created_at", { ascending: false })
+    .returns<ProposalRow[]>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load proposals: ${error.message}`);
+  }
+
+  return data ?? [];
+}
+
 async function loadPendingProposalRows(admin: AdminClient) {
   const { data, error } = await admin
     .from("grant_proposals")
@@ -649,7 +664,8 @@ async function computeHistoryByYear(admin: AdminClient, votingMemberIds: string[
 export async function getFoundationSnapshot(
   admin: AdminClient,
   currentUserId?: string,
-  budgetYear?: number
+  budgetYear?: number,
+  includeAllYears = false
 ): Promise<FoundationSnapshot> {
   const budget = await getBudgetForYearOrDefault(admin, budgetYear);
   const availableBudgetYears = await loadAvailableBudgetYears(admin, budget?.budget_year ?? budgetYear);
@@ -663,7 +679,9 @@ export async function getFoundationSnapshot(
 
   const votingMemberIds = await getVotingMemberIds(admin);
 
-  const proposalRows = await loadProposalRowsByYear(admin, budget.budget_year);
+  const proposalRows = includeAllYears
+    ? await loadAllProposalRows(admin)
+    : await loadProposalRowsByYear(admin, budget.budget_year);
   const deps = await loadProposalsWithDependencies(admin, proposalRows);
 
   const proposals = buildProposalViews({
@@ -678,7 +696,8 @@ export async function getFoundationSnapshot(
   let jointAllocated = 0;
   let discretionaryAllocated = 0;
 
-  for (const proposal of proposals) {
+  const budgetYearProposals = proposals.filter((proposal) => proposal.budgetYear === budget.budget_year);
+  for (const proposal of budgetYearProposals) {
     if (proposal.status !== "approved" && proposal.status !== "sent") {
       continue;
     }

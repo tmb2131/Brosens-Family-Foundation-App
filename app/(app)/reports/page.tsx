@@ -34,6 +34,7 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
 };
 
 type StatusFilterState = Record<ProposalStatus, boolean>;
+type SelectedYear = number | "all" | null;
 
 const DEFAULT_STATUS_FILTERS: StatusFilterState = {
   to_review: true,
@@ -56,7 +57,7 @@ function sumAmount(rows: FoundationSnapshot["proposals"]) {
 
 export default function ReportsPage() {
   const { user } = useAuth();
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
 
   const canAccess = user ? user.role === "oversight" || user.role === "manager" : false;
@@ -68,6 +69,10 @@ export default function ReportsPage() {
 
     if (selectedYear === null) {
       return "/api/foundation";
+    }
+
+    if (selectedYear === "all") {
+      return "/api/foundation?allYears=1";
     }
 
     return `/api/foundation?budgetYear=${selectedYear}`;
@@ -87,7 +92,13 @@ export default function ReportsPage() {
     if (!data) {
       return;
     }
-    if (selectedYear === null || !availableYears.includes(selectedYear)) {
+
+    if (selectedYear === null) {
+      setSelectedYear(data.budget.year);
+      return;
+    }
+
+    if (selectedYear !== "all" && !availableYears.includes(selectedYear)) {
       setSelectedYear(data.budget.year);
     }
   }, [availableYears, data, selectedYear]);
@@ -145,6 +156,12 @@ export default function ReportsPage() {
     () => sumAmount(filteredProposals.filter((proposal) => proposal.status === "approved")),
     [filteredProposals]
   );
+  const currentReportYear =
+    typeof selectedYear === "number" ? selectedYear : data?.budget.year ?? new Date().getFullYear();
+  const isAllYearsView = selectedYear === "all";
+  const selectedYearLabel = isAllYearsView ? "All years" : String(currentReportYear);
+  const selectedYearFilterValue =
+    selectedYear === "all" ? "all" : String(selectedYear ?? currentReportYear);
 
   const toggleStatus = (status: ProposalStatus) => {
     setStatusFilters((current) => {
@@ -163,7 +180,7 @@ export default function ReportsPage() {
 
     const previousTitle = document.title;
     const statusLabel = activeStatuses.map((status) => titleCase(status)).join(", ");
-    document.title = `Foundation Report ${data.budget.year} - ${statusLabel || "No Statuses"}`;
+    document.title = `Foundation Report ${selectedYearLabel} - ${statusLabel || "No Statuses"}`;
     window.print();
     setTimeout(() => {
       document.title = previousTitle;
@@ -203,7 +220,7 @@ export default function ReportsPage() {
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <div>
             <CardTitle>Annual Proposal Report</CardTitle>
-            <CardValue>{data.budget.year}</CardValue>
+            <CardValue>{selectedYearLabel}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
               <span className="status-dot bg-emerald-500" />
               Include/exclude proposal statuses below, then export using Print / PDF.
@@ -214,9 +231,12 @@ export default function ReportsPage() {
               Budget year
               <select
                 className="field-control field-control--compact mt-1 block"
-                value={String(selectedYear ?? data.budget.year)}
-                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                value={selectedYearFilterValue}
+                onChange={(event) =>
+                  setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
+                }
               >
+                <option value="all">All years</option>
                 {availableYears.map((year) => (
                   <option key={year} value={year}>
                     {year}
@@ -237,7 +257,7 @@ export default function ReportsPage() {
 
         <div className="hidden print:block">
           <CardTitle>Annual Proposal Report</CardTitle>
-          <CardValue>{data.budget.year}</CardValue>
+          <CardValue>{selectedYearLabel}</CardValue>
           <p className="mt-1 text-xs text-zinc-500">
             Included statuses: {activeStatuses.map((status) => titleCase(status)).join(", ")}
           </p>
@@ -377,7 +397,9 @@ export default function ReportsPage() {
         <div className="mb-2 flex items-center justify-between gap-2">
           <div>
             <CardTitle>Year Proposals</CardTitle>
-            <p className="text-xs text-zinc-500">Compact report table for the selected year and statuses.</p>
+            <p className="text-xs text-zinc-500">
+              Compact report table for {isAllYearsView ? "all years" : `budget year ${selectedYearLabel}`} and statuses.
+            </p>
           </div>
           <p className="text-xs text-zinc-500">
             Showing {formatNumber(filteredProposals.length)} of {formatNumber(data.proposals.length)}
