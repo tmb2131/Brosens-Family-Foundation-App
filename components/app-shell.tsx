@@ -170,54 +170,40 @@ function OutstandingBadge({ count }: { count: number }) {
 interface SidebarProfileCardProps {
   isOpen: boolean;
   user: UserProfile | null;
-  onSignOut: () => void;
 }
 
-function SidebarProfileCard({ isOpen, user, onSignOut }: SidebarProfileCardProps) {
+function SidebarProfileCard({ isOpen, user }: SidebarProfileCardProps) {
+  if (!isOpen) {
+    return (
+      <div className="mb-2 flex justify-center px-1 py-1">
+        <span
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-[11px] font-bold text-accent"
+          title="Brosens Family Foundation"
+        >
+          BF
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <section className={cn("mb-2 rounded-2xl border bg-card/70", isOpen ? "p-3" : "p-2")}>
-      {isOpen ? (
-        <>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
-          <h1 className="mt-1 text-lg font-semibold leading-tight">Grant Management</h1>
-          {user ? (
-            <div className="mt-2 flex items-center gap-2 text-sm">
-              <span className="truncate">{user.name}</span>
-              <RolePill role={user.role} />
-            </div>
-          ) : null}
-          <div className="mt-3 flex items-center gap-2">
-            <ThemeToggle />
-            <button
-              onClick={onSignOut}
-              className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
-              type="button"
-            >
-              <LogOut className="h-3.5 w-3.5" /> Sign out
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="flex flex-col items-center gap-2">
-          <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card text-[11px] font-semibold tracking-wide"
-            title="Brosens Family Foundation"
-          >
-            BF
-          </span>
-          <ThemeToggle />
-          <button
-            onClick={onSignOut}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border bg-card"
-            type="button"
-            aria-label="Sign out"
-            title="Sign out"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
+    <div className="mb-3 px-2 pt-1">
+      <div className="flex items-center gap-2.5">
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-sm font-bold text-accent">
+          BF
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-tight">Brosens Family</p>
+          <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500">Grant Management</p>
         </div>
-      )}
-    </section>
+      </div>
+      {user ? (
+        <div className="mt-2.5 flex items-center gap-2 pl-0.5 text-xs">
+          <span className="truncate font-medium">{user.name}</span>
+          <RolePill role={user.role} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -241,21 +227,20 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
       aria-current={active ? "page" : undefined}
       data-nav-href={item.href}
     >
-      <span
-        className={cn(
-          "sidebar-link__active-indicator",
-          active ? "sidebar-link__active-indicator--visible" : "sidebar-link__active-indicator--hidden"
-        )}
-        aria-hidden
-      />
       <span className="relative inline-flex shrink-0">
         <item.icon className="h-4 w-4" />
-        <OutstandingBadge count={outstandingCount} />
+        {!isOpen && <OutstandingBadge count={outstandingCount} />}
       </span>
       <span className={cn("truncate", !isOpen && "sr-only")}>{item.label}</span>
+      {isOpen && outstandingCount > 0 && (
+        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger/15 px-1.5 text-[10px] font-bold text-danger">
+          {outstandingCount > 99 ? "99+" : outstandingCount}
+        </span>
+      )}
       {!isOpen ? (
         <span className="sidebar-link__tooltip" aria-hidden>
           {item.label}
+          {outstandingCount > 0 && ` (${outstandingCount})`}
         </span>
       ) : null}
     </Link>
@@ -273,13 +258,13 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
   return (
     <nav id="desktop-sidebar-navigation" className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" aria-label="Primary">
       {sections.map((section, sectionIndex) => (
-        <section key={section.id} className={cn(sectionIndex > 0 && "mt-3 border-t border-border/80 pt-3")}>
+        <section key={section.id} className={cn(sectionIndex > 0 && "mt-4 pt-3")}>
           {isOpen ? (
             <p className="sidebar-section-label">{section.label}</p>
           ) : (
-            <div className="mx-auto mb-2 h-px w-6 rounded-full bg-border/80" aria-hidden />
+            sectionIndex > 0 && <div className="mx-auto mb-2 mt-1 h-px w-5 rounded-full bg-border/40" aria-hidden />
           )}
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = isRouteActive(pathname, item.href);
               const outstandingCount = outstandingByHref[item.href] ?? 0;
@@ -324,14 +309,25 @@ function DesktopSidebar({
     <aside
       className={cn(
         "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 print:hidden sm:flex sm:transition-[width]",
-        isOpen ? "w-64" : "w-[4.75rem]"
+        isOpen ? "w-64" : "w-[4.25rem]"
       )}
     >
       <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
-        <SidebarProfileCard isOpen={isOpen} user={user} onSignOut={onSignOut} />
+        <SidebarProfileCard isOpen={isOpen} user={user} />
 
-        <div className={cn("mb-2 flex items-center", isOpen ? "justify-between" : "justify-center")}>
-          {isOpen ? <p className="sidebar-section-label mb-0">Navigation</p> : null}
+        <DesktopSidebarNav
+          pathname={pathname}
+          isOpen={isOpen}
+          sections={sections}
+          outstandingByHref={outstandingByHref}
+        />
+
+        <div
+          className={cn(
+            "mt-auto border-t border-border/40 pt-2",
+            isOpen ? "flex items-center justify-between px-2" : "flex flex-col items-center gap-1.5"
+          )}
+        >
           <button
             onClick={onToggle}
             className="sidebar-control-button"
@@ -343,14 +339,19 @@ function DesktopSidebar({
           >
             {isOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
+          <div className={cn(isOpen ? "flex items-center gap-1.5" : "flex flex-col items-center gap-1.5")}>
+            <ThemeToggle />
+            <button
+              onClick={onSignOut}
+              className="sidebar-control-button"
+              type="button"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
-
-        <DesktopSidebarNav
-          pathname={pathname}
-          isOpen={isOpen}
-          sections={sections}
-          outstandingByHref={outstandingByHref}
-        />
       </div>
     </aside>
   );
