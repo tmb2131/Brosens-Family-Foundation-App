@@ -4,6 +4,7 @@ import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react
 import useSWR from "swr";
 import { Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
@@ -229,6 +230,35 @@ export default function FrankDeeniePage() {
     [filteredRows]
   );
   const selectedYearLabel = selectedYear === null ? "all years" : String(selectedYear);
+  const yearSplitChartData = useMemo(() => {
+    if (!data) {
+      return [];
+    }
+
+    const totals = {
+      Gave: {
+        frankDeenie: 0,
+        children: 0
+      },
+      Planned: {
+        frankDeenie: 0,
+        children: 0
+      }
+    };
+
+    for (const row of data.rows) {
+      const normalizedStatus = row.status.trim().toLowerCase();
+      const statusBucket = normalizedStatus === "planned" ? "Planned" : "Gave";
+      const sourceBucket = row.source === "children" ? "children" : "frankDeenie";
+      totals[statusBucket][sourceBucket] += row.amount;
+    }
+
+    return (["Gave", "Planned"] as const).map((status) => ({
+      status,
+      frankDeenie: totals[status].frankDeenie,
+      children: totals[status].children
+    }));
+  }, [data]);
 
   const toggleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {
@@ -576,6 +606,18 @@ export default function FrankDeeniePage() {
           <CardValue>{currency(visibleTotal)}</CardValue>
         </Card>
       </section>
+
+      <Card>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle>Year Split</CardTitle>
+            <p className="text-xs text-zinc-500">
+              Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
+            </p>
+          </div>
+        </div>
+        <FrankDeenieYearSplitChart data={yearSplitChartData} />
+      </Card>
 
       {showAddForm ? (
         <div

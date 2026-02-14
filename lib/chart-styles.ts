@@ -2,6 +2,7 @@ export const chartPalette = {
   joint: "hsl(154 61% 37%)",
   discretionary: "hsl(30 93% 52%)",
   sent: "hsl(199 94% 38%)",
+  children: "hsl(38 92% 50%)",
   approved: "hsl(154 61% 37%)",
   review: "hsl(219 40% 50%)",
   declined: "hsl(0 72% 51%)",

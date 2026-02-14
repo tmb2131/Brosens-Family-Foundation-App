@@ -16,11 +16,12 @@ interface FrankDeenieDonationDbRow {
   created_at: string;
 }
 
-interface SentProposalRow {
+interface ChildrenProposalRow {
   id: string;
   grant_master_id: string;
   organization_id: string | null;
   final_amount: number | string;
+  status: string;
   notes: string | null;
   sent_at: string | null;
   created_at: string;
@@ -180,11 +181,13 @@ function mapFrankDeenieDonationRow(row: FrankDeenieDonationDbRow): FrankDeenieDo
 }
 
 function mapChildrenDonationRow(
-  row: SentProposalRow,
+  row: ChildrenProposalRow,
   organizationNamesById: Map<string, string>,
   grantMasterTitlesById: Map<string, string>,
   grantMasterDescriptionsById: Map<string, string>
 ): FrankDeenieDonationRow {
+  const normalizedStatus = row.status.trim().toLowerCase();
+  const isSent = normalizedStatus === "sent";
   const proposalTitle = grantMasterTitlesById.get(row.grant_master_id)?.trim() || "Submitted gift";
   const proposalDescription = grantMasterDescriptionsById.get(row.grant_master_id)?.trim() ?? "";
   const organizationName = row.organization_id
@@ -194,13 +197,13 @@ function mapChildrenDonationRow(
   return {
     id: `children:${row.id}`,
     source: "children",
-    date: row.sent_at ?? row.created_at.slice(0, 10),
+    date: isSent ? row.sent_at ?? row.created_at.slice(0, 10) : row.created_at.slice(0, 10),
     type: "donation",
     name: organizationName || proposalTitle,
     memo: proposalDescription,
     split: "",
     amount: toNumber(row.final_amount),
-    status: "Gave",
+    status: isSent ? "Gave" : "Planned",
     editable: false
   };
 }
@@ -238,19 +241,13 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
 }
 
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
-  let query = admin
+  const query = admin
     .from("grant_proposals")
-    .select("id, grant_master_id, organization_id, final_amount, notes, sent_at, created_at")
-    .eq("status", "sent")
-    .not("sent_at", "is", null)
-    .order("sent_at", { ascending: false });
+    .select("id, grant_master_id, organization_id, final_amount, status, notes, sent_at, created_at")
+    .in("status", ["sent", "approved"])
+    .order("created_at", { ascending: false });
 
-  if (year !== null) {
-    const { startDate, endDate } = toYearWindow(year);
-    query = query.gte("sent_at", startDate).lte("sent_at", endDate);
-  }
-
-  const { data: proposals, error: proposalsError } = await query.returns<SentProposalRow[]>();
+  const { data: proposals, error: proposalsError } = await query.returns<ChildrenProposalRow[]>();
 
   if (proposalsError) {
     throw new HttpError(500, `Could not load Children donation rows: ${proposalsError.message}`);
@@ -294,7 +291,7 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
     }
   }
 
-  return (proposals ?? []).map((row) =>
+  const mappedRows = (proposals ?? []).map((row) =>
     mapChildrenDonationRow(
       row,
       organizationNamesById,
@@ -302,6 +299,12 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
       grantMasterDescriptionsById
     )
   );
+
+  if (year === null) {
+    return mappedRows;
+  }
+
+  return mappedRows.filter((row) => Number(row.date.slice(0, 4)) === year);
 }
 
 async function loadAvailableYears(admin: AdminClient) {
@@ -312,10 +315,9 @@ async function loadAvailableYears(admin: AdminClient) {
       .returns<Array<{ donation_date: string }>>(),
     admin
       .from("grant_proposals")
-      .select("sent_at")
-      .eq("status", "sent")
-      .not("sent_at", "is", null)
-      .returns<Array<{ sent_at: string | null }>>()
+      .select("status, sent_at, created_at")
+      .in("status", ["sent", "approved"])
+      .returns<Array<{ status: string; sent_at: string | null; created_at: string }>>()
   ]);
 
   if (frankDeenieResult.error) {
@@ -335,8 +337,14 @@ async function loadAvailableYears(admin: AdminClient) {
   }
 
   for (const row of childrenResult.data ?? []) {
-    if (row.sent_at) {
-      years.add(Number(row.sent_at.slice(0, 4)));
+    const normalizedStatus = row.status.trim().toLowerCase();
+    const effectiveDate =
+      normalizedStatus === "sent"
+        ? row.sent_at ?? row.created_at
+        : row.created_at;
+
+    if (effectiveDate) {
+      years.add(Number(effectiveDate.slice(0, 4)));
     }
   }
 
