@@ -4,7 +4,7 @@ import { Card, CardTitle, CardValue } from "@/components/ui/card";
 
 export default function DashboardLoading() {
   return (
-    <div className="space-y-4 pb-4">
+    <div className="page-stack pb-4">
       <Card className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

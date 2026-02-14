@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { Plus } from "lucide-react";
+import { Gift, History, ListChecks, Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { WorkspaceSnapshot, FoundationSnapshot } from "@/lib/types";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { currency, titleCase, voteChoiceLabel } from "@/lib/utils";
+import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
 
@@ -45,16 +45,22 @@ export default function WorkspacePage() {
   const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="page-stack pb-4">
       <section className="grid gap-3 xl:grid-cols-[2fr_1fr]">
         <Card className="rounded-3xl">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>My Workspace</CardTitle>
               <CardValue>{workspace.user.name}</CardValue>
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                <span className="status-dot bg-emerald-500" />
                 Track your joint/discretionary balances, action items, and personal voting history.
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+                <span>{formatNumber(workspace.actionItems.length)} action item(s)</span>
+                <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+                <span>{formatNumber(workspace.submittedGifts.length)} submitted proposal(s)</span>
+              </div>
             </div>
             <Link href="/proposals/new" className="new-proposal-cta sm:min-h-11 sm:px-4 sm:text-sm">
               <Plus className="h-4 w-4" /> New Proposal
@@ -83,7 +89,12 @@ export default function WorkspacePage() {
 
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>Action Items</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              <ListChecks className="h-4 w-4" />
+            </span>
+            <CardTitle>Action Items</CardTitle>
+          </div>
           <Link href="/dashboard" className="inline-flex min-h-10 items-center text-xs font-semibold text-accent">
             Open full tracker
           </Link>
@@ -100,15 +111,37 @@ export default function WorkspacePage() {
               }
 
               return (
-                <article key={item.proposalId} className="rounded-xl border p-3">
+                <article
+                  key={item.proposalId}
+                  className={`rounded-xl border border-t-2 p-4 ${
+                    item.proposalType === "joint"
+                      ? "border-t-indigo-400 dark:border-t-indigo-500"
+                      : "border-t-amber-400 dark:border-t-amber-500"
+                  }`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
-                      <p className="text-xs text-zinc-500">
-                        {titleCase(item.proposalType)} | {item.voteProgressLabel}
-                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
                     </div>
                     <StatusPill status={proposal.status} />
+                  </div>
+                  <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                    {currency(proposal.proposedAmount)}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-zinc-400 dark:text-zinc-500">Type</span>
+                      <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                        {titleCase(item.proposalType)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-zinc-400 dark:text-zinc-500">Progress</span>
+                      <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                        {item.voteProgressLabel}
+                      </p>
+                    </div>
                   </div>
                   <VoteForm
                     proposalId={item.proposalId}
@@ -129,10 +162,18 @@ export default function WorkspacePage() {
 
       <section className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <CardTitle>Personal History</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+              <History className="h-4 w-4" />
+            </span>
+            <CardTitle>Personal History</CardTitle>
+          </div>
           <div className="mt-3 space-y-2">
             {workspace.voteHistory.map((vote) => (
-              <div key={`${vote.proposalId}-${vote.at}`} className="rounded-xl border p-2">
+              <div
+                key={`${vote.proposalId}-${vote.at}`}
+                className="rounded-xl border border-zinc-200/80 p-2 transition-colors hover:bg-zinc-50/70 dark:border-zinc-700 dark:hover:bg-zinc-800/40"
+              >
                 <p className="text-sm font-medium">{vote.proposalTitle}</p>
                 <p className="mt-1 text-xs text-zinc-500">
                   {voteChoiceLabel(vote.choice)} | {currency(vote.amount)}
@@ -144,13 +185,21 @@ export default function WorkspacePage() {
         </Card>
 
         <Card>
-          <CardTitle>My Submitted Gifts</CardTitle>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              <Gift className="h-4 w-4" />
+            </span>
+            <CardTitle>My Submitted Gifts</CardTitle>
+          </div>
           <div className="mt-3 space-y-2">
             {workspace.submittedGifts.length === 0 ? (
               <p className="text-sm text-zinc-500">No submitted gifts yet.</p>
             ) : (
               workspace.submittedGifts.map((proposal) => (
-                <div key={proposal.id} className="rounded-xl border p-2">
+                <div
+                  key={proposal.id}
+                  className="rounded-xl border border-zinc-200/80 p-2 transition-colors hover:bg-zinc-50/70 dark:border-zinc-700 dark:hover:bg-zinc-800/40"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{proposal.title}</p>
                     <StatusPill status={proposal.status} />

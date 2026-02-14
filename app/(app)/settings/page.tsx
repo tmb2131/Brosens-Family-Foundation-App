@@ -2,9 +2,11 @@
 
 import { FormEvent, useState, useEffect } from "react";
 import useSWR from "swr";
+import { DollarSign, PieChart, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { MetricCard } from "@/components/ui/metric-card";
 import { currency, formatNumber, parseNumberInput } from "@/lib/utils";
 
 interface BudgetResponse {
@@ -48,6 +50,15 @@ export default function SettingsPage() {
   const parsedDiscretionaryRatio = parseNumberInput(discretionaryRatio);
   const projectedTotalBudget =
     parsedTotalAmount !== null && parsedRollover !== null ? parsedTotalAmount + parsedRollover : null;
+  const totalAllocated = data
+    ? data.budget.jointAllocated + data.budget.discretionaryAllocated
+    : 0;
+  const jointUtilization = data && data.budget.jointPool > 0
+    ? (data.budget.jointAllocated / data.budget.jointPool) * 100
+    : 0;
+  const discretionaryUtilization = data && data.budget.discretionaryPool > 0
+    ? (data.budget.discretionaryAllocated / data.budget.discretionaryPool) * 100
+    : 0;
 
   useEffect(() => {
     if (!data?.budget) {
@@ -163,11 +174,12 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="page-stack pb-4">
       <Card className="rounded-3xl">
         <CardTitle>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardTitle>
         <CardValue>{canManageBudget ? "Budget & Annual Cycle" : "Password & Security"}</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <span className="status-dot bg-emerald-500" />
           {canManageBudget
             ? "February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31."
             : "Use password reset to securely change your sign-in credentials."}
@@ -258,7 +270,7 @@ export default function SettingsPage() {
                     Budget year
                     <input
                       type="number"
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="field-control mt-1 w-full rounded-xl"
                       value={year}
                       onChange={(event) => setYear(event.target.value)}
                     />
@@ -267,7 +279,7 @@ export default function SettingsPage() {
                     Annual fund size
                     <input
                       type="number"
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="field-control mt-1 w-full rounded-xl"
                       value={totalAmount}
                       onChange={(event) => setTotalAmount(event.target.value)}
                     />
@@ -282,7 +294,7 @@ export default function SettingsPage() {
                     Roll-over amount
                     <input
                       type="number"
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="field-control mt-1 w-full rounded-xl"
                       value={rollover}
                       onChange={(event) => setRollover(event.target.value)}
                     />
@@ -295,7 +307,7 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="field-control mt-1 w-full rounded-xl"
                       value={jointRatio}
                       onChange={(event) => setJointRatio(event.target.value)}
                     />
@@ -314,7 +326,7 @@ export default function SettingsPage() {
                     <input
                       type="number"
                       step="0.01"
-                      className="mt-1 w-full rounded-xl border px-3 py-2"
+                      className="field-control mt-1 w-full rounded-xl"
                       value={discretionaryRatio}
                       onChange={(event) => setDiscretionaryRatio(event.target.value)}
                     />
@@ -351,12 +363,64 @@ export default function SettingsPage() {
           {data ? (
             <Card>
               <CardTitle>Current Budget Snapshot</CardTitle>
-              <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
-                <p>Joint Pool: {currency(data.budget.jointPool)}</p>
-                <p>Discretionary Pool: {currency(data.budget.discretionaryPool)}</p>
-                <p>Joint Remaining: {currency(data.budget.jointRemaining)}</p>
-                <p>Discretionary Remaining: {currency(data.budget.discretionaryRemaining)}</p>
-              </div>
+              <section className="mt-3 grid gap-3 sm:grid-cols-2">
+                <MetricCard
+                  title="TOTAL BUDGET"
+                  value={currency(data.budget.total)}
+                  icon={DollarSign}
+                  tone="emerald"
+                  className="p-3"
+                />
+                <MetricCard
+                  title="TOTAL ALLOCATED"
+                  value={currency(totalAllocated)}
+                  icon={PieChart}
+                  tone="sky"
+                  className="p-3"
+                />
+                <MetricCard
+                  title="JOINT POOL REMAINING"
+                  value={currency(data.budget.jointRemaining)}
+                  subtitle={`Allocated: ${currency(data.budget.jointAllocated)}`}
+                  icon={Users}
+                  tone="indigo"
+                  className="p-3"
+                >
+                  <div className="budget-progress-track mt-2">
+                    <div
+                      className={`budget-progress-fill ${
+                        jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"
+                      }`}
+                      style={{ width: `${Math.min(jointUtilization, 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    {Math.round(jointUtilization)}% utilized
+                  </p>
+                </MetricCard>
+                <MetricCard
+                  title="DISCRETIONARY REMAINING"
+                  value={currency(data.budget.discretionaryRemaining)}
+                  subtitle={`Allocated: ${currency(data.budget.discretionaryAllocated)}`}
+                  icon={Wallet}
+                  tone="amber"
+                  className="p-3"
+                >
+                  <div className="budget-progress-track mt-2">
+                    <div
+                      className={`budget-progress-fill ${
+                        discretionaryUtilization > 100
+                          ? "bg-rose-500"
+                          : "bg-amber-500 dark:bg-amber-400"
+                      }`}
+                      style={{ width: `${Math.min(discretionaryUtilization, 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    {Math.round(discretionaryUtilization)}% utilized
+                  </p>
+                </MetricCard>
+              </section>
             </Card>
           ) : null}
         </>

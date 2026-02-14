@@ -15,9 +15,11 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { Download } from "lucide-react";
+import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { DataTableHeadRow, DataTableRow } from "@/components/ui/data-table";
+import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { compactCurrency, currency, formatNumber, titleCase } from "@/lib/utils";
@@ -196,13 +198,14 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="page-stack pb-6">
       <Card className="rounded-3xl">
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <div>
             <CardTitle>Annual Proposal Report</CardTitle>
             <CardValue>{data.budget.year}</CardValue>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
+              <span className="status-dot bg-emerald-500" />
               Include/exclude proposal statuses below, then export using Print / PDF.
             </p>
           </div>
@@ -210,7 +213,7 @@ export default function ReportsPage() {
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
-                className="mt-1 block rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="field-control field-control--compact mt-1 block"
                 value={String(selectedYear ?? data.budget.year)}
                 onChange={(event) => setSelectedYear(Number(event.target.value))}
               >
@@ -224,7 +227,7 @@ export default function ReportsPage() {
             <button
               type="button"
               onClick={exportToPdf}
-              className="inline-flex items-center justify-center gap-1 rounded-xl bg-accent px-3 py-2 text-xs font-semibold text-white"
+              className="prominent-accent-cta"
             >
               <Download className="h-4 w-4" />
               Print / PDF
@@ -252,7 +255,7 @@ export default function ReportsPage() {
             >
               <input
                 type="checkbox"
-                className="h-3.5 w-3.5"
+                className="h-3.5 w-3.5 accent-[hsl(var(--accent))]"
                 checked={statusFilters[status]}
                 onChange={() => toggleStatus(status)}
               />
@@ -263,22 +266,20 @@ export default function ReportsPage() {
       </Card>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardTitle>Proposals</CardTitle>
-          <CardValue>{formatNumber(filteredProposals.length)}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Total Amount</CardTitle>
-          <CardValue>{currency(totalAmount)}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Approved Amount</CardTitle>
-          <CardValue>{currency(approvedAmount)}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Sent Amount</CardTitle>
-          <CardValue>{currency(sentAmount)}</CardValue>
-        </Card>
+        <MetricCard
+          title="PROPOSALS"
+          value={formatNumber(filteredProposals.length)}
+          icon={ClipboardList}
+          tone="emerald"
+        />
+        <MetricCard title="TOTAL AMOUNT" value={currency(totalAmount)} icon={DollarSign} tone="sky" />
+        <MetricCard
+          title="APPROVED AMOUNT"
+          value={currency(approvedAmount)}
+          icon={PieChartIcon}
+          tone="indigo"
+        />
+        <MetricCard title="SENT AMOUNT" value={currency(sentAmount)} icon={Send} tone="amber" />
       </section>
 
       <section className="grid gap-3 lg:grid-cols-2">
@@ -390,14 +391,23 @@ export default function ReportsPage() {
             </p>
           ) : (
             filteredProposals.map((proposal) => (
-              <article key={proposal.id} className="rounded-xl border p-3">
+              <article
+                key={proposal.id}
+                className={`rounded-xl border border-t-2 p-4 ${
+                  proposal.proposalType === "joint"
+                    ? "border-t-indigo-400 dark:border-t-indigo-500"
+                    : "border-t-amber-400 dark:border-t-amber-500"
+                }`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium">{proposal.title}</p>
                   <StatusPill status={proposal.status} />
                 </div>
+                <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                  {currency(proposal.progress.computedFinalAmount)}
+                </p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <p>Type: {titleCase(proposal.proposalType)}</p>
-                  <p>Amount: {currency(proposal.progress.computedFinalAmount)}</p>
                   <p>Sent: {proposal.sentAt ?? "—"}</p>
                   <p>Created: {proposal.createdAt.slice(0, 10)}</p>
                 </div>
@@ -409,14 +419,14 @@ export default function ReportsPage() {
         <div className="hidden overflow-x-auto md:block">
           <table className="min-w-[860px] table-auto text-left text-sm">
             <thead>
-              <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
+              <DataTableHeadRow>
                 <th className="px-2 py-2">Proposal</th>
                 <th className="px-2 py-2">Type</th>
                 <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Amount</th>
                 <th className="px-2 py-2">Sent Date</th>
                 <th className="px-2 py-2">Created</th>
-              </tr>
+              </DataTableHeadRow>
             </thead>
             <tbody>
               {filteredProposals.length === 0 ? (
@@ -427,7 +437,7 @@ export default function ReportsPage() {
                 </tr>
               ) : (
                 filteredProposals.map((proposal) => (
-                  <tr key={proposal.id} className="border-b align-top">
+                  <DataTableRow key={proposal.id}>
                     <td className="px-2 py-2">
                       <p className="font-medium">{proposal.title}</p>
                     </td>
@@ -446,7 +456,7 @@ export default function ReportsPage() {
                     <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
                       {proposal.createdAt.slice(0, 10)}
                     </td>
-                  </tr>
+                  </DataTableRow>
                 ))
               )}
             </tbody>

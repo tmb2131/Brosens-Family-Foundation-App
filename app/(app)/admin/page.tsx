@@ -2,10 +2,12 @@
 
 import useSWR from "swr";
 import { useState } from "react";
+import { ClipboardList, DollarSign, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
-import { currency } from "@/lib/utils";
+import { currency, formatNumber } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
 
 interface AdminQueueResponse {
@@ -93,15 +95,51 @@ export default function AdminPage() {
     }
   };
 
+  const totalQueuedAmount = data.proposals.reduce(
+    (sum, proposal) => sum + proposal.progress.computedFinalAmount,
+    0
+  );
+  const jointQueued = data.proposals.filter((proposal) => proposal.proposalType === "joint").length;
+  const discretionaryQueued = data.proposals.length - jointQueued;
+
   return (
-    <div className="space-y-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
+    <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
       <Card className="rounded-3xl">
         <CardTitle>Administrator Workspace</CardTitle>
         <CardValue>Donation Execution Cues</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <span className="status-dot bg-emerald-500" />
           Approved grants appear here. Mark as Sent once external donation execution is complete.
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+          <span>{formatNumber(data.proposals.length)} queued proposal(s)</span>
+          <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+          <span>{formatNumber(jointQueued)} joint</span>
+          <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+          <span>{formatNumber(discretionaryQueued)} discretionary</span>
+        </div>
       </Card>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <MetricCard
+          title="QUEUE SIZE"
+          value={formatNumber(data.proposals.length)}
+          icon={ClipboardList}
+          tone="emerald"
+        />
+        <MetricCard
+          title="TOTAL TO SEND"
+          value={currency(totalQueuedAmount)}
+          icon={DollarSign}
+          tone="indigo"
+        />
+        <MetricCard
+          title="AVERAGE AMOUNT"
+          value={currency(data.proposals.length ? totalQueuedAmount / data.proposals.length : 0)}
+          icon={Wallet}
+          tone="amber"
+        />
+      </section>
 
       <div className="space-y-3">
         {data.proposals.length === 0 ? (
@@ -115,7 +153,14 @@ export default function AdminPage() {
             const isSaving = savingProposalId === proposal.id;
 
             return (
-              <Card key={proposal.id}>
+              <Card
+                key={proposal.id}
+                className={`border-t-2 ${
+                  proposal.proposalType === "joint"
+                    ? "border-t-indigo-400 dark:border-t-indigo-500"
+                    : "border-t-amber-400 dark:border-t-amber-500"
+                }`}
+              >
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="break-words text-sm font-semibold">{proposal.title}</h3>
@@ -156,14 +201,14 @@ export default function AdminPage() {
                               return next;
                             });
                           }}
-                          className="mt-1 block h-8 w-full min-w-0 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                          className="field-control field-control--compact mt-1 block h-9 w-full min-w-0"
                           required
                         />
                       </div>
 
                       <button
                         type="button"
-                        className="w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-indigo-300 sm:w-auto sm:shrink-0 sm:self-end"
+                        className="prominent-accent-cta w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:shrink-0 sm:self-end"
                         onClick={() => void markSent(proposal.id)}
                         disabled={!sentDate || isSaving}
                       >

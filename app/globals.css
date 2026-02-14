@@ -59,6 +59,76 @@ body {
   animation: fade-up 500ms ease-out both;
 }
 
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-stack {
+  @apply page-enter space-y-6;
+}
+
+.field-control {
+  @apply rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
+}
+
+.field-control:focus {
+  outline: none;
+  border-color: hsl(var(--accent) / 0.45);
+  box-shadow: 0 0 0 2px hsl(var(--accent) / 0.22);
+}
+
+.field-control:disabled {
+  @apply opacity-60;
+}
+
+.field-control--compact {
+  @apply py-1.5;
+}
+
+.filters-panel {
+  @apply grid gap-3 rounded-xl border border-zinc-200/60 bg-zinc-50/50 p-3 dark:border-zinc-700/40 dark:bg-zinc-800/30;
+}
+
+.data-table-head-row {
+  @apply border-b border-zinc-200 text-[11px] uppercase tracking-wider text-zinc-400 dark:border-zinc-700 dark:text-zinc-500;
+}
+
+.data-table-sort-button {
+  @apply font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300;
+}
+
+.data-table-row {
+  @apply border-b align-top transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40;
+}
+
+.metric-value-prominent {
+  @apply text-2xl;
+}
+
+.segmented-control {
+  @apply inline-flex rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700;
+}
+
+.segmented-control-button {
+  @apply rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150;
+}
+
+.segmented-control-button--active {
+  @apply bg-accent text-white shadow-sm;
+}
+
+.segmented-control-button--inactive {
+  @apply text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800;
+}
+
 .glass-card {
   @apply border bg-card/90 backdrop-blur;
   box-shadow:
@@ -347,6 +417,16 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .mobile-nav-link__icon--cta {
     animation: sidebar-cta-pulse 900ms ease-out 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+
+  .budget-progress-fill {
+    transition: none;
   }
 }
 

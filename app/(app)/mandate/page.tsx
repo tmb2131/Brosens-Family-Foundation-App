@@ -318,13 +318,14 @@ export default function MandatePage() {
   };
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="page-stack pb-6">
       <Card className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Foundation Mandate</CardTitle>
             <CardValue>{data.policy.title}</CardValue>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              <span className="status-dot bg-emerald-500" />
               Version {formatNumber(data.policy.version)} | Last updated {prettyDate(data.policy.updatedAt)}
               {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
             </p>
@@ -403,7 +404,7 @@ export default function MandatePage() {
                 <textarea
                   value={draft[section.key]}
                   onChange={(event) => updateDraftField(section.key, event.target.value)}
-                  className="mt-1 min-h-32 w-full rounded-xl border bg-white/80 px-3 py-2 text-sm dark:bg-zinc-900/40"
+                  className="field-control mt-1 min-h-32 w-full rounded-xl text-sm"
                 />
               </label>
             ))}
@@ -550,7 +551,7 @@ export default function MandatePage() {
                               [notification.id]: event.target.value
                             }))
                           }
-                          className="mt-1 w-full rounded-lg border bg-white/80 px-2 py-1 text-sm dark:bg-zinc-900/40"
+                          className="field-control mt-1 w-full"
                           placeholder="What should the team discuss?"
                         />
                       </label>

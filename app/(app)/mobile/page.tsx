@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
+import { ListChecks, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -37,7 +38,7 @@ export default function MobileFocusPage() {
 
   if (workspaceQuery.error || foundationQuery.error || !workspaceQuery.data || !foundationQuery.data) {
     return (
-      <div className="space-y-3 pb-4">
+      <div className="page-stack pb-4">
         <p className="text-sm text-rose-600">
           Could not load the focus view
           {workspaceQuery.error || foundationQuery.error
@@ -60,7 +61,7 @@ export default function MobileFocusPage() {
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
 
   return (
-    <div className="space-y-2 pb-3 sm:space-y-3">
+    <div className="page-stack pb-4">
       {deepLinkTarget ? (
         <Card className="p-3">
           <p className="text-xs text-zinc-500">Continue to the required action from your email.</p>
@@ -76,7 +77,12 @@ export default function MobileFocusPage() {
       <Card className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">
           <div>
-            <CardTitle>Outstanding Action Items</CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                <ListChecks className="h-4 w-4" />
+              </span>
+              <CardTitle>Outstanding Action Items</CardTitle>
+            </div>
             <p className="mt-1 text-xs text-zinc-500">
               {workspace.actionItems.length === 0
                 ? "No action items waiting right now."
@@ -99,15 +105,37 @@ export default function MobileFocusPage() {
               }
 
               return (
-                <article key={item.proposalId} className="rounded-lg border p-2.5">
+                <article
+                  key={item.proposalId}
+                  className={`rounded-xl border border-t-2 p-4 ${
+                    item.proposalType === "joint"
+                      ? "border-t-indigo-400 dark:border-t-indigo-500"
+                      : "border-t-amber-400 dark:border-t-amber-500"
+                  }`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
-                      <p className="text-xs text-zinc-500">
-                        {titleCase(item.proposalType)} | {item.voteProgressLabel}
-                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
                     </div>
                     <StatusPill status={proposal.status} />
+                  </div>
+                  <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                    {currency(proposal.proposedAmount)}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-zinc-400 dark:text-zinc-500">Type</span>
+                      <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                        {titleCase(item.proposalType)}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-zinc-400 dark:text-zinc-500">Progress</span>
+                      <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                        {item.voteProgressLabel}
+                      </p>
+                    </div>
                   </div>
                   <VoteForm
                     proposalId={item.proposalId}
@@ -119,6 +147,12 @@ export default function MobileFocusPage() {
                       void foundationQuery.mutate();
                     }}
                   />
+                  <Link
+                    href="/dashboard"
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-zinc-200 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    View Details
+                  </Link>
                 </article>
               );
             })
@@ -136,7 +170,12 @@ export default function MobileFocusPage() {
       </Card>
 
       <Card className="p-3">
-        <CardTitle>Personal Budget</CardTitle>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <Wallet className="h-4 w-4" />
+          </span>
+          <CardTitle>Personal Budget</CardTitle>
+        </div>
         <div className="mt-2 space-y-2">
           <PersonalBudgetBars
             title="Joint Budget Tracker"

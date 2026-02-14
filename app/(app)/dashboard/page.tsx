@@ -7,6 +7,10 @@ import useSWR from "swr";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
+import { FilterPanel } from "@/components/ui/filter-panel";
+import { MetricCard } from "@/components/ui/metric-card";
+import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
 import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -1077,7 +1081,7 @@ export default function DashboardPage() {
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
-                className="mt-1 block rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
+                className="field-control field-control--compact mt-1 block rounded-lg"
                 value={String(selectedYear ?? data.budget.year)}
                 onChange={(event) => setSelectedYear(Number(event.target.value))}
               >
@@ -1100,33 +1104,25 @@ export default function DashboardPage() {
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
-          <Card className="border-l-[3px] border-l-emerald-500 dark:border-l-emerald-400">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                <DollarSign className="h-4 w-4" />
-              </span>
-              <CardTitle>TOTAL BUDGET</CardTitle>
-            </div>
-            <CardValue className="text-2xl">{currency(data.budget.total)}</CardValue>
-          </Card>
-          <Card className="border-l-[3px] border-l-sky-500 dark:border-l-sky-400">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                <PieChart className="h-4 w-4" />
-              </span>
-              <CardTitle>TOTAL ALLOCATED</CardTitle>
-            </div>
-            <CardValue className="text-2xl">{currency(totalAllocatedForYear)}</CardValue>
-          </Card>
-          <Card className="border-l-[3px] border-l-indigo-500 dark:border-l-indigo-400">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                <Users className="h-4 w-4" />
-              </span>
-              <CardTitle>JOINT POOL REMAINING</CardTitle>
-            </div>
-            <CardValue className="text-2xl">{currency(data.budget.jointRemaining)}</CardValue>
-            <p className="mt-1 text-xs text-zinc-500">Allocated: {currency(data.budget.jointAllocated)}</p>
+          <MetricCard
+            title="TOTAL BUDGET"
+            value={currency(data.budget.total)}
+            icon={DollarSign}
+            tone="emerald"
+          />
+          <MetricCard
+            title="TOTAL ALLOCATED"
+            value={currency(totalAllocatedForYear)}
+            icon={PieChart}
+            tone="sky"
+          />
+          <MetricCard
+            title="JOINT POOL REMAINING"
+            value={currency(data.budget.jointRemaining)}
+            subtitle={`Allocated: ${currency(data.budget.jointAllocated)}`}
+            icon={Users}
+            tone="indigo"
+          >
             <div className="budget-progress-track mt-2">
               <div
                 className={`budget-progress-fill ${jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}`}
@@ -1134,18 +1130,14 @@ export default function DashboardPage() {
               />
             </div>
             <p className="mt-1 text-[11px] text-zinc-400">{Math.round(jointUtilization)}% utilized</p>
-          </Card>
-          <Card className="border-l-[3px] border-l-amber-500 dark:border-l-amber-400">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                <Wallet className="h-4 w-4" />
-              </span>
-              <CardTitle>DISCRETIONARY REMAINING</CardTitle>
-            </div>
-            <CardValue className="text-2xl">{currency(data.budget.discretionaryRemaining)}</CardValue>
-            <p className="mt-1 text-xs text-zinc-500">
-              Allocated: {currency(data.budget.discretionaryAllocated)}
-            </p>
+          </MetricCard>
+          <MetricCard
+            title="DISCRETIONARY REMAINING"
+            value={currency(data.budget.discretionaryRemaining)}
+            subtitle={`Allocated: ${currency(data.budget.discretionaryAllocated)}`}
+            icon={Wallet}
+            tone="amber"
+          >
             <div className="budget-progress-track mt-2">
               <div
                 className={`budget-progress-fill ${discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}`}
@@ -1153,7 +1145,7 @@ export default function DashboardPage() {
               />
             </div>
             <p className="mt-1 text-[11px] text-zinc-400">{Math.round(discretionaryUtilization)}% utilized</p>
-          </Card>
+          </MetricCard>
         </div>
         <Card>
           <CardTitle>Historical Impact</CardTitle>
@@ -1368,7 +1360,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mb-4 grid gap-3 rounded-xl border border-zinc-200/60 bg-zinc-50/50 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] dark:border-zinc-700/40 dark:bg-zinc-800/30">
+            <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
               <label className="text-xs font-semibold text-zinc-500">
                 Search
                 <input
@@ -1376,7 +1368,7 @@ export default function DashboardPage() {
                   value={filters.proposal}
                   onChange={(event) => setFilter("proposal", event.target.value)}
                   placeholder="Title or description"
-                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
+                  className="field-control mt-1 w-full normal-case"
                 />
               </label>
               <label className="text-xs font-semibold text-zinc-500">
@@ -1386,7 +1378,7 @@ export default function DashboardPage() {
                   onChange={(event) =>
                     setFilter("proposalType", event.target.value as TableFilters["proposalType"])
                   }
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
+                  className="field-control mt-1 w-full normal-case"
                 >
                   <option value="all">All</option>
                   <option value="joint">Joint</option>
@@ -1398,7 +1390,7 @@ export default function DashboardPage() {
                 <select
                   value={filters.status}
                   onChange={(event) => setFilter("status", event.target.value as TableFilters["status"])}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
+                  className="field-control mt-1 w-full normal-case"
                 >
                   <option value="all">All</option>
                   {STATUS_OPTIONS.map((statusOption) => (
@@ -1417,7 +1409,7 @@ export default function DashboardPage() {
                   Clear filters
                 </button>
               </div>
-            </div>
+            </FilterPanel>
 
             {exportMessage ? (
               <p
@@ -1517,7 +1509,7 @@ export default function DashboardPage() {
                             step="0.01"
                             value={draft.finalAmount}
                             onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
-                            className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                            className="field-control mt-1 w-full"
                           />
                           <p className="mt-1 text-[11px] text-zinc-500">
                             Amount preview: {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
@@ -1543,7 +1535,7 @@ export default function DashboardPage() {
                               ...(event.target.value === "sent" ? {} : { sentAt: "" })
                             })
                           }
-                          className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                          className="field-control mt-1 w-full"
                         >
                           {STATUS_OPTIONS.map((statusOption) => (
                             <option key={statusOption} value={statusOption}>
@@ -1566,7 +1558,7 @@ export default function DashboardPage() {
                           value={draft.sentAt}
                           disabled={sentDateDisabled}
                           onChange={(event) => updateDraft(proposal.id, { sentAt: event.target.value })}
-                          className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                          className="field-control mt-1 w-full disabled:opacity-50"
                         />
                       </label>
                     ) : (
@@ -1581,7 +1573,7 @@ export default function DashboardPage() {
                           value={draft.notes}
                           onChange={(event) => updateDraft(proposal.id, { notes: event.target.value })}
                           placeholder="Optional notes"
-                          className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                          className="field-control mt-1 w-full"
                         />
                       </label>
                     ) : proposal.notes?.trim() ? (
@@ -1655,35 +1647,35 @@ export default function DashboardPage() {
               <col className="w-[4.5rem]" />
             </colgroup>
             <thead>
-              <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-wider text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
+              <DataTableHeadRow>
                 <th className="px-2 py-3">
-                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("proposal")}>
+                  <DataTableSortButton onClick={() => toggleSort("proposal")}>
                     Proposal{sortMarker("proposal")}
-                  </button>
+                  </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
-                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("type")}>
+                  <DataTableSortButton onClick={() => toggleSort("type")}>
                     Type{sortMarker("type")}
-                  </button>
+                  </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
-                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("amount")}>
+                  <DataTableSortButton onClick={() => toggleSort("amount")}>
                     Amount{sortMarker("amount")}
-                  </button>
+                  </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
-                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("sentAt")}>
+                  <DataTableSortButton onClick={() => toggleSort("sentAt")}>
                     Date Sent{sortMarker("sentAt")}
-                  </button>
+                  </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
-                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("status")}>
+                  <DataTableSortButton onClick={() => toggleSort("status")}>
                     Status{sortMarker("status")}
-                  </button>
+                  </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">Required Action</th>
                 <th className="px-2 py-3 text-right">Details</th>
-              </tr>
+              </DataTableHeadRow>
             </thead>
             <tbody>
               {filteredAndSortedProposals.length === 0 ? (
@@ -1726,7 +1718,7 @@ export default function DashboardPage() {
                   const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt ?? "—";
 
                   return (
-                    <tr key={proposal.id} className="border-b align-top transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40">
+                    <DataTableRow key={proposal.id}>
                       <td className="w-[20rem] max-w-[20rem] px-2 py-3">
                         <p className="block max-w-full truncate font-semibold" title={proposal.title}>
                           {proposal.title}
@@ -1780,7 +1772,7 @@ export default function DashboardPage() {
                           <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </td>
-                    </tr>
+                    </DataTableRow>
                   );
                 })
               )}
@@ -1793,20 +1785,8 @@ export default function DashboardPage() {
       </Card>
 
       {detailProposal && detailDraft && detailRequiredAction ? (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) {
-              closeDetailDrawer();
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="proposal-details-title"
-            className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-3xl sm:rounded-3xl sm:p-5"
-          >
+        <ModalOverlay onClose={closeDetailDrawer}>
+          <ModalPanel aria-labelledby="proposal-details-title" className="sm:max-w-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -1892,7 +1872,7 @@ export default function DashboardPage() {
                       onChange={(event) =>
                         updateDraft(detailProposal.id, { finalAmount: event.target.value })
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                     <span className="mt-1 block text-[11px] text-zinc-500">
                       Amount preview:{" "}
@@ -1914,7 +1894,7 @@ export default function DashboardPage() {
                           ...(event.target.value === "sent" ? {} : { sentAt: "" })
                         })
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     >
                       {STATUS_OPTIONS.map((statusOption) => (
                         <option key={statusOption} value={statusOption}>
@@ -1933,7 +1913,7 @@ export default function DashboardPage() {
                       value={detailDraft.sentAt}
                       disabled={detailSentDateDisabled}
                       onChange={(event) => updateDraft(detailProposal.id, { sentAt: event.target.value })}
-                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full disabled:opacity-50"
                     />
                   </label>
                 ) : null}
@@ -1946,7 +1926,7 @@ export default function DashboardPage() {
                       value={detailDraft.notes}
                       onChange={(event) => updateDraft(detailProposal.id, { notes: event.target.value })}
                       placeholder="Optional notes"
-                      className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                   </label>
                 ) : null}
@@ -2006,8 +1986,8 @@ export default function DashboardPage() {
                 {detailRowState.text}
               </p>
             ) : null}
-          </div>
-        </div>
+          </ModalPanel>
+        </ModalOverlay>
       ) : null}
     </div>
   );

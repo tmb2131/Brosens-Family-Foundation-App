@@ -57,7 +57,7 @@ export default function ForgotPasswordClient() {
   };
 
   return (
-    <div className="mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">
+    <div className="page-enter mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">
       <Card className="w-full rounded-3xl p-5">
         <CardTitle>Secure Access</CardTitle>
         <CardValue>Forgot Password</CardValue>
@@ -69,7 +69,7 @@ export default function ForgotPasswordClient() {
           <label className="block text-sm font-medium">
             Email
             <input
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 text-sm dark:bg-zinc-900/40"
+              className="field-control mt-1 w-full rounded-xl"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required

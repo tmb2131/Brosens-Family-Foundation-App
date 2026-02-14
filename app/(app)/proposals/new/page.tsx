@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
@@ -131,11 +133,12 @@ export default function NewProposalPage() {
   };
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="page-stack pb-4">
       <Card className="hidden rounded-3xl sm:block">
         <CardTitle>Submission Flow</CardTitle>
         <CardValue>New Giving Idea</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <span className="status-dot bg-emerald-500" />
           Proposals are added to the full grant list and move to blind voting by eligible voters.
         </p>
       </Card>
@@ -185,7 +188,7 @@ export default function NewProposalPage() {
       </Card>
 
       <Card>
-        <form className="space-y-3" onSubmit={submit}>
+        <form className="space-y-4" onSubmit={submit}>
           <label className="block text-sm font-medium">
             Proposal title
             <div
@@ -209,7 +212,7 @@ export default function NewProposalPage() {
                   }
                 }}
                 autoComplete="off"
-                className="w-full rounded-xl border bg-white/80 px-3 py-2 pr-12 dark:bg-zinc-900/40"
+                className="field-control w-full rounded-xl pr-12"
                 required
               />
               <button
@@ -275,7 +278,7 @@ export default function NewProposalPage() {
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="mt-1 min-h-24 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              className="field-control mt-1 min-h-24 w-full rounded-xl"
               required
             />
           </label>
@@ -289,7 +292,7 @@ export default function NewProposalPage() {
                   const nextType = event.target.value as ProposalTypeOption;
                   setProposalType(nextType);
 
-                  if (nextType === "discretionary" && discretionaryLimit !== null) {
+                if (nextType === "discretionary" && discretionaryLimit !== null) {
                     setProposedAmount((current) => {
                       const parsedCurrent = Number(current);
                       if (!Number.isFinite(parsedCurrent) || parsedCurrent <= discretionaryLimit) {
@@ -299,7 +302,7 @@ export default function NewProposalPage() {
                     });
                   }
                 }}
-                className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+                className="field-control mt-1 w-full rounded-xl"
                 required
               >
                 <option value="" disabled>
@@ -346,7 +349,7 @@ export default function NewProposalPage() {
 
                 setProposedAmount(nextValue);
               }}
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              className="field-control mt-1 w-full rounded-xl"
               required
             />
             <p className="mt-1 text-xs text-zinc-500">
@@ -369,7 +372,7 @@ export default function NewProposalPage() {
               type="url"
               value={website}
               onChange={(event) => setWebsite(event.target.value)}
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              className="field-control mt-1 w-full rounded-xl"
               placeholder="https://example.org"
               inputMode="url"
             />
@@ -385,7 +388,7 @@ export default function NewProposalPage() {
               type="url"
               value={charityNavigatorUrl}
               onChange={(event) => setCharityNavigatorUrl(event.target.value)}
-              className="mt-1 w-full rounded-xl border bg-white/80 px-3 py-2 dark:bg-zinc-900/40"
+              className="field-control mt-1 w-full rounded-xl"
               placeholder="https://www.charitynavigator.org/..."
               inputMode="url"
             />
@@ -418,33 +421,51 @@ export default function NewProposalPage() {
       </Card>
 
       {isConfirmDialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="proposal-submit-confirm-title"
-            className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            <h2 id="proposal-submit-confirm-title" className="text-base font-semibold">
-              Review Proposal Submission
-            </h2>
+        <ModalOverlay
+          onClose={() => setIsConfirmDialogOpen(false)}
+          closeOnBackdrop={!saving}
+          className="z-50 items-center justify-center px-4 py-6"
+        >
+          <ModalPanel aria-labelledby="proposal-submit-confirm-title" className="max-w-lg rounded-3xl p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 id="proposal-submit-confirm-title" className="text-lg font-bold">
+                Review Proposal Submission
+              </h2>
+              {proposalType ? (
+                <Badge
+                  className={
+                    proposalType === "joint"
+                      ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
+                      : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
+                  }
+                >
+                  {titleCase(proposalType)}
+                </Badge>
+              ) : null}
+            </div>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
               Confirm the details below before submitting this proposal.
             </p>
 
-            <dl className="mt-3 space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/60">
+            <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40">
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-zinc-500 dark:text-zinc-400">Title</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Title
+                </dt>
                 <dd className="text-right font-medium">{title.trim()}</dd>
               </div>
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-zinc-500 dark:text-zinc-400">Amount</dt>
-                <dd className="text-right font-medium">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Amount
+                </dt>
+                <dd className="text-right text-base font-bold">
                   {currency(parsedProposedAmount ?? Number(proposedAmount || 0))}
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-zinc-500 dark:text-zinc-400">Type</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Type
+                </dt>
                 <dd className="text-right font-medium">{titleCase(proposalType)}</dd>
               </div>
             </dl>
@@ -457,7 +478,7 @@ export default function NewProposalPage() {
               </p>
             </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 disabled={saving}
@@ -477,8 +498,8 @@ export default function NewProposalPage() {
             </div>
 
             {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
-          </div>
-        </div>
+          </ModalPanel>
+        </ModalOverlay>
       ) : null}
     </div>
   );

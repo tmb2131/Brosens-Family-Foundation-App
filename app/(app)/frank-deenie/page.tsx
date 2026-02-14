@@ -2,10 +2,14 @@
 
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { ChevronDown, Download, MoreHorizontal, Plus, Users, X } from "lucide-react";
+import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
+import { FilterPanel } from "@/components/ui/filter-panel";
+import { MetricCard } from "@/components/ui/metric-card";
+import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 
@@ -889,13 +893,14 @@ export default function FrankDeeniePage() {
   }
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="page-stack pb-6">
       <Card className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Frank &amp; Deenie</CardTitle>
             <CardValue>Donation Ledger</CardValue>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              <span className="status-dot bg-emerald-500" />
               Track Frank &amp; Deenie giving, with optional Children donations from this app.
             </p>
           </div>
@@ -903,7 +908,7 @@ export default function FrankDeeniePage() {
             <label className="text-xs font-semibold text-zinc-500">
               Year
               <select
-                className="mt-1 block rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="field-control field-control--compact mt-1 block"
                 value={selectedYear === null ? "all" : String(selectedYear)}
                 onChange={(event) =>
                   setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
@@ -922,7 +927,7 @@ export default function FrankDeeniePage() {
                 type="checkbox"
                 checked={includeChildren}
                 onChange={(event) => setIncludeChildren(event.target.checked)}
-                className="h-4 w-4"
+                className="h-4 w-4 accent-[hsl(var(--accent))]"
               />
               Include Children
             </label>
@@ -999,7 +1004,7 @@ export default function FrankDeeniePage() {
             </div>
           </div>
 
-          <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
+          <FilterPanel className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
             <label className="text-xs font-semibold text-zinc-500">
               Search
               <input
@@ -1008,7 +1013,7 @@ export default function FrankDeeniePage() {
                 onChange={(event) => setFilter("search", event.target.value)}
                 onFocus={() => setExportMessage(null)}
                 placeholder="Name, type, memo, split"
-                className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                className="field-control mt-1 w-full normal-case"
               />
             </label>
             <label className="text-xs font-semibold text-zinc-500">
@@ -1016,7 +1021,7 @@ export default function FrankDeeniePage() {
               <select
                 value={filters.type}
                 onChange={(event) => setFilter("type", event.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                className="field-control mt-1 w-full normal-case"
               >
                 <option value="all">All</option>
                 {typeOptions.map((option) => (
@@ -1031,7 +1036,7 @@ export default function FrankDeeniePage() {
               <select
                 value={filters.status}
                 onChange={(event) => setFilter("status", event.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                className="field-control mt-1 w-full normal-case"
               >
                 <option value="all">All</option>
                 {DONATION_STATUSES.map((option) => (
@@ -1054,7 +1059,7 @@ export default function FrankDeeniePage() {
                 Clear filters
               </button>
             </div>
-          </div>
+          </FilterPanel>
 
           {exportMessage ? (
             <p
@@ -1083,30 +1088,30 @@ export default function FrankDeeniePage() {
                 <col className="w-[3.5rem]" />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-card">
-                <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
+                <DataTableHeadRow>
                   <th className="px-2 py-2">
-                    <button type="button" onClick={() => toggleSort("date")} className="font-semibold">
+                    <DataTableSortButton onClick={() => toggleSort("date")}>
                       Date{sortMarker("date")}
-                    </button>
+                    </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2">
-                    <button type="button" onClick={() => toggleSort("name")} className="font-semibold">
+                    <DataTableSortButton onClick={() => toggleSort("name")}>
                       Name{sortMarker("name")}
-                    </button>
+                    </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2">Details</th>
                   <th className="px-2 py-2 text-right">
-                    <button type="button" onClick={() => toggleSort("amount")} className="font-semibold">
+                    <DataTableSortButton onClick={() => toggleSort("amount")}>
                       Amount ($){sortMarker("amount")}
-                    </button>
+                    </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2">
-                    <button type="button" onClick={() => toggleSort("status")} className="font-semibold">
+                    <DataTableSortButton onClick={() => toggleSort("status")}>
                       Status{sortMarker("status")}
-                    </button>
+                    </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2" />
-                </tr>
+                </DataTableHeadRow>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
@@ -1122,8 +1127,8 @@ export default function FrankDeeniePage() {
 
                     return (
                       <Fragment key={row.id}>
-                        <tr
-                          className={`border-b align-middle ${
+                        <DataTableRow
+                          className={`align-middle ${
                             row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           }`}
                         >
@@ -1225,7 +1230,7 @@ export default function FrankDeeniePage() {
                               ) : null}
                             </div>
                           </td>
-                        </tr>
+                        </DataTableRow>
                         {rowMessage ? (
                           <tr className="border-b">
                             <td
@@ -1263,18 +1268,19 @@ export default function FrankDeeniePage() {
           </Card>
 
           <section className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
-            <Card>
-              <CardTitle>Frank &amp; Deenie</CardTitle>
-              <CardValue>{currency(data.totals.frankDeenie)}</CardValue>
-            </Card>
-            <Card>
-              <CardTitle>Children</CardTitle>
-              <CardValue>{currency(data.totals.children)}</CardValue>
-            </Card>
-            <Card>
-              <CardTitle>Visible Total</CardTitle>
-              <CardValue>{currency(visibleTotal)}</CardValue>
-            </Card>
+            <MetricCard
+              title="FRANK &amp; DEENIE"
+              value={currency(data.totals.frankDeenie)}
+              icon={DollarSign}
+              tone="emerald"
+            />
+            <MetricCard
+              title="CHILDREN"
+              value={currency(data.totals.children)}
+              icon={Users}
+              tone="indigo"
+            />
+            <MetricCard title="VISIBLE TOTAL" value={currency(visibleTotal)} icon={PieChart} tone="amber" />
           </section>
 
           {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
@@ -1326,26 +1332,34 @@ export default function FrankDeeniePage() {
       </section>
 
       {detailRow ? (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) {
-              closeDetailDrawer();
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="donation-details-title"
-            className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-3xl sm:rounded-3xl sm:p-5"
-          >
+        <ModalOverlay onClose={closeDetailDrawer}>
+          <ModalPanel aria-labelledby="donation-details-title" className="sm:max-w-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 id="donation-details-title" className="text-base font-semibold">
+                <h2 id="donation-details-title" className="text-lg font-bold">
                   Donation Details
                 </h2>
                 <p className="mt-1 text-xs text-zinc-500">{detailRow.name}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      detailRow.source === "children"
+                        ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                        : "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                    }`}
+                  >
+                    {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
+                  </span>
+                  <span
+                    className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      detailRow.status === "Planned"
+                        ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
+                        : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
+                    }`}
+                  >
+                    {detailRow.status}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
@@ -1358,7 +1372,13 @@ export default function FrankDeeniePage() {
             </div>
 
             {editingId === detailRow.id && editDraft ? (
-              <form className="mt-4 grid gap-3" onSubmit={(event) => event.preventDefault()}>
+              <>
+                <div className="mt-5 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Edit</span>
+                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                </div>
+                <form className="mt-3 grid gap-3" onSubmit={(event) => event.preventDefault()}>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   <label className="text-xs font-semibold text-zinc-500">
                     Date
@@ -1368,7 +1388,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, date: event.target.value } : current))
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
@@ -1379,7 +1399,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, type: event.target.value } : current))
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
@@ -1390,7 +1410,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, name: event.target.value } : current))
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
@@ -1403,7 +1423,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, amount: event.target.value } : current))
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
@@ -1413,7 +1433,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, status: event.target.value } : current))
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     >
                       {DONATION_STATUSES.map((statusOption) => (
                         <option key={statusOption} value={statusOption}>
@@ -1430,7 +1450,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, split: event.target.value } : current))
                       }
-                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                      className="field-control mt-1 w-full"
                     />
                   </label>
                 </div>
@@ -1442,7 +1462,7 @@ export default function FrankDeeniePage() {
                     onChange={(event) =>
                       setEditDraft((current) => (current ? { ...current, memo: event.target.value } : current))
                     }
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full"
                   />
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1450,7 +1470,7 @@ export default function FrankDeeniePage() {
                     type="button"
                     onClick={() => void saveEdit()}
                     disabled={savingRowId === detailRow.id}
-                    className="min-h-10 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                    className="prominent-accent-cta disabled:opacity-60"
                   >
                     {savingRowId === detailRow.id ? "Saving..." : "Save"}
                   </button>
@@ -1463,37 +1483,52 @@ export default function FrankDeeniePage() {
                     Cancel
                   </button>
                 </div>
-              </form>
+                </form>
+              </>
             ) : (
-              <dl className="mt-4 grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+              <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Date</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Date
+                  </dt>
                   <dd className="mt-1 font-medium">{tableDate(detailRow.date)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Type</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Type
+                  </dt>
                   <dd className="mt-1 font-medium">{detailRow.type}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Amount</dt>
-                  <dd className="mt-1 font-medium">{currency(detailRow.amount)}</dd>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Amount
+                  </dt>
+                  <dd className="mt-1 text-lg font-bold">{currency(detailRow.amount)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Status
+                  </dt>
                   <dd className="mt-1 font-medium">{detailRow.status}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Split</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Split
+                  </dt>
                   <dd className="mt-1 font-medium">{detailRow.split || "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Source</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Source
+                  </dt>
                   <dd className="mt-1 font-medium">
                     {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
                   </dd>
                 </div>
                 <div className="md:col-span-2">
-                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Memo / Description</dt>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Memo / Description
+                  </dt>
                   <dd className="mt-1 whitespace-pre-wrap font-medium">{detailRow.memo || "—"}</dd>
                 </div>
               </dl>
@@ -1511,7 +1546,7 @@ export default function FrankDeeniePage() {
               </p>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               {detailRow.editable && editingId !== detailRow.id ? (
                 <button
                   type="button"
@@ -1532,28 +1567,20 @@ export default function FrankDeeniePage() {
                 </button>
               ) : null}
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </ModalOverlay>
       ) : null}
 
       {showAddForm ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target && !isCreating) {
-              closeAddForm();
-            }
-          }}
+        <ModalOverlay
+          onClose={closeAddForm}
+          closeOnBackdrop={!isCreating}
+          className="z-50 bg-black/55"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-donation-title"
-            className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-5xl sm:rounded-3xl sm:p-5"
-          >
+          <ModalPanel aria-labelledby="add-donation-title" className="sm:max-w-5xl">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 id="add-donation-title" className="text-base font-semibold">
+                <h2 id="add-donation-title" className="text-lg font-bold">
                   Add Donation
                 </h2>
                 <p className="mt-1 text-xs text-zinc-500">
@@ -1579,7 +1606,7 @@ export default function FrankDeeniePage() {
                     type="date"
                     value={newDraft.date}
                     onChange={(event) => setNewDraft((current) => ({ ...current, date: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                     required
                   />
                 </label>
@@ -1589,7 +1616,7 @@ export default function FrankDeeniePage() {
                     type="text"
                     value={newDraft.type}
                     onChange={(event) => setNewDraft((current) => ({ ...current, type: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                     required
                   />
                 </label>
@@ -1600,7 +1627,7 @@ export default function FrankDeeniePage() {
                     type="text"
                     value={newDraft.name}
                     onChange={(event) => setNewDraft((current) => ({ ...current, name: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                     required
                   />
                 </label>
@@ -1612,7 +1639,7 @@ export default function FrankDeeniePage() {
                     step="0.01"
                     value={newDraft.amount}
                     onChange={(event) => setNewDraft((current) => ({ ...current, amount: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                     required
                   />
                 </label>
@@ -1622,7 +1649,7 @@ export default function FrankDeeniePage() {
                     type="text"
                     value={newDraft.memo}
                     onChange={(event) => setNewDraft((current) => ({ ...current, memo: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
@@ -1631,7 +1658,7 @@ export default function FrankDeeniePage() {
                     type="text"
                     value={newDraft.split}
                     onChange={(event) => setNewDraft((current) => ({ ...current, split: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
@@ -1639,7 +1666,7 @@ export default function FrankDeeniePage() {
                   <select
                     value={newDraft.status}
                     onChange={(event) => setNewDraft((current) => ({ ...current, status: event.target.value }))}
-                    className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="field-control mt-1 w-full rounded-lg"
                   >
                     {DONATION_STATUSES.map((statusOption) => (
                       <option key={statusOption} value={statusOption}>
@@ -1681,8 +1708,8 @@ export default function FrankDeeniePage() {
                 ) : null}
               </div>
             </form>
-          </div>
-        </div>
+          </ModalPanel>
+        </ModalOverlay>
       ) : null}
     </div>
   );
