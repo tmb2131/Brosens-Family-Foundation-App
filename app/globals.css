@@ -350,6 +350,14 @@ body {
   }
 }
 
+.budget-progress-track {
+  @apply h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700;
+}
+
+.budget-progress-fill {
+  @apply h-full rounded-full transition-all duration-500;
+}
+
 /* Prevent iOS Safari from zooming when focusing form controls */
 @media (hover: none) and (pointer: coarse) {
   input,

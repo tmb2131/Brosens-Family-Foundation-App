@@ -4,10 +4,11 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { ChevronDown, Download, Plus, X } from "lucide-react";
+import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/ui/status-pill";
 
 const HistoricalImpactChart = dynamic(
@@ -537,6 +538,12 @@ export default function DashboardPage() {
   const totalAllocatedForYear = data
     ? data.budget.jointAllocated + data.budget.discretionaryAllocated
     : 0;
+  const jointUtilization = data && data.budget.jointPool > 0
+    ? (data.budget.jointAllocated / data.budget.jointPool) * 100
+    : 0;
+  const discretionaryUtilization = data && data.budget.discretionaryPool > 0
+    ? (data.budget.discretionaryAllocated / data.budget.discretionaryPool) * 100
+    : 0;
 
   useEffect(() => {
     if (!canEditHistorical) {
@@ -1050,22 +1057,27 @@ export default function DashboardPage() {
   const detailRowState = detailProposal ? rowMessage[detailProposal.id] : null;
 
   return (
-    <div className="space-y-4 pb-4">
-      <Card className="rounded-3xl">
+    <div className="page-enter space-y-6 pb-4">
+      <Card className="rounded-3xl p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle>Annual Cycle</CardTitle>
-            <CardValue>{data.budget.year} Master List Status</CardValue>
-            <p className="mt-1 text-sm text-zinc-500">{data.annualCycle.monthHint}</p>
-            <p className="mt-2 text-xs text-zinc-500">
-              Reset: {data.annualCycle.resetDate} | Year-end deadline: {data.annualCycle.yearEndDeadline}
+            <CardValue className="text-xl font-bold">{data.budget.year} Master List Status</CardValue>
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              <span className="status-dot bg-emerald-500" />
+              {data.annualCycle.monthHint}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+              <span>Reset: {data.annualCycle.resetDate}</span>
+              <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+              <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
+            </div>
           </div>
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-end">
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
-                className="mt-1 block rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                className="mt-1 block rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
                 value={String(selectedYear ?? data.budget.year)}
                 onChange={(event) => setSelectedYear(Number(event.target.value))}
               >
@@ -1088,25 +1100,59 @@ export default function DashboardPage() {
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
-          <Card>
-            <CardTitle>TOTAL BUDGET</CardTitle>
-            <CardValue>{currency(data.budget.total)}</CardValue>
+          <Card className="border-l-[3px] border-l-emerald-500 dark:border-l-emerald-400">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <DollarSign className="h-4 w-4" />
+              </span>
+              <CardTitle>TOTAL BUDGET</CardTitle>
+            </div>
+            <CardValue className="text-2xl">{currency(data.budget.total)}</CardValue>
           </Card>
-          <Card>
-            <CardTitle>TOTAL ALLOCATED</CardTitle>
-            <CardValue>{currency(totalAllocatedForYear)}</CardValue>
+          <Card className="border-l-[3px] border-l-sky-500 dark:border-l-sky-400">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                <PieChart className="h-4 w-4" />
+              </span>
+              <CardTitle>TOTAL ALLOCATED</CardTitle>
+            </div>
+            <CardValue className="text-2xl">{currency(totalAllocatedForYear)}</CardValue>
           </Card>
-          <Card>
-            <CardTitle>JOINT POOL REMAINING</CardTitle>
-            <CardValue>{currency(data.budget.jointRemaining)}</CardValue>
+          <Card className="border-l-[3px] border-l-indigo-500 dark:border-l-indigo-400">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                <Users className="h-4 w-4" />
+              </span>
+              <CardTitle>JOINT POOL REMAINING</CardTitle>
+            </div>
+            <CardValue className="text-2xl">{currency(data.budget.jointRemaining)}</CardValue>
             <p className="mt-1 text-xs text-zinc-500">Allocated: {currency(data.budget.jointAllocated)}</p>
+            <div className="budget-progress-track mt-2">
+              <div
+                className={`budget-progress-fill ${jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}`}
+                style={{ width: `${Math.min(jointUtilization, 100)}%` }}
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-400">{Math.round(jointUtilization)}% utilized</p>
           </Card>
-          <Card>
-            <CardTitle>DISCRETIONARY REMAINING</CardTitle>
-            <CardValue>{currency(data.budget.discretionaryRemaining)}</CardValue>
+          <Card className="border-l-[3px] border-l-amber-500 dark:border-l-amber-400">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                <Wallet className="h-4 w-4" />
+              </span>
+              <CardTitle>DISCRETIONARY REMAINING</CardTitle>
+            </div>
+            <CardValue className="text-2xl">{currency(data.budget.discretionaryRemaining)}</CardValue>
             <p className="mt-1 text-xs text-zinc-500">
               Allocated: {currency(data.budget.discretionaryAllocated)}
             </p>
+            <div className="budget-progress-track mt-2">
+              <div
+                className={`budget-progress-fill ${discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}`}
+                style={{ width: `${Math.min(discretionaryUtilization, 100)}%` }}
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-400">{Math.round(discretionaryUtilization)}% utilized</p>
           </Card>
         </div>
         <Card>
@@ -1115,8 +1161,8 @@ export default function DashboardPage() {
         </Card>
       </section>
 
-      <Card>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <Card className="p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle>{showPendingTab ? "Pending" : "Grant Tracker"}</CardTitle>
             <p className="text-xs text-zinc-500">
@@ -1131,9 +1177,9 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("tracker")}
-                  className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                  className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
                     activeTab === "tracker"
-                      ? "bg-accent text-white"
+                      ? "bg-accent text-white shadow-sm"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   }`}
                 >
@@ -1142,9 +1188,9 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("pending")}
-                  className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                  className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
                     activeTab === "pending"
-                      ? "bg-accent text-white"
+                      ? "bg-accent text-white shadow-sm"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   }`}
                 >
@@ -1322,7 +1368,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
+            <div className="mb-4 grid gap-3 rounded-xl border border-zinc-200/60 bg-zinc-50/50 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] dark:border-zinc-700/40 dark:bg-zinc-800/30">
               <label className="text-xs font-semibold text-zinc-500">
                 Search
                 <input
@@ -1330,7 +1376,7 @@ export default function DashboardPage() {
                   value={filters.proposal}
                   onChange={(event) => setFilter("proposal", event.target.value)}
                   placeholder="Title or description"
-                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
                 />
               </label>
               <label className="text-xs font-semibold text-zinc-500">
@@ -1340,7 +1386,7 @@ export default function DashboardPage() {
                   onChange={(event) =>
                     setFilter("proposalType", event.target.value as TableFilters["proposalType"])
                   }
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <option value="all">All</option>
                   <option value="joint">Joint</option>
@@ -1352,7 +1398,7 @@ export default function DashboardPage() {
                 <select
                   value={filters.status}
                   onChange={(event) => setFilter("status", event.target.value as TableFilters["status"])}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <option value="all">All</option>
                   {STATUS_OPTIONS.map((statusOption) => (
@@ -1410,7 +1456,11 @@ export default function DashboardPage() {
                   : "text-zinc-700 dark:text-zinc-200";
 
               return (
-                <article key={proposal.id} className="rounded-xl border p-3">
+                <article key={proposal.id} className={`rounded-xl border border-t-2 p-4 ${
+                  proposal.proposalType === "joint"
+                    ? "border-t-indigo-400 dark:border-t-indigo-500"
+                    : "border-t-amber-400 dark:border-t-amber-500"
+                }`}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold">{proposal.title}</p>
@@ -1419,12 +1469,26 @@ export default function DashboardPage() {
                     <StatusPill status={proposal.status} />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-500">
-                    <p>Type: {titleCase(proposal.proposalType)}</p>
-                    <p>Sent: {proposal.sentAt ?? "—"}</p>
+                  {!isRowEditable ? (
+                    <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                      {masked
+                        ? "Blind until your vote is submitted"
+                        : currency(proposal.progress.computedFinalAmount)}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-zinc-400 dark:text-zinc-500">Type</span>
+                      <p className="font-medium text-zinc-700 dark:text-zinc-200">{titleCase(proposal.proposalType)}</p>
+                    </div>
+                    <div>
+                      <span className="text-zinc-400 dark:text-zinc-500">Sent</span>
+                      <p className="font-medium text-zinc-700 dark:text-zinc-200">{proposal.sentAt ?? "—"}</p>
+                    </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-zinc-200 p-2 dark:border-zinc-800">
+                  <div className="mt-3 rounded-lg border border-zinc-200/70 bg-zinc-50/50 p-2 dark:border-zinc-700/50 dark:bg-zinc-800/30">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                       Required Action
                     </p>
@@ -1564,6 +1628,14 @@ export default function DashboardPage() {
                         {rowState.text}
                       </p>
                     ) : null}
+
+                    <button
+                      type="button"
+                      onClick={() => setDetailProposalId(proposal.id)}
+                      className="mt-3 w-full rounded-lg border border-zinc-200 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </article>
               );
@@ -1583,34 +1655,34 @@ export default function DashboardPage() {
               <col className="w-[4.5rem]" />
             </colgroup>
             <thead>
-              <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("proposal")}>
+              <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-wider text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
+                <th className="px-2 py-3">
+                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("proposal")}>
                     Proposal{sortMarker("proposal")}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("type")}>
+                <th className="px-2 py-3">
+                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("type")}>
                     Type{sortMarker("type")}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("amount")}>
+                <th className="px-2 py-3">
+                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("amount")}>
                     Amount{sortMarker("amount")}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("sentAt")}>
+                <th className="px-2 py-3">
+                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("sentAt")}>
                     Date Sent{sortMarker("sentAt")}
                   </button>
                 </th>
-                <th className="px-2 py-2">
-                  <button type="button" className="font-semibold" onClick={() => toggleSort("status")}>
+                <th className="px-2 py-3">
+                  <button type="button" className="font-semibold transition-colors hover:text-zinc-700 dark:hover:text-zinc-300" onClick={() => toggleSort("status")}>
                     Status{sortMarker("status")}
                   </button>
                 </th>
-                <th className="px-2 py-2">Required Action</th>
-                <th className="px-2 py-2 text-right">Details</th>
+                <th className="px-2 py-3">Required Action</th>
+                <th className="px-2 py-3 text-right">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -1654,7 +1726,7 @@ export default function DashboardPage() {
                   const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt ?? "—";
 
                   return (
-                    <tr key={proposal.id} className="border-b align-top">
+                    <tr key={proposal.id} className="border-b align-top transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40">
                       <td className="w-[20rem] max-w-[20rem] px-2 py-3">
                         <p className="block max-w-full truncate font-semibold" title={proposal.title}>
                           {proposal.title}
@@ -1702,10 +1774,10 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           onClick={() => setDetailProposalId(proposal.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-sm font-semibold leading-none text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                           aria-label={`View details for ${proposal.title}`}
                         >
-                          ...
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
                       </td>
                     </tr>
@@ -1737,10 +1809,18 @@ export default function DashboardPage() {
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 id="proposal-details-title" className="text-base font-semibold">
-                  Proposal Details
-                </h2>
-                <p className="mt-1 text-xs text-zinc-500">{detailProposal.title}</p>
+                <div className="flex items-center gap-2">
+                  <h2 id="proposal-details-title" className="text-lg font-bold">
+                    Proposal Details
+                  </h2>
+                  <Badge className={detailProposal.proposalType === "joint"
+                    ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
+                    : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
+                  }>
+                    {titleCase(detailProposal.proposalType)}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-zinc-500">{detailProposal.title}</p>
               </div>
               <button
                 type="button"
@@ -1752,49 +1832,55 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <dl className="mt-4 grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+            <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
               <div className="md:col-span-2">
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Proposal</dt>
-                <dd className="mt-1 font-medium">{detailProposal.title}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Proposal</dt>
+                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.title}</dd>
                 <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-500">
                   {detailProposal.description || "—"}
                 </p>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Type</dt>
-                <dd className="mt-1 font-medium">{titleCase(detailProposal.proposalType)}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</dt>
+                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{titleCase(detailProposal.proposalType)}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Amount</dt>
-                <dd className="mt-1 font-medium">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Amount</dt>
+                <dd className="mt-1.5 text-lg font-bold text-zinc-800 dark:text-zinc-100">
                   {detailMasked
                     ? "Blind until your vote is submitted"
                     : currency(detailProposal.progress.computedFinalAmount)}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Date Sent</dt>
-                <dd className="mt-1 font-medium">{detailProposal.sentAt ?? "—"}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Date Sent</dt>
+                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.sentAt ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
-                <dd className="mt-1 font-medium">{titleCase(detailProposal.status)}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</dt>
+                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{titleCase(detailProposal.status)}</dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Required Action</dt>
-                <dd className={`mt-1 ${detailRequiredActionToneClass}`}>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Required Action</dt>
+                <dd className={`mt-1.5 ${detailRequiredActionToneClass}`}>
                   <span className="font-semibold">{detailRequiredAction.owner}:</span>{" "}
                   {detailRequiredAction.detail}
                 </dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-xs uppercase tracking-wide text-zinc-500">Notes</dt>
-                <dd className="mt-1 whitespace-pre-wrap font-medium">{detailProposal.notes?.trim() || "—"}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Notes</dt>
+                <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.notes?.trim() || "—"}</dd>
               </div>
             </dl>
 
             {detailIsRowEditable || detailCanEditSentDate ? (
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <>
+              <div className="mt-5 flex items-center gap-2">
+                <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Edit</span>
+                <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+              </div>
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
                 {detailIsRowEditable ? (
                   <label className="text-xs font-semibold text-zinc-500">
                     Amount
@@ -1865,9 +1951,10 @@ export default function DashboardPage() {
                   </label>
                 ) : null}
               </div>
+              </>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
                 <Link
                   href={detailRequiredAction.href}
