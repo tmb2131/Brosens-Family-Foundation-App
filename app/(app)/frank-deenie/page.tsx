@@ -2,7 +2,7 @@
 
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { MoreHorizontal, Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { Download, MoreHorizontal, Plus, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -28,6 +28,17 @@ interface DonationFilters {
   status: string;
 }
 
+interface DonationExportRow {
+  date: string;
+  name: string;
+  type: string;
+  memo: string;
+  split: string;
+  amount: number;
+  status: string;
+  source: string;
+}
+
 const DEFAULT_FILTERS: DonationFilters = {
   search: "",
   type: "all",
@@ -36,6 +47,7 @@ const DEFAULT_FILTERS: DonationFilters = {
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = false;
+const EXPORT_HEADERS = ["Date", "Name", "Type", "Memo", "Split", "Amount", "Status", "Source"] as const;
 
 function initialDraftForYear(year: number | null): DonationDraft {
   return {
@@ -73,6 +85,126 @@ function normalized(value: string) {
   return value.trim().toLowerCase();
 }
 
+function escapeCsvField(value: string) {
+  const nextValue = value.replace(/"/g, '""');
+  return /[",\n]/.test(nextValue) ? `"${nextValue}"` : nextValue;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function rowToExportValues(row: DonationExportRow) {
+  return [
+    row.date,
+    row.name,
+    row.type,
+    row.memo,
+    row.split,
+    row.amount.toFixed(2),
+    row.status,
+    row.source
+  ];
+}
+
+function buildCsv(rows: DonationExportRow[]) {
+  const headerLine = EXPORT_HEADERS.join(",");
+  const dataLines = rows.map((row) => rowToExportValues(row).map(escapeCsvField).join(","));
+  return [headerLine, ...dataLines].join("\n");
+}
+
+function buildTsv(rows: DonationExportRow[]) {
+  const sanitize = (value: string) => value.replace(/\t/g, " ").replace(/\r?\n/g, " ");
+  const headerLine = EXPORT_HEADERS.join("\t");
+  const dataLines = rows.map((row) => rowToExportValues(row).map(sanitize).join("\t"));
+  return [headerLine, ...dataLines].join("\n");
+}
+
+function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: string) {
+  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+  const body = rows
+    .map((row) => {
+      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Arial, sans-serif; padding: 16px; }
+      h1 { margin: 0 0 6px; font-size: 18px; }
+      p { margin: 0 0 12px; color: #555; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #d4d4d8; padding: 6px 8px; font-size: 12px; text-align: left; }
+      th { background: #f4f4f5; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    <table>
+      <thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </body>
+</html>`;
+}
+
+function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: string) {
+  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+  const body = rows
+    .map((row) => {
+      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      @page { margin: 0.5in; }
+      body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
+      h1 { margin: 0 0 6px; font-size: 18px; }
+      p { margin: 0 0 12px; color: #475569; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
+      th { background: #e2e8f0; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    <table>
+      <thead><tr>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </body>
+</html>`;
+}
+
+function downloadFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 export default function FrankDeeniePage() {
   const { user } = useAuth();
   const canAccess = user ? ["oversight", "admin", "manager"].includes(user.role) : false;
@@ -92,6 +224,9 @@ export default function FrankDeeniePage() {
   const [importingCsv, setImportingCsv] = useState(false);
   const [importInputKey, setImportInputKey] = useState(0);
   const [importMessage, setImportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
+    null
+  );
+  const [exportMessage, setExportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
 
@@ -274,6 +409,29 @@ export default function FrankDeeniePage() {
     [filteredRows]
   );
   const selectedYearLabel = selectedYear === null ? "all years" : String(selectedYear);
+  const exportRows = useMemo<DonationExportRow[]>(
+    () =>
+      filteredRows.map((row) => ({
+        date: row.date,
+        name: row.name.trim(),
+        type: row.type.trim(),
+        memo: row.memo.trim(),
+        split: row.split.trim(),
+        amount: row.amount,
+        status: row.status.trim(),
+        source: row.source === "children" ? "Children" : "Frank & Deenie"
+      })),
+    [filteredRows]
+  );
+  const exportFilenameBase = useMemo(() => {
+    const yearPart = selectedYear === null ? "all-years" : `year-${selectedYear}`;
+    const childrenPart = includeChildren ? "with-children" : "frank-deenie-only";
+    return `frank-deenie-${yearPart}-${childrenPart}-${toISODate(new Date())}`;
+  }, [includeChildren, selectedYear]);
+  const exportTitle = "Frank & Deenie Donation Ledger";
+  const exportSubtitle = `${
+    selectedYear === null ? "All years" : `Year ${selectedYear}`
+  } | ${includeChildren ? "Includes Children" : "Frank & Deenie only"} | ${formatNumber(exportRows.length)} rows`;
   const yearSplitChartData = useMemo(() => {
     if (!data) {
       return [];
@@ -575,6 +733,100 @@ export default function FrankDeeniePage() {
     }
   };
 
+  const withExportRows = () => {
+    if (exportRows.length > 0) {
+      return true;
+    }
+
+    setExportMessage({
+      tone: "error",
+      text: "No rows are available to export for the current filters."
+    });
+    return false;
+  };
+
+  const exportCsv = () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+    setExportMessage({
+      tone: "success",
+      text: `CSV exported (${formatNumber(exportRows.length)} rows).`
+    });
+  };
+
+  const exportExcel = () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    downloadFile(
+      `${exportFilenameBase}.xls`,
+      buildExcelHtml(exportRows, exportTitle, exportSubtitle),
+      "application/vnd.ms-excel;charset=utf-8"
+    );
+    setExportMessage({
+      tone: "success",
+      text: `Excel file exported (${formatNumber(exportRows.length)} rows).`
+    });
+  };
+
+  const exportPdf = () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=1200,height=900");
+    if (!printWindow) {
+      setExportMessage({
+        tone: "error",
+        text: "The PDF export window was blocked. Allow pop-ups and try again."
+      });
+      return;
+    }
+
+    printWindow.document.write(buildPrintableHtml(exportRows, exportTitle, exportSubtitle));
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+    }, 250);
+
+    setExportMessage({
+      tone: "success",
+      text: "Print dialog opened. Choose Save as PDF to finish."
+    });
+  };
+
+  const exportGoogleSheet = async () => {
+    if (!withExportRows()) {
+      return;
+    }
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(buildTsv(exportRows));
+
+      window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
+
+      setExportMessage({
+        tone: "success",
+        text: "Copied rows for Google Sheets. Paste into cell A1 in the new sheet."
+      });
+    } catch {
+      downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+      window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
+      setExportMessage({
+        tone: "error",
+        text: "Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets."
+      });
+    }
+  };
+
   if (!user) {
     return <p className="text-sm text-zinc-500">Loading Frank &amp; Deenie donations...</p>;
   }
@@ -668,6 +920,7 @@ export default function FrankDeeniePage() {
                 type="text"
                 value={filters.search}
                 onChange={(event) => setFilter("search", event.target.value)}
+                onFocus={() => setExportMessage(null)}
                 placeholder="Name, type, memo, split"
                 className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
               />
@@ -705,12 +958,62 @@ export default function FrankDeeniePage() {
             <div className="flex items-end">
               <button
                 type="button"
-                onClick={() => setFilters(DEFAULT_FILTERS)}
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS);
+                  setExportMessage(null);
+                }}
                 className="min-h-10 w-full rounded-md border border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 xl:w-auto"
               >
                 Clear filters
               </button>
             </div>
+          </div>
+
+          <div className="mb-3 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-2 dark:border-zinc-700 dark:bg-zinc-900/40">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={exportPdf}
+                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={exportCsv}
+                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Export CSV
+              </button>
+              <button
+                type="button"
+                onClick={exportExcel}
+                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Export Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void exportGoogleSheet();
+                }}
+                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                Export Google Sheet
+              </button>
+            </div>
+            {exportMessage ? (
+              <p
+                className={`mt-2 text-xs ${
+                  exportMessage.tone === "error"
+                    ? "text-rose-600"
+                    : "text-emerald-700 dark:text-emerald-300"
+                }`}
+              >
+                {exportMessage.text}
+              </p>
+            ) : null}
           </div>
 
           <div
