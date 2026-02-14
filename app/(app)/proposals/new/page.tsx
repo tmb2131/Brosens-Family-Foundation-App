@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
-import { currency, parseNumberInput } from "@/lib/utils";
+import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 
 interface ProposalTitleSuggestionsResponse {
   titles: string[];
@@ -34,6 +34,7 @@ export default function NewProposalPage() {
   const [proposalType, setProposalType] = useState<ProposalTypeOption>("");
   const [proposedAmount, setProposedAmount] = useState("0");
   const [isTitleSuggestionsOpen, setIsTitleSuggestionsOpen] = useState(false);
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const parsedProposedAmount = parseNumberInput(proposedAmount);
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
@@ -81,13 +82,13 @@ export default function NewProposalPage() {
     return null;
   }
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
+  const confirmSubmit = async () => {
     if (!proposalType) {
       setError("Select a proposal type before submitting.");
       return;
     }
+
+    setError(null);
     setSaving(true);
 
     try {
@@ -110,12 +111,23 @@ export default function NewProposalPage() {
         throw new Error(payload.error || "Failed to submit");
       }
 
+      setIsConfirmDialogOpen(false);
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit");
     } finally {
       setSaving(false);
     }
+  };
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    if (!proposalType) {
+      setError("Select a proposal type before submitting.");
+      return;
+    }
+    setIsConfirmDialogOpen(true);
   };
 
   return (
@@ -404,6 +416,70 @@ export default function NewProposalPage() {
           {error ? <p className="text-xs text-rose-600">{error}</p> : null}
         </form>
       </Card>
+
+      {isConfirmDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="proposal-submit-confirm-title"
+            className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <h2 id="proposal-submit-confirm-title" className="text-base font-semibold">
+              Review Proposal Submission
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+              Confirm the details below before submitting this proposal.
+            </p>
+
+            <dl className="mt-3 space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/60">
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-zinc-500 dark:text-zinc-400">Title</dt>
+                <dd className="text-right font-medium">{title.trim()}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-zinc-500 dark:text-zinc-400">Amount</dt>
+                <dd className="text-right font-medium">
+                  {currency(parsedProposedAmount ?? Number(proposedAmount || 0))}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <dt className="text-zinc-500 dark:text-zinc-400">Type</dt>
+                <dd className="text-right font-medium">{titleCase(proposalType)}</dd>
+              </div>
+            </dl>
+
+            <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
+              <p className="font-medium text-zinc-700 dark:text-zinc-200">Immediate next steps:</p>
+              <p className="mt-1">
+                The proposal is added to the review queue, eligible family members are notified to
+                vote, and it moves to meeting review once voting requirements are met.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setIsConfirmDialogOpen(false)}
+                className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-200"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void confirmSubmit()}
+                className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {saving ? "Submitting..." : "Confirm"}
+              </button>
+            </div>
+
+            {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
