@@ -928,7 +928,7 @@ export default function DashboardPage() {
                 </th>
                 <th className="px-2 py-2">Actions</th>
               </tr>
-              <tr className="border-b text-xs text-zinc-500">
+              <tr className="border-b text-xs text-zinc-500 [&>th]:align-top">
                 <th className="px-2 py-2">
                   <input
                     type="text"
@@ -971,7 +971,7 @@ export default function DashboardPage() {
                         className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
                       />
                     </div>
-                    <p className="text-[10px] normal-case text-zinc-500">{amountFilterPreview}</p>
+                    <p className="mt-2 text-[10px] normal-case text-zinc-500">{amountFilterPreview}</p>
                   </div>
                 </th>
                 <th className="px-2 py-2">
