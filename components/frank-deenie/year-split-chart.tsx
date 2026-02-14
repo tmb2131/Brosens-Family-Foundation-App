@@ -29,7 +29,7 @@ export function FrankDeenieYearSplitChart({
           { label: "Children", color: chartPalette.children }
         ]}
       />
-      <div className="h-[220px] w-full">
+      <div className="h-[176px] w-full sm:h-[188px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
             <XAxis dataKey="status" tick={{ fill: chartText.axis, fontSize: 12 }} />

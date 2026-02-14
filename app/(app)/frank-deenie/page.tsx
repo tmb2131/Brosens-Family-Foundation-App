@@ -2,7 +2,7 @@
 
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { Pencil, Plus, Trash2, Users, X } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -83,7 +83,6 @@ export default function FrankDeeniePage() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [highlightAddCard, setHighlightAddCard] = useState(false);
   const [newDraft, setNewDraft] = useState<DonationDraft>(() => initialDraftForYear(null));
   const [isCreating, setIsCreating] = useState(false);
   const [createMessage, setCreateMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
@@ -100,10 +99,11 @@ export default function FrankDeeniePage() {
   const [editDraft, setEditDraft] = useState<DonationDraft | null>(null);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [openActionMenuRowId, setOpenActionMenuRowId] = useState<string | null>(null);
   const [rowMessageById, setRowMessageById] = useState<
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
-  const addDonationCardRef = useRef<HTMLDivElement | null>(null);
   const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const queryString = useMemo(() => {
@@ -143,24 +143,61 @@ export default function FrankDeeniePage() {
   }, [data, editingId]);
 
   useEffect(() => {
-    if (!showAddForm) {
-      setHighlightAddCard(false);
+    if (!detailRowId) {
       return;
     }
 
-    setHighlightAddCard(true);
-    const frame = window.requestAnimationFrame(() => {
-      addDonationNameInputRef.current?.focus();
-    });
-    const timeout = window.setTimeout(() => {
-      setHighlightAddCard(false);
-    }, 1400);
+    const rowStillExists = data?.rows.some((row) => row.id === detailRowId) ?? false;
+    if (!rowStillExists) {
+      setDetailRowId(null);
+      setOpenActionMenuRowId(null);
+    }
+  }, [data, detailRowId]);
+
+  useEffect(() => {
+    const hasOpenOverlay = showAddForm || detailRowId !== null;
+    if (!hasOpenOverlay) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const frame = showAddForm
+      ? window.requestAnimationFrame(() => {
+          addDonationNameInputRef.current?.focus();
+        })
+      : null;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (showAddForm && !isCreating) {
+        setShowAddForm(false);
+        setCreateMessage(null);
+        return;
+      }
+
+      if (detailRowId !== null) {
+        if (editingId === detailRowId) {
+          setEditingId(null);
+          setEditDraft(null);
+        }
+        setDetailRowId(null);
+        setOpenActionMenuRowId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timeout);
+      document.body.style.overflow = previousOverflow;
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+      window.removeEventListener("keydown", onKeyDown);
     };
-  }, [showAddForm]);
+  }, [detailRowId, editingId, isCreating, showAddForm]);
 
   const typeOptions = useMemo(() => {
     if (!data) {
@@ -224,6 +261,13 @@ export default function FrankDeeniePage() {
       return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [data, filters, sortDirection, sortKey]);
+  const detailRow = useMemo(() => {
+    if (!data || !detailRowId) {
+      return null;
+    }
+
+    return data.rows.find((row) => row.id === detailRowId) ?? null;
+  }, [data, detailRowId]);
 
   const visibleTotal = useMemo(
     () => filteredRows.reduce((sum, row) => sum + row.amount, 0),
@@ -280,6 +324,26 @@ export default function FrankDeeniePage() {
 
   const setFilter = <K extends keyof DonationFilters>(key: K, value: DonationFilters[K]) => {
     setFilters((current) => ({ ...current, [key]: value }));
+  };
+
+  const openAddForm = () => {
+    setShowAddForm(true);
+    setCreateMessage(null);
+    setNewDraft(initialDraftForYear(selectedYear));
+  };
+
+  const closeAddForm = () => {
+    setShowAddForm(false);
+    setCreateMessage(null);
+  };
+
+  const closeDetailDrawer = () => {
+    if (detailRowId !== null && editingId === detailRowId) {
+      setEditingId(null);
+      setEditDraft(null);
+    }
+    setDetailRowId(null);
+    setOpenActionMenuRowId(null);
   };
 
   const clearRowMessage = (rowId: string) => {
@@ -539,7 +603,7 @@ export default function FrankDeeniePage() {
   }
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-3 pb-6">
       <Card className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -578,11 +642,7 @@ export default function FrankDeeniePage() {
             </label>
             <button
               type="button"
-              onClick={() => {
-                setShowAddForm((current) => !current);
-                setCreateMessage(null);
-                setNewDraft(initialDraftForYear(selectedYear));
-              }}
+              onClick={showAddForm ? closeAddForm : openAddForm}
               className="prominent-accent-cta"
             >
               {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
@@ -592,360 +652,136 @@ export default function FrankDeeniePage() {
         </div>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardTitle>Frank &amp; Deenie</CardTitle>
-          <CardValue>{currency(data.totals.frankDeenie)}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Children</CardTitle>
-          <CardValue>{currency(data.totals.children)}</CardValue>
-        </Card>
-        <Card>
-          <CardTitle>Visible Total</CardTitle>
-          <CardValue>{currency(visibleTotal)}</CardValue>
-        </Card>
-      </section>
-
-      <Card>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <CardTitle>Year Split</CardTitle>
+      <section className="grid gap-3 2xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] 2xl:items-start">
+        <Card className="min-h-0">
+          <div className="mb-3">
+            <CardTitle>Donations</CardTitle>
             <p className="text-xs text-zinc-500">
-              Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
+              Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
             </p>
           </div>
-        </div>
-        <FrankDeenieYearSplitChart data={yearSplitChartData} />
-      </Card>
 
-      {showAddForm ? (
-        <div
-          ref={addDonationCardRef}
-          className={`rounded-2xl transition-all duration-300 ${
-            highlightAddCard
-              ? "ring-2 ring-emerald-400/70 ring-offset-2 ring-offset-transparent shadow-[0_0_0_6px_rgba(16,185,129,0.12)] motion-safe:animate-[pulse_700ms_ease-out_1]"
-              : ""
-          }`}
-        >
-          <Card>
-          <CardTitle>Add Donation</CardTitle>
-          <form className="mt-3 grid gap-3" onSubmit={submitNewDonation}>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              <label className="text-xs font-semibold text-zinc-500">
-                Date
-                <input
-                  type="date"
-                  value={newDraft.date}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, date: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  required
-                />
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Type
-                <input
-                  type="text"
-                  value={newDraft.type}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, type: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  required
-                />
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Name
-                <input
-                  ref={addDonationNameInputRef}
-                  type="text"
-                  value={newDraft.name}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, name: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  required
-                />
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Amount
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={newDraft.amount}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, amount: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                  required
-                />
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Memo / Description
-                <input
-                  type="text"
-                  value={newDraft.memo}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, memo: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                />
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Split
-                <input
-                  type="text"
-                  value={newDraft.split}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, split: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                />
-              </label>
-              <label className="text-xs font-semibold text-zinc-500">
-                Status
-                <select
-                  value={newDraft.status}
-                  onChange={(event) => setNewDraft((current) => ({ ...current, status: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  {DONATION_STATUSES.map((statusOption) => (
-                    <option key={statusOption} value={statusOption}>
-                      {statusOption}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={isCreating}
-                className="min-h-10 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+          <div className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
+            <label className="text-xs font-semibold text-zinc-500">
+              Search
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(event) => setFilter("search", event.target.value)}
+                placeholder="Name, type, memo, split"
+                className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+              />
+            </label>
+            <label className="text-xs font-semibold text-zinc-500">
+              Type
+              <select
+                value={filters.type}
+                onChange={(event) => setFilter("type", event.target.value)}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
               >
-                {isCreating ? "Saving..." : "Save Donation"}
+                <option value="all">All</option>
+                {typeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-zinc-500">
+              Status
+              <select
+                value={filters.status}
+                onChange={(event) => setFilter("status", event.target.value)}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm normal-case dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                <option value="all">All</option>
+                {DONATION_STATUSES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+                className="min-h-10 w-full rounded-md border border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 xl:w-auto"
+              >
+                Clear filters
               </button>
-              {createMessage ? (
-                <p className={`text-xs ${createMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
-                  {createMessage.text}
-                </p>
-              ) : null}
             </div>
-          </form>
-          </Card>
-        </div>
-      ) : null}
+          </div>
 
-      {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
-        <Card>
-          <CardTitle>Import Frank &amp; Deenie CSV</CardTitle>
-          <p className="mt-1 text-sm text-zinc-500">
-            Required headers:{" "}
-            <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
-              date,name,amount
-            </code>
-            . Optional: type, memo, split, status.
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
-          </p>
-          <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
-            <input
-              key={importInputKey}
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(event) => {
-                setImportCsvFile(event.target.files?.[0] ?? null);
-                setImportMessage(null);
-              }}
-              className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-zinc-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-100 dark:text-zinc-300 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-200 dark:hover:file:bg-zinc-800"
-            />
-            <button
-              type="submit"
-              disabled={importingCsv}
-              className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
-            >
-              {importingCsv ? "Importing..." : "Import CSV"}
-            </button>
-          </form>
-          {importMessage ? (
-            <p
-              className={`mt-2 text-xs ${
-                importMessage.tone === "error"
-                  ? "text-rose-600"
-                  : "text-emerald-700 dark:text-emerald-300"
-              }`}
-            >
-              {importMessage.text}
-            </p>
-          ) : null}
-        </Card>
-      ) : null}
-
-      <Card>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>Donations</CardTitle>
-          <p className="text-xs text-zinc-500">
-            Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
-          </p>
-        </div>
-
-        <div className="mb-3 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setFilters(DEFAULT_FILTERS)}
-            className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          <div
+            className="max-h-[62vh] overflow-auto rounded-xl border border-zinc-200/80 dark:border-zinc-800"
+            onClick={() => setOpenActionMenuRowId(null)}
           >
-            Clear filters
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-[980px] table-auto text-left text-sm">
-            <thead>
-              <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => toggleSort("date")} className="font-semibold">
-                    Date{sortMarker("date")}
-                  </button>
-                </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => toggleSort("type")} className="font-semibold">
-                    Type{sortMarker("type")}
-                  </button>
-                </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => toggleSort("name")} className="font-semibold">
-                    Name{sortMarker("name")}
-                  </button>
-                </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => toggleSort("memo")} className="font-semibold">
-                    Memo/Description{sortMarker("memo")}
-                  </button>
-                </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => toggleSort("split")} className="font-semibold">
-                    Split{sortMarker("split")}
-                  </button>
-                </th>
-                <th className="px-2 py-2 text-right">
-                  <button type="button" onClick={() => toggleSort("amount")} className="font-semibold">
-                    Amount ($){sortMarker("amount")}
-                  </button>
-                </th>
-                <th className="px-2 py-2">
-                  <button type="button" onClick={() => toggleSort("status")} className="font-semibold">
-                    Status{sortMarker("status")}
-                  </button>
-                </th>
-                <th className="w-24 px-2 py-2" />
-              </tr>
-              <tr className="border-b text-xs text-zinc-500">
-                <th className="px-2 py-2" />
-                <th className="px-2 py-2">
-                  <select
-                    value={filters.type}
-                    onChange={(event) => setFilter("type", event.target.value)}
-                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    <option value="all">All</option>
-                    {typeOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </th>
-                <th className="px-2 py-2">
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(event) => setFilter("search", event.target.value)}
-                    placeholder="Name, memo, split"
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  />
-                </th>
-                <th className="px-2 py-2" />
-                <th className="px-2 py-2" />
-                <th className="px-2 py-2" />
-                <th className="px-2 py-2">
-                  <select
-                    value={filters.status}
-                    onChange={(event) => setFilter("status", event.target.value)}
-                    className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs normal-case dark:border-zinc-700 dark:bg-zinc-900"
-                  >
-                    <option value="all">All</option>
-                    {DONATION_STATUSES.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </th>
-                <th className="px-2 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td className="px-2 py-6 text-center text-sm text-zinc-500" colSpan={8}>
-                    No donations match the selected filters for {selectedYearLabel}.
-                  </td>
+            <table className="w-full table-fixed text-left text-sm">
+              <colgroup>
+                <col className="w-[6.75rem]" />
+                <col className="w-[14rem]" />
+                <col />
+                <col className="w-[7.5rem]" />
+                <col className="w-[7rem]" />
+                <col className="w-[3.5rem]" />
+              </colgroup>
+              <thead className="sticky top-0 z-10 bg-card">
+                <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
+                  <th className="px-2 py-2">
+                    <button type="button" onClick={() => toggleSort("date")} className="font-semibold">
+                      Date{sortMarker("date")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2">
+                    <button type="button" onClick={() => toggleSort("name")} className="font-semibold">
+                      Name{sortMarker("name")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2">Details</th>
+                  <th className="px-2 py-2 text-right">
+                    <button type="button" onClick={() => toggleSort("amount")} className="font-semibold">
+                      Amount ($){sortMarker("amount")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2">
+                    <button type="button" onClick={() => toggleSort("status")} className="font-semibold">
+                      Status{sortMarker("status")}
+                    </button>
+                  </th>
+                  <th className="px-2 py-2" />
                 </tr>
-              ) : (
-                filteredRows.map((row) => {
-                  const isEditing = editingId === row.id;
-                  const draft = isEditing ? editDraft : null;
-                  const rowMessage = rowMessageById[row.id];
-                  const isSaving = savingRowId === row.id;
-                  const isDeleting = deletingRowId === row.id;
+              </thead>
+              <tbody>
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td className="px-2 py-6 text-center text-sm text-zinc-500" colSpan={6}>
+                      No donations match the selected filters for {selectedYearLabel}.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRows.map((row) => {
+                    const rowMessage = rowMessageById[row.id];
+                    const detailsText = [row.memo.trim(), row.split.trim()].filter(Boolean).join(" | ");
 
-                  return (
-                    <Fragment key={row.id}>
-                      <tr
-                        className={`border-b align-middle ${
-                          row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
-                        }`}
-                      >
-                        <td className="px-2 py-3 text-xs text-zinc-500 align-middle">
-                          {isEditing && draft ? (
-                            <input
-                              type="date"
-                              value={draft.date}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, date: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                          ) : (
-                            tableDate(row.date)
-                          )}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-zinc-500 align-middle">
-                          {isEditing && draft ? (
-                            <input
-                              type="text"
-                              value={draft.type}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, type: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                          ) : (
-                            row.type
-                          )}
-                        </td>
-                        <td className="px-2 py-3 align-middle">
-                          {isEditing && draft ? (
-                            <input
-                              type="text"
-                              value={draft.name}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, name: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                          ) : (
+                    return (
+                      <Fragment key={row.id}>
+                        <tr
+                          className={`border-b align-middle ${
+                            row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                          }`}
+                        >
+                          <td className="px-2 py-3 text-xs text-zinc-500 align-middle">{tableDate(row.date)}</td>
+                          <td className="px-2 py-3 align-middle">
                             <div className="min-w-0">
-                              <p className="truncate font-semibold">{row.name}</p>
+                              <button
+                                type="button"
+                                onClick={() => setDetailRowId(row.id)}
+                                className="w-full truncate text-left font-semibold hover:underline"
+                                title={row.name}
+                              >
+                                {row.name}
+                              </button>
                               {row.source === "children" ? (
                                 <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                                   <Users className="h-3 w-3" />
@@ -953,76 +789,19 @@ export default function FrankDeeniePage() {
                                 </span>
                               ) : null}
                             </div>
-                          )}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-zinc-500 align-middle">
-                          {isEditing && draft ? (
-                            <input
-                              type="text"
-                              value={draft.memo}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, memo: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                          ) : (
-                            row.memo || "—"
-                          )}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-zinc-500 align-middle">
-                          {isEditing && draft ? (
-                            <input
-                              type="text"
-                              value={draft.split}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, split: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                          ) : (
-                            row.split || "—"
-                          )}
-                        </td>
-                        <td className="px-2 py-3 text-right text-xs text-zinc-500 tabular-nums align-middle">
-                          {isEditing && draft ? (
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={draft.amount}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, amount: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-right text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            />
-                          ) : (
-                            formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-                          )}
-                        </td>
-                        <td className="px-2 py-3 align-middle">
-                          {isEditing && draft ? (
-                            <select
-                              value={draft.status}
-                              onChange={(event) =>
-                                setEditDraft((current) =>
-                                  current ? { ...current, status: event.target.value } : current
-                                )
-                              }
-                              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                            >
-                              {DONATION_STATUSES.map((statusOption) => (
-                                <option key={statusOption} value={statusOption}>
-                                  {statusOption}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
+                          </td>
+                          <td className="px-2 py-3 align-middle">
+                            <p className="truncate text-xs font-semibold uppercase tracking-wide text-zinc-500" title={row.type}>
+                              {row.type}
+                            </p>
+                            <p className="truncate text-xs text-zinc-500" title={detailsText || "No memo or split details"}>
+                              {detailsText || "No memo or split details"}
+                            </p>
+                          </td>
+                          <td className="px-2 py-3 text-right text-xs text-zinc-500 tabular-nums align-middle">
+                            {formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="px-2 py-3 align-middle">
                             <span
                               className={`inline-flex min-w-[5.25rem] justify-center rounded-full border px-3 py-0.5 text-xs font-semibold ${
                                 row.status === "Planned"
@@ -1032,75 +811,523 @@ export default function FrankDeeniePage() {
                             >
                               {row.status}
                             </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-3 align-middle">
-                          {row.editable ? (
-                            isEditing ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => void saveEdit()}
-                                  disabled={isSaving}
-                                  className="rounded-md bg-accent px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
+                          </td>
+                          <td className="px-2 py-3 align-middle">
+                            <div className="relative flex justify-end">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenActionMenuRowId((current) => (current === row.id ? null : row.id));
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                aria-label="Open actions"
+                              >
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </button>
+                              {openActionMenuRowId === row.id ? (
+                                <div
+                                  className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                                  onClick={(event) => event.stopPropagation()}
                                 >
-                                  {isSaving ? "Saving..." : "Save"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEdit}
-                                  disabled={isSaving}
-                                  className="rounded-md border border-zinc-300 px-2 py-1 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => beginEdit(row)}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                                  aria-label="Edit donation"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void deleteRow(row)}
-                                  disabled={isDeleting}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-700 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950/20"
-                                  aria-label="Delete donation"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            )
-                          ) : null}
-                        </td>
-                      </tr>
-                      {rowMessage ? (
-                        <tr className="border-b">
-                          <td
-                            colSpan={8}
-                            className={`px-2 py-2 text-xs ${
-                              rowMessage.tone === "error"
-                                ? "text-rose-600"
-                                : "text-emerald-700 dark:text-emerald-300"
-                            }`}
-                          >
-                            {rowMessage.text}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDetailRowId(row.id);
+                                      setOpenActionMenuRowId(null);
+                                    }}
+                                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                  >
+                                    View details
+                                  </button>
+                                  {row.editable ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        beginEdit(row);
+                                        setDetailRowId(row.id);
+                                        setOpenActionMenuRowId(null);
+                                      }}
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+                                  {row.editable ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenActionMenuRowId(null);
+                                        void deleteRow(row);
+                                      }}
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                                    >
+                                      Delete
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        {rowMessage ? (
+                          <tr className="border-b">
+                            <td
+                              colSpan={6}
+                              className={`px-2 py-2 text-xs ${
+                                rowMessage.tone === "error"
+                                  ? "text-rose-600"
+                                  : "text-emerald-700 dark:text-emerald-300"
+                              }`}
+                            >
+                              {rowMessage.text}
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <div className="grid gap-3">
+          <Card>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle>Year Split</CardTitle>
+                <p className="text-xs text-zinc-500">
+                  Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
+                </p>
+              </div>
+            </div>
+            <FrankDeenieYearSplitChart data={yearSplitChartData} />
+          </Card>
+
+          <section className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
+            <Card>
+              <CardTitle>Frank &amp; Deenie</CardTitle>
+              <CardValue>{currency(data.totals.frankDeenie)}</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Children</CardTitle>
+              <CardValue>{currency(data.totals.children)}</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Visible Total</CardTitle>
+              <CardValue>{currency(visibleTotal)}</CardValue>
+            </Card>
+          </section>
+
+          {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
+            <Card>
+              <CardTitle>Import Frank &amp; Deenie CSV</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Required headers:{" "}
+                <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
+                  date,name,amount
+                </code>
+                . Optional: type, memo, split, status.
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
+              </p>
+              <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
+                <input
+                  key={importInputKey}
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(event) => {
+                    setImportCsvFile(event.target.files?.[0] ?? null);
+                    setImportMessage(null);
+                  }}
+                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-zinc-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-100 dark:text-zinc-300 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-200 dark:hover:file:bg-zinc-800"
+                />
+                <button
+                  type="submit"
+                  disabled={importingCsv}
+                  className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+                >
+                  {importingCsv ? "Importing..." : "Import CSV"}
+                </button>
+              </form>
+              {importMessage ? (
+                <p
+                  className={`mt-2 text-xs ${
+                    importMessage.tone === "error"
+                      ? "text-rose-600"
+                      : "text-emerald-700 dark:text-emerald-300"
+                  }`}
+                >
+                  {importMessage.text}
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
         </div>
-      </Card>
+      </section>
+
+      {detailRow ? (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) {
+              closeDetailDrawer();
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="donation-details-title"
+            className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-3xl sm:rounded-3xl sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="donation-details-title" className="text-base font-semibold">
+                  Donation Details
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">{detailRow.name}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDetailDrawer}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                aria-label="Close donation details"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {editingId === detailRow.id && editDraft ? (
+              <form className="mt-4 grid gap-3" onSubmit={(event) => event.preventDefault()}>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Date
+                    <input
+                      type="date"
+                      value={editDraft.date}
+                      onChange={(event) =>
+                        setEditDraft((current) => (current ? { ...current, date: event.target.value } : current))
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Type
+                    <input
+                      type="text"
+                      value={editDraft.type}
+                      onChange={(event) =>
+                        setEditDraft((current) => (current ? { ...current, type: event.target.value } : current))
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Name
+                    <input
+                      type="text"
+                      value={editDraft.name}
+                      onChange={(event) =>
+                        setEditDraft((current) => (current ? { ...current, name: event.target.value } : current))
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Amount
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={editDraft.amount}
+                      onChange={(event) =>
+                        setEditDraft((current) => (current ? { ...current, amount: event.target.value } : current))
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Status
+                    <select
+                      value={editDraft.status}
+                      onChange={(event) =>
+                        setEditDraft((current) => (current ? { ...current, status: event.target.value } : current))
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+                      {DONATION_STATUSES.map((statusOption) => (
+                        <option key={statusOption} value={statusOption}>
+                          {statusOption}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs font-semibold text-zinc-500">
+                    Split
+                    <input
+                      type="text"
+                      value={editDraft.split}
+                      onChange={(event) =>
+                        setEditDraft((current) => (current ? { ...current, split: event.target.value } : current))
+                      }
+                      className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    />
+                  </label>
+                </div>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Memo / Description
+                  <input
+                    type="text"
+                    value={editDraft.memo}
+                    onChange={(event) =>
+                      setEditDraft((current) => (current ? { ...current, memo: event.target.value } : current))
+                    }
+                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void saveEdit()}
+                    disabled={savingRowId === detailRow.id}
+                    className="min-h-10 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {savingRowId === detailRow.id ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    disabled={savingRowId === detailRow.id}
+                    className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <dl className="mt-4 grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Date</dt>
+                  <dd className="mt-1 font-medium">{tableDate(detailRow.date)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Type</dt>
+                  <dd className="mt-1 font-medium">{detailRow.type}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Amount</dt>
+                  <dd className="mt-1 font-medium">{currency(detailRow.amount)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Status</dt>
+                  <dd className="mt-1 font-medium">{detailRow.status}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Split</dt>
+                  <dd className="mt-1 font-medium">{detailRow.split || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Source</dt>
+                  <dd className="mt-1 font-medium">
+                    {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
+                  </dd>
+                </div>
+                <div className="md:col-span-2">
+                  <dt className="text-xs uppercase tracking-wide text-zinc-500">Memo / Description</dt>
+                  <dd className="mt-1 whitespace-pre-wrap font-medium">{detailRow.memo || "—"}</dd>
+                </div>
+              </dl>
+            )}
+
+            {rowMessageById[detailRow.id] ? (
+              <p
+                className={`mt-3 text-xs ${
+                  rowMessageById[detailRow.id].tone === "error"
+                    ? "text-rose-600"
+                    : "text-emerald-700 dark:text-emerald-300"
+                }`}
+              >
+                {rowMessageById[detailRow.id].text}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {detailRow.editable && editingId !== detailRow.id ? (
+                <button
+                  type="button"
+                  onClick={() => beginEdit(detailRow)}
+                  className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  Edit donation
+                </button>
+              ) : null}
+              {detailRow.editable ? (
+                <button
+                  type="button"
+                  onClick={() => void deleteRow(detailRow)}
+                  disabled={deletingRowId === detailRow.id}
+                  className="min-h-10 rounded-xl border border-rose-300 px-4 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/20"
+                >
+                  {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAddForm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !isCreating) {
+              closeAddForm();
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-donation-title"
+            className="w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-w-5xl sm:rounded-3xl sm:p-5"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="add-donation-title" className="text-base font-semibold">
+                  Add Donation
+                </h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Add a new ledger entry for the selected period.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAddForm}
+                disabled={isCreating}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                aria-label="Close add donation dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <label className="text-xs font-semibold text-zinc-500">
+                  Date
+                  <input
+                    type="date"
+                    value={newDraft.date}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, date: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    required
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Type
+                  <input
+                    type="text"
+                    value={newDraft.type}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, type: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    required
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Name
+                  <input
+                    ref={addDonationNameInputRef}
+                    type="text"
+                    value={newDraft.name}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, name: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    required
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Amount
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={newDraft.amount}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, amount: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    required
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Memo / Description
+                  <input
+                    type="text"
+                    value={newDraft.memo}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, memo: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Split
+                  <input
+                    type="text"
+                    value={newDraft.split}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, split: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  />
+                </label>
+                <label className="text-xs font-semibold text-zinc-500">
+                  Status
+                  <select
+                    value={newDraft.status}
+                    onChange={(event) => setNewDraft((current) => ({ ...current, status: event.target.value }))}
+                    className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-2 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    {DONATION_STATUSES.map((statusOption) => (
+                      <option key={statusOption} value={statusOption}>
+                        {statusOption}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={isCreating}
+                    className="min-h-10 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {isCreating ? "Saving..." : "Save Donation"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeAddForm}
+                    disabled={isCreating}
+                    className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {createMessage ? (
+                  <p
+                    className={`text-xs ${
+                      createMessage.tone === "error"
+                        ? "text-rose-600"
+                        : "text-emerald-700 dark:text-emerald-300"
+                    }`}
+                  >
+                    {createMessage.text}
+                  </p>
+                ) : null}
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
