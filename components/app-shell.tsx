@@ -247,12 +247,8 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
   return (
     <nav id="desktop-sidebar-navigation" className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" aria-label="Primary">
       {sections.map((section, sectionIndex) => (
-        <section key={section.id} className={cn(sectionIndex > 0 && "mt-4 pt-3")}>
-          {isOpen ? (
-            <p className="sidebar-section-label">{section.label}</p>
-          ) : (
-            sectionIndex > 0 && <div className="mx-auto mb-2 mt-1 h-px w-5 rounded-full bg-border/40" aria-hidden />
-          )}
+        <section key={section.id} className={cn(sectionIndex > 0 && "mt-3 pt-2")}>
+          {sectionIndex > 0 && <div className="mb-2 h-px bg-border/40" aria-hidden />}
           <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = isRouteActive(pathname, item.href);
@@ -302,7 +298,37 @@ function DesktopSidebar({
       )}
     >
       <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
-        <SidebarProfileCard isOpen={isOpen} user={user} />
+        {isOpen ? (
+          <div className="flex items-start justify-between">
+            <SidebarProfileCard isOpen={isOpen} user={user} />
+            <button
+              onClick={onToggle}
+              className="sidebar-control-button mt-1 shrink-0"
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls="desktop-sidebar-navigation"
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="mb-1 flex flex-col items-center gap-1">
+            <SidebarProfileCard isOpen={isOpen} user={user} />
+            <button
+              onClick={onToggle}
+              className="sidebar-control-button"
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls="desktop-sidebar-navigation"
+              aria-label="Expand sidebar"
+              title="Expand sidebar"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         <DesktopSidebarNav
           pathname={pathname}
@@ -314,27 +340,14 @@ function DesktopSidebar({
         <div
           className={cn(
             "mt-auto border-t border-border/40 pt-2",
-            isOpen ? "flex flex-col gap-2 px-2" : "flex flex-col items-center gap-1.5"
+            isOpen ? "flex items-center justify-between px-2" : "flex flex-col items-center gap-1.5"
           )}
         >
-          <div className={cn(isOpen ? "flex items-center justify-between" : "flex flex-col items-center gap-1.5")}>
-            <button
-              onClick={onToggle}
-              className="sidebar-control-button"
-              type="button"
-              aria-expanded={isOpen}
-              aria-controls="desktop-sidebar-navigation"
-              aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-              title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              {isOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
-            <ThemeToggle className="sidebar-control-button" />
-          </div>
+          <ThemeToggle className="sidebar-control-button" />
           {isOpen ? (
             <button
               onClick={onSignOut}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
               type="button"
             >
               <LogOut className="h-3.5 w-3.5" />

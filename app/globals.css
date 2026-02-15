@@ -247,8 +247,7 @@ body {
 }
 
 .sidebar-link--collapsed {
-  justify-content: center;
-  padding-left: 0.5rem;
+  padding-left: 0.75rem;
   padding-right: 0.5rem;
 }
 
