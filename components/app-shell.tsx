@@ -72,13 +72,13 @@ const sidebarControlBtnClass =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/50 transition-[background-color,color] duration-200 hover:bg-[hsl(var(--muted)/0.85)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
 
 const fullNavItems: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   {
     href: "/admin",
     label: "Admin Queue",
     icon: ShieldCheck,
     roles: ["admin"]
   },
-  { href: "/dashboard", label: "Dashboard", icon: Home },
   {
     href: "/workspace",
     label: "My Workspace",
@@ -140,7 +140,7 @@ const fullNavSectionByHref: Record<string, NavSectionId> = {
   "/reports": "work",
   "/frank-deenie": "governance",
   "/mandate": "governance",
-  "/admin": "governance"
+  "/admin": "work"
 };
 
 function groupFullNavItems(items: NavItem[]): NavSection[] {
