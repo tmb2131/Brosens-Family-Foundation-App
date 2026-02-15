@@ -1,9 +1,10 @@
 "use client";
 
 import useSWR, { mutate as globalMutate } from "swr";
-import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, PieChart, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, PieChart, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
@@ -35,12 +36,24 @@ export default function MeetingPage() {
       <Card>
         <CardTitle>Meeting Sync Error</CardTitle>
         <p className="mt-2 text-sm text-rose-600">{error.message}</p>
+        <button
+          type="button"
+          onClick={() => void mutate()}
+          className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </button>
       </Card>
     );
   }
 
   if (isLoading || !data) {
-    return <p className="text-sm text-zinc-500">Loading meeting sync view...</p>;
+    return (
+      <div className="page-stack pb-4">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   const updateMeeting = async (payload: Record<string, unknown>) => {
@@ -62,12 +75,13 @@ export default function MeetingPage() {
 
   return (
     <div className="page-stack pb-4">
-      <Card className="hidden rounded-3xl sm:block">
+      <Card className="rounded-3xl">
         <CardTitle>Reveal & Decision Stage</CardTitle>
-        <CardValue>Live Meeting Sync</CardValue>
+        <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
           <span className="status-dot bg-emerald-500" />
-          Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.
+          <span className="hidden sm:inline">Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.</span>
+          <span className="sm:hidden">{formatNumber(data.proposals.length)} pending decisions</span>
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
           <span>{formatNumber(data.proposals.length)} pending</span>

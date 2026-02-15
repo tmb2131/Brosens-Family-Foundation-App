@@ -129,7 +129,7 @@ body {
 }
 
 .segmented-control-button {
-  @apply rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150;
+  @apply rounded-md px-3 py-2 text-[13px] font-semibold transition-colors duration-150;
 }
 
 .segmented-control-button--active {
@@ -456,4 +456,46 @@ body {
   select {
     font-size: 16px !important;
   }
+}
+
+/* Phase 1: Ensure all mobile interactive elements meet 44px minimum */
+@media (hover: none) and (pointer: coarse) {
+  .sidebar-control-button {
+    @apply h-11 w-11;
+  }
+}
+
+/* Phase 5: Better disabled button visibility for outdoor/glare readability */
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  @apply disabled:opacity-40;
+  filter: grayscale(0.3);
+}
+
+/* Phase 7: Tactile press feedback on mobile nav */
+@media (prefers-reduced-motion: no-preference) {
+  .mobile-nav-link {
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 75ms ease;
+  }
+
+  .mobile-nav-link:active {
+    transform: scale(0.95);
+  }
+
+  /* Staggered card entrance animation */
+  .page-stack > * {
+    animation: fade-up 400ms ease-out both;
+  }
+
+  .page-stack > *:nth-child(1) { animation-delay: 0ms; }
+  .page-stack > *:nth-child(2) { animation-delay: 60ms; }
+  .page-stack > *:nth-child(3) { animation-delay: 120ms; }
+  .page-stack > *:nth-child(4) { animation-delay: 180ms; }
+  .page-stack > *:nth-child(5) { animation-delay: 240ms; }
+  .page-stack > *:nth-child(6) { animation-delay: 300ms; }
+}
+
+/* Phase 5: Error message container styling */
+.error-message-box {
+  @apply mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400;
 }

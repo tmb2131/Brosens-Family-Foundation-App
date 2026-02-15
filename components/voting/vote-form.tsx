@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { mutate } from "swr";
 import { ProposalType, type VoteChoice } from "@/lib/types";
 import { currency, parseNumberInput } from "@/lib/utils";
@@ -125,7 +126,12 @@ export function VoteForm({
         {saving ? "Saving vote..." : "Submit Blind Vote"}
       </button>
 
-      {error ? <p className="mt-2 text-xs text-rose-600">{error}</p> : null}
+      {error ? (
+        <div className="error-message-box">
+          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

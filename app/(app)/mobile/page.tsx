@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { ListChecks, Wallet } from "lucide-react";
+import { ListChecks, RefreshCw, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle } from "@/components/ui/card";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { VoteForm } from "@/components/voting/vote-form";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
@@ -30,22 +31,38 @@ export default function MobileFocusPage() {
   }, [searchParams]);
 
   if (workspaceQuery.isLoading) {
-    return <p className="text-sm text-zinc-500">Loading your mobile focus view...</p>;
+    return (
+      <div className="page-stack pb-4">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
       <div className="page-stack pb-4">
-        <p className="text-sm text-rose-600">
-          Could not load the focus view
-          {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
-        </p>
-        <Link
-          href="/dashboard"
-          className="inline-flex min-h-11 items-center justify-center rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
-        >
-          View Full Details
-        </Link>
+        <Card className="p-3">
+          <p className="text-sm text-rose-600">
+            Could not load the focus view
+            {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => void workspaceQuery.mutate()}
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Try again
+            </button>
+            <Link
+              href="/dashboard"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
+            >
+              View Full Details
+            </Link>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -57,6 +74,18 @@ export default function MobileFocusPage() {
 
   return (
     <div className="page-stack pb-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Today&apos;s Focus</p>
+        <button
+          type="button"
+          onClick={() => void workspaceQuery.mutate()}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
+          aria-label="Refresh data"
+        >
+          <RefreshCw className="h-3 w-3" /> Refresh
+        </button>
+      </div>
+
       {deepLinkTarget ? (
         <Card className="p-3">
           <p className="text-xs text-zinc-500">Continue to the required action from your email.</p>
