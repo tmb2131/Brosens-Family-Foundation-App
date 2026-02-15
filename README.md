@@ -112,7 +112,7 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 - Notification queue + retries:
   - `/api/notifications/email/process` (supports `Authorization: Bearer $EMAIL_WORKER_SECRET`)
 - Weekly action reminders:
-  - `/api/notifications/email/reminders` (run hourly; sends Friday 9am local reminders per user timezone)
+  - `/api/notifications/email/reminders` (run hourly; sends Tuesday 10am America/New_York user updates and daily 7pm America/New_York proposal-sent digests)
 - Device-aware email links:
   - `/open?to=/target/path` routes mobile users to `/mobile` and desktop users to the web target
 

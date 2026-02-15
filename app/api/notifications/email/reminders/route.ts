@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
-import { processWeeklyActionReminderEmails } from "@/lib/email-notifications";
+import {
+  processDailyProposalSentDigestEmails,
+  processWeeklyActionReminderEmails
+} from "@/lib/email-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function isAuthorizedBySecret(request: NextRequest) {
@@ -29,8 +32,14 @@ export async function POST(request: NextRequest) {
       assertRole(context.profile, ["oversight", "admin"]);
     }
 
-    const result = await processWeeklyActionReminderEmails(admin);
-    return NextResponse.json(result);
+    const [weeklyUpdate, dailySentDigest] = await Promise.all([
+      processWeeklyActionReminderEmails(admin),
+      processDailyProposalSentDigestEmails(admin)
+    ]);
+    return NextResponse.json({
+      weeklyUpdate,
+      dailySentDigest
+    });
   } catch (error) {
     const response = toErrorResponse(error);
     return NextResponse.json(response.body, { status: response.status });

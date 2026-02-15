@@ -4,7 +4,6 @@ import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
   queueAdminSendRequiredActionEmails,
   queueMeetingReviewActionEmails,
-  queueProposalSentFyiEmails,
   queueVoteRequiredActionEmails
 } from "@/lib/email-notifications";
 import {
@@ -1507,17 +1506,6 @@ export async function setMeetingDecision(
       .catch((error) => {
         logNotificationError("setMeetingDecision enqueue admin notifications", error);
       });
-  }
-
-  if (status === "sent") {
-    void queueProposalSentFyiEmails(admin, {
-      proposalId,
-      proposalTitle,
-      sentAt: nextSentAt,
-      actorUserId: currentUserId ?? null
-    }).catch((emailError) => {
-      logNotificationError("setMeetingDecision enqueue sent FYI email", emailError);
-    });
   }
 
   return updatedProposal;

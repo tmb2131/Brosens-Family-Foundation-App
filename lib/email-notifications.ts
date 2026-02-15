@@ -26,6 +26,7 @@ interface ProposalActionRow {
 interface ApprovedProposalRow {
   id: string;
   proposal_title: string | null;
+  proposer_id: string;
   created_at: string;
 }
 
@@ -62,6 +63,16 @@ interface OutstandingAction {
   type: OutstandingActionType;
   title: string;
   description: string;
+  linkPath: string;
+  createdAt: string;
+}
+
+interface OwnProposalUpdate {
+  id: string;
+  title: string;
+  statusLabel: "To review" | "Approved";
+  summary: string;
+  chaseNames: string[];
   linkPath: string;
   createdAt: string;
 }
@@ -128,10 +139,21 @@ export interface ProcessWeeklyActionReminderResult {
   skippedAlreadySent: number;
 }
 
+export interface ProcessDailyProposalSentDigestResult {
+  dueForWindow: boolean;
+  sentEventsFound: number;
+  proposalsIncluded: number;
+  digestQueued: number;
+  skippedNoEvents: number;
+  skippedWrongLocalTime: number;
+  skippedAlreadySent: number;
+}
+
 const MAX_EMAIL_DELIVERY_ATTEMPTS = 5;
-const WEEKLY_REMINDER_LOCAL_HOUR = 9;
+const WEEKLY_REMINDER_LOCAL_HOUR = 10;
+const DAILY_SENT_DIGEST_LOCAL_HOUR = 19;
 const DEFAULT_TIMEZONE = "America/New_York";
-const WEEKDAY_FRIDAY = 5;
+const WEEKDAY_TUESDAY = 2;
 
 function uniqueIds(values: string[]) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
@@ -174,20 +196,6 @@ function roleLabel(role: AppRole) {
     return "oversight";
   }
   return "member";
-}
-
-function normalizeTimeZone(value: string | null | undefined) {
-  const raw = String(value ?? "").trim();
-  if (!raw) {
-    return DEFAULT_TIMEZONE;
-  }
-
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: raw }).format(new Date());
-    return raw;
-  } catch {
-    return DEFAULT_TIMEZONE;
-  }
 }
 
 function getEmailConfig(): EmailConfig | null {
@@ -305,6 +313,10 @@ function toIsoWeekKey(localDate: Pick<LocalTimeSnapshot, "year" | "month" | "day
   return `${date.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 }
 
+function toIsoDateKey(localDate: Pick<LocalTimeSnapshot, "year" | "month" | "day">) {
+  return `${localDate.year}-${String(localDate.month).padStart(2, "0")}-${String(localDate.day).padStart(2, "0")}`;
+}
+
 function displayName(user: UserProfileRow) {
   const fullName = String(user.full_name ?? "").trim();
   if (fullName) {
@@ -314,6 +326,18 @@ function displayName(user: UserProfileRow) {
     .split("@")[0]
     ?.trim();
   return localPart || "there";
+}
+
+function displayNameOrEmail(user: UserProfileRow | undefined) {
+  if (!user) {
+    return "Unknown user";
+  }
+  const fullName = String(user.full_name ?? "").trim();
+  if (fullName) {
+    return fullName;
+  }
+  const email = String(user.email ?? "").trim();
+  return email || "Unknown user";
 }
 
 function sortActions(actions: OutstandingAction[]) {
@@ -350,6 +374,50 @@ function renderOutstandingActionsHtml(actions: OutstandingAction[]) {
       const title = escapeHtml(action.title);
       const description = escapeHtml(action.description);
       return `<li style="margin:0 0 10px 0;"><a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;">${title}</a><br /><span style="color:#4b5563;">${description}</span></li>`;
+    })
+    .join("");
+
+  return `<ol style="margin:0;padding-left:18px;">${rows}</ol>`;
+}
+
+function sortOwnProposalUpdates(updates: OwnProposalUpdate[]) {
+  return [...updates].sort((a, b) => {
+    const createdDiff = Date.parse(a.createdAt) - Date.parse(b.createdAt);
+    if (!Number.isNaN(createdDiff) && createdDiff !== 0) {
+      return createdDiff;
+    }
+    return a.title.localeCompare(b.title);
+  });
+}
+
+function renderOwnProposalUpdatesText(updates: OwnProposalUpdate[]) {
+  if (!updates.length) {
+    return "No pending proposals submitted by you.";
+  }
+
+  return sortOwnProposalUpdates(updates)
+    .map((proposal, index) => {
+      const link = buildOpenUrl(proposal.linkPath);
+      const chaseLine = proposal.chaseNames.length
+        ? proposal.chaseNames.join(", ")
+        : "No follow-up owner identified yet.";
+      return `${index + 1}. ${proposal.title} (${proposal.statusLabel})\n   ${proposal.summary}\n   Who to chase: ${chaseLine}\n   ${link}`;
+    })
+    .join("\n");
+}
+
+function renderOwnProposalUpdatesHtml(updates: OwnProposalUpdate[]) {
+  if (!updates.length) {
+    return "<p style=\"margin:0;color:#4b5563;\">No pending proposals submitted by you.</p>";
+  }
+
+  const rows = sortOwnProposalUpdates(updates)
+    .map((proposal) => {
+      const link = buildOpenUrl(proposal.linkPath);
+      const chaseLine = proposal.chaseNames.length
+        ? proposal.chaseNames.join(", ")
+        : "No follow-up owner identified yet.";
+      return `<li style="margin:0 0 10px 0;"><a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;">${escapeHtml(proposal.title)}</a> <span style="color:#6b7280;">(${escapeHtml(proposal.statusLabel)})</span><br /><span style="color:#4b5563;">${escapeHtml(proposal.summary)}</span><br /><span style="color:#374151;">Who to chase: ${escapeHtml(chaseLine)}</span></li>`;
     })
     .join("");
 
@@ -406,19 +474,26 @@ function buildActionRequiredContent(input: {
 function buildWeeklyReminderContent(input: {
   recipientName: string;
   outstandingActions: OutstandingAction[];
+  ownProposalUpdates: OwnProposalUpdate[];
 }) {
-  const count = input.outstandingActions.length;
-  const subject = `Friday reminder: ${count} outstanding action${count === 1 ? "" : "s"}`;
+  const actionCount = input.outstandingActions.length;
+  const ownProposalCount = input.ownProposalUpdates.length;
+  const subject = `Tuesday update: ${ownProposalCount} pending proposal${ownProposalCount === 1 ? "" : "s"}, ${actionCount} action${actionCount === 1 ? "" : "s"} for you`;
   const outstandingText = renderOutstandingActionsText(input.outstandingActions);
   const outstandingHtml = renderOutstandingActionsHtml(input.outstandingActions);
-  const firstActionPath = input.outstandingActions[0]?.linkPath ?? "/workspace";
-  const openUrl = buildOpenUrl(firstActionPath);
+  const ownProposalText = renderOwnProposalUpdatesText(input.ownProposalUpdates);
+  const ownProposalHtml = renderOwnProposalUpdatesHtml(input.ownProposalUpdates);
+  const primaryLinkPath = input.ownProposalUpdates[0]?.linkPath ?? input.outstandingActions[0]?.linkPath ?? "/workspace";
+  const openUrl = buildOpenUrl(primaryLinkPath);
 
   const textBody = [
     `Hi ${input.recipientName},`,
     "",
-    "You still have outstanding actions that require your attention.",
+    "Here is your Tuesday update.",
     `${openUrl}`,
+    "",
+    "Your pending proposals and who to chase:",
+    ownProposalText,
     "",
     "Outstanding required actions:",
     outstandingText,
@@ -429,8 +504,10 @@ function buildWeeklyReminderContent(input: {
   const htmlBody = `
 <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
   <p>Hi ${escapeHtml(input.recipientName)},</p>
-  <p>You still have outstanding actions that require your attention.</p>
+  <p>Here is your Tuesday update.</p>
   <p style="margin:0 0 20px 0;"><a href="${escapeHtml(openUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600;">Open Actions</a></p>
+  <h3 style="margin:0 0 8px 0;font-size:16px;">Your pending proposals and who to chase</h3>
+  ${ownProposalHtml}
   <h3 style="margin:0 0 8px 0;font-size:16px;">Outstanding required actions</h3>
   ${outstandingHtml}
   <p style="margin:20px 0 0 0;color:#6b7280;">Brosens Family Foundation</p>
@@ -440,29 +517,38 @@ function buildWeeklyReminderContent(input: {
     subject,
     htmlBody,
     textBody,
-    primaryLinkPath: firstActionPath
+    primaryLinkPath
   };
 }
 
 function buildProposalSentFyiContent(input: {
-  proposalTitle: string;
-  sentAt: string | null;
+  dayKey: string;
+  proposals: Array<{ id: string; title: string; sentAt: string | null }>;
 }) {
-  const title = input.proposalTitle.trim() || "Proposal";
-  const sentDate =
-    input.sentAt && !Number.isNaN(Date.parse(input.sentAt))
-      ? new Date(input.sentAt).toLocaleDateString("en-US")
-      : "today";
-  const subject = `FYI: "${title}" was marked Sent`;
+  const subject = `Daily sent digest: ${input.proposals.length} proposal${input.proposals.length === 1 ? "" : "s"} marked Sent`;
   const openUrl = buildOpenUrl("/dashboard");
+  const proposalRowsText = input.proposals
+    .map((proposal, index) => {
+      const sentDate = proposal.sentAt?.trim() ? proposal.sentAt : input.dayKey;
+      return `${index + 1}. ${proposal.title}\n   Sent date: ${sentDate}`;
+    })
+    .join("\n");
+  const proposalRowsHtml = input.proposals
+    .map((proposal) => {
+      const sentDate = proposal.sentAt?.trim() ? proposal.sentAt : input.dayKey;
+      return `<li style="margin:0 0 10px 0;"><strong>${escapeHtml(proposal.title)}</strong><br /><span style="color:#4b5563;">Sent date: ${escapeHtml(sentDate)}</span></li>`;
+    })
+    .join("");
 
   const textBody = [
     "Hello,",
     "",
-    `"${title}" was marked Sent on ${sentDate}.`,
+    `The following proposals were marked Sent on ${input.dayKey} (America/New_York):`,
+    proposalRowsText,
+    "",
     `${openUrl}`,
     "",
-    "This is an FYI notification for oversight, manager, and admin roles.",
+    "This daily digest is sent to all users.",
     "",
     "Brosens Family Foundation"
   ].join("\n");
@@ -470,9 +556,10 @@ function buildProposalSentFyiContent(input: {
   const htmlBody = `
 <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
   <p>Hello,</p>
-  <p><strong>${escapeHtml(title)}</strong> was marked Sent on ${escapeHtml(sentDate)}.</p>
+  <p>The following proposals were marked Sent on <strong>${escapeHtml(input.dayKey)}</strong> (America/New_York):</p>
+  <ol style="margin:0;padding-left:18px;">${proposalRowsHtml}</ol>
   <p style="margin:0 0 20px 0;"><a href="${escapeHtml(openUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600;">Open Dashboard</a></p>
-  <p style="color:#6b7280;">This is an FYI notification for oversight, manager, and admin roles.</p>
+  <p style="color:#6b7280;">This daily digest is sent to all users.</p>
 </div>`.trim();
 
   return {
@@ -593,6 +680,7 @@ async function sendEmailViaResend(
 async function loadOutstandingActionsState(admin: AdminClient): Promise<{
   usersById: Map<string, UserProfileRow>;
   actionsByUserId: Map<string, OutstandingAction[]>;
+  ownProposalUpdatesByUserId: Map<string, OwnProposalUpdate[]>;
 }> {
   const [usersResult, toReviewResult, approvedResult] = await Promise.all([
     admin
@@ -606,7 +694,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
       .returns<ProposalActionRow[]>(),
     admin
       .from("grant_proposals")
-      .select("id, proposal_title, created_at")
+      .select("id, proposal_title, proposer_id, created_at")
       .eq("status", "approved")
       .returns<ApprovedProposalRow[]>()
   ]);
@@ -648,6 +736,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
 
   const usersById = new Map(users.map((user) => [user.id, user]));
   const actionsByUserId = new Map<string, OutstandingAction[]>();
+  const ownProposalUpdatesByUserId = new Map<string, OwnProposalUpdate[]>();
   const votingUserIds = users.filter((user) => user.role === "member" || user.role === "oversight").map((user) => user.id);
   const meetingUsers = users.filter((user) => user.role === "oversight" || user.role === "manager");
   const adminUsers = users.filter((user) => user.role === "admin");
@@ -665,6 +754,15 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
     actionsByUserId.set(userId, existing);
   };
 
+  const pushOwnProposalUpdate = (userId: string, update: OwnProposalUpdate) => {
+    const existing = ownProposalUpdatesByUserId.get(userId) ?? [];
+    existing.push(update);
+    ownProposalUpdatesByUserId.set(userId, existing);
+  };
+
+  const meetingChaseNames = uniqueIds(meetingUsers.map((user) => displayNameOrEmail(user)));
+  const adminChaseNames = uniqueIds(adminUsers.map((user) => displayNameOrEmail(user)));
+
   for (const proposal of toReviewProposals) {
     const title = proposal.proposal_title?.trim() || "Proposal";
     const storedVotes = votesByProposalId.get(proposal.id) ?? new Set<string>();
@@ -677,6 +775,12 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
         ? votingUserIds.length
         : votingUserIds.filter((userId) => userId !== proposal.proposer_id).length;
     const readyForMeeting = requiredVotes > 0 && eligibleVotes.size >= requiredVotes;
+    const pendingVoterIds = votingUserIds.filter((userId) => {
+      if (proposal.proposal_type === "discretionary" && userId === proposal.proposer_id) {
+        return false;
+      }
+      return !eligibleVotes.has(userId);
+    });
 
     for (const userId of votingUserIds) {
       if (proposal.proposal_type === "discretionary" && userId === proposal.proposer_id) {
@@ -711,6 +815,20 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
         });
       }
     }
+
+    pushOwnProposalUpdate(proposal.proposer_id, {
+      id: proposal.id,
+      title,
+      statusLabel: "To review",
+      summary: pendingVoterIds.length
+        ? `Waiting on ${pendingVoterIds.length} remaining vote${pendingVoterIds.length === 1 ? "" : "s"} before meeting review.`
+        : "All votes are complete. Waiting for oversight/manager meeting decision.",
+      chaseNames: pendingVoterIds.length
+        ? uniqueIds(pendingVoterIds.map((userId) => displayNameOrEmail(usersById.get(userId))))
+        : meetingChaseNames,
+      linkPath: pendingVoterIds.length ? `/workspace?proposalId=${proposal.id}` : `/meeting?proposalId=${proposal.id}`,
+      createdAt: proposal.created_at
+    });
   }
 
   for (const proposal of approvedProposals) {
@@ -725,15 +843,30 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
         createdAt: proposal.created_at
       });
     }
+
+    pushOwnProposalUpdate(proposal.proposer_id, {
+      id: proposal.id,
+      title,
+      statusLabel: "Approved",
+      summary: "Approved and waiting for admin execution plus Sent confirmation.",
+      chaseNames: adminChaseNames,
+      linkPath: `/admin?proposalId=${proposal.id}`,
+      createdAt: proposal.created_at
+    });
   }
 
   for (const [userId, actions] of actionsByUserId.entries()) {
     actionsByUserId.set(userId, sortActions(actions));
   }
 
+  for (const [userId, updates] of ownProposalUpdatesByUserId.entries()) {
+    ownProposalUpdatesByUserId.set(userId, sortOwnProposalUpdates(updates));
+  }
+
   return {
     usersById,
-    actionsByUserId
+    actionsByUserId,
+    ownProposalUpdatesByUserId
   };
 }
 
@@ -1148,44 +1281,6 @@ export async function queueAdminSendRequiredActionEmails(
   });
 }
 
-export async function queueProposalSentFyiEmails(
-  admin: AdminClient,
-  input: {
-    proposalId: string;
-    proposalTitle: string;
-    sentAt: string | null;
-    actorUserId?: string | null;
-  }
-) {
-  const recipients = await loadUsersByRoles(admin, ["manager", "admin", "oversight"]);
-  const recipientUserIds = uniqueIds(recipients.map((recipient) => recipient.id));
-  if (!recipientUserIds.length) {
-    return { queued: false, reason: "no_recipients" } as const;
-  }
-
-  const content = buildProposalSentFyiContent({
-    proposalTitle: input.proposalTitle,
-    sentAt: input.sentAt
-  });
-
-  return queueEmailNotification(admin, {
-    notificationType: "proposal_sent_fyi",
-    actorUserId: input.actorUserId ?? null,
-    entityId: input.proposalId,
-    idempotencyKey: `proposal-sent-fyi:${input.proposalId}:${input.sentAt ?? "sent"}`,
-    subject: content.subject,
-    htmlBody: content.htmlBody,
-    textBody: content.textBody,
-    primaryLinkPath: "/dashboard",
-    primaryLinkLabel: "Open Dashboard",
-    payload: {
-      proposalId: input.proposalId,
-      sentAt: input.sentAt
-    },
-    recipientUserIds
-  });
-}
-
 export async function processWeeklyActionReminderEmails(
   admin: AdminClient,
   options?: { now?: Date }
@@ -1197,23 +1292,33 @@ export async function processWeeklyActionReminderEmails(
   let skippedNoActions = 0;
   let skippedWrongLocalTime = 0;
   let skippedAlreadySent = 0;
+  const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
 
   const candidates: Array<{
     user: UserProfileRow;
     actions: OutstandingAction[];
+    ownProposalUpdates: OwnProposalUpdate[];
     weekKey: string;
   }> = [];
 
+  if (!nyLocalTime || nyLocalTime.weekday !== WEEKDAY_TUESDAY || nyLocalTime.hour < WEEKLY_REMINDER_LOCAL_HOUR) {
+    return {
+      evaluatedUsers: state.usersById.size,
+      dueUsers,
+      remindersQueued,
+      skippedNoActions,
+      skippedWrongLocalTime: state.usersById.size,
+      skippedAlreadySent
+    };
+  }
+
+  const weekKey = toIsoWeekKey(nyLocalTime);
+
   for (const user of state.usersById.values()) {
     const actions = state.actionsByUserId.get(user.id) ?? [];
-    if (!actions.length) {
+    const ownProposalUpdates = state.ownProposalUpdatesByUserId.get(user.id) ?? [];
+    if (!actions.length && !ownProposalUpdates.length) {
       skippedNoActions += 1;
-      continue;
-    }
-
-    const localTime = getLocalTimeSnapshot(now, normalizeTimeZone(user.timezone));
-    if (!localTime || localTime.weekday !== WEEKDAY_FRIDAY || localTime.hour !== WEEKLY_REMINDER_LOCAL_HOUR) {
-      skippedWrongLocalTime += 1;
       continue;
     }
 
@@ -1221,7 +1326,8 @@ export async function processWeeklyActionReminderEmails(
     candidates.push({
       user,
       actions,
-      weekKey: toIsoWeekKey(localTime)
+      ownProposalUpdates,
+      weekKey
     });
   }
 
@@ -1264,7 +1370,8 @@ export async function processWeeklyActionReminderEmails(
 
     const content = buildWeeklyReminderContent({
       recipientName: displayName(candidate.user),
-      outstandingActions: candidate.actions
+      outstandingActions: candidate.actions,
+      ownProposalUpdates: candidate.ownProposalUpdates
     });
 
     const queueResult = await queueEmailNotification(admin, {
@@ -1279,7 +1386,7 @@ export async function processWeeklyActionReminderEmails(
       primaryLinkLabel: "Open Actions",
       payload: {
         weekKey: candidate.weekKey,
-        reminderTimeZone: normalizeTimeZone(candidate.user.timezone)
+        reminderTimeZone: DEFAULT_TIMEZONE
       },
       recipientUserIds: [candidate.user.id]
     });
@@ -1306,5 +1413,132 @@ export async function processWeeklyActionReminderEmails(
     skippedNoActions,
     skippedWrongLocalTime,
     skippedAlreadySent
+  };
+}
+
+export async function processDailyProposalSentDigestEmails(
+  admin: AdminClient,
+  options?: { now?: Date }
+): Promise<ProcessDailyProposalSentDigestResult> {
+  const now = options?.now ?? new Date();
+  const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
+
+  if (!nyLocalTime || nyLocalTime.hour < DAILY_SENT_DIGEST_LOCAL_HOUR) {
+    return {
+      dueForWindow: false,
+      sentEventsFound: 0,
+      proposalsIncluded: 0,
+      digestQueued: 0,
+      skippedNoEvents: 0,
+      skippedWrongLocalTime: 1,
+      skippedAlreadySent: 0
+    };
+  }
+
+  const dayKey = toIsoDateKey(nyLocalTime);
+  const lookbackStart = new Date(now.getTime() - 48 * 60 * 60_000).toISOString();
+
+  const { data: sentAuditRows, error: sentAuditError } = await admin
+    .from("audit_log")
+    .select("entity_id, created_at")
+    .eq("action", "meeting_decision_sent")
+    .eq("entity_type", "proposal")
+    .gte("created_at", lookbackStart)
+    .returns<Array<{ entity_id: string | null; created_at: string }>>();
+
+  if (sentAuditError) {
+    throw new HttpError(500, `Could not load sent proposal audit rows: ${sentAuditError.message}`);
+  }
+
+  const sentToday = (sentAuditRows ?? []).filter((row) => {
+    if (!row.entity_id) {
+      return false;
+    }
+    const createdAt = new Date(row.created_at);
+    if (Number.isNaN(createdAt.getTime())) {
+      return false;
+    }
+    const localSnapshot = getLocalTimeSnapshot(createdAt, DEFAULT_TIMEZONE);
+    return Boolean(localSnapshot && toIsoDateKey(localSnapshot) === dayKey);
+  });
+
+  const proposalIds = uniqueIds(sentToday.map((row) => String(row.entity_id ?? "")));
+  if (!proposalIds.length) {
+    return {
+      dueForWindow: true,
+      sentEventsFound: sentToday.length,
+      proposalsIncluded: 0,
+      digestQueued: 0,
+      skippedNoEvents: 1,
+      skippedWrongLocalTime: 0,
+      skippedAlreadySent: 0
+    };
+  }
+
+  const { data: proposalRows, error: proposalRowsError } = await admin
+    .from("grant_proposals")
+    .select("id, proposal_title, sent_at")
+    .in("id", proposalIds)
+    .returns<Array<{ id: string; proposal_title: string | null; sent_at: string | null }>>();
+
+  if (proposalRowsError) {
+    throw new HttpError(500, `Could not load sent proposals for digest: ${proposalRowsError.message}`);
+  }
+
+  const proposalById = new Map((proposalRows ?? []).map((row) => [row.id, row]));
+  const proposals = proposalIds
+    .map((proposalId) => {
+      const row = proposalById.get(proposalId);
+      if (!row) {
+        return null;
+      }
+      return {
+        id: proposalId,
+        title: row.proposal_title?.trim() || "Proposal",
+        sentAt: row.sent_at
+      };
+    })
+    .filter((proposal): proposal is { id: string; title: string; sentAt: string | null } => Boolean(proposal))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  if (!proposals.length) {
+    return {
+      dueForWindow: true,
+      sentEventsFound: sentToday.length,
+      proposalsIncluded: 0,
+      digestQueued: 0,
+      skippedNoEvents: 1,
+      skippedWrongLocalTime: 0,
+      skippedAlreadySent: 0
+    };
+  }
+
+  const recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
+  const content = buildProposalSentFyiContent({ dayKey, proposals });
+  const queueResult = await queueEmailNotification(admin, {
+    notificationType: "proposal_sent_fyi",
+    actorUserId: null,
+    entityId: null,
+    idempotencyKey: `proposal-sent-digest:${dayKey}`,
+    subject: content.subject,
+    htmlBody: content.htmlBody,
+    textBody: content.textBody,
+    primaryLinkPath: "/dashboard",
+    primaryLinkLabel: "Open Dashboard",
+    payload: {
+      dayKey,
+      proposalIds: proposals.map((proposal) => proposal.id)
+    },
+    recipientUserIds: uniqueIds(recipients.map((recipient) => recipient.id))
+  });
+
+  return {
+    dueForWindow: true,
+    sentEventsFound: sentToday.length,
+    proposalsIncluded: proposals.length,
+    digestQueued: queueResult.enqueued ? 1 : 0,
+    skippedNoEvents: 0,
+    skippedWrongLocalTime: 0,
+    skippedAlreadySent: queueResult.reason === "duplicate" ? 1 : 0
   };
 }
