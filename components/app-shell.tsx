@@ -4,8 +4,6 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import {
-  ChevronLeft,
-  ChevronRight,
   FileText,
   HandCoins,
   Home,
@@ -161,36 +159,32 @@ interface SidebarProfileCardProps {
 }
 
 function SidebarProfileCard({ isOpen, user }: SidebarProfileCardProps) {
-  if (!isOpen) {
-    return (
-      <div className="mb-2 flex justify-center px-1 py-1">
-        <span
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-[11px] font-bold text-accent"
-          title="Brosens Family Foundation"
-        >
-          BF
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div className="mb-3 px-2 pt-1">
-      <div className="flex items-center gap-2.5">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-sm font-bold text-accent">
-          BF
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight">Brosens Family</p>
-          <p className="text-[10px] uppercase tracking-[0.15em] text-zinc-500">Grant Management</p>
-        </div>
+    <div className={cn("flex items-center gap-2.5", isOpen ? "mb-3 px-2 pt-1" : "mb-2 justify-center px-1 py-1")}>
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-xl bg-accent/10 font-bold text-accent",
+          isOpen ? "h-9 w-9 text-sm" : "h-9 w-9 text-[11px]"
+        )}
+        title={isOpen ? undefined : "Brosens Family Foundation"}
+      >
+        BF
+      </span>
+      <div
+        className={cn(
+          "min-w-0 overflow-hidden transition-all duration-300",
+          isOpen ? "max-w-[200px] opacity-100" : "max-w-0 opacity-0"
+        )}
+      >
+        <p className="truncate text-sm font-semibold leading-tight">Brosens Family</p>
+        <p className="text-[10px] uppercase tracking-[0.15em] text-foreground/45">Grant Management</p>
+        {user ? (
+          <div className="mt-2.5 flex items-center gap-2 pl-0.5 text-xs">
+            <span className="truncate font-medium">{user.name}</span>
+            <RolePill role={user.role} />
+          </div>
+        ) : null}
       </div>
-      {user ? (
-        <div className="mt-2.5 flex items-center gap-2 pl-0.5 text-xs">
-          <span className="truncate font-medium">{user.name}</span>
-          <RolePill role={user.role} />
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -216,7 +210,13 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
       aria-current={active ? "page" : undefined}
       data-nav-href={item.href}
     >
-      <span className="relative inline-flex shrink-0">
+      <span
+        className={cn(
+          "sidebar-link__active-indicator",
+          active && !isOpen ? "sidebar-link__active-indicator--visible" : "sidebar-link__active-indicator--hidden"
+        )}
+      />
+      <span className="relative inline-flex w-4 shrink-0 items-center justify-center">
         <item.icon className="h-4 w-4" />
         {!isOpen && <OutstandingBadge count={outstandingCount} />}
       </span>
@@ -249,7 +249,8 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
       {sections.map((section, sectionIndex) => (
         <section key={section.id} className={cn(sectionIndex > 0 && "mt-3 pt-2")}>
           {sectionIndex > 0 && <div className="mb-2 h-px bg-border/40" aria-hidden />}
-          <ul className="space-y-0.5">
+          {isOpen && <span className="sidebar-section-label">{section.label}</span>}
+          <ul className="space-y-1">
             {section.items.map((item) => {
               const active = isRouteActive(pathname, item.href);
               const outstandingCount = outstandingByHref[item.href] ?? 0;
@@ -293,42 +294,12 @@ function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 print:hidden sm:flex sm:transition-[width]",
+        "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)]",
         isOpen ? "w-64" : "w-[4.25rem]"
       )}
     >
       <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
-        {isOpen ? (
-          <div className="flex items-start justify-between">
-            <SidebarProfileCard isOpen={isOpen} user={user} />
-            <button
-              onClick={onToggle}
-              className="sidebar-control-button mt-1 shrink-0"
-              type="button"
-              aria-expanded={isOpen}
-              aria-controls="desktop-sidebar-navigation"
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="mb-1 flex flex-col items-center gap-1">
-            <SidebarProfileCard isOpen={isOpen} user={user} />
-            <button
-              onClick={onToggle}
-              className="sidebar-control-button"
-              type="button"
-              aria-expanded={isOpen}
-              aria-controls="desktop-sidebar-navigation"
-              aria-label="Expand sidebar"
-              title="Expand sidebar"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+        <SidebarProfileCard isOpen={isOpen} user={user} />
 
         <DesktopSidebarNav
           pathname={pathname}
@@ -339,15 +310,15 @@ function DesktopSidebar({
 
         <div
           className={cn(
-            "mt-auto border-t border-border/40 pt-2",
-            isOpen ? "flex items-center justify-between px-2" : "flex flex-col items-center gap-1.5"
+            "mt-auto flex flex-col gap-1.5 border-t border-border/40 pt-2",
+            isOpen ? "px-2" : "items-center"
           )}
         >
           <ThemeToggle className="sidebar-control-button" />
           {isOpen ? (
             <button
               onClick={onSignOut}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+              className="sidebar-footer-action"
               type="button"
             >
               <LogOut className="h-3.5 w-3.5" />
