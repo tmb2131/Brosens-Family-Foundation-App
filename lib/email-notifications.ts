@@ -185,6 +185,67 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#39;");
 }
 
+function wrapEmailHtml(preheader: string, contentHtml: string) {
+  return `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="x-apple-disable-message-reformatting" />
+<title>Brosens Family Foundation</title>
+<!--[if mso]>
+<style>table,td{font-family:Arial,sans-serif;}</style>
+<![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f4f5f7;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${escapeHtml(preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f5f7;">
+<tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+<!-- Header -->
+<tr><td style="padding:20px 32px;border-bottom:3px solid #249660;">
+<span style="font-size:18px;font-weight:700;color:#111827;">Brosens Family Foundation</span>
+</td></tr>
+
+<!-- Content card -->
+<tr><td style="background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:32px;">
+${contentHtml}
+</td></tr>
+
+<!-- Footer -->
+<tr><td style="padding:20px 32px;text-align:center;">
+<p style="margin:0 0 6px 0;font-size:12px;color:#9ca3af;line-height:1.5;">You received this email because you are a member of the Brosens Family Foundation.</p>
+<p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">Sent automatically &mdash; please do not reply to this email.</p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+function emailButton(label: string, href: string) {
+  const safeHref = escapeHtml(href);
+  const safeLabel = escapeHtml(label);
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+<tr><td align="center" style="background-color:#2563eb;border-radius:8px;">
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${safeHref}" style="height:44px;v-text-anchor:middle;width:200px;" arcsize="18%" fillcolor="#2563eb" stroke="f">
+<w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:600;">${safeLabel}</center>
+</v:roundrect>
+<![endif]-->
+<!--[if !mso]><!--><a href="${safeHref}" style="display:inline-block;background-color:#2563eb;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;line-height:1;">${safeLabel}</a><!--<![endif]-->
+</td></tr>
+</table>`;
+}
+
+function emailSectionHeading(text: string) {
+  return `<h3 style="margin:28px 0 12px 0;padding-bottom:8px;border-bottom:1px solid #e5e7eb;font-size:16px;font-weight:700;color:#111827;">${escapeHtml(text)}</h3>`;
+}
+
 function roleLabel(role: AppRole) {
   if (role === "admin") {
     return "admin";
@@ -373,11 +434,16 @@ function renderOutstandingActionsHtml(actions: OutstandingAction[]) {
       const link = buildOpenUrl(action.linkPath);
       const title = escapeHtml(action.title);
       const description = escapeHtml(action.description);
-      return `<li style="margin:0 0 10px 0;"><a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;">${title}</a><br /><span style="color:#4b5563;">${description}</span></li>`;
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
+<tr><td style="padding:12px 16px;border:1px solid #e5e7eb;border-radius:6px;">
+<a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;font-weight:600;">${title}</a><br />
+<span style="color:#4b5563;font-size:14px;">${description}</span>
+</td></tr>
+</table>`;
     })
     .join("");
 
-  return `<ol style="margin:0;padding-left:18px;">${rows}</ol>`;
+  return rows;
 }
 
 function sortOwnProposalUpdates(updates: OwnProposalUpdate[]) {
@@ -406,6 +472,13 @@ function renderOwnProposalUpdatesText(updates: OwnProposalUpdate[]) {
     .join("\n");
 }
 
+function statusBadgeColor(statusLabel: string): { bg: string; text: string } {
+  if (statusLabel === "Approved") {
+    return { bg: "#dcfce7", text: "#166534" };
+  }
+  return { bg: "#fef3c7", text: "#92400e" };
+}
+
 function renderOwnProposalUpdatesHtml(updates: OwnProposalUpdate[]) {
   if (!updates.length) {
     return "<p style=\"margin:0;color:#4b5563;\">No pending proposals submitted by you.</p>";
@@ -417,11 +490,19 @@ function renderOwnProposalUpdatesHtml(updates: OwnProposalUpdate[]) {
       const chaseLine = proposal.chaseNames.length
         ? proposal.chaseNames.join(", ")
         : "No follow-up owner identified yet.";
-      return `<li style="margin:0 0 10px 0;"><a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;">${escapeHtml(proposal.title)}</a> <span style="color:#6b7280;">(${escapeHtml(proposal.statusLabel)})</span><br /><span style="color:#4b5563;">${escapeHtml(proposal.summary)}</span><br /><span style="color:#374151;">Who to chase: ${escapeHtml(chaseLine)}</span></li>`;
+      const badge = statusBadgeColor(proposal.statusLabel);
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
+<tr><td style="padding:12px 16px;border:1px solid #e5e7eb;border-radius:6px;">
+<a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;font-weight:600;">${escapeHtml(proposal.title)}</a>
+<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;background-color:${badge.bg};color:${badge.text};">${escapeHtml(proposal.statusLabel)}</span><br />
+<span style="color:#4b5563;font-size:14px;">${escapeHtml(proposal.summary)}</span><br />
+<span style="color:#374151;font-size:14px;">Who to chase: ${escapeHtml(chaseLine)}</span>
+</td></tr>
+</table>`;
     })
     .join("");
 
-  return `<ol style="margin:0;padding-left:18px;">${rows}</ol>`;
+  return rows;
 }
 
 function buildActionRequiredContent(input: {
@@ -452,17 +533,20 @@ function buildActionRequiredContent(input: {
     "Brosens Family Foundation"
   ].join("\n");
 
-  const htmlBody = `
-<div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
-  <p>Hi ${escapeHtml(input.recipientName)},</p>
-  <p>A new required action is waiting for you.</p>
-  <p style="margin:0 0 6px 0;font-weight:700;">${escapeHtml(actionTitle)}</p>
-  <p style="margin:0 0 14px 0;color:#4b5563;">${escapeHtml(actionDescription)}</p>
-  <p style="margin:0 0 20px 0;"><a href="${escapeHtml(actionUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600;">Open Required Action</a></p>
-  <h3 style="margin:0 0 8px 0;font-size:16px;">Existing outstanding required actions</h3>
-  ${outstandingHtml}
-  <p style="margin:20px 0 0 0;color:#6b7280;">Brosens Family Foundation</p>
-</div>`.trim();
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hi ${escapeHtml(input.recipientName)},</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">A new required action is waiting for you:</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
+<tr><td style="padding:16px 20px;background-color:#eff6ff;border-left:4px solid #2563eb;border-radius:4px;">
+<p style="margin:0 0 4px 0;font-weight:700;font-size:15px;color:#111827;">${escapeHtml(actionTitle)}</p>
+<p style="margin:0;color:#4b5563;font-size:14px;">${escapeHtml(actionDescription)}</p>
+</td></tr>
+</table>
+${emailButton("Open Required Action", actionUrl)}
+${emailSectionHeading("Your outstanding actions")}
+${outstandingHtml}`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
 
   return {
     subject,
@@ -501,17 +585,16 @@ function buildWeeklyReminderContent(input: {
     "Brosens Family Foundation"
   ].join("\n");
 
-  const htmlBody = `
-<div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
-  <p>Hi ${escapeHtml(input.recipientName)},</p>
-  <p>Here is your Tuesday update.</p>
-  <p style="margin:0 0 20px 0;"><a href="${escapeHtml(openUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600;">Open Actions</a></p>
-  <h3 style="margin:0 0 8px 0;font-size:16px;">Your pending proposals and who to chase</h3>
-  ${ownProposalHtml}
-  <h3 style="margin:0 0 8px 0;font-size:16px;">Outstanding required actions</h3>
-  ${outstandingHtml}
-  <p style="margin:20px 0 0 0;color:#6b7280;">Brosens Family Foundation</p>
-</div>`.trim();
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hi ${escapeHtml(input.recipientName)},</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Here is your Tuesday update.</p>
+${emailButton("Open Actions", openUrl)}
+${emailSectionHeading("Your pending proposals and who to chase")}
+${ownProposalHtml}
+${emailSectionHeading("Outstanding required actions")}
+${outstandingHtml}`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
 
   return {
     subject,
@@ -536,7 +619,12 @@ function buildProposalSentFyiContent(input: {
   const proposalRowsHtml = input.proposals
     .map((proposal) => {
       const sentDate = proposal.sentAt?.trim() ? proposal.sentAt : input.dayKey;
-      return `<li style="margin:0 0 10px 0;"><strong>${escapeHtml(proposal.title)}</strong><br /><span style="color:#4b5563;">Sent date: ${escapeHtml(sentDate)}</span></li>`;
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
+<tr><td style="padding:12px 16px;border:1px solid #e5e7eb;border-radius:6px;">
+<span style="font-weight:700;color:#111827;">${escapeHtml(proposal.title)}</span><br />
+<span style="color:#4b5563;font-size:14px;">Sent date: ${escapeHtml(sentDate)}</span>
+</td></tr>
+</table>`;
     })
     .join("");
 
@@ -553,14 +641,14 @@ function buildProposalSentFyiContent(input: {
     "Brosens Family Foundation"
   ].join("\n");
 
-  const htmlBody = `
-<div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">
-  <p>Hello,</p>
-  <p>The following proposals were marked Sent on <strong>${escapeHtml(input.dayKey)}</strong> (America/New_York):</p>
-  <ol style="margin:0;padding-left:18px;">${proposalRowsHtml}</ol>
-  <p style="margin:0 0 20px 0;"><a href="${escapeHtml(openUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600;">Open Dashboard</a></p>
-  <p style="color:#6b7280;">This daily digest is sent to all users.</p>
-</div>`.trim();
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hello,</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">The following proposals were marked <strong>Sent</strong> on <strong>${escapeHtml(input.dayKey)}</strong> (America/New_York):</p>
+${proposalRowsHtml}
+${emailButton("Open Dashboard", openUrl)}
+<p style="margin:16px 0 0 0;color:#6b7280;font-size:13px;">This daily digest is sent to all users.</p>`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
 
   return {
     subject,
