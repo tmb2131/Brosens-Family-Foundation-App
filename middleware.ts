@@ -7,6 +7,16 @@ const SECURITY_HEADERS = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "X-DNS-Prefetch-Control": "on",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self' https://*.supabase.co",
+    "frame-ancestors 'none'",
+  ].join("; "),
 };
 
 export function middleware(request: NextRequest) {

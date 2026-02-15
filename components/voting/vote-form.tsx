@@ -63,8 +63,13 @@ export function VoteForm({
     }
   };
 
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void submitVote();
+  };
+
   return (
-    <div className="mt-2 rounded-xl border bg-card/75 p-3 text-sm">
+    <form onSubmit={handleSubmit} className="mt-2 rounded-xl border bg-card/75 p-3 text-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <Button
@@ -120,19 +125,18 @@ export function VoteForm({
       <Button
         size="lg"
         className="mt-3 w-full"
-        type="button"
-        onClick={() => void submitVote()}
+        type="submit"
         disabled={saving}
       >
         {saving ? "Saving vote..." : "Submit Blind Vote"}
       </Button>
 
       {error ? (
-        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+        <div role="alert" className="mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{error}</span>
         </div>
       ) : null}
-    </div>
+    </form>
   );
 }

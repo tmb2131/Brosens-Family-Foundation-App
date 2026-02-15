@@ -486,7 +486,7 @@ export default function NewProposalPage() {
           </div>
 
           {error ? (
-            <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+            <div role="alert" className="mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
               <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
               <span>{error}</span>
             </div>
@@ -584,7 +584,7 @@ export default function NewProposalPage() {
               </Button>
             </div>
 
-            {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
+            {error ? <p role="alert" className="mt-3 text-xs text-rose-600">{error}</p> : null}
         </ResponsiveModalContent>
       </ResponsiveModal>
     </div>
