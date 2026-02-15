@@ -13,11 +13,13 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "hover:bg-muted hover:text-foreground dark:hover:bg-muted/50",
+        "destructive-outline":
+          "border border-destructive/30 text-destructive bg-destructive/5 shadow-xs hover:bg-destructive/10 hover:border-destructive/50 dark:bg-destructive/10 dark:border-destructive/30 dark:hover:bg-destructive/20 dark:hover:border-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
         prominent:
           "min-h-10 gap-1 border border-[hsl(var(--accent)/0.78)] bg-[hsl(var(--accent))] text-white shadow-[0_12px_24px_-16px_hsl(var(--accent)/0.96)] hover:bg-[hsl(var(--accent)/0.9)] hover:shadow-[0_14px_28px_-16px_hsl(var(--accent)/1)] focus-visible:ring-[hsl(var(--accent)/0.45)]",

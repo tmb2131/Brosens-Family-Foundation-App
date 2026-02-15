@@ -1170,7 +1170,7 @@ export default function FrankDeeniePage() {
                                         setOpenActionMenuRowId(null);
                                         void deleteRow(row);
                                       }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
                                     >
                                       Delete
                                     </button>
@@ -1510,10 +1510,9 @@ export default function FrankDeeniePage() {
               ) : null}
               {detailRow.editable ? (
                 <Button
-                  variant="outline"
+                  variant="destructive-outline"
                   onClick={() => void deleteRow(detailRow)}
                   disabled={deletingRowId === detailRow.id}
-                  className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/20"
                 >
                   {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
                 </Button>

@@ -471,7 +471,7 @@ export default function NewProposalPage() {
               type="button"
               disabled={saving}
               onClick={() => router.push("/dashboard")}
-              className="w-full hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 dark:hover:border-rose-800/60"
+              className="w-full"
             >
               Cancel
             </Button>
