@@ -522,7 +522,11 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
       return {
         proposalId: proposal.id,
         title: proposal.title,
+        description: proposal.description,
         proposalType: proposal.proposalType,
+        status: proposal.status,
+        proposedAmount: proposal.proposedAmount,
+        totalRequiredVotes: progress.totalRequiredVotes,
         voteProgressLabel: `${progress.votesSubmitted} of ${progress.totalRequiredVotes} votes in`
       };
     });

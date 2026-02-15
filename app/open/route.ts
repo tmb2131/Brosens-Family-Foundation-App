@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const MOBILE_UA_PATTERN =
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i;
+import { shouldUseMobileHome } from "@/lib/device-detection";
 
 function sanitizeTargetPath(value: string | null) {
   const raw = String(value ?? "").trim();
@@ -13,8 +11,10 @@ function sanitizeTargetPath(value: string | null) {
 
 export function GET(request: NextRequest) {
   const targetPath = sanitizeTargetPath(request.nextUrl.searchParams.get("to"));
-  const userAgent = request.headers.get("user-agent") ?? "";
-  const isMobile = MOBILE_UA_PATTERN.test(userAgent);
+  const isMobile = shouldUseMobileHome({
+    userAgent: request.headers.get("user-agent"),
+    clientHintMobile: request.headers.get("sec-ch-ua-mobile")
+  });
 
   const destination = isMobile
     ? `/mobile?next=${encodeURIComponent(targetPath)}`

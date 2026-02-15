@@ -10,7 +10,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { VoteForm } from "@/components/voting/vote-form";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { FoundationSnapshot, WorkspaceSnapshot } from "@/lib/types";
+import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, titleCase } from "@/lib/utils";
 
 const ACTION_ITEMS_PREVIEW_LIMIT = 2;
@@ -21,9 +21,6 @@ export default function MobileFocusPage() {
   const workspaceQuery = useSWR<WorkspaceSnapshot>(user ? "/api/workspace" : null, {
     refreshInterval: 30_000
   });
-  const foundationQuery = useSWR<FoundationSnapshot>(user ? "/api/foundation" : null, {
-    refreshInterval: 30_000
-  });
   const deepLinkTarget = useMemo(() => {
     const value = searchParams.get("next")?.trim() ?? "";
     if (!value.startsWith("/") || value.startsWith("//")) {
@@ -32,18 +29,16 @@ export default function MobileFocusPage() {
     return value;
   }, [searchParams]);
 
-  if (workspaceQuery.isLoading || foundationQuery.isLoading) {
+  if (workspaceQuery.isLoading) {
     return <p className="text-sm text-zinc-500">Loading your mobile focus view...</p>;
   }
 
-  if (workspaceQuery.error || foundationQuery.error || !workspaceQuery.data || !foundationQuery.data) {
+  if (workspaceQuery.error || !workspaceQuery.data) {
     return (
       <div className="page-stack pb-4">
         <p className="text-sm text-rose-600">
           Could not load the focus view
-          {workspaceQuery.error || foundationQuery.error
-            ? `: ${(workspaceQuery.error || foundationQuery.error)?.message}`
-            : "."}
+          {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
         </p>
         <Link
           href="/dashboard"
@@ -56,7 +51,6 @@ export default function MobileFocusPage() {
   }
 
   const workspace = workspaceQuery.data;
-  const foundation = foundationQuery.data;
   const isManager = workspace.user.role === "manager";
   const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
@@ -100,8 +94,7 @@ export default function MobileFocusPage() {
             <p className="text-sm text-zinc-500">You&apos;re all caught up.</p>
           ) : (
             visibleActionItems.map((item) => {
-              const proposal = foundation.proposals.find((row) => row.id === item.proposalId);
-              if (!proposal || !user) {
+              if (!user) {
                 return null;
               }
 
@@ -117,12 +110,12 @@ export default function MobileFocusPage() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
-                      <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{item.description}</p>
                     </div>
-                    <StatusPill status={proposal.status} />
+                    <StatusPill status={item.status} />
                   </div>
                   <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
-                    {currency(proposal.proposedAmount)}
+                    {currency(item.proposedAmount)}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <div>
@@ -141,11 +134,10 @@ export default function MobileFocusPage() {
                   <VoteForm
                     proposalId={item.proposalId}
                     proposalType={item.proposalType}
-                    proposedAmount={proposal.proposedAmount}
-                    totalRequiredVotes={proposal.progress.totalRequiredVotes}
+                    proposedAmount={item.proposedAmount}
+                    totalRequiredVotes={item.totalRequiredVotes}
                     onSuccess={() => {
                       void workspaceQuery.mutate();
-                      void foundationQuery.mutate();
                     }}
                   />
                   <Link

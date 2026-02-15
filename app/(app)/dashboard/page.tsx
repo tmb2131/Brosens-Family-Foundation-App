@@ -19,7 +19,7 @@ const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
   { ssr: false, loading: () => <div className="h-[220px] w-full" /> }
 );
-import { AppRole, FoundationSnapshot, ProposalStatus } from "@/lib/types";
+import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
@@ -424,6 +424,11 @@ export default function DashboardPage() {
 
   const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey);
   const {
+    data: historyData,
+    error: historyError,
+    isLoading: isHistoryLoading
+  } = useSWR<FoundationHistorySnapshot>(user ? "/api/foundation/history" : null);
+  const {
     data: pendingData,
     isLoading: isPendingLoading,
     error: pendingError,
@@ -446,12 +451,11 @@ export default function DashboardPage() {
       return;
     }
 
-    if (selectedYear === null) {
-      setSelectedYear(data.budget.year);
+    if (selectedYear === null || selectedYear === "all") {
       return;
     }
 
-    if (selectedYear !== "all" && !availableYears.includes(selectedYear)) {
+    if (!availableYears.includes(selectedYear)) {
       setSelectedYear(data.budget.year);
     }
   }, [availableYears, data, selectedYear]);
@@ -1321,7 +1325,14 @@ export default function DashboardPage() {
         </div>
         <Card>
           <CardTitle>Historical Impact</CardTitle>
-          <HistoricalImpactChart data={data.historyByYear} />
+          {historyData ? (
+            <HistoricalImpactChart data={historyData.historyByYear} />
+          ) : (
+            <div className="h-[220px] w-full animate-pulse rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/50" />
+          )}
+          {!isHistoryLoading && historyError ? (
+            <p className="mt-2 text-xs text-zinc-500">Historical data is temporarily unavailable.</p>
+          ) : null}
         </Card>
       </section>
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { Gift, History, ListChecks, Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { WorkspaceSnapshot, FoundationSnapshot } from "@/lib/types";
+import { WorkspaceSnapshot } from "@/lib/types";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
@@ -18,28 +18,21 @@ export default function WorkspacePage() {
     user ? "/api/workspace" : null,
     { refreshInterval: 30_000 }
   );
-  const foundationQuery = useSWR<FoundationSnapshot>(
-    user ? "/api/foundation" : null,
-    { refreshInterval: 30_000 }
-  );
 
-  if (workspaceQuery.isLoading || foundationQuery.isLoading) {
+  if (workspaceQuery.isLoading) {
     return <p className="text-sm text-zinc-500">Loading workspace...</p>;
   }
 
-  if (workspaceQuery.error || foundationQuery.error || !workspaceQuery.data || !foundationQuery.data) {
+  if (workspaceQuery.error || !workspaceQuery.data) {
     return (
       <p className="text-sm text-rose-600">
         Failed to load workspace data
-        {workspaceQuery.error || foundationQuery.error
-          ? `: ${(workspaceQuery.error || foundationQuery.error)?.message}`
-          : "."}
+        {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
       </p>
     );
   }
 
   const workspace = workspaceQuery.data;
-  const foundation = foundationQuery.data;
   const isManager = workspace.user.role === "manager";
   const totalIndividualAllocated =
     workspace.personalBudget.jointAllocated + workspace.personalBudget.discretionaryAllocated;
@@ -119,8 +112,7 @@ export default function WorkspacePage() {
             <p className="text-sm text-zinc-500">No vote-required items right now.</p>
           ) : (
             workspace.actionItems.map((item) => {
-              const proposal = foundation.proposals.find((row) => row.id === item.proposalId);
-              if (!proposal || !user) {
+              if (!user) {
                 return null;
               }
 
@@ -136,12 +128,12 @@ export default function WorkspacePage() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
-                      <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
+                      <p className="mt-1 text-xs text-zinc-500">{item.description}</p>
                     </div>
-                    <StatusPill status={proposal.status} />
+                    <StatusPill status={item.status} />
                   </div>
                   <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
-                    {currency(proposal.proposedAmount)}
+                    {currency(item.proposedAmount)}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <div>
@@ -160,11 +152,10 @@ export default function WorkspacePage() {
                   <VoteForm
                     proposalId={item.proposalId}
                     proposalType={item.proposalType}
-                    proposedAmount={proposal.proposedAmount}
-                    totalRequiredVotes={proposal.progress.totalRequiredVotes}
+                    proposedAmount={item.proposedAmount}
+                    totalRequiredVotes={item.totalRequiredVotes}
                     onSuccess={() => {
                       void workspaceQuery.mutate();
-                      void foundationQuery.mutate();
                     }}
                   />
                 </article>

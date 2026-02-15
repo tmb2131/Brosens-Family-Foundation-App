@@ -195,7 +195,11 @@ export interface WorkspaceSnapshot {
   actionItems: Array<{
     proposalId: string;
     title: string;
+    description: string;
     proposalType: ProposalType;
+    status: ProposalStatus;
+    proposedAmount: number;
+    totalRequiredVotes: number;
     voteProgressLabel: string;
   }>;
   voteHistory: Array<{
@@ -206,6 +210,18 @@ export interface WorkspaceSnapshot {
     at: string;
   }>;
   submittedGifts: Array<GrantProposal>;
+}
+
+export interface NavigationSummarySnapshot {
+  dashboardToReviewCount: number;
+  workspaceActionItemsCount: number;
+  meetingToReviewCount: number;
+  adminApprovedCount: number;
+  pendingPolicyNotificationsCount: number;
+}
+
+export interface FoundationHistorySnapshot {
+  historyByYear: HistoryByYearPoint[];
 }
 
 export type PolicyNotificationStatus = "pending" | "acknowledged" | "flagged";

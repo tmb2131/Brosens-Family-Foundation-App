@@ -1,11 +1,18 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-
-function isMobileUserAgent(userAgent: string) {
-  return /Android|iPhone|iPad|iPod|Mobile|BlackBerry|Opera Mini|IEMobile/i.test(userAgent);
-}
+import { shouldUseMobileHome } from "@/lib/device-detection";
 
 export default async function HomePage() {
-  const userAgent = (await headers()).get("user-agent") ?? "";
-  redirect(isMobileUserAgent(userAgent) ? "/mobile" : "/dashboard");
+  const requestHeaders = await headers();
+  const userAgent = requestHeaders.get("user-agent");
+  const clientHintMobile = requestHeaders.get("sec-ch-ua-mobile");
+
+  redirect(
+    shouldUseMobileHome({
+      userAgent,
+      clientHintMobile
+    })
+      ? "/mobile"
+      : "/dashboard"
+  );
 }

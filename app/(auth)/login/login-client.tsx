@@ -22,7 +22,7 @@ function sanitizeRedirect(target: string): Route {
   if (allowedRedirects.includes(target as (typeof allowedRedirects)[number])) {
     return target as Route;
   }
-  return "/mobile";
+  return "/dashboard";
 }
 
 function resolvePostLoginRedirect(role: UserProfile["role"] | null | undefined, fallback: Route): Route {
@@ -92,7 +92,7 @@ export default function LoginPage() {
   const params = useSearchParams();
   const recoveryMode = params.get("mode") === "recovery";
   const resetSuccess = params.get("reset") === "success";
-  const redirect = params.get("redirect") || "/mobile";
+  const redirect = params.get("redirect") || "/dashboard";
   const safeRedirect = sanitizeRedirect(redirect);
   const { signIn, refreshProfile, user, configured } = useAuth();
 

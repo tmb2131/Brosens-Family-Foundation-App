@@ -708,7 +708,8 @@ export async function getFoundationSnapshot(
   admin: AdminClient,
   currentUserId?: string,
   budgetYear?: number,
-  includeAllYears = false
+  includeAllYears = false,
+  includeHistory = false
 ): Promise<FoundationSnapshot> {
   const budget = await getBudgetForYearOrDefault(admin, budgetYear);
   const availableBudgetYears = await loadAvailableBudgetYears(admin, budget?.budget_year ?? budgetYear);
@@ -769,10 +770,15 @@ export async function getFoundationSnapshot(
       rolloverFromPreviousYear: toNumber(budget.rollover_from_previous_year)
     },
     proposals,
-    historyByYear: await computeHistoryByYear(admin, votingMemberIds),
+    historyByYear: includeHistory ? await computeHistoryByYear(admin, votingMemberIds) : [],
     availableBudgetYears,
     annualCycle: buildAnnualCycle()
   };
+}
+
+export async function getFoundationHistory(admin: AdminClient): Promise<HistoryByYearPoint[]> {
+  const votingMemberIds = await getVotingMemberIds(admin);
+  return computeHistoryByYear(admin, votingMemberIds);
 }
 
 export async function getWorkspaceSnapshot(
@@ -834,7 +840,11 @@ export async function getWorkspaceSnapshot(
         .map((proposal) => ({
           proposalId: proposal.id,
           title: proposal.title,
+          description: proposal.description,
           proposalType: proposal.proposalType,
+          status: proposal.status,
+          proposedAmount: proposal.proposedAmount,
+          totalRequiredVotes: proposal.progress.totalRequiredVotes,
           voteProgressLabel: `${proposal.progress.votesSubmitted} of ${proposal.progress.totalRequiredVotes} votes in`
         }))
     : [];

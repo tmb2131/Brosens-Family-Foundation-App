@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
@@ -130,6 +130,7 @@ export default function NewProposalPage() {
         throw new Error(payload.error || "Failed to submit");
       }
 
+      void globalMutate("/api/navigation/summary");
       setIsConfirmDialogOpen(false);
       router.push("/dashboard");
     } catch (err) {

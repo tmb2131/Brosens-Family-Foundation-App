@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { mutate } from "swr";
 import { ProposalType, type VoteChoice } from "@/lib/types";
 import { currency, parseNumberInput } from "@/lib/utils";
 
@@ -51,6 +52,7 @@ export function VoteForm({
       }
 
       onSuccess();
+      void mutate("/api/navigation/summary");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save vote");
     } finally {

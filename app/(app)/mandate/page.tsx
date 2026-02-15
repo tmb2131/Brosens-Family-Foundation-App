@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import {
@@ -310,6 +310,7 @@ export default function MandatePage() {
           : "Update flagged for discussion."
       );
       await mutate();
+      void globalMutate("/api/navigation/summary");
     } catch (err) {
       setNotificationMessage(err instanceof Error ? err.message : "Failed to update notification.");
     } finally {

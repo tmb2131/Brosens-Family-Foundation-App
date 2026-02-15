@@ -101,12 +101,11 @@ export default function ReportsPage() {
       return;
     }
 
-    if (selectedYear === null) {
-      setSelectedYear(data.budget.year);
+    if (selectedYear === null || selectedYear === "all") {
       return;
     }
 
-    if (selectedYear !== "all" && !availableYears.includes(selectedYear)) {
+    if (!availableYears.includes(selectedYear)) {
       setSelectedYear(data.budget.year);
     }
   }, [availableYears, data, selectedYear]);

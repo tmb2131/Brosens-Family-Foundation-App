@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useState } from "react";
 import { ClipboardList, DollarSign, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -77,6 +77,7 @@ export default function AdminPage() {
       }
 
       await mutate();
+      void globalMutate("/api/navigation/summary");
       setSentDateByProposalId((current) => {
         const next = { ...current };
         delete next[proposalId];

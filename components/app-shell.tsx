@@ -23,7 +23,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { AppRole, FoundationSnapshot, UserProfile, WorkspaceSnapshot } from "@/lib/types";
+import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 
 type NavItem = {
   href: Route;
@@ -39,18 +39,6 @@ interface NavSection {
   id: NavSectionId;
   label: string;
   items: NavItem[];
-}
-
-interface MeetingResponse {
-  proposals: FoundationSnapshot["proposals"];
-}
-
-interface AdminQueueResponse {
-  proposals: FoundationSnapshot["proposals"];
-}
-
-interface PolicyNotificationSummaryResponse {
-  pendingCount: number;
 }
 
 const DESKTOP_SIDEBAR_STORAGE_KEY = "bf_desktop_sidebar_open";
@@ -218,6 +206,7 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
   return (
     <Link
       href={item.href}
+      prefetch={false}
       className={cn(
         "sidebar-link",
         isOpen ? "sidebar-link--expanded" : "sidebar-link--collapsed",
@@ -382,6 +371,7 @@ function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottom
             <li key={item.href} className="min-w-0">
               <Link
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   "mobile-nav-link",
                   active && "mobile-nav-link--active",
@@ -477,61 +467,26 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/proposals/new"));
   const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
-
-  const shouldLoadFoundation = Boolean(
-    user &&
-      (availableFullNav.some((item) => item.href === "/dashboard") ||
-        availableFocusNav.some((item) => item.href === "/mobile"))
-  );
-  const shouldLoadWorkspace = Boolean(
-    user &&
-      (availableFullNav.some((item) => item.href === "/workspace") ||
-        availableFocusNav.some((item) => item.href === "/mobile")) &&
-      ["member", "oversight", "manager"].includes(user.role)
-  );
-  const shouldLoadMeeting = Boolean(user && availableFullNav.some((item) => item.href === "/meeting"));
-  const shouldLoadPolicySummary = Boolean(
-    user && availableFullNav.some((item) => item.href === "/mandate")
-  );
-  const shouldLoadAdmin = Boolean(user && availableFullNav.some((item) => item.href === "/admin"));
-
-  const { data: foundationData } = useSWR<FoundationSnapshot>(
-    shouldLoadFoundation ? "/api/foundation" : null,
-    { refreshInterval: 60_000 }
-  );
-  const { data: workspaceData } = useSWR<WorkspaceSnapshot>(
-    shouldLoadWorkspace ? "/api/workspace" : null,
-    { refreshInterval: 60_000 }
-  );
-  const { data: meetingData } = useSWR<MeetingResponse>(
-    shouldLoadMeeting ? "/api/meeting" : null,
-    { refreshInterval: 60_000 }
-  );
-  const { data: policyNotificationSummary } = useSWR<PolicyNotificationSummaryResponse>(
-    shouldLoadPolicySummary ? "/api/policy/notifications/summary" : null,
-    { refreshInterval: 60_000 }
-  );
-  const { data: adminData } = useSWR<AdminQueueResponse>(
-    shouldLoadAdmin ? "/api/admin" : null,
-    { refreshInterval: 60_000 }
+  const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
+    user ? "/api/navigation/summary" : null,
+    { refreshInterval: 120_000 }
   );
 
   const outstandingByHref = useMemo(
     () =>
       ({
-        "/dashboard":
-          foundationData?.proposals.filter((proposal) => proposal.status === "to_review").length ?? 0,
-        "/mobile": workspaceData?.actionItems.length ?? 0,
-        "/workspace": workspaceData?.actionItems.length ?? 0,
-        "/meeting": meetingData?.proposals.length ?? 0,
+        "/dashboard": navigationSummary?.dashboardToReviewCount ?? 0,
+        "/mobile": navigationSummary?.workspaceActionItemsCount ?? 0,
+        "/workspace": navigationSummary?.workspaceActionItemsCount ?? 0,
+        "/meeting": navigationSummary?.meetingToReviewCount ?? 0,
         "/reports": 0,
         "/frank-deenie": 0,
-        "/mandate": policyNotificationSummary?.pendingCount ?? 0,
-        "/admin": adminData?.proposals.length ?? 0,
+        "/mandate": navigationSummary?.pendingPolicyNotificationsCount ?? 0,
+        "/admin": navigationSummary?.adminApprovedCount ?? 0,
         "/settings": 0,
         "/proposals/new": 0
       }) as NavOutstandingCounts,
-    [adminData, foundationData, meetingData, policyNotificationSummary, workspaceData]
+    [navigationSummary]
   );
 
   return (

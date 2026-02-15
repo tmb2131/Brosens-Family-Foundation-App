@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, PieChart, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -50,6 +50,7 @@ export default function MeetingPage() {
       body: JSON.stringify(payload)
     });
     await mutate();
+    void globalMutate("/api/navigation/summary");
   };
 
   const totalRecommendedAmount = data.proposals.reduce(
