@@ -64,7 +64,7 @@ export function ModalPanel({
       role="dialog"
       aria-modal="true"
       className={cn(
-        "w-full max-h-[92vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:rounded-3xl sm:p-5",
+        "w-full max-h-[85vh] overflow-y-auto rounded-t-3xl border border-zinc-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:max-h-[92vh] sm:rounded-3xl sm:p-5 sm:pb-5",
         className
       )}
       {...props}

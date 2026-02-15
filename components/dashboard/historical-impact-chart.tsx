@@ -23,6 +23,8 @@ export function HistoricalImpactChart({
     totalSent: entry.jointSent + entry.discretionarySent
   }));
 
+  const needsRotation = chartData.length > 4;
+
   return (
     <div className="w-full">
       <ChartLegend
@@ -33,8 +35,16 @@ export function HistoricalImpactChart({
       />
       <div className="h-[220px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
-            <XAxis dataKey="year" tick={{ fill: chartText.axis, fontSize: 12 }} />
+          <BarChart
+            data={chartData}
+            margin={{ top: 22, right: 4, left: -10, bottom: needsRotation ? 16 : 0 }}
+          >
+            <XAxis
+              dataKey="year"
+              tick={{ fill: chartText.axis, fontSize: needsRotation ? 10 : 12 }}
+              angle={needsRotation ? -45 : 0}
+              textAnchor={needsRotation ? "end" : "middle"}
+            />
             <Tooltip
               cursor={false}
               formatter={(value: number) => currency(value)}

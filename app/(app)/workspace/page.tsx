@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import useSWR from "swr";
-import { Gift, History, ListChecks, Plus } from "lucide-react";
+import { Gift, History, ListChecks, Plus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
@@ -20,15 +21,30 @@ export default function WorkspacePage() {
   );
 
   if (workspaceQuery.isLoading) {
-    return <p className="text-sm text-zinc-500">Loading workspace...</p>;
+    return (
+      <div className="page-stack pb-4">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
-      <p className="text-sm text-rose-600">
-        Failed to load workspace data
-        {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
-      </p>
+      <Card className="p-4">
+        <p className="text-sm text-rose-600">
+          Failed to load workspace data
+          {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
+        </p>
+        <button
+          type="button"
+          onClick={() => void workspaceQuery.mutate()}
+          className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </button>
+      </Card>
     );
   }
 

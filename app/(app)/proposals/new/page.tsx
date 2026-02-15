@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
-import { ChevronDown } from "lucide-react";
+import { AlertCircle, ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
@@ -256,7 +256,7 @@ export default function NewProposalPage() {
                 <div
                   id="organization-name-suggestions-list"
                   role="listbox"
-                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   {matchingTitleSuggestions.map((suggestion) => (
                     <button
@@ -267,7 +267,7 @@ export default function NewProposalPage() {
                         setOrganizationName(suggestion);
                         setIsTitleSuggestionsOpen(false);
                       }}
-                      className="block w-full rounded-lg px-2 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="block w-full rounded-lg px-2 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
                       {suggestion}
                     </button>
@@ -280,7 +280,7 @@ export default function NewProposalPage() {
                         setOrganizationName(organizationName.trim());
                         setIsTitleSuggestionsOpen(false);
                       }}
-                      className="mt-1 block w-full rounded-lg border border-dashed border-zinc-300 px-2 py-1.5 text-left text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="mt-1 block w-full rounded-lg border border-dashed border-zinc-300 px-2 py-2.5 text-left text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       Add as new organization: {organizationName.trim()}
                     </button>
@@ -466,7 +466,12 @@ export default function NewProposalPage() {
             </button>
           </div>
 
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? (
+            <div className="error-message-box">
+              <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>{error}</span>
+            </div>
+          ) : null}
         </form>
       </Card>
 

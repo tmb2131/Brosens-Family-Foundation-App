@@ -17,7 +17,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 
 const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
-  { ssr: false, loading: () => <div className="h-[220px] w-full" /> }
+  { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /></div> }
 );
 import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
