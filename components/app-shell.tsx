@@ -465,6 +465,7 @@ export function AppShell({ children }: PropsWithChildren) {
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||
       pathname.startsWith("/meeting") ||
+      pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
   const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
   const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(

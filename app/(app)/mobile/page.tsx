@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ListChecks, RefreshCw, Wallet } from "lucide-react";
@@ -29,6 +29,14 @@ export default function MobileFocusPage() {
     }
     return value;
   }, [searchParams]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    void workspaceQuery.mutate().finally(() => {
+      setTimeout(() => setIsRefreshing(false), 600);
+    });
+  }, [workspaceQuery]);
 
   if (workspaceQuery.isLoading) {
     return (
@@ -78,11 +86,15 @@ export default function MobileFocusPage() {
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Today&apos;s Focus</p>
         <button
           type="button"
-          onClick={() => void workspaceQuery.mutate()}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
+          onClick={(e) => {
+            e.currentTarget.blur();
+            handleRefresh();
+          }}
+          disabled={isRefreshing}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-zinc-500 transition-colors active:bg-zinc-100 dark:active:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 focus:outline-none"
           aria-label="Refresh data"
         >
-          <RefreshCw className="h-3 w-3" /> Refresh
+          <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
         </button>
       </div>
 
