@@ -1546,7 +1546,7 @@ function buildIntroductionEmailContent(recipientName: string) {
     "- Tuesday summary — your pending proposals and who to chase",
     "- Sent confirmation — proposals marked as sent that day",
     "",
-    "Each email links directly to the action. No noise.",
+    "Each email links directly to the action.",
     "",
     "Please add notifications@brosensfoundation.com to your contacts now so these don't end up in spam.",
     "",
@@ -1563,7 +1563,7 @@ function buildIntroductionEmailContent(recipientName: string) {
 <li><strong>Tuesday summary</strong> &mdash; your pending proposals and who to chase</li>
 <li><strong>Sent confirmation</strong> &mdash; proposals marked as sent that day</li>
 </ul>
-<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Each email links directly to the action. No noise.</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Each email links directly to the action.</p>
 <p style="margin:0 0 4px 0;font-size:15px;line-height:1.5;color:#111827;"><strong>Please add <span style="color:#2563eb;">notifications@brosensfoundation.com</span> to your contacts now</strong> so these don&rsquo;t end up in spam.</p>
 ${emailButton("Open Foundation App", appUrl)}`;
 
