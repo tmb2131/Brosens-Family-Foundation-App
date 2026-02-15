@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ListChecks, RefreshCw, Wallet } from "lucide-react";
@@ -18,7 +19,11 @@ const ACTION_ITEMS_PREVIEW_LIMIT = 2;
 
 export default function MobileFocusPage() {
   const { user } = useAuth();
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const searchParams = useSearchParams();
+
+  useEffect(() => setMounted(true), []);
   const workspaceQuery = useSWR<WorkspaceSnapshot>(user ? "/api/workspace" : null, {
     refreshInterval: 30_000
   });
@@ -84,18 +89,30 @@ export default function MobileFocusPage() {
     <div className="page-stack pb-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Today&apos;s Focus</p>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.currentTarget.blur();
-            handleRefresh();
-          }}
-          disabled={isRefreshing}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-zinc-500 transition-colors active:bg-zinc-100 dark:active:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 focus:outline-none"
-          aria-label="Refresh data"
-        >
-          <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
-        </button>
+        <div className="flex items-center gap-1.5">
+          {mounted && (
+            <button
+              type="button"
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-card text-sm transition-colors active:bg-zinc-100 dark:active:bg-zinc-800 focus:outline-none"
+              aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
+            >
+              {resolvedTheme === "dark" ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.currentTarget.blur();
+              handleRefresh();
+            }}
+            disabled={isRefreshing}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-zinc-500 transition-colors active:bg-zinc-100 dark:active:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 focus:outline-none"
+            aria-label="Refresh data"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
+          </button>
+        </div>
       </div>
 
       {deepLinkTarget ? (
