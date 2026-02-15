@@ -85,7 +85,7 @@ export default function NewProposalPage() {
   const showCreateTitleOption = Boolean(organizationName.trim()) && !hasExactTitleSuggestion;
   const hasAnyTitleSuggestions = matchingTitleSuggestions.length > 0 || showCreateTitleOption;
   const showTitleSuggestionsPanel = isTitleSuggestionsOpen && hasAnyTitleSuggestions;
-  const isManager = user?.role === "manager";
+  const isManager = user?.role === "manager" || user?.role === "admin";
 
   useEffect(() => {
     if (isManager && proposalType !== "joint") {

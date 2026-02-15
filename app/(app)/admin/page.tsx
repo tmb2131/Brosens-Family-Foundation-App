@@ -8,7 +8,7 @@ import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber } from "@/lib/utils";
-import { DIRECTIONAL_CATEGORY_LABELS, FoundationSnapshot } from "@/lib/types";
+import { FoundationSnapshot } from "@/lib/types";
 
 interface AdminQueueResponse {
   proposals: FoundationSnapshot["proposals"];
@@ -159,12 +159,10 @@ export default function AdminPage() {
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="break-words text-sm font-semibold">{proposal.title}</h3>
-                    {proposal.organizationName !== "Unknown Organization" ? (
+                    {proposal.organizationName !== "Unknown Organization" &&
+                    proposal.organizationName !== proposal.title ? (
                       <p className="mt-1 text-xs text-zinc-500">{proposal.organizationName}</p>
                     ) : null}
-                    <p className="mt-1 inline-flex items-center rounded-full border border-zinc-300 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
-                      {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
-                    </p>
 
                     <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
                       <div className="min-w-0 sm:shrink-0">

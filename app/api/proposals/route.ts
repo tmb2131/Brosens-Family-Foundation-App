@@ -25,7 +25,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { admin, profile } = await requireAuthContext();
-    assertRole(profile, ["member", "oversight", "manager"]);
+    assertRole(profile, ["member", "oversight", "manager", "admin"]);
 
     const body = await request.json();
     const organizationName = String(body.organizationName ?? body.title ?? "").trim();
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       throw new HttpError(400, "Invalid proposalType.");
     }
 
-    if (profile.role === "manager" && proposalType !== "joint") {
+    if ((profile.role === "manager" || profile.role === "admin") && proposalType !== "joint") {
       throw new HttpError(403, "Managers can only submit joint proposals.");
     }
 
