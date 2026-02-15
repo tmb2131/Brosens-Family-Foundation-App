@@ -154,6 +154,56 @@ export default function NewProposalPage() {
     setIsConfirmDialogOpen(true);
   };
 
+  const budgetCardContent = (
+    <>
+      <CardTitle>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardTitle>
+      {workspaceQuery.isLoading ? (
+        <p className="mt-2 text-sm text-zinc-500">Loading budget details...</p>
+      ) : workspaceQuery.error || !workspaceQuery.data ? (
+        <p className="mt-2 text-sm text-rose-600">
+          Could not load your budget details. You can still submit a proposal.
+        </p>
+      ) : isManager ? (
+        <p className="mt-2 text-sm text-zinc-500">
+          Managers do not have an individual budget. Manager profiles can submit joint proposals only.
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <PersonalBudgetBars
+              title="Joint Budget Tracker"
+              allocated={workspaceQuery.data.personalBudget.jointAllocated}
+              total={workspaceQuery.data.personalBudget.jointTarget}
+            />
+            <PersonalBudgetBars
+              title="Discretionary Budget Tracker"
+              allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
+              total={workspaceQuery.data.personalBudget.discretionaryCap}
+            />
+          </div>
+          <div className="mt-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2 lg:grid-cols-1">
+            <p>Joint remaining: {currency(workspaceQuery.data.personalBudget.jointRemaining)}</p>
+            <p>
+              Discretionary remaining:{" "}
+              {currency(workspaceQuery.data.personalBudget.discretionaryRemaining)}
+            </p>
+          </div>
+          <p className="mt-2 text-xs text-zinc-500">
+            {proposalType === "joint"
+              ? `Joint proposals use your joint voting allocation. You currently have ${currency(
+                  workspaceQuery.data.personalBudget.jointRemaining
+                )} remaining.`
+              : proposalType === "discretionary"
+              ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
+                  workspaceQuery.data.personalBudget.discretionaryRemaining
+                )} remaining.`
+              : "Select a proposal type to see how this proposal affects your budget."}
+          </p>
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="page-stack pb-4">
       <Card className="hidden rounded-3xl sm:block">
@@ -165,60 +215,15 @@ export default function NewProposalPage() {
         </p>
       </Card>
 
-      <Card>
-        <CardTitle>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardTitle>
-        {workspaceQuery.isLoading ? (
-          <p className="mt-2 text-sm text-zinc-500">Loading budget details...</p>
-        ) : workspaceQuery.error || !workspaceQuery.data ? (
-          <p className="mt-2 text-sm text-rose-600">
-            Could not load your budget details. You can still submit a proposal.
-          </p>
-        ) : isManager ? (
-          <p className="mt-2 text-sm text-zinc-500">
-            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
-          </p>
-        ) : (
-          <>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <PersonalBudgetBars
-                title="Joint Budget Tracker"
-                allocated={workspaceQuery.data.personalBudget.jointAllocated}
-                total={workspaceQuery.data.personalBudget.jointTarget}
-              />
-              <PersonalBudgetBars
-                title="Discretionary Budget Tracker"
-                allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
-                total={workspaceQuery.data.personalBudget.discretionaryCap}
-              />
-            </div>
-            <div className="mt-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2">
-              <p>Joint remaining: {currency(workspaceQuery.data.personalBudget.jointRemaining)}</p>
-              <p>
-                Discretionary remaining:{" "}
-                {currency(workspaceQuery.data.personalBudget.discretionaryRemaining)}
-              </p>
-            </div>
-            <p className="mt-2 text-xs text-zinc-500">
-              {proposalType === "joint"
-                ? `Joint proposals use your joint voting allocation. You currently have ${currency(
-                    workspaceQuery.data.personalBudget.jointRemaining
-                  )} remaining.`
-                : proposalType === "discretionary"
-                ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
-                    workspaceQuery.data.personalBudget.discretionaryRemaining
-                  )} remaining.`
-                : "Select a proposal type to see how this proposal affects your budget."}
-            </p>
-          </>
-        )}
-      </Card>
+      <Card className="lg:hidden">{budgetCardContent}</Card>
 
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
       <Card>
         <form className="space-y-4" onSubmit={submit}>
           <label className="block text-sm font-medium">
             Organization name
             <div
-              className="relative mt-1"
+              className="relative mt-1 flex rounded-xl border border-zinc-300 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)] dark:border-zinc-700"
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                   setIsTitleSuggestionsOpen(false);
@@ -238,14 +243,14 @@ export default function NewProposalPage() {
                   }
                 }}
                 autoComplete="off"
-                className="field-control w-full rounded-xl pr-12"
+                className="min-w-0 flex-1 rounded-l-xl border-none bg-white px-2 py-2 text-sm text-zinc-900 shadow-none outline-none dark:bg-zinc-900 dark:text-zinc-100"
                 required
               />
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setIsTitleSuggestionsOpen((open) => !open)}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-xl border-l bg-zinc-50 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                className="flex w-10 shrink-0 items-center justify-center rounded-r-xl border-l border-zinc-300 bg-zinc-50 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 aria-label="Toggle organization name suggestions"
                 aria-expanded={showTitleSuggestionsPanel}
                 aria-controls="organization-name-suggestions-list"
@@ -474,6 +479,13 @@ export default function NewProposalPage() {
           ) : null}
         </form>
       </Card>
+
+      <div className="hidden lg:block">
+        <div className="lg:sticky lg:top-6">
+          <Card>{budgetCardContent}</Card>
+        </div>
+      </div>
+      </div>
 
       {isConfirmDialogOpen ? (
         <ModalOverlay
