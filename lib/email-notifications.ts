@@ -467,7 +467,7 @@ function renderOwnProposalUpdatesText(updates: OwnProposalUpdate[]) {
       const chaseLine = proposal.chaseNames.length
         ? proposal.chaseNames.join(", ")
         : "No follow-up owner identified yet.";
-      return `${index + 1}. ${proposal.title} (${proposal.statusLabel})\n   ${proposal.summary}\n   Who to chase: ${chaseLine}\n   ${link}`;
+      return `${index + 1}. ${proposal.title} (${proposal.statusLabel})\n   ${proposal.summary}\n   Pending action from: ${chaseLine}\n   ${link}`;
     })
     .join("\n");
 }
@@ -496,7 +496,7 @@ function renderOwnProposalUpdatesHtml(updates: OwnProposalUpdate[]) {
 <a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;font-weight:600;">${escapeHtml(proposal.title)}</a>
 <span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;background-color:${badge.bg};color:${badge.text};">${escapeHtml(proposal.statusLabel)}</span><br />
 <span style="color:#4b5563;font-size:14px;">${escapeHtml(proposal.summary)}</span><br />
-<span style="color:#374151;font-size:14px;">Who to chase: ${escapeHtml(chaseLine)}</span>
+<span style="color:#374151;font-size:14px;">Pending action from: ${escapeHtml(chaseLine)}</span>
 </td></tr>
 </table>`;
     })
@@ -562,7 +562,16 @@ function buildWeeklyReminderContent(input: {
 }) {
   const actionCount = input.outstandingActions.length;
   const ownProposalCount = input.ownProposalUpdates.length;
-  const subject = `Tuesday update: ${ownProposalCount} pending proposal${ownProposalCount === 1 ? "" : "s"}, ${actionCount} action${actionCount === 1 ? "" : "s"} for you`;
+  const subjectParts: string[] = [];
+  if (ownProposalCount > 0) {
+    subjectParts.push(`${ownProposalCount} pending proposal${ownProposalCount === 1 ? "" : "s"}`);
+  }
+  if (actionCount > 0) {
+    subjectParts.push(`${actionCount} action${actionCount === 1 ? "" : "s"} for you`);
+  }
+  const subject = subjectParts.length
+    ? `Tuesday update: ${subjectParts.join(", ")}`
+    : "Tuesday update";
   const outstandingText = renderOutstandingActionsText(input.outstandingActions);
   const outstandingHtml = renderOutstandingActionsHtml(input.outstandingActions);
   const ownProposalText = renderOwnProposalUpdatesText(input.ownProposalUpdates);
@@ -570,17 +579,16 @@ function buildWeeklyReminderContent(input: {
   const primaryLinkPath = input.ownProposalUpdates[0]?.linkPath ?? input.outstandingActions[0]?.linkPath ?? "/workspace";
   const openUrl = buildOpenUrl(primaryLinkPath);
 
+  const actionsSection = { heading: "Outstanding required actions", text: outstandingText, html: outstandingHtml, hasItems: actionCount > 0 };
+  const proposalsSection = { heading: "Your pending proposals", text: ownProposalText, html: ownProposalHtml, hasItems: ownProposalCount > 0 };
+  const sections = [actionsSection, proposalsSection].sort((a, b) => (a.hasItems === b.hasItems ? 0 : a.hasItems ? -1 : 1));
+
   const textBody = [
     `Hi ${input.recipientName},`,
     "",
     "Here is your Tuesday update.",
     `${openUrl}`,
-    "",
-    "Your pending proposals and who to chase:",
-    ownProposalText,
-    "",
-    "Outstanding required actions:",
-    outstandingText,
+    ...sections.flatMap((s) => ["", `${s.heading}:`, s.text]),
     "",
     "Brosens Family Foundation"
   ].join("\n");
@@ -589,10 +597,7 @@ function buildWeeklyReminderContent(input: {
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hi ${escapeHtml(input.recipientName)},</p>
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Here is your Tuesday update.</p>
 ${emailButton("Open Actions", openUrl)}
-${emailSectionHeading("Your pending proposals and who to chase")}
-${ownProposalHtml}
-${emailSectionHeading("Outstanding required actions")}
-${outstandingHtml}`;
+${sections.map((s) => `${emailSectionHeading(s.heading)}\n${s.html}`).join("\n")}`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
 
