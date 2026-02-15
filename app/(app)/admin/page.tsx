@@ -29,7 +29,7 @@ export default function AdminPage() {
     return (
       <GlassCard>
         <CardLabel>Execution Queue Access</CardLabel>
-        <p className="mt-2 text-sm text-zinc-500">Only Brynn (Admin role) can execute approved grants.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Only Brynn (Admin role) can execute approved grants.</p>
       </GlassCard>
     );
   }
@@ -44,7 +44,7 @@ export default function AdminPage() {
   }
 
   if (isLoading || !data) {
-    return <p className="text-sm text-zinc-500">Loading execution queue...</p>;
+    return <p className="text-sm text-muted-foreground">Loading execution queue...</p>;
   }
 
   const markSent = async (proposalId: string) => {
@@ -110,15 +110,15 @@ export default function AdminPage() {
       <GlassCard className="rounded-3xl">
         <CardLabel>Administrator Workspace</CardLabel>
         <CardValue>Donation Execution Cues</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           Approved grants appear here. Mark as Sent once external donation execution is complete.
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>{formatNumber(data.proposals.length)} queued proposal(s)</span>
-          <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+          <span className="hidden text-border sm:inline">|</span>
           <span>{formatNumber(jointQueued)} joint</span>
-          <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+          <span className="hidden text-border sm:inline">|</span>
           <span>{formatNumber(discretionaryQueued)} discretionary</span>
         </div>
       </GlassCard>
@@ -141,7 +141,7 @@ export default function AdminPage() {
       <div className="space-y-3">
         {data.proposals.length === 0 ? (
           <GlassCard>
-            <p className="text-sm text-zinc-500">No approved proposals awaiting execution.</p>
+            <p className="text-sm text-muted-foreground">No approved proposals awaiting execution.</p>
           </GlassCard>
         ) : (
           data.proposals.map((proposal) => {
@@ -163,12 +163,12 @@ export default function AdminPage() {
                     <h3 className="break-words text-sm font-semibold">{proposal.title}</h3>
                     {proposal.organizationName !== "Unknown Organization" &&
                     proposal.organizationName !== proposal.title ? (
-                      <p className="mt-1 text-xs text-zinc-500">{proposal.organizationName}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{proposal.organizationName}</p>
                     ) : null}
 
                     <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
                       <div className="min-w-0 sm:shrink-0">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 leading-tight">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">
                           Send amount
                         </p>
                         <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
@@ -179,7 +179,7 @@ export default function AdminPage() {
                       <div className="w-full max-w-full sm:w-[12rem] sm:shrink-0">
                         <label
                           htmlFor={`sent-date-${proposal.id}`}
-                          className="block text-xs font-semibold uppercase tracking-wide text-zinc-500 leading-tight"
+                          className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight"
                         >
                           Date sent
                         </label>
@@ -216,7 +216,7 @@ export default function AdminPage() {
                     </div>
 
                     {proposal.organizationWebsite || proposal.charityNavigatorUrl ? (
-                      <div className="mt-3 space-y-1 text-xs text-zinc-600">
+                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                         {proposal.organizationWebsite ? (
                           <p className="break-all">
                             Organization website:{" "}

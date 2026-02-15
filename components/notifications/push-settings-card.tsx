@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { NotificationPreferences } from "@/lib/types";
 
 interface PushPreferencesResponse {
@@ -304,12 +305,12 @@ export function PushSettingsCard() {
     <GlassCard>
       <CardLabel>Mobile Push Notifications</CardLabel>
       {error ? <p className="mt-2 text-sm text-rose-600">{error.message}</p> : null}
-      {isLoading ? <p className="mt-2 text-sm text-zinc-500">Loading notification settings...</p> : null}
+      {isLoading ? <p className="mt-2 text-sm text-muted-foreground">Loading notification settings...</p> : null}
 
       {!isLoading && !error ? (
         <>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{statusLabel}</p>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-2 text-sm text-muted-foreground">{statusLabel}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
             Permission:{" "}
             <span className="font-medium capitalize">
               {permission === "unsupported" ? "unsupported" : permission}
@@ -317,7 +318,7 @@ export function PushSettingsCard() {
           </p>
 
           {!standalone ? (
-            <p className="mt-2 text-xs text-zinc-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               iPhone/iPad: Share menu - Add to Home Screen. Android: browser menu - Install app.
             </p>
           ) : null}
@@ -341,31 +342,29 @@ export function PushSettingsCard() {
           </div>
 
           <div className="mt-4 space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Event Preferences
             </p>
             {EVENT_TOGGLE_OPTIONS.map((option) => {
               const checked = Boolean(data?.preferences?.[option.key]);
+              const isDisabled =
+                busy ||
+                savingPreferenceKey === option.key ||
+                !data?.preferences?.pushEnabled;
               return (
-                <label key={option.key} className="flex items-start gap-3 rounded-xl border p-3">
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 rounded-sm border-zinc-400"
-                    checked={checked}
-                    disabled={
-                      busy ||
-                      savingPreferenceKey === option.key ||
-                      !data?.preferences?.pushEnabled
-                    }
-                    onChange={(event) => void updatePreference(option.key, event.target.checked)}
-                  />
-                  <span>
-                    <span className="block text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                <div key={option.key} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
                       {option.label}
-                    </span>
-                    <span className="block text-xs text-zinc-500">{option.description}</span>
-                  </span>
-                </label>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{option.description}</p>
+                  </div>
+                  <Switch
+                    checked={checked}
+                    disabled={isDisabled}
+                    onCheckedChange={(value) => void updatePreference(option.key, value)}
+                  />
+                </div>
               );
             })}
           </div>

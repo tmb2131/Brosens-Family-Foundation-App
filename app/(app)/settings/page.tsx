@@ -139,7 +139,7 @@ export default function SettingsPage() {
   }, [organizationCategoriesQuery.data?.organizations, selectedOrganizationId]);
 
   if (!user) {
-    return <p className="text-sm text-zinc-500">Loading settings...</p>;
+    return <p className="text-sm text-muted-foreground">Loading settings...</p>;
   }
 
   const submit = async (event: FormEvent) => {
@@ -339,7 +339,7 @@ export default function SettingsPage() {
       <GlassCard className="rounded-3xl">
         <CardLabel>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardLabel>
         <CardValue>{canManageBudget ? "Budget & Annual Cycle" : "Password & Security"}</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           {canManageBudget
             ? "February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31."
@@ -349,7 +349,7 @@ export default function SettingsPage() {
 
       <GlassCard>
         <CardLabel>Password Reset</CardLabel>
-        <p className="mt-1 text-sm text-zinc-500">Send a secure password reset link to {user.email}.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Send a secure password reset link to {user.email}.</p>
         <Button
           variant="outline"
           size="lg"
@@ -371,14 +371,14 @@ export default function SettingsPage() {
       {user.role === "oversight" ? (
         <GlassCard>
           <CardLabel>Historical Proposals CSV Import</CardLabel>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Upload historical proposal records. Required headers:{" "}
-            <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">
               organization, budget_year, final_amount
             </code>
             .
           </p>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Optional headers: title, description, status, proposal_type, allocation_mode, notes, sent_at, created_at, website,
             cause_area, charity_navigator_score.
           </p>
@@ -391,7 +391,7 @@ export default function SettingsPage() {
                 setHistoricalCsvFile(event.target.files?.[0] ?? null);
                 setHistoricalImportMessage(null);
               }}
-              className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-zinc-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-100 dark:text-zinc-300 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-200 dark:hover:file:bg-zinc-800"
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
             />
             <Button
               size="lg"
@@ -419,7 +419,7 @@ export default function SettingsPage() {
       {canManageOrganizationCategories ? (
         <GlassCard>
           <CardLabel>Organization Category Worker</CardLabel>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Trigger organization categorization now without waiting for scheduled worker runs.
           </p>
           <Button
@@ -448,13 +448,13 @@ export default function SettingsPage() {
         <GlassCard>
           <CardLabel>Organization Category Overrides</CardLabel>
           {organizationCategoriesQuery.isLoading ? (
-            <p className="mt-2 text-sm text-zinc-500">Loading organizations...</p>
+            <p className="mt-2 text-sm text-muted-foreground">Loading organizations...</p>
           ) : organizationCategoriesQuery.error ? (
             <p className="mt-2 text-sm text-rose-600">
               Could not load organizations: {organizationCategoriesQuery.error.message}
             </p>
           ) : !organizationCategoriesQuery.data?.organizations.length ? (
-            <p className="mt-2 text-sm text-zinc-500">No organizations available yet.</p>
+            <p className="mt-2 text-sm text-muted-foreground">No organizations available yet.</p>
           ) : (
             <form className="mt-3 space-y-3" onSubmit={saveCategoryOverride}>
               <div className="space-y-1.5">
@@ -517,7 +517,7 @@ export default function SettingsPage() {
               </label>
 
               {selectedOrganization ? (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   Current source: {selectedOrganization.directionalCategorySource}. Confidence:{" "}
                   {selectedOrganization.directionalCategoryConfidence === null
                     ? "—"
@@ -564,7 +564,7 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm text-rose-600">{error.message}</p>
               </>
             ) : isLoading || !data ? (
-              <p className="text-sm text-zinc-500">Loading settings...</p>
+              <p className="text-sm text-muted-foreground">Loading settings...</p>
             ) : (
               <form className="space-y-3" onSubmit={submit}>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -587,7 +587,7 @@ export default function SettingsPage() {
                       value={totalAmount}
                       onChange={(event) => setTotalAmount(event.target.value)}
                     />
-                    <p className="mt-1 text-[11px] text-zinc-500">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Amount preview: {parsedTotalAmount !== null ? currency(parsedTotalAmount) : "—"}
                     </p>
                   </div>
@@ -603,7 +603,7 @@ export default function SettingsPage() {
                       value={rollover}
                       onChange={(event) => setRollover(event.target.value)}
                     />
-                    <p className="mt-1 text-[11px] text-zinc-500">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Amount preview: {parsedRollover !== null ? currency(parsedRollover) : "—"}
                     </p>
                   </div>
@@ -617,7 +617,7 @@ export default function SettingsPage() {
                       value={jointRatio}
                       onChange={(event) => setJointRatio(event.target.value)}
                     />
-                    <p className="mt-1 text-[11px] text-zinc-500">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Split preview:{" "}
                       {parsedJointRatio !== null
                         ? `${formatNumber(parsedJointRatio * 100, {
@@ -637,7 +637,7 @@ export default function SettingsPage() {
                       value={discretionaryRatio}
                       onChange={(event) => setDiscretionaryRatio(event.target.value)}
                     />
-                    <p className="mt-1 text-[11px] text-zinc-500">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Split preview:{" "}
                       {parsedDiscretionaryRatio !== null
                         ? `${formatNumber(parsedDiscretionaryRatio * 100, {
@@ -649,7 +649,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   Planned total budget preview (fund + roll-over):{" "}
                   {projectedTotalBudget !== null ? currency(projectedTotalBudget) : "—"}
                 </p>
@@ -663,7 +663,7 @@ export default function SettingsPage() {
                   {saving ? "Saving..." : "Save Budget"}
                 </Button>
 
-                {message ? <p className="text-xs text-zinc-600">{message}</p> : null}
+                {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
               </form>
             )}
           </GlassCard>
@@ -696,10 +696,10 @@ export default function SettingsPage() {
                 >
                   <Progress
                     value={Math.min(jointUtilization, 100)}
-                    className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+                    className="mt-2 h-1.5 bg-muted"
                     indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
                   />
-                  <p className="mt-1 text-[11px] text-zinc-400">
+                  <p className="mt-1 text-[11px] text-muted-foreground">
                     {Math.round(jointUtilization)}% utilized
                   </p>
                 </MetricCard>
@@ -713,10 +713,10 @@ export default function SettingsPage() {
                 >
                   <Progress
                     value={Math.min(discretionaryUtilization, 100)}
-                    className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+                    className="mt-2 h-1.5 bg-muted"
                     indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
                   />
-                  <p className="mt-1 text-[11px] text-zinc-400">
+                  <p className="mt-1 text-[11px] text-muted-foreground">
                     {Math.round(discretionaryUtilization)}% utilized
                   </p>
                 </MetricCard>
@@ -727,7 +727,7 @@ export default function SettingsPage() {
       ) : (
         <GlassCard>
           <CardLabel>Budget Controls</CardLabel>
-          <p className="mt-2 text-sm text-zinc-500">
+          <p className="mt-2 text-sm text-muted-foreground">
             Budget management is available only for Tom (oversight) and Dad (manager).
           </p>
         </GlassCard>

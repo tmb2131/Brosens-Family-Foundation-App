@@ -21,7 +21,7 @@ export function Guard({ children }: PropsWithChildren) {
 
   if (loading || !user) {
     return (
-      <div className="min-h-[40vh] grid place-items-center text-sm text-zinc-500">
+      <div className="min-h-[40vh] grid place-items-center text-sm text-muted-foreground">
         Checking secure session...
       </div>
     );

@@ -290,7 +290,7 @@ export default function ReportsPage() {
   };
 
   if (!user) {
-    return <p className="text-sm text-zinc-500">Loading secure report view...</p>;
+    return <p className="text-sm text-muted-foreground">Loading secure report view...</p>;
   }
 
   if (!canAccess) {
@@ -305,7 +305,7 @@ export default function ReportsPage() {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-zinc-500">Loading annual report...</p>;
+    return <p className="text-sm text-muted-foreground">Loading annual report...</p>;
   }
 
   if (error || !data) {
@@ -323,13 +323,13 @@ export default function ReportsPage() {
           <div>
             <CardLabel>Annual Proposal Report</CardLabel>
             <CardValue>{selectedYearLabel}</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Include/exclude proposal statuses below, then export using Print / PDF.
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
-            <label className="text-xs font-semibold text-zinc-500">
+            <label className="text-xs font-semibold text-muted-foreground">
               Budget year
               <select
                 className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-md border px-3 py-1 text-sm outline-none mt-1 block"
@@ -360,7 +360,7 @@ export default function ReportsPage() {
         <div className="hidden print:block">
           <CardLabel>Annual Proposal Report</CardLabel>
           <CardValue>{selectedYearLabel}</CardValue>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             Included statuses: {activeStatuses.map((status) => titleCase(status)).join(", ")}
           </p>
         </div>
@@ -372,7 +372,7 @@ export default function ReportsPage() {
               className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
                 statusFilters[status]
                   ? "border-accent bg-accent/10 text-accent"
-                  : "border-zinc-300 text-zinc-500 dark:border-zinc-700"
+                  : "border-border text-muted-foreground"
               }`}
             >
               <input
@@ -390,7 +390,7 @@ export default function ReportsPage() {
             className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold ${
               categoryFilter === "all"
                 ? "border-accent bg-accent/10 text-accent"
-                : "border-zinc-300 text-zinc-500 dark:border-zinc-700"
+                : "border-border text-muted-foreground"
             }`}
           >
             <input
@@ -407,7 +407,7 @@ export default function ReportsPage() {
               className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold ${
                 categoryFilter === category
                   ? "border-accent bg-accent/10 text-accent"
-                  : "border-zinc-300 text-zinc-500 dark:border-zinc-700"
+                  : "border-border text-muted-foreground"
               }`}
             >
               <input
@@ -550,18 +550,18 @@ export default function ReportsPage() {
         <div className="mb-2 flex items-center justify-between gap-2">
           <div>
             <CardLabel>Year Proposals</CardLabel>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               Compact report table for {isAllYearsView ? "all years" : `budget year ${selectedYearLabel}`} and statuses.
             </p>
           </div>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Showing {formatNumber(filteredProposals.length)} of {formatNumber(data.proposals.length)}
           </p>
         </div>
 
         <div className="space-y-2 md:hidden">
           {filteredProposals.length === 0 ? (
-            <p className="rounded-xl border p-4 text-sm text-zinc-500">
+            <p className="rounded-xl border p-4 text-sm text-muted-foreground">
               No proposals match the selected status filters.
             </p>
           ) : (
@@ -578,10 +578,10 @@ export default function ReportsPage() {
                   <p className="text-sm font-medium">{proposal.title}</p>
                   <StatusPill status={proposal.status} />
                 </div>
-                <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                <p className="mt-2 text-lg font-semibold text-foreground">
                   {currency(proposal.progress.computedFinalAmount)}
                 </p>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <p>Type: {titleCase(proposal.proposalType)}</p>
                   <p>Sent: {proposal.sentAt ?? "—"}</p>
                   <p className="col-span-2">Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}</p>
@@ -618,7 +618,7 @@ export default function ReportsPage() {
             <tbody>
               {filteredProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-2 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={6} className="px-2 py-6 text-center text-sm text-muted-foreground">
                     No proposals match the selected status filters.
                   </td>
                 </tr>
@@ -628,19 +628,19 @@ export default function ReportsPage() {
                     <td className="px-2 py-2">
                       <p className="font-medium">{proposal.title}</p>
                     </td>
-                    <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+                    <td className="px-2 py-2 text-xs text-muted-foreground">
                       {titleCase(proposal.proposalType)}
                     </td>
                     <td className="px-2 py-2">
                       <StatusPill status={proposal.status} />
                     </td>
-                    <td className="px-2 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                    <td className="px-2 py-2 text-xs font-semibold text-foreground">
                       {currency(proposal.progress.computedFinalAmount)}
                     </td>
-                    <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+                    <td className="px-2 py-2 text-xs text-muted-foreground">
                       {proposal.sentAt ?? "—"}
                     </td>
-                    <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
+                    <td className="px-2 py-2 text-xs text-muted-foreground">
                       {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
                     </td>
                   </DataTableRow>

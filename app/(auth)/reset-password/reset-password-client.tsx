@@ -70,7 +70,7 @@ export default function ResetPasswordClient() {
       <GlassCard className="w-full rounded-3xl p-5">
         <CardLabel>Secure Access</CardLabel>
         <CardValue>Reset Password</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Set a new password for your account.
         </p>
 
@@ -81,17 +81,17 @@ export default function ResetPasswordClient() {
         ) : null}
 
         {authLoading ? (
-          <p className="mt-3 text-sm text-zinc-500">Validating your reset link...</p>
+          <p className="mt-3 text-sm text-muted-foreground">Validating your reset link...</p>
         ) : null}
 
         {!authLoading && configured && !user ? (
           <>
-            <p className="mt-3 text-sm text-zinc-500">
+            <p className="mt-3 text-sm text-muted-foreground">
               Open this page using the secure link from your reset email.
             </p>
             <Link
               href="/forgot-password"
-              className="mt-3 inline-flex text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              className="mt-3 inline-flex text-sm font-medium text-foreground underline-offset-2 hover:underline"
             >
               Request a new reset email
             </Link>
@@ -126,7 +126,7 @@ export default function ResetPasswordClient() {
                 autoComplete="new-password"
               />
             </div>
-            <p className="text-xs text-zinc-500">Use at least {minimumPasswordLength} characters.</p>
+            <p className="text-xs text-muted-foreground">Use at least {minimumPasswordLength} characters.</p>
             <Button
               size="lg"
               className="w-full"

@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { SWRConfig } from "swr";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 export function Providers({ children }: PropsWithChildren) {
   return (
@@ -26,6 +27,7 @@ export function Providers({ children }: PropsWithChildren) {
         >
           <TooltipProvider>
             {children}
+            <Toaster position="bottom-center" />
           </TooltipProvider>
         </SWRConfig>
       </AuthProvider>

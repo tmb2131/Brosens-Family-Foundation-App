@@ -12,16 +12,18 @@ import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/component
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/ui/status-pill";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
-  { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-zinc-200/70 dark:bg-zinc-700/50" /></div> }
+  { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-muted" /></div> }
 );
 import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
@@ -408,7 +410,6 @@ export default function DashboardPage() {
     null
   );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const foundationKey = useMemo(() => {
     if (!user) {
@@ -480,32 +481,6 @@ export default function DashboardPage() {
     }
   }, [isOversight]);
 
-  useEffect(() => {
-    if (!isExportMenuOpen) {
-      return;
-    }
-
-    const onMouseDown = (event: MouseEvent) => {
-      if (exportMenuRef.current?.contains(event.target as Node)) {
-        return;
-      }
-      setIsExportMenuOpen(false);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsExportMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      window.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isExportMenuOpen]);
 
   const filteredAndSortedProposals = useMemo(() => {
     if (!data) {
@@ -667,7 +642,7 @@ export default function DashboardPage() {
   const dirtyHistoricalCount = dirtyHistoricalProposalIds.length;
 
   if (isLoading) {
-    return <p className="text-sm text-zinc-500">Loading foundation dashboard...</p>;
+    return <p className="text-sm text-muted-foreground">Loading foundation dashboard...</p>;
   }
 
   if (error || !data) {
@@ -1208,7 +1183,7 @@ export default function DashboardPage() {
       ? "text-amber-700 dark:text-amber-300"
       : detailRequiredAction.tone === "complete"
       ? "text-emerald-700 dark:text-emerald-300"
-      : "text-zinc-700 dark:text-zinc-200"
+      : "text-foreground"
     : "";
   const detailCanOversightEditProposal = Boolean(isOversight && detailProposal);
   const detailIsOwnProposal = Boolean(user && detailProposal && detailProposal.proposerId === user.id);
@@ -1244,18 +1219,18 @@ export default function DashboardPage() {
             <CardValue className="text-xl font-bold">
               {isAllYearsView ? "All Years Master List Status" : `${selectedBudgetYear} Master List Status`}
             </CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               {data.annualCycle.monthHint}
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>Reset: {data.annualCycle.resetDate}</span>
-              <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+              <span className="hidden text-border sm:inline">|</span>
               <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
             </div>
           </div>
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-end">
-            <label className="text-xs font-semibold text-zinc-500">
+            <label className="text-xs font-semibold text-muted-foreground">
               Budget year
               <select
                 className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-lg border px-3 py-1 text-sm outline-none mt-1 block"
@@ -1304,10 +1279,10 @@ export default function DashboardPage() {
           >
             <Progress
               value={Math.min(jointUtilization, 100)}
-              className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+              className="mt-2 h-1.5 bg-muted"
               indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
             />
-            <p className="mt-1 text-[11px] text-zinc-400">{Math.round(jointUtilization)}% utilized</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(jointUtilization)}% utilized</p>
           </MetricCard>
           <MetricCard
             title="DISCRETIONARY REMAINING"
@@ -1318,10 +1293,10 @@ export default function DashboardPage() {
           >
             <Progress
               value={Math.min(discretionaryUtilization, 100)}
-              className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+              className="mt-2 h-1.5 bg-muted"
               indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
             />
-            <p className="mt-1 text-[11px] text-zinc-400">{Math.round(discretionaryUtilization)}% utilized</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(discretionaryUtilization)}% utilized</p>
           </MetricCard>
         </div>
         <GlassCard>
@@ -1329,19 +1304,20 @@ export default function DashboardPage() {
           {historyData ? (
             <HistoricalImpactChart data={historyData.historyByYear} />
           ) : (
-            <div className="h-[220px] w-full animate-pulse rounded-2xl bg-zinc-100/80 dark:bg-zinc-800/50" />
+            <div className="h-[220px] w-full animate-pulse rounded-2xl bg-muted" />
           )}
           {!isHistoryLoading && historyError ? (
-            <p className="mt-2 text-xs text-zinc-500">Historical data is temporarily unavailable.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Historical data is temporarily unavailable.</p>
           ) : null}
         </GlassCard>
       </section>
 
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
       <GlassCard className="p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardLabel>{showPendingTab ? "Pending" : "Grant Tracker"}</CardLabel>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               {showPendingTab
                 ? "All budget years. Includes proposals not yet Sent or Declined."
                 : "Statuses: To Review, Approved, Sent, Declined"}
@@ -1349,30 +1325,10 @@ export default function DashboardPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isOversight ? (
-              <div className="inline-flex rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("tracker")}
-                  className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
-                    activeTab === "tracker"
-                      ? "bg-accent text-white shadow-xs"
-                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  Grant Tracker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("pending")}
-                  className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
-                    activeTab === "pending"
-                      ? "bg-accent text-white shadow-xs"
-                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  Pending
-                </button>
-              </div>
+              <TabsList>
+                <TabsTrigger value="tracker">Grant Tracker</TabsTrigger>
+                <TabsTrigger value="pending">Pending</TabsTrigger>
+              </TabsList>
             ) : null}
             {!showPendingTab ? (
               <>
@@ -1405,7 +1361,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={cancelBulkEdit}
                       disabled={isBulkSaving}
-                      className="rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="rounded-md border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -1434,15 +1390,15 @@ export default function DashboardPage() {
                 Failed to load pending proposals: {pendingError.message}
               </p>
             ) : isPendingLoading && !pendingData ? (
-              <p className="rounded-xl border p-4 text-sm text-zinc-500">Loading pending proposals...</p>
+              <p className="rounded-xl border p-4 text-sm text-muted-foreground">Loading pending proposals...</p>
             ) : pendingProposals.length === 0 ? (
-              <p className="rounded-xl border p-4 text-sm text-zinc-500">
+              <p className="rounded-xl border p-4 text-sm text-muted-foreground">
                 No pending proposals across all budget years.
               </p>
             ) : (
               <table className="min-w-[860px] table-auto text-left text-sm">
                 <thead>
-                  <tr className="border-b text-xs uppercase tracking-wide text-zinc-500">
+                  <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="px-2 py-2">Proposal</th>
                     <th className="px-2 py-2">Type</th>
                     <th className="px-2 py-2">Amount</th>
@@ -1458,12 +1414,12 @@ export default function DashboardPage() {
                       <tr key={proposal.id} className="border-b align-top">
                         <td className="px-2 py-3">
                           <p className="font-semibold">{proposal.title}</p>
-                          <p className="mt-1 text-xs text-zinc-500">Budget year {proposal.budgetYear}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Budget year {proposal.budgetYear}</p>
                         </td>
-                        <td className="px-2 py-3 text-xs text-zinc-500">
+                        <td className="px-2 py-3 text-xs text-muted-foreground">
                           {titleCase(proposal.proposalType)}
                         </td>
-                        <td className="px-2 py-3 text-xs text-zinc-500">
+                        <td className="px-2 py-3 text-xs text-muted-foreground">
                           {masked
                             ? "Blind until your vote is submitted"
                             : currency(proposal.progress.computedFinalAmount)}
@@ -1471,7 +1427,7 @@ export default function DashboardPage() {
                         <td className="px-2 py-3">
                           <StatusPill status={proposal.status} />
                         </td>
-                        <td className="px-2 py-3 text-xs text-zinc-600 dark:text-zinc-300">
+                        <td className="px-2 py-3 text-xs text-muted-foreground">
                           {buildPendingActionRequiredLabel(proposal)}
                         </td>
                       </tr>
@@ -1484,63 +1440,36 @@ export default function DashboardPage() {
         ) : (
           <>
             <div className="mb-3 flex items-start justify-between gap-3">
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 Showing {formatNumber(filteredAndSortedProposals.length)} proposals for {selectedBudgetYearLabel}
               </p>
-              <div className="relative shrink-0" ref={exportMenuRef}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setIsExportMenuOpen((current) => !current);
-                    setExportMessage(null);
-                  }}
-                  aria-haspopup="menu"
-                  aria-expanded={isExportMenuOpen}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Export
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
-                </Button>
-                {isExportMenuOpen ? (
-                  <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                    <button
-                      type="button"
-                      onClick={exportPdf}
-                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      Export as PDF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={exportCsv}
-                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      Export as CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={exportExcel}
-                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      Export as Excel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void exportGoogleSheet();
-                      }}
-                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      Export to Google Sheet
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-3.5 w-3.5" />
+                    Export
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem className="text-xs font-semibold" onSelect={exportPdf}>
+                    Export as PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs font-semibold" onSelect={exportCsv}>
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs font-semibold" onSelect={exportExcel}>
+                    Export as Excel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs font-semibold" onSelect={() => { void exportGoogleSheet(); }}>
+                    Export to Google Sheet
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
-              <label className="text-xs font-semibold text-zinc-500">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Search
                 <Input
                   type="text"
@@ -1550,7 +1479,7 @@ export default function DashboardPage() {
                   className="mt-1 normal-case"
                 />
               </label>
-              <label className="text-xs font-semibold text-zinc-500">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Type
                 <select
                   value={filters.proposalType}
@@ -1564,7 +1493,7 @@ export default function DashboardPage() {
                   <option value="discretionary">Discretionary</option>
                 </select>
               </label>
-              <label className="text-xs font-semibold text-zinc-500">
+              <label className="text-xs font-semibold text-muted-foreground">
                 Status
                 <select
                   value={filters.status}
@@ -1605,7 +1534,7 @@ export default function DashboardPage() {
 
         <div className="space-y-3 md:hidden" onClick={() => setIsExportMenuOpen(false)}>
           {filteredAndSortedProposals.length === 0 ? (
-            <p className="rounded-xl border p-4 text-sm text-zinc-500">
+            <p className="rounded-xl border p-4 text-sm text-muted-foreground">
               No proposals match the current filters for {selectedBudgetYearLabel}.
             </p>
           ) : (
@@ -1625,7 +1554,7 @@ export default function DashboardPage() {
                   ? "text-amber-700 dark:text-amber-300"
                   : requiredAction.tone === "complete"
                   ? "text-emerald-700 dark:text-emerald-300"
-                  : "text-zinc-700 dark:text-zinc-200";
+                  : "text-foreground";
 
               return (
                 <article key={proposal.id} className={`rounded-xl border border-t-2 p-4 ${
@@ -1636,13 +1565,13 @@ export default function DashboardPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold">{proposal.title}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{proposal.description}</p>
                     </div>
                     <StatusPill status={proposal.status} />
                   </div>
 
                   {!isRowEditable ? (
-                    <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                    <p className="mt-2 text-lg font-semibold text-foreground">
                       {masked
                         ? "Blind until your vote is submitted"
                         : currency(proposal.progress.computedFinalAmount)}
@@ -1651,17 +1580,17 @@ export default function DashboardPage() {
 
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-zinc-400 dark:text-zinc-500">Type</span>
-                      <p className="font-medium text-zinc-700 dark:text-zinc-200">{titleCase(proposal.proposalType)}</p>
+                      <span className="text-muted-foreground">Type</span>
+                      <p className="font-medium text-foreground">{titleCase(proposal.proposalType)}</p>
                     </div>
                     <div>
-                      <span className="text-zinc-400 dark:text-zinc-500">Sent</span>
-                      <p className="font-medium text-zinc-700 dark:text-zinc-200">{proposal.sentAt ?? "—"}</p>
+                      <span className="text-muted-foreground">Sent</span>
+                      <p className="font-medium text-foreground">{proposal.sentAt ?? "—"}</p>
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-lg border border-zinc-200/70 bg-zinc-50/50 p-2 dark:border-zinc-700/50 dark:bg-zinc-800/30">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  <div className="mt-3 rounded-lg border border-border/70 bg-muted/50 p-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Required Action
                     </p>
                     <p className={`mt-1 text-xs ${requiredActionToneClass}`}>
@@ -1671,7 +1600,7 @@ export default function DashboardPage() {
                     {requiredAction.href && requiredAction.ctaLabel ? (
                       <Link
                         href={requiredAction.href}
-                        className="mt-2 inline-flex rounded-md border border-zinc-300 px-2 py-1 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        className="mt-2 inline-flex rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
                       >
                         {requiredAction.ctaLabel}
                       </Link>
@@ -1680,7 +1609,7 @@ export default function DashboardPage() {
 
                   <div className="mt-3 space-y-2">
                     <div>
-                      <p className="text-xs font-semibold text-zinc-500">Amount</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Amount</p>
                       {isRowEditable ? (
                         <>
                           <Input
@@ -1691,12 +1620,12 @@ export default function DashboardPage() {
                             onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
                             className="mt-1"
                           />
-                          <p className="mt-1 text-[11px] text-zinc-500">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             Amount preview: {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
                           </p>
                         </>
                       ) : (
-                        <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                        <p className="text-sm text-foreground">
                           {masked
                             ? "Blind until your vote is submitted"
                             : currency(proposal.progress.computedFinalAmount)}
@@ -1705,7 +1634,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold text-zinc-500">Status</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Status</p>
                       {isRowEditable ? (
                         <select
                           value={draft.status}
@@ -1724,14 +1653,14 @@ export default function DashboardPage() {
                           ))}
                         </select>
                       ) : (
-                        <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                        <p className="text-sm text-foreground">
                           {titleCase(proposal.status)}
                         </p>
                       )}
                     </div>
 
                     {canEditSentDate ? (
-                      <label className="block text-xs font-semibold text-zinc-500">
+                      <label className="block text-xs font-semibold text-muted-foreground">
                         Date amount sent
                         <Input
                           type="date"
@@ -1742,11 +1671,11 @@ export default function DashboardPage() {
                         />
                       </label>
                     ) : (
-                      <p className="text-xs text-zinc-500">Date amount sent: {proposal.sentAt ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground">Date amount sent: {proposal.sentAt ?? "—"}</p>
                     )}
 
                     {isRowEditable ? (
-                      <label className="block text-xs font-semibold text-zinc-500">
+                      <label className="block text-xs font-semibold text-muted-foreground">
                         Notes
                         <Input
                           type="text"
@@ -1757,7 +1686,7 @@ export default function DashboardPage() {
                         />
                       </label>
                     ) : proposal.notes?.trim() ? (
-                      <p className="text-xs text-zinc-500">Notes: {proposal.notes}</p>
+                      <p className="text-xs text-muted-foreground">Notes: {proposal.notes}</p>
                     ) : null}
 
                     {!canEditHistorical && isOwnProposal && proposal.status === "sent" ? (
@@ -1804,7 +1733,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => setDetailProposalId(proposal.id)}
-                      className="mt-3 w-full rounded-lg border border-zinc-200 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="mt-3 w-full rounded-lg border border-border py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
                     >
                       View Details
                     </button>
@@ -1860,7 +1789,7 @@ export default function DashboardPage() {
             <tbody>
               {filteredAndSortedProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-2 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={7} className="px-2 py-6 text-center text-sm text-muted-foreground">
                     No proposals match the current filters for {selectedBudgetYearLabel}.
                   </td>
                 </tr>
@@ -1876,7 +1805,7 @@ export default function DashboardPage() {
                       ? "text-amber-700 dark:text-amber-300"
                       : requiredAction.tone === "complete"
                       ? "text-emerald-700 dark:text-emerald-300"
-                      : "text-zinc-700 dark:text-zinc-200";
+                      : "text-foreground";
                   const showRequiredActionButton =
                     requiredAction.tone === "attention" &&
                     Boolean(requiredAction.href && requiredAction.ctaLabel);
@@ -1893,7 +1822,7 @@ export default function DashboardPage() {
                     !masked &&
                     (parsedDraftFinalAmount === null || parsedDraftFinalAmount < 0)
                       ? "text-rose-600"
-                      : "text-zinc-600 dark:text-zinc-300";
+                      : "text-muted-foreground";
                   const statusDisplay = isHistoricalBulkEditEnabled ? draft.status : proposal.status;
                   const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt ?? "—";
 
@@ -1904,17 +1833,17 @@ export default function DashboardPage() {
                           {proposal.title}
                         </p>
                         <p
-                          className="mt-1 block max-w-full truncate text-xs text-zinc-500"
+                          className="mt-1 block max-w-full truncate text-xs text-muted-foreground"
                           title={proposal.description}
                         >
                           {proposal.description}
                         </p>
                       </td>
-                      <td className="px-2 py-3 text-xs text-zinc-500">{titleCase(proposal.proposalType)}</td>
+                      <td className="px-2 py-3 text-xs text-muted-foreground">{titleCase(proposal.proposalType)}</td>
                       <td className="px-2 py-3 text-xs">
                         <p className={amountToneClass}>{amountDisplay}</p>
                       </td>
-                      <td className="px-2 py-3 text-xs text-zinc-500">{sentAtDisplay}</td>
+                      <td className="px-2 py-3 text-xs text-muted-foreground">{sentAtDisplay}</td>
                       <td className="px-2 py-3">
                         <StatusPill status={statusDisplay} />
                       </td>
@@ -1925,7 +1854,7 @@ export default function DashboardPage() {
                         {showRequiredActionButton ? (
                           <Link
                             href={requiredAction.href!}
-                            className="mt-2 inline-flex rounded-md border border-zinc-300 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            className="mt-2 inline-flex rounded-md border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
                           >
                             {requiredAction.ctaLabel}
                           </Link>
@@ -1963,15 +1892,16 @@ export default function DashboardPage() {
           </>
         )}
       </GlassCard>
+      </Tabs>
 
-      <Dialog
+      <ResponsiveModal
         open={!!(detailProposal && detailDraft && detailRequiredAction)}
         onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}
       >
         {detailProposal && detailDraft && detailRequiredAction ? (
-        <DialogContent
+        <ResponsiveModalContent
           aria-labelledby="proposal-details-title"
-          className="max-w-3xl rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto"
+          dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto"
           showCloseButton={false}
         >
             <div className="flex items-start justify-between gap-3">
@@ -1987,7 +1917,7 @@ export default function DashboardPage() {
                     {titleCase(detailProposal.proposalType)}
                   </Badge>
                 </div>
-                <p className="mt-1 text-sm text-zinc-500">{detailProposal.title}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{detailProposal.title}</p>
               </div>
               <Button
                 variant="outline"
@@ -1999,44 +1929,44 @@ export default function DashboardPage() {
               </Button>
             </div>
 
-            <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+            <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Proposal</dt>
-                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.title}</dd>
-                <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-500">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Proposal</dt>
+                <dd className="mt-1.5 font-semibold text-foreground">{detailProposal.title}</dd>
+                <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
                   {detailProposal.description || "—"}
                 </p>
               </div>
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Type</dt>
-                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{titleCase(detailProposal.proposalType)}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Type</dt>
+                <dd className="mt-1.5 font-semibold text-foreground">{titleCase(detailProposal.proposalType)}</dd>
               </div>
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Amount</dt>
-                <dd className="mt-1.5 text-lg font-bold text-zinc-800 dark:text-zinc-100">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
+                <dd className="mt-1.5 text-lg font-bold text-foreground">
                   {detailMasked
                     ? "Blind until your vote is submitted"
                     : currency(detailProposal.progress.computedFinalAmount)}
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Date Sent</dt>
-                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.sentAt ?? "—"}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
+                <dd className="mt-1.5 font-semibold text-foreground">{detailProposal.sentAt ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Status</dt>
-                <dd className="mt-1.5 font-semibold text-zinc-800 dark:text-zinc-100">{titleCase(detailProposal.status)}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</dt>
+                <dd className="mt-1.5 font-semibold text-foreground">{titleCase(detailProposal.status)}</dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Required Action</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Required Action</dt>
                 <dd className={`mt-1.5 ${detailRequiredActionToneClass}`}>
                   <span className="font-semibold">{detailRequiredAction.owner}:</span>{" "}
                   {detailRequiredAction.detail}
                 </dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Organization Website</dt>
-                <dd className="mt-1.5 text-zinc-800 dark:text-zinc-100">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Organization Website</dt>
+                <dd className="mt-1.5 text-foreground">
                   {detailProposal.organizationWebsite ? (
                     <a
                       href={detailProposal.organizationWebsite}
@@ -2052,8 +1982,8 @@ export default function DashboardPage() {
                 </dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Charity Navigator URL</dt>
-                <dd className="mt-1.5 text-zinc-800 dark:text-zinc-100">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator URL</dt>
+                <dd className="mt-1.5 text-foreground">
                   {detailProposal.charityNavigatorUrl ? (
                     <a
                       href={detailProposal.charityNavigatorUrl}
@@ -2069,21 +1999,21 @@ export default function DashboardPage() {
                 </dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Notes</dt>
-                <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-zinc-800 dark:text-zinc-100">{detailProposal.notes?.trim() || "—"}</dd>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</dt>
+                <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">{detailProposal.notes?.trim() || "—"}</dd>
               </div>
             </dl>
 
             {detailIsRowEditable || detailCanEditSentDate ? (
               <>
               <div className="mt-5 flex items-center gap-2">
-                <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Edit</span>
-                <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                <div className="h-px flex-1 bg-muted" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Edit</span>
+                <div className="h-px flex-1 bg-muted" />
               </div>
               <div className="mt-3 grid gap-4 md:grid-cols-2">
                 {detailIsRowEditable ? (
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Amount
                     <Input
                       type="number"
@@ -2095,7 +2025,7 @@ export default function DashboardPage() {
                       }
                       className="mt-1"
                     />
-                    <span className="mt-1 block text-[11px] text-zinc-500">
+                    <span className="mt-1 block text-[11px] text-muted-foreground">
                       Amount preview:{" "}
                       {detailParsedDraftFinalAmount !== null && detailParsedDraftFinalAmount >= 0
                         ? currency(detailParsedDraftFinalAmount)
@@ -2105,7 +2035,7 @@ export default function DashboardPage() {
                 ) : null}
 
                 {detailIsRowEditable ? (
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Status
                     <select
                       value={detailDraft.status}
@@ -2127,7 +2057,7 @@ export default function DashboardPage() {
                 ) : null}
 
                 {detailCanEditSentDate ? (
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Date amount sent
                     <Input
                       type="date"
@@ -2140,7 +2070,7 @@ export default function DashboardPage() {
                 ) : null}
 
                 {detailIsRowEditable ? (
-                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Notes
                     <Input
                       type="text"
@@ -2158,11 +2088,11 @@ export default function DashboardPage() {
             {detailCanOversightEditProposal && isDetailEditMode && detailEditDraft ? (
               <>
                 <div className="mt-5 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+                  <div className="h-px flex-1 bg-muted" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Proposal Content & Links
                   </span>
-                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                  <div className="h-px flex-1 bg-muted" />
                 </div>
                 {detailIsVoteLocked ? (
                   <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
@@ -2170,7 +2100,7 @@ export default function DashboardPage() {
                   </p>
                 ) : null}
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Proposal title
                     <Input
                       type="text"
@@ -2180,7 +2110,7 @@ export default function DashboardPage() {
                       className="mt-1"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Proposed amount
                     <Input
                       type="number"
@@ -2191,14 +2121,14 @@ export default function DashboardPage() {
                       onChange={(event) => updateDetailEditDraft("proposedAmount", event.target.value)}
                       className="mt-1"
                     />
-                    <span className="mt-1 block text-[11px] text-zinc-500">
+                    <span className="mt-1 block text-[11px] text-muted-foreground">
                       Amount preview:{" "}
                       {detailParsedDraftProposedAmount !== null && detailParsedDraftProposedAmount >= 0
                         ? currency(detailParsedDraftProposedAmount)
                         : "Invalid amount"}
                     </span>
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Description
                     <Textarea
                       value={detailEditDraft.description}
@@ -2207,7 +2137,7 @@ export default function DashboardPage() {
                       className="mt-1 min-h-20"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Notes
                     <Input
                       type="text"
@@ -2218,7 +2148,7 @@ export default function DashboardPage() {
                       className="mt-1"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Organization website URL
                     <Input
                       type="url"
@@ -2229,7 +2159,7 @@ export default function DashboardPage() {
                       placeholder="https://example.org"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
+                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Charity Navigator URL
                     <Input
                       type="url"
@@ -2272,7 +2202,7 @@ export default function DashboardPage() {
               {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
                 <Link
                   href={detailRequiredAction.href}
-                  className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className="inline-flex rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
                 >
                   {detailRequiredAction.ctaLabel}
                 </Link>
@@ -2338,9 +2268,9 @@ export default function DashboardPage() {
                 {detailRowState.text}
               </p>
             ) : null}
-        </DialogContent>
+        </ResponsiveModalContent>
         ) : null}
-      </Dialog>
+      </ResponsiveModal>
     </div>
   );
 }

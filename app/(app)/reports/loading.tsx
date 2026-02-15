@@ -1,3 +1,3 @@
 export default function ReportsLoading() {
-  return <p className="text-sm text-zinc-500">Loading reports...</p>;
+  return <p className="text-sm text-muted-foreground">Loading reports...</p>;
 }

@@ -64,7 +64,7 @@ export default function ForgotPasswordClient() {
       <GlassCard className="w-full rounded-3xl p-5">
         <CardLabel>Secure Access</CardLabel>
         <CardValue>Forgot Password</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Enter your email address and we will send a secure reset link.
         </p>
 
@@ -94,9 +94,9 @@ export default function ForgotPasswordClient() {
           </Button>
         </form>
 
-        <p className="mt-3 text-xs text-zinc-500">
+        <p className="mt-3 text-xs text-muted-foreground">
           Remembered your password?{" "}
-          <Link href="/login" className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300">
+          <Link href="/login" className="font-medium text-foreground underline-offset-2 hover:underline">
             Back to sign in
           </Link>
           .

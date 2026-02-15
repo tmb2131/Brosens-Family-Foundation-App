@@ -12,6 +12,7 @@ import { FilterPanel } from "@/components/ui/filter-panel";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 
@@ -236,7 +237,6 @@ export default function FrankDeeniePage() {
     null
   );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DonationDraft | null>(null);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
@@ -247,7 +247,6 @@ export default function FrankDeeniePage() {
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
   const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
-  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -342,32 +341,6 @@ export default function FrankDeeniePage() {
     };
   }, [detailRowId, editingId, isCreating, showAddForm]);
 
-  useEffect(() => {
-    if (!isExportMenuOpen) {
-      return;
-    }
-
-    const onMouseDown = (event: MouseEvent) => {
-      if (exportMenuRef.current?.contains(event.target as Node)) {
-        return;
-      }
-      setIsExportMenuOpen(false);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsExportMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      window.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isExportMenuOpen]);
 
   const typeOptions = useMemo(() => {
     if (!data) {
@@ -868,7 +841,7 @@ export default function FrankDeeniePage() {
   };
 
   if (!user) {
-    return <p className="text-sm text-zinc-500">Loading Frank &amp; Deenie donations...</p>;
+    return <p className="text-sm text-muted-foreground">Loading Frank &amp; Deenie donations...</p>;
   }
 
   if (!canAccess) {
@@ -883,7 +856,7 @@ export default function FrankDeeniePage() {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-zinc-500">Loading Frank &amp; Deenie donations...</p>;
+    return <p className="text-sm text-muted-foreground">Loading Frank &amp; Deenie donations...</p>;
   }
 
   if (error || !data) {
@@ -901,13 +874,13 @@ export default function FrankDeeniePage() {
           <div>
             <CardLabel>Frank &amp; Deenie</CardLabel>
             <CardValue>Donation Ledger</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Track Frank &amp; Deenie giving, with optional Children donations from this app.
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
-            <label className="text-xs font-semibold text-zinc-500">
+            <label className="text-xs font-semibold text-muted-foreground">
               Year
               <select
                 className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-md border px-3 py-1 text-sm outline-none mt-1 block"
@@ -924,7 +897,7 @@ export default function FrankDeeniePage() {
                 ))}
               </select>
             </label>
-            <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-zinc-300 px-3 text-xs font-semibold dark:border-zinc-700">
+            <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold">
               <input
                 type="checkbox"
                 checked={includeChildren}
@@ -950,64 +923,37 @@ export default function FrankDeeniePage() {
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <CardLabel>Donations</CardLabel>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-muted-foreground">
                 Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
               </p>
             </div>
-            <div className="relative shrink-0" ref={exportMenuRef}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setIsExportMenuOpen((current) => !current);
-                  setExportMessage(null);
-                }}
-                aria-haspopup="menu"
-                aria-expanded={isExportMenuOpen}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Export
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
-              </Button>
-              {isExportMenuOpen ? (
-                <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-                  <button
-                    type="button"
-                    onClick={exportPdf}
-                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    Export as PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={exportCsv}
-                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    Export as CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={exportExcel}
-                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    Export as Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void exportGoogleSheet();
-                    }}
-                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    Export to Google Sheet
-                  </button>
-                </div>
-              ) : null}
-            </div>
+            <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-3.5 w-3.5" />
+                  Export
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem className="text-xs font-semibold" onSelect={exportPdf}>
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs font-semibold" onSelect={exportCsv}>
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs font-semibold" onSelect={exportExcel}>
+                  Export as Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs font-semibold" onSelect={() => { void exportGoogleSheet(); }}>
+                  Export to Google Sheet
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <FilterPanel className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
-            <label className="text-xs font-semibold text-zinc-500">
+            <label className="text-xs font-semibold text-muted-foreground">
               Search
               <Input
                 type="text"
@@ -1018,7 +964,7 @@ export default function FrankDeeniePage() {
                 className="mt-1 normal-case"
               />
             </label>
-            <label className="text-xs font-semibold text-zinc-500">
+            <label className="text-xs font-semibold text-muted-foreground">
               Type
               <select
                 value={filters.type}
@@ -1033,7 +979,7 @@ export default function FrankDeeniePage() {
                 ))}
               </select>
             </label>
-            <label className="text-xs font-semibold text-zinc-500">
+            <label className="text-xs font-semibold text-muted-foreground">
               Status
               <select
                 value={filters.status}
@@ -1075,7 +1021,7 @@ export default function FrankDeeniePage() {
           ) : null}
 
           <div
-            className="max-h-[62vh] overflow-auto rounded-xl border border-zinc-200/80 dark:border-zinc-800"
+            className="max-h-[62vh] overflow-auto rounded-xl border border-border"
             onClick={() => {
               setOpenActionMenuRowId(null);
               setIsExportMenuOpen(false);
@@ -1119,7 +1065,7 @@ export default function FrankDeeniePage() {
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td className="px-2 py-6 text-center text-sm text-zinc-500" colSpan={6}>
+                    <td className="px-2 py-6 text-center text-sm text-muted-foreground" colSpan={6}>
                       No donations match the selected filters for {selectedYearLabel}.
                     </td>
                   </tr>
@@ -1135,7 +1081,7 @@ export default function FrankDeeniePage() {
                             row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           }`}
                         >
-                          <td className="px-2 py-3 text-xs text-zinc-500 align-middle">{tableDate(row.date)}</td>
+                          <td className="px-2 py-3 text-xs text-muted-foreground align-middle">{tableDate(row.date)}</td>
                           <td className="px-2 py-3 align-middle">
                             <div className="min-w-0">
                               <button
@@ -1155,14 +1101,14 @@ export default function FrankDeeniePage() {
                             </div>
                           </td>
                           <td className="px-2 py-3 align-middle">
-                            <p className="truncate text-xs font-semibold uppercase tracking-wide text-zinc-500" title={row.type}>
+                            <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground" title={row.type}>
                               {row.type}
                             </p>
-                            <p className="truncate text-xs text-zinc-500" title={detailsText || "No memo or split details"}>
+                            <p className="truncate text-xs text-muted-foreground" title={detailsText || "No memo or split details"}>
                               {detailsText || "No memo or split details"}
                             </p>
                           </td>
-                          <td className="px-2 py-3 text-right text-xs text-zinc-500 tabular-nums align-middle">
+                          <td className="px-2 py-3 text-right text-xs text-muted-foreground tabular-nums align-middle">
                             {formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-2 py-3 align-middle">
@@ -1191,7 +1137,7 @@ export default function FrankDeeniePage() {
                               </Button>
                               {openActionMenuRowId === row.id ? (
                                 <div
-                                  className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                                  className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-border bg-card p-1 shadow-xl"
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   <button
@@ -1200,7 +1146,7 @@ export default function FrankDeeniePage() {
                                       setDetailRowId(row.id);
                                       setOpenActionMenuRowId(null);
                                     }}
-                                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted"
                                   >
                                     View details
                                   </button>
@@ -1212,7 +1158,7 @@ export default function FrankDeeniePage() {
                                         setDetailRowId(row.id);
                                         setOpenActionMenuRowId(null);
                                       }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted"
                                     >
                                       Edit
                                     </button>
@@ -1262,7 +1208,7 @@ export default function FrankDeeniePage() {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <CardLabel>Year Split</CardLabel>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
                 </p>
               </div>
@@ -1289,14 +1235,14 @@ export default function FrankDeeniePage() {
           {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
             <GlassCard>
               <CardLabel>Import Frank &amp; Deenie CSV</CardLabel>
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Required headers:{" "}
-                <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
                   date,name,amount
                 </code>
                 . Optional: type, memo, split, status.
               </p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
               </p>
               <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
@@ -1308,7 +1254,7 @@ export default function FrankDeeniePage() {
                     setImportCsvFile(event.target.files?.[0] ?? null);
                     setImportMessage(null);
                   }}
-                  className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-zinc-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-100 dark:text-zinc-300 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-200 dark:hover:file:bg-zinc-800"
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
                 />
                 <Button
                   size="lg"
@@ -1347,7 +1293,7 @@ export default function FrankDeeniePage() {
                 <h2 id="donation-details-title" className="text-lg font-bold">
                   Donation Details
                 </h2>
-                <p className="mt-1 text-xs text-zinc-500">{detailRow.name}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{detailRow.name}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
@@ -1382,13 +1328,13 @@ export default function FrankDeeniePage() {
             {editingId === detailRow.id && editDraft ? (
               <>
                 <div className="mt-5 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Edit</span>
-                  <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Edit</span>
+                  <div className="h-px flex-1 bg-border" />
                 </div>
                 <form className="mt-3 grid gap-3" onSubmit={(event) => event.preventDefault()}>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Date
                     <Input
                       type="date"
@@ -1399,7 +1345,7 @@ export default function FrankDeeniePage() {
                       className="mt-1"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Type
                     <Input
                       type="text"
@@ -1410,7 +1356,7 @@ export default function FrankDeeniePage() {
                       className="mt-1"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Name
                     <Input
                       type="text"
@@ -1421,7 +1367,7 @@ export default function FrankDeeniePage() {
                       className="mt-1"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Amount
                     <Input
                       type="number"
@@ -1434,7 +1380,7 @@ export default function FrankDeeniePage() {
                       className="mt-1"
                     />
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Status
                     <select
                       value={editDraft.status}
@@ -1450,7 +1396,7 @@ export default function FrankDeeniePage() {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs font-semibold text-zinc-500">
+                  <label className="text-xs font-semibold text-muted-foreground">
                     Split
                     <Input
                       type="text"
@@ -1462,7 +1408,7 @@ export default function FrankDeeniePage() {
                     />
                   </label>
                 </div>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Memo / Description
                   <Input
                     type="text"
@@ -1493,39 +1439,39 @@ export default function FrankDeeniePage() {
                 </form>
               </>
             ) : (
-              <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
+              <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Date
                   </dt>
                   <dd className="mt-1 font-medium">{tableDate(detailRow.date)}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Type
                   </dt>
                   <dd className="mt-1 font-medium">{detailRow.type}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Amount
                   </dt>
                   <dd className="mt-1 text-lg font-bold">{currency(detailRow.amount)}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Status
                   </dt>
                   <dd className="mt-1 font-medium">{detailRow.status}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Split
                   </dt>
                   <dd className="mt-1 font-medium">{detailRow.split || "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Source
                   </dt>
                   <dd className="mt-1 font-medium">
@@ -1533,7 +1479,7 @@ export default function FrankDeeniePage() {
                   </dd>
                 </div>
                 <div className="md:col-span-2">
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Memo / Description
                   </dt>
                   <dd className="mt-1 whitespace-pre-wrap font-medium">{detailRow.memo || "—"}</dd>
@@ -1592,7 +1538,7 @@ export default function FrankDeeniePage() {
                 <h2 id="add-donation-title" className="text-lg font-bold">
                   Add Donation
                 </h2>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   Add a new ledger entry for the selected period.
                 </p>
               </div>
@@ -1609,7 +1555,7 @@ export default function FrankDeeniePage() {
 
             <form className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Date
                   <Input
                     type="date"
@@ -1619,7 +1565,7 @@ export default function FrankDeeniePage() {
                     required
                   />
                 </label>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Type
                   <Input
                     type="text"
@@ -1629,7 +1575,7 @@ export default function FrankDeeniePage() {
                     required
                   />
                 </label>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Name
                   <Input
                     ref={addDonationNameInputRef}
@@ -1640,7 +1586,7 @@ export default function FrankDeeniePage() {
                     required
                   />
                 </label>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Amount
                   <Input
                     type="number"
@@ -1652,7 +1598,7 @@ export default function FrankDeeniePage() {
                     required
                   />
                 </label>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Memo / Description
                   <Input
                     type="text"
@@ -1661,7 +1607,7 @@ export default function FrankDeeniePage() {
                     className="mt-1 rounded-lg"
                   />
                 </label>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Split
                   <Input
                     type="text"
@@ -1670,7 +1616,7 @@ export default function FrankDeeniePage() {
                     className="mt-1 rounded-lg"
                   />
                 </label>
-                <label className="text-xs font-semibold text-zinc-500">
+                <label className="text-xs font-semibold text-muted-foreground">
                   Status
                   <select
                     value={newDraft.status}

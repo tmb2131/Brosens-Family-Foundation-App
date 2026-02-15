@@ -1,3 +1,3 @@
 export default function WorkspaceLoading() {
-  return <p className="text-sm text-zinc-500">Loading workspace...</p>;
+  return <p className="text-sm text-muted-foreground">Loading workspace...</p>;
 }

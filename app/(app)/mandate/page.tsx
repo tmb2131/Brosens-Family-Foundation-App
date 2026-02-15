@@ -108,7 +108,7 @@ function emphasizePattern(parts: ReactNode[], pattern: RegExp, keyPrefix: string
       emphasized.push(
         <strong
           key={`${keyPrefix}-${partIndex}-${matchIndex}-${start}`}
-          className="font-semibold text-zinc-800 dark:text-zinc-100"
+          className="font-semibold text-foreground"
         >
           {matched}
         </strong>
@@ -146,7 +146,7 @@ function renderReadableLine(line: string, sectionKey: MandateSectionKey, keyPref
 
   return (
     <>
-      <strong className="font-semibold text-zinc-800 dark:text-zinc-100">{lead}</strong>
+      <strong className="font-semibold text-foreground">{lead}</strong>
       {emphasizeImportantText(rest, sectionKey, `${keyPrefix}-rest`)}
     </>
   );
@@ -160,7 +160,7 @@ function renderSectionContent(value: string, sectionKey: MandateSectionKey) {
 
   if (lines.length <= 1) {
     return (
-      <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-300">
+      <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
         {renderReadableLine(lines[0] ?? value, sectionKey, "single")}
       </p>
     );
@@ -170,7 +170,7 @@ function renderSectionContent(value: string, sectionKey: MandateSectionKey) {
 
   if (isNumberedList) {
     return (
-      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-300">
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
         {lines.map((line, index) => (
           <li key={`${line}-${index}`}>
             {renderReadableLine(line.replace(/^\d+[.)]\s+/, ""), sectionKey, `numbered-${index}`)}
@@ -181,7 +181,7 @@ function renderSectionContent(value: string, sectionKey: MandateSectionKey) {
   }
 
   return (
-    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-300">
+    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
       {lines.map((line, index) => (
         <li key={`${line}-${index}`}>
           {renderReadableLine(line.replace(/^[-*]\s+/, ""), sectionKey, `bullet-${index}`)}
@@ -227,7 +227,7 @@ export default function MandatePage() {
   }, [data, isEditing]);
 
   if (!user) {
-    return <p className="text-sm text-zinc-500">Loading mandate...</p>;
+    return <p className="text-sm text-muted-foreground">Loading mandate...</p>;
   }
 
   if (error) {
@@ -239,7 +239,7 @@ export default function MandatePage() {
   }
 
   if (isLoading || !data) {
-    return <p className="text-sm text-zinc-500">Loading mandate...</p>;
+    return <p className="text-sm text-muted-foreground">Loading mandate...</p>;
   }
 
   const updateDraftField = (key: MandateSectionKey, value: string) => {
@@ -329,13 +329,13 @@ export default function MandatePage() {
           <div>
             <CardLabel>Foundation Mandate</CardLabel>
             <CardValue>{data.policy.title}</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Version {formatNumber(data.policy.version)} | Last updated {prettyDate(data.policy.updatedAt)}
               {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
             </p>
             {!canEdit ? (
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 You have {formatNumber(data.pendingNotificationsCount)} update(s) waiting for review.
               </p>
             ) : null}
@@ -398,7 +398,7 @@ export default function MandatePage() {
       {isEditing && canEdit && draft ? (
         <GlassCard>
           <CardLabel>Edit Mandate</CardLabel>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Saving creates a new version and notifies non-oversight users about what changed in each section.
           </p>
           <div className="mt-4 space-y-3">
@@ -429,23 +429,23 @@ export default function MandatePage() {
       {canEdit ? (
         <GlassCard>
           <CardLabel>Flagged for Discussion</CardLabel>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Non-oversight users can flag updates here and leave notes for follow-up.
           </p>
 
           <div className="mt-3 space-y-2">
             {data.discussionFlags.length === 0 ? (
-              <p className="text-sm text-zinc-500">No flagged notes right now.</p>
+              <p className="text-sm text-muted-foreground">No flagged notes right now.</p>
             ) : (
               data.discussionFlags.map((flag) => (
                 <article key={flag.id} className="rounded-xl border p-3">
                   <p className="text-sm font-semibold">
                     {flag.userName ?? "Unknown user"} flagged version {formatNumber(flag.version)}
                   </p>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Flagged {prettyDate(flag.flaggedAt)} | Changed {prettyDate(flag.changedAt)}
                   </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-200">
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
                     {flag.reason}
                   </p>
                 </article>
@@ -458,17 +458,17 @@ export default function MandatePage() {
       {!canEdit ? (
         <GlassCard>
           <CardLabel>Policy Update Notifications</CardLabel>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Review each update and either acknowledge it or flag it for discussion.
           </p>
 
           {notificationMessage ? (
-            <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{notificationMessage}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{notificationMessage}</p>
           ) : null}
 
           <div className="mt-3 space-y-3">
             {data.notifications.length === 0 ? (
-              <p className="text-sm text-zinc-500">No policy updates yet.</p>
+              <p className="text-sm text-muted-foreground">No policy updates yet.</p>
             ) : (
               data.notifications.map((notification) => (
                 <article key={notification.id} className="rounded-xl border p-3">
@@ -477,7 +477,7 @@ export default function MandatePage() {
                       <p className="text-sm font-semibold">
                         Version {formatNumber(notification.version)} changes
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-muted-foreground">
                         Changed {prettyDate(notification.changedAt)}
                         {notification.changedByName ? ` by ${notification.changedByName}` : ""}
                       </p>
@@ -490,7 +490,7 @@ export default function MandatePage() {
                   </div>
 
                   {notification.diffs.length === 0 ? (
-                    <p className="mt-2 text-xs text-zinc-500">No section-level diff available.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">No section-level diff available.</p>
                   ) : (
                     <div className="mt-3 space-y-2">
                       {notification.diffs.map((diff) => (
@@ -498,18 +498,18 @@ export default function MandatePage() {
                           <summary className="cursor-pointer text-sm font-medium">{diff.label}</summary>
                           <div className="mt-2 grid gap-2 lg:grid-cols-2">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 Previous
                               </p>
-                              <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-300">
+                              <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
                                 {diff.before || "(empty)"}
                               </p>
                             </div>
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 Updated
                               </p>
-                              <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-300">
+                              <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
                                 {diff.after || "(empty)"}
                               </p>
                             </div>
@@ -546,7 +546,7 @@ export default function MandatePage() {
                         </Button>
                       </div>
                       <div className="space-y-1.5">
-                        <Label htmlFor={`flag-reason-${notification.id}`} className="text-xs text-zinc-600 dark:text-zinc-300">
+                        <Label htmlFor={`flag-reason-${notification.id}`} className="text-xs text-muted-foreground">
                           Discussion note (required if you flag this update)
                         </Label>
                         <Input

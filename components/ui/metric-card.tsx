@@ -55,7 +55,7 @@ export function MetricCard({
         <CardLabel>{title}</CardLabel>
       </div>
       <CardValue className={cn("text-2xl", valueClassName)}>{value}</CardValue>
-      {subtitle ? <p className="mt-1 text-xs text-zinc-500">{subtitle}</p> : null}
+      {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
       {children}
     </GlassCard>
   );

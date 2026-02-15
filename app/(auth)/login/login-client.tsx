@@ -154,12 +154,12 @@ export default function LoginPage() {
         <GlassCard className="w-full rounded-3xl p-5">
           <CardLabel>Redirecting</CardLabel>
           <CardValue>Password Reset</CardValue>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Redirecting to the password reset page...
           </p>
           <Link
             href="/reset-password"
-            className="mt-3 inline-flex text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            className="mt-3 inline-flex text-sm font-medium text-foreground underline-offset-2 hover:underline"
           >
             Continue manually
           </Link>
@@ -173,7 +173,7 @@ export default function LoginPage() {
       <GlassCard className="w-full rounded-3xl p-5">
         <CardLabel>Secure Access</CardLabel>
         <CardValue>Foundation Login</CardValue>
-        <p className="mt-1 text-sm text-zinc-500">Sign in with your email and password.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Sign in with your email and password.</p>
 
         <form className="mt-4 space-y-3" onSubmit={submitLogin} aria-busy={loading}>
           <div className="space-y-1.5">
@@ -206,7 +206,7 @@ export default function LoginPage() {
           <div className="flex justify-end">
             <Link
               href={forgotPasswordHref}
-              className="text-xs text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
             >
               Forgot password?
             </Link>
@@ -227,9 +227,9 @@ export default function LoginPage() {
           </p>
         ) : null}
         {showForgotPassword ? (
-          <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="mt-3 text-xs text-muted-foreground">
             Need help signing in?{" "}
-            <Link href={forgotPasswordHref} className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300">
+            <Link href={forgotPasswordHref} className="font-medium text-foreground underline-offset-2 hover:underline">
               Reset your password
             </Link>
             .

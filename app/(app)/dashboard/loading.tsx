@@ -11,7 +11,7 @@ export default function DashboardLoading() {
           <div>
             <CardLabel>Annual Cycle</CardLabel>
             <CardValue>Loading dashboard...</CardValue>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Fetching current-year totals and proposal statuses.
             </p>
           </div>
@@ -22,7 +22,7 @@ export default function DashboardLoading() {
           </Button>
         </div>
       </GlassCard>
-      <p className="text-sm text-zinc-500">Loading foundation dashboard...</p>
+      <p className="text-sm text-muted-foreground">Loading foundation dashboard...</p>
     </div>
   );
 }

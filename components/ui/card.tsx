@@ -93,7 +93,7 @@ function GlassCard({ children, className }: React.PropsWithChildren<{ className?
  * Legacy convenience: small uppercase label inside a card.
  */
 function CardLabel({ children, className }: React.PropsWithChildren<{ className?: string }>) {
-  return <h3 className={cn("text-sm uppercase tracking-wide text-zinc-500", className)}>{children}</h3>
+  return <h3 className={cn("text-sm uppercase tracking-wide text-muted-foreground", className)}>{children}</h3>
 }
 
 /**

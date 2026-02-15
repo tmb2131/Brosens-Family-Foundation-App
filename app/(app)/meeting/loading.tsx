@@ -1,3 +1,3 @@
 export default function MeetingLoading() {
-  return <p className="text-sm text-zinc-500">Loading meeting view...</p>;
+  return <p className="text-sm text-muted-foreground">Loading meeting view...</p>;
 }

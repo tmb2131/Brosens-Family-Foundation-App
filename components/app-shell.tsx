@@ -645,7 +645,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <header className="glass-card mb-4 rounded-3xl p-4 print:hidden sm:hidden">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Brosens Family Foundation</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Brosens Family Foundation</p>
                 <h1 className="text-xl font-semibold">Grant Management</h1>
                 {user ? (
                   <div className="mt-2 flex items-center gap-2 text-sm">

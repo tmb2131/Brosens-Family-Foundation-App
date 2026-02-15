@@ -1,3 +1,3 @@
 export default function AdminLoading() {
-  return <p className="text-sm text-zinc-500">Loading admin queue...</p>;
+  return <p className="text-sm text-muted-foreground">Loading admin queue...</p>;
 }

@@ -64,15 +64,15 @@ export default function WorkspacePage() {
             <div>
               <CardLabel>My Workspace</CardLabel>
               <CardValue>{workspace.user.name}</CardValue>
-              <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 {isManager
                   ? "Track action items, submitted proposals, and voting history. Manager profiles do not have individual budgets."
                   : "Track your joint/discretionary balances, action items, and personal voting history."}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>{formatNumber(workspace.actionItems.length)} action item(s)</span>
-                <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+                <span className="hidden text-border sm:inline">|</span>
                 <span>{formatNumber(workspace.submittedGifts.length)} submitted proposal(s)</span>
               </div>
             </div>
@@ -86,7 +86,7 @@ export default function WorkspacePage() {
         {isManager ? (
           <GlassCard className="rounded-3xl">
             <CardLabel>Individual Budget</CardLabel>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Managers do not have an individual budget. Joint proposals are still available.
             </p>
           </GlassCard>
@@ -129,7 +129,7 @@ export default function WorkspacePage() {
 
         <div className="space-y-3">
           {workspace.actionItems.length === 0 ? (
-            <p className="text-sm text-zinc-500">No vote-required items right now.</p>
+            <p className="text-sm text-muted-foreground">No vote-required items right now.</p>
           ) : (
             workspace.actionItems.map((item) => {
               if (!user) {
@@ -148,23 +148,23 @@ export default function WorkspacePage() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold">{item.title}</h3>
-                      <p className="mt-1 text-xs text-zinc-500">{item.description}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                     </div>
                     <StatusPill status={item.status} />
                   </div>
-                  <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+                  <p className="mt-2 text-lg font-semibold text-foreground">
                     {currency(item.proposedAmount)}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-zinc-400 dark:text-zinc-500">Type</span>
-                      <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                      <span className="text-muted-foreground">Type</span>
+                      <p className="font-medium text-foreground">
                         {titleCase(item.proposalType)}
                       </p>
                     </div>
                     <div>
-                      <span className="text-zinc-400 dark:text-zinc-500">Progress</span>
-                      <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                      <span className="text-muted-foreground">Progress</span>
+                      <p className="font-medium text-foreground">
                         {item.voteProgressLabel}
                       </p>
                     </div>
@@ -197,13 +197,13 @@ export default function WorkspacePage() {
             {workspace.voteHistory.map((vote) => (
               <div
                 key={`${vote.proposalId}-${vote.at}`}
-                className="rounded-xl border border-zinc-200/80 p-2 transition-colors hover:bg-zinc-50/70 dark:border-zinc-700 dark:hover:bg-zinc-800/40"
+                className="rounded-xl border border-border p-2 transition-colors hover:bg-muted/60"
               >
                 <p className="text-sm font-medium">{vote.proposalTitle}</p>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-muted-foreground">
                   {voteChoiceLabel(vote.choice)} | {currency(vote.amount)}
                 </p>
-                <p className="text-xs text-zinc-500">{new Date(vote.at).toLocaleDateString()}</p>
+                <p className="text-xs text-muted-foreground">{new Date(vote.at).toLocaleDateString()}</p>
               </div>
             ))}
           </div>
@@ -218,20 +218,20 @@ export default function WorkspacePage() {
           </div>
           <div className="mt-3 space-y-2">
             {workspace.submittedGifts.length === 0 ? (
-              <p className="text-sm text-zinc-500">No submitted gifts yet.</p>
+              <p className="text-sm text-muted-foreground">No submitted gifts yet.</p>
             ) : (
               workspace.submittedGifts.map((proposal) => (
                 <div
                   key={proposal.id}
-                  className="rounded-xl border border-zinc-200/80 p-2 transition-colors hover:bg-zinc-50/70 dark:border-zinc-700 dark:hover:bg-zinc-800/40"
+                  className="rounded-xl border border-border p-2 transition-colors hover:bg-muted/60"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium">{proposal.title}</p>
                     <StatusPill status={proposal.status} />
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500">Budget Year: {proposal.budgetYear}</p>
-                  <p className="text-xs text-zinc-500">Amount: {currency(proposal.proposedAmount)}</p>
-                  <p className="mt-1 text-xs text-zinc-500">{proposal.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Budget Year: {proposal.budgetYear}</p>
+                  <p className="text-xs text-muted-foreground">Amount: {currency(proposal.proposedAmount)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{proposal.description}</p>
                 </div>
               ))
             )}

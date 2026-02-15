@@ -25,7 +25,7 @@ export default function MeetingPage() {
     return (
       <GlassCard>
         <CardLabel>Meeting Sync Access</CardLabel>
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           This view is reserved for process oversight and foundation manager roles.
         </p>
       </GlassCard>
@@ -80,16 +80,16 @@ export default function MeetingPage() {
       <GlassCard className="rounded-3xl">
         <CardLabel>Reveal & Decision Stage</CardLabel>
         <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           <span className="hidden sm:inline">Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.</span>
           <span className="sm:hidden">{formatNumber(data.proposals.length)} pending decisions</span>
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>{formatNumber(data.proposals.length)} pending</span>
-          <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+          <span className="hidden text-border sm:inline">|</span>
           <span>{formatNumber(jointCount)} joint</span>
-          <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
+          <span className="hidden text-border sm:inline">|</span>
           <span>{formatNumber(discretionaryCount)} discretionary</span>
         </div>
       </GlassCard>
@@ -112,7 +112,7 @@ export default function MeetingPage() {
       <div className="space-y-3">
         {data.proposals.length === 0 ? (
           <GlassCard className="p-3 sm:p-4">
-            <p className="text-sm text-zinc-500">No proposals pending review.</p>
+            <p className="text-sm text-muted-foreground">No proposals pending review.</p>
           </GlassCard>
         ) : (
           data.proposals.map((proposal) => (
@@ -127,18 +127,18 @@ export default function MeetingPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold">{proposal.title}</h3>
-                  <p className="mt-1 text-xs text-zinc-500">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {formatNumber(proposal.progress.votesSubmitted)} of{" "}
                     {formatNumber(proposal.progress.totalRequiredVotes)} votes in
                   </p>
                 </div>
                 <StatusPill status={proposal.status} />
               </div>
-              <p className="mt-2 text-lg font-semibold text-zinc-800 dark:text-zinc-100">
+              <p className="mt-2 text-lg font-semibold text-foreground">
                 {currency(proposal.progress.computedFinalAmount)}
               </p>
 
-              <div className="mt-2 grid gap-1 text-xs text-zinc-500 sm:mt-3 sm:gap-2 sm:grid-cols-3">
+              <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:mt-3 sm:gap-2 sm:grid-cols-3">
                 <p className="truncate">Type: {titleCase(proposal.proposalType)}</p>
                 <p>
                   Rule:{" "}
@@ -146,7 +146,7 @@ export default function MeetingPage() {
                     ? titleCase(proposal.allocationMode)
                     : "Proposer-set amount"}
                 </p>
-                <p className="font-medium text-zinc-600 dark:text-zinc-300">
+                <p className="font-medium text-muted-foreground">
                   Recommended: {currency(proposal.progress.computedFinalAmount)}
                 </p>
               </div>
@@ -187,8 +187,8 @@ export default function MeetingPage() {
               </div>
 
               {proposal.revealVotes ? (
-                <div className="mt-3 rounded-xl border border-zinc-200/70 bg-zinc-50/60 p-3 dark:border-zinc-700/50 dark:bg-zinc-800/30">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <div className="mt-3 rounded-xl border border-border/70 bg-muted/60 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Revealed votes
                   </p>
                   <div className="mt-1.5 space-y-1 text-xs sm:mt-2 sm:text-sm">
@@ -200,7 +200,7 @@ export default function MeetingPage() {
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-[11px] text-zinc-500 sm:text-xs">
+                <p className="mt-3 text-[11px] text-muted-foreground sm:text-xs">
                   Votes remain masked until reveal.
                 </p>
               )}

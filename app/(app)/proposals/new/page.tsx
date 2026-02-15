@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { Textarea } from "@/components/ui/textarea";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
@@ -162,13 +162,13 @@ export default function NewProposalPage() {
     <>
       <CardLabel>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardLabel>
       {workspaceQuery.isLoading ? (
-        <p className="mt-2 text-sm text-zinc-500">Loading budget details...</p>
+        <p className="mt-2 text-sm text-muted-foreground">Loading budget details...</p>
       ) : workspaceQuery.error || !workspaceQuery.data ? (
         <p className="mt-2 text-sm text-rose-600">
           Could not load your budget details. You can still submit a proposal.
         </p>
       ) : isManager ? (
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           Managers do not have an individual budget. Manager profiles can submit joint proposals only.
         </p>
       ) : (
@@ -185,14 +185,14 @@ export default function NewProposalPage() {
               total={workspaceQuery.data.personalBudget.discretionaryCap}
             />
           </div>
-          <div className="mt-3 grid gap-1 text-xs text-zinc-500 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
             <p>Joint remaining: {currency(workspaceQuery.data.personalBudget.jointRemaining)}</p>
             <p>
               Discretionary remaining:{" "}
               {currency(workspaceQuery.data.personalBudget.discretionaryRemaining)}
             </p>
           </div>
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             {proposalType === "joint"
               ? `Joint proposals use your joint voting allocation. You currently have ${currency(
                   workspaceQuery.data.personalBudget.jointRemaining
@@ -213,7 +213,7 @@ export default function NewProposalPage() {
       <GlassCard className="hidden rounded-3xl sm:block">
         <CardLabel>Submission Flow</CardLabel>
         <CardValue>New Giving Idea</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           Proposals are added to the full grant list and move to blind voting by eligible voters.
         </p>
@@ -227,7 +227,7 @@ export default function NewProposalPage() {
           <label className="block text-sm font-medium">
             Organization name
             <div
-              className="relative mt-1 flex rounded-xl border border-zinc-300 shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)] dark:border-zinc-700"
+              className="relative mt-1 flex rounded-xl border border-input shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)]"
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                   setIsTitleSuggestionsOpen(false);
@@ -247,14 +247,14 @@ export default function NewProposalPage() {
                   }
                 }}
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-l-xl border-none bg-white px-2 py-2 text-sm text-zinc-900 shadow-none outline-none dark:bg-zinc-900 dark:text-zinc-100"
+                className="min-w-0 flex-1 rounded-l-xl border-none bg-transparent px-2 py-2 text-sm text-foreground shadow-none outline-none"
                 required
               />
               <button
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => setIsTitleSuggestionsOpen((open) => !open)}
-                className="flex w-10 shrink-0 items-center justify-center rounded-r-xl border-l border-zinc-300 bg-zinc-50 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                className="flex w-10 shrink-0 items-center justify-center rounded-r-xl border-l border-input bg-muted text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
                 aria-label="Toggle organization name suggestions"
                 aria-expanded={showTitleSuggestionsPanel}
                 aria-controls="organization-name-suggestions-list"
@@ -265,7 +265,7 @@ export default function NewProposalPage() {
                 <div
                   id="organization-name-suggestions-list"
                   role="listbox"
-                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
                 >
                   {matchingTitleSuggestions.map((suggestion) => (
                     <button
@@ -276,7 +276,7 @@ export default function NewProposalPage() {
                         setOrganizationName(suggestion);
                         setIsTitleSuggestionsOpen(false);
                       }}
-                      className="block w-full rounded-lg px-2 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="block w-full rounded-lg px-2 py-2.5 text-left text-sm text-foreground hover:bg-muted"
                     >
                       {suggestion}
                     </button>
@@ -289,7 +289,7 @@ export default function NewProposalPage() {
                         setOrganizationName(organizationName.trim());
                         setIsTitleSuggestionsOpen(false);
                       }}
-                      className="mt-1 block w-full rounded-lg border border-dashed border-zinc-300 px-2 py-2.5 text-left text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="mt-1 block w-full rounded-lg border border-dashed border-border px-2 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted"
                     >
                       Add as new organization: {organizationName.trim()}
                     </button>
@@ -297,7 +297,7 @@ export default function NewProposalPage() {
                 </div>
               ) : null}
             </div>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {titleSuggestionsQuery.isLoading
                 ? "Loading known organization names..."
                 : !allTitleSuggestions.length
@@ -360,13 +360,13 @@ export default function NewProposalPage() {
                 )}
               </select>
               {isManager ? (
-                <p className="mt-1 text-xs text-zinc-500">Managers can submit joint proposals only.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Managers can submit joint proposals only.</p>
               ) : null}
             </div>
 
             <div className="block text-sm font-medium">
               Final amount rule
-              <p className="mt-1 w-full rounded-xl border bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900/40 dark:text-zinc-300">
+              <p className="mt-1 w-full rounded-xl border bg-muted px-3 py-2 text-sm text-muted-foreground">
                 {proposalType === "joint"
                   ? "Final amount is still the sum of blind allocations. Proposed amount is guidance only."
                   : proposalType === "discretionary"
@@ -416,7 +416,7 @@ export default function NewProposalPage() {
               className="rounded-xl [appearance:textfield] [&::-webkit-inner-spin-button]:[-webkit-appearance:none] [&::-webkit-outer-spin-button]:[-webkit-appearance:none]"
               required
             />
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {proposalType === "joint"
                 ? "For joint proposals, this is the total donation you propose the family sends together."
                 : proposalType === "discretionary"
@@ -425,7 +425,7 @@ export default function NewProposalPage() {
                   : "This amount cannot exceed your remaining discretionary budget."
                 : "Select a proposal type first so the correct amount rules apply."}
             </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
+            <p className="mt-1 text-[11px] text-muted-foreground">
               Amount preview: {parsedProposedAmount !== null ? currency(parsedProposedAmount) : "—"}
             </p>
           </div>
@@ -441,7 +441,7 @@ export default function NewProposalPage() {
               placeholder="https://example.org"
               inputMode="url"
             />
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Add the organization website for proposal context and to help Brynn complete the
               donation.
             </p>
@@ -458,7 +458,7 @@ export default function NewProposalPage() {
               placeholder="https://www.charitynavigator.org/..."
               inputMode="url"
             />
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Add the Charity Navigator profile URL. A future update can auto-populate the score
               and summary from this link.
             </p>
@@ -501,13 +501,13 @@ export default function NewProposalPage() {
       </div>
       </div>
 
-      <Dialog
+      <ResponsiveModal
         open={isConfirmDialogOpen}
         onOpenChange={(open) => { if (!open && !saving) setIsConfirmDialogOpen(false); }}
       >
-        <DialogContent
+        <ResponsiveModalContent
           aria-labelledby="proposal-submit-confirm-title"
-          className="max-w-lg rounded-3xl p-5"
+          dialogClassName="max-w-lg rounded-3xl p-5"
           showCloseButton={false}
           onInteractOutside={(e) => { if (saving) e.preventDefault(); }}
         >
@@ -527,19 +527,19 @@ export default function NewProposalPage() {
                 </Badge>
               ) : null}
             </div>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+            <p className="mt-2 text-sm text-muted-foreground">
               Confirm the details below before submitting this proposal.
             </p>
 
-            <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40">
+            <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Organization
                 </dt>
                 <dd className="text-right font-medium">{organizationName.trim()}</dd>
               </div>
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Amount
                 </dt>
                 <dd className="text-right text-base font-bold">
@@ -547,15 +547,15 @@ export default function NewProposalPage() {
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Type
                 </dt>
                 <dd className="text-right font-medium">{titleCase(proposalType)}</dd>
               </div>
             </dl>
 
-            <div className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
-              <p className="font-medium text-zinc-700 dark:text-zinc-200">Immediate next steps:</p>
+            <div className="mt-3 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Immediate next steps:</p>
               <p className="mt-1">
                 The proposal is added to the review queue, eligible family members are notified to
                 vote, and it moves to meeting review once voting requirements are met.
@@ -585,8 +585,8 @@ export default function NewProposalPage() {
             </div>
 
             {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
     </div>
   );
 }

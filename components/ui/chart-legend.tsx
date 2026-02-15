@@ -7,7 +7,7 @@ export interface ChartLegendItem {
 
 export function ChartLegend({ items }: { items: ChartLegendItem[] }) {
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-600 dark:text-zinc-300">
+    <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
       {items.map((item) => (
         <div key={item.label} className="inline-flex items-center gap-1.5">
           <span
