@@ -7,7 +7,9 @@ Mobile-first grant management platform for the Brosens Family Foundation. Member
 ## Tech Stack
 
 - **Framework:** Next.js 15.3 with App Router, React 19, TypeScript 5.7 (strict mode)
-- **Styling:** Tailwind CSS 3.4 with CSS variables (HSL color space), dark mode via `next-themes`
+- **UI Components:** shadcn/ui (copy-paste components built on Radix UI primitives)
+- **Styling:** Tailwind CSS 4 with CSS-first config (`@theme`, `@variant`), HSL color space, dark mode via `next-themes`
+- **Primitives:** Radix UI (via shadcn/ui) for accessible Dialog, focus trapping, scroll lock
 - **Data Fetching:** SWR with polling for near-real-time updates
 - **Database:** Supabase (PostgreSQL) with Row-Level Security (RLS)
 - **Auth:** Supabase Auth (email/password), JWT sessions via cookies
@@ -52,7 +54,7 @@ app/
   open/                # Device-aware redirect handler
 
 components/
-  ui/                  # Shared UI: card, badge, modal, etc.
+  ui/                  # shadcn/ui primitives (card, badge, dialog, table, button, skeleton) + app wrappers (modal, metric-card, status-pill, etc.)
   auth/                # AuthProvider, Guard component
   dashboard/           # Charts and dashboard widgets
   voting/              # Voting interface components
@@ -132,9 +134,11 @@ public/                # Static assets, sw.js service worker, manifest
 
 - PascalCase for component files and names
 - camelCase for variables, functions, hooks
-- Styling via Tailwind utility classes (no CSS modules)
-- `cn()` utility (clsx wrapper) for conditional class composition
-- Glass-morphism card pattern (`glass-card` class)
+- Styling via Tailwind CSS v4 utility classes (CSS-first config, no JS config file)
+- `cn()` utility (clsx + tailwind-merge) for conditional class composition with conflict resolution
+- shadcn/ui components in `components/ui/` — use these as the base for new UI
+- Legacy app wrappers: `GlassCard`, `CardLabel`, `CardValue` for glass-morphism card pattern
+- `ModalOverlay`/`ModalPanel` wrappers around Radix Dialog for backward-compatible modal API
 - Dynamic imports for heavy components (e.g., recharts charts)
 
 ### Naming

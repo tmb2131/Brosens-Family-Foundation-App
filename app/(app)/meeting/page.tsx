@@ -3,7 +3,8 @@
 import useSWR, { mutate as globalMutate } from "swr";
 import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -22,28 +23,29 @@ export default function MeetingPage() {
 
   if (!user || !["oversight", "manager"].includes(user.role)) {
     return (
-      <Card>
-        <CardTitle>Meeting Sync Access</CardTitle>
+      <GlassCard>
+        <CardLabel>Meeting Sync Access</CardLabel>
         <p className="mt-2 text-sm text-zinc-500">
           This view is reserved for process oversight and foundation manager roles.
         </p>
-      </Card>
+      </GlassCard>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardTitle>Meeting Sync Error</CardTitle>
+      <GlassCard>
+        <CardLabel>Meeting Sync Error</CardLabel>
         <p className="mt-2 text-sm text-rose-600">{error.message}</p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="lg"
+          className="mt-3"
           onClick={() => void mutate()}
-          className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
         >
           <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </button>
-      </Card>
+        </Button>
+      </GlassCard>
     );
   }
 
@@ -75,8 +77,8 @@ export default function MeetingPage() {
 
   return (
     <div className="page-stack pb-4">
-      <Card className="rounded-3xl">
-        <CardTitle>Reveal & Decision Stage</CardTitle>
+      <GlassCard className="rounded-3xl">
+        <CardLabel>Reveal & Decision Stage</CardLabel>
         <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
           <span className="status-dot bg-emerald-500" />
@@ -90,7 +92,7 @@ export default function MeetingPage() {
           <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
           <span>{formatNumber(discretionaryCount)} discretionary</span>
         </div>
-      </Card>
+      </GlassCard>
 
       <section className="grid gap-3 sm:grid-cols-2">
         <MetricCard
@@ -109,12 +111,12 @@ export default function MeetingPage() {
 
       <div className="space-y-3">
         {data.proposals.length === 0 ? (
-          <Card className="p-3 sm:p-4">
+          <GlassCard className="p-3 sm:p-4">
             <p className="text-sm text-zinc-500">No proposals pending review.</p>
-          </Card>
+          </GlassCard>
         ) : (
           data.proposals.map((proposal) => (
-            <Card
+            <GlassCard
               key={proposal.id}
               className={`border-t-2 p-4 ${
                 proposal.proposalType === "joint"
@@ -150,38 +152,38 @@ export default function MeetingPage() {
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:min-h-11 sm:px-3"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: true })}
                 >
                   <Eye className="h-3.5 w-3.5" />
                   Reveal Votes
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 sm:min-h-11 sm:px-3"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: false })}
                 >
                   <EyeOff className="h-3.5 w-3.5" />
                   Mask Again
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-2 py-2 text-xs font-semibold text-white sm:min-h-11 sm:px-3"
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-600/90"
                   onClick={() => void updateMeeting({ action: "decision", proposalId: proposal.id, status: "approved" })}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Confirm Approved
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex min-h-10 items-center justify-center gap-1 rounded-lg bg-rose-600 px-2 py-2 text-xs font-semibold text-white sm:min-h-11 sm:px-3"
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => void updateMeeting({ action: "decision", proposalId: proposal.id, status: "declined" })}
                 >
                   <XCircle className="h-3.5 w-3.5" />
                   Confirm Declined
-                </button>
+                </Button>
               </div>
 
               {proposal.revealVotes ? (
@@ -202,7 +204,7 @@ export default function MeetingPage() {
                   Votes remain masked until reveal.
                 </p>
               )}
-            </Card>
+            </GlassCard>
           ))
         )}
       </div>

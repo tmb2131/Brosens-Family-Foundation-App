@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -294,12 +294,12 @@ export default function ReportsPage() {
 
   if (!canAccess) {
     return (
-      <Card>
-        <CardTitle>Reports</CardTitle>
+      <GlassCard>
+        <CardLabel>Reports</CardLabel>
         <p className="mt-2 text-sm text-rose-600">
           This page is available only to Oversight and Manager users.
         </p>
-      </Card>
+      </GlassCard>
     );
   }
 
@@ -317,10 +317,10 @@ export default function ReportsPage() {
 
   return (
     <div className="page-stack pb-6">
-      <Card className="rounded-3xl">
+      <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <div>
-            <CardTitle>Annual Proposal Report</CardTitle>
+            <CardLabel>Annual Proposal Report</CardLabel>
             <CardValue>{selectedYearLabel}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
               <span className="status-dot bg-emerald-500" />
@@ -357,7 +357,7 @@ export default function ReportsPage() {
         </div>
 
         <div className="hidden print:block">
-          <CardTitle>Annual Proposal Report</CardTitle>
+          <CardLabel>Annual Proposal Report</CardLabel>
           <CardValue>{selectedYearLabel}</CardValue>
           <p className="mt-1 text-xs text-zinc-500">
             Included statuses: {activeStatuses.map((status) => titleCase(status)).join(", ")}
@@ -419,7 +419,7 @@ export default function ReportsPage() {
             </label>
           ))}
         </div>
-      </Card>
+      </GlassCard>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -439,8 +439,8 @@ export default function ReportsPage() {
       </section>
 
       <section className="grid gap-3 lg:grid-cols-2">
-        <Card>
-          <CardTitle>Proposals by Category</CardTitle>
+        <GlassCard>
+          <CardLabel>Proposals by Category</CardLabel>
           <div className="h-[260px] w-full sm:h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart layout="vertical" data={categoryCounts} margin={{ top: 4, right: 110, left: 8, bottom: 0 }}>
@@ -513,10 +513,10 @@ export default function ReportsPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </GlassCard>
 
-        <Card>
-          <CardTitle>Amount by Proposal Type</CardTitle>
+        <GlassCard>
+          <CardLabel>Amount by Proposal Type</CardLabel>
           <div className="h-[190px] w-full sm:h-[210px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -542,13 +542,13 @@ export default function ReportsPage() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </GlassCard>
       </section>
 
-      <Card>
+      <GlassCard>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div>
-            <CardTitle>Year Proposals</CardTitle>
+            <CardLabel>Year Proposals</CardLabel>
             <p className="text-xs text-zinc-500">
               Compact report table for {isAllYearsView ? "all years" : `budget year ${selectedYearLabel}`} and statuses.
             </p>
@@ -648,7 +648,7 @@ export default function ReportsPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </GlassCard>
     </div>
   );
 }

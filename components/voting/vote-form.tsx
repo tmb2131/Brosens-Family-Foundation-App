@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { mutate } from "swr";
+import { Button } from "@/components/ui/button";
 import { ProposalType, type VoteChoice } from "@/lib/types";
 import { currency, parseNumberInput } from "@/lib/utils";
 
@@ -65,28 +66,28 @@ export function VoteForm({
     <div className="mt-2 rounded-xl border bg-white/75 p-3 text-sm dark:bg-zinc-900/40">
       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Cast {proposalType} vote</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <button
+        <Button
           onClick={() => setChoice(primaryChoice)}
-          className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold sm:text-xs ${
+          variant={choice === primaryChoice ? "default" : "outline"}
+          size="lg"
+          className={`sm:text-xs ${
             choice === primaryChoice
-              ? "bg-emerald-600 text-white"
-              : "border bg-white text-zinc-600 dark:bg-zinc-900"
+              ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
+              : ""
           }`}
           type="button"
         >
           {proposalType === "joint" ? "Yes" : "Acknowledged"}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setChoice(secondaryChoice)}
-          className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold sm:text-xs ${
-            choice === secondaryChoice
-              ? "bg-rose-600 text-white"
-              : "border bg-white text-zinc-600 dark:bg-zinc-900"
-          }`}
+          variant={choice === secondaryChoice ? "destructive" : "outline"}
+          size="lg"
+          className="sm:text-xs"
           type="button"
         >
           {proposalType === "joint" ? "No" : "Flag for Discussion"}
-        </button>
+        </Button>
       </div>
 
       {proposalType === "joint" ? (
@@ -117,14 +118,15 @@ export function VoteForm({
         </p>
       )}
 
-      <button
-        className="mt-3 min-h-11 w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:text-xs"
+      <Button
+        size="lg"
+        className="mt-3 w-full sm:text-xs"
         type="button"
         onClick={() => void submitVote()}
         disabled={saving}
       >
         {saving ? "Saving vote..." : "Submit Blind Vote"}
-      </button>
+      </Button>
 
       {error ? (
         <div className="error-message-box">

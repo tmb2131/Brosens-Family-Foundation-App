@@ -5,7 +5,8 @@ import useSWR from "swr";
 import { DollarSign, PieChart, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 import {
   DirectionalCategory,
@@ -332,8 +333,8 @@ export default function SettingsPage() {
 
   return (
     <div className="page-stack pb-4">
-      <Card className="rounded-3xl">
-        <CardTitle>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardTitle>
+      <GlassCard className="rounded-3xl">
+        <CardLabel>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardLabel>
         <CardValue>{canManageBudget ? "Budget & Annual Cycle" : "Password & Security"}</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
           <span className="status-dot bg-emerald-500" />
@@ -341,31 +342,32 @@ export default function SettingsPage() {
             ? "February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31."
             : "Use password reset to securely change your sign-in credentials."}
         </p>
-      </Card>
+      </GlassCard>
 
-      <Card>
-        <CardTitle>Password Reset</CardTitle>
+      <GlassCard>
+        <CardLabel>Password Reset</CardLabel>
         <p className="mt-1 text-sm text-zinc-500">Send a secure password reset link to {user.email}.</p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="lg"
+          className="mt-3 w-full sm:w-auto"
           onClick={() => void sendResetEmail()}
           disabled={sendingReset}
-          className="mt-3 min-h-11 w-full rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           {sendingReset ? "Sending..." : "Send Password Reset Email"}
-        </button>
+        </Button>
         {resetMessage ? (
           <p className={`mt-2 text-xs ${resetMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
             {resetMessage.text}
           </p>
         ) : null}
-      </Card>
+      </GlassCard>
 
       <PushSettingsCard />
 
       {user.role === "oversight" ? (
-        <Card>
-          <CardTitle>Historical Proposals CSV Import</CardTitle>
+        <GlassCard>
+          <CardLabel>Historical Proposals CSV Import</CardLabel>
           <p className="mt-1 text-sm text-zinc-500">
             Upload historical proposal records. Required headers:{" "}
             <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
@@ -388,13 +390,14 @@ export default function SettingsPage() {
               }}
               className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-zinc-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-100 dark:text-zinc-300 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-200 dark:hover:file:bg-zinc-800"
             />
-            <button
+            <Button
+              size="lg"
               type="submit"
               disabled={historicalImporting}
-              className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+              className="w-full sm:w-auto"
             >
               {historicalImporting ? "Importing..." : "Import CSV"}
-            </button>
+            </Button>
           </form>
           {historicalImportMessage ? (
             <p
@@ -407,23 +410,23 @@ export default function SettingsPage() {
               {historicalImportMessage.text}
             </p>
           ) : null}
-        </Card>
+        </GlassCard>
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <Card>
-          <CardTitle>Organization Category Worker</CardTitle>
+        <GlassCard>
+          <CardLabel>Organization Category Worker</CardLabel>
           <p className="mt-1 text-sm text-zinc-500">
             Trigger organization categorization now without waiting for scheduled worker runs.
           </p>
-          <button
-            type="button"
+          <Button
+            size="lg"
+            className="mt-3 w-full sm:w-auto"
             onClick={() => void runCategoryWorker()}
             disabled={runningCategoryWorker}
-            className="mt-3 min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
           >
             {runningCategoryWorker ? "Running..." : "Run Categorization Worker"}
-          </button>
+          </Button>
           {categoryWorkerMessage ? (
             <p
               className={`mt-2 text-xs ${
@@ -435,12 +438,12 @@ export default function SettingsPage() {
               {categoryWorkerMessage.text}
             </p>
           ) : null}
-        </Card>
+        </GlassCard>
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <Card>
-          <CardTitle>Organization Category Overrides</CardTitle>
+        <GlassCard>
+          <CardLabel>Organization Category Overrides</CardLabel>
           {organizationCategoriesQuery.isLoading ? (
             <p className="mt-2 text-sm text-zinc-500">Loading organizations...</p>
           ) : organizationCategoriesQuery.error ? (
@@ -522,13 +525,14 @@ export default function SettingsPage() {
                 </p>
               ) : null}
 
-              <button
+              <Button
+                size="lg"
                 type="submit"
                 disabled={savingCategoryOverride}
-                className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 {savingCategoryOverride ? "Saving..." : "Save Category Override"}
-              </button>
+              </Button>
 
               {categoryOverrideMessage ? (
                 <p
@@ -543,15 +547,15 @@ export default function SettingsPage() {
               ) : null}
             </form>
           )}
-        </Card>
+        </GlassCard>
       ) : null}
 
       {canManageBudget ? (
         <>
-          <Card>
+          <GlassCard>
             {error ? (
               <>
-                <CardTitle>Settings Error</CardTitle>
+                <CardLabel>Settings Error</CardLabel>
                 <p className="mt-2 text-sm text-rose-600">{error.message}</p>
               </>
             ) : isLoading || !data ? (
@@ -640,22 +644,23 @@ export default function SettingsPage() {
                   {projectedTotalBudget !== null ? currency(projectedTotalBudget) : "—"}
                 </p>
 
-                <button
+                <Button
+                  size="lg"
                   type="submit"
                   disabled={saving}
-                  className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+                  className="w-full sm:w-auto"
                 >
                   {saving ? "Saving..." : "Save Budget"}
-                </button>
+                </Button>
 
                 {message ? <p className="text-xs text-zinc-600">{message}</p> : null}
               </form>
             )}
-          </Card>
+          </GlassCard>
 
           {data ? (
-            <Card>
-              <CardTitle>Current Budget Snapshot</CardTitle>
+            <GlassCard>
+              <CardLabel>Current Budget Snapshot</CardLabel>
               <section className="mt-3 grid gap-3 sm:grid-cols-2">
                 <MetricCard
                   title="TOTAL BUDGET"
@@ -714,16 +719,16 @@ export default function SettingsPage() {
                   </p>
                 </MetricCard>
               </section>
-            </Card>
+            </GlassCard>
           ) : null}
         </>
       ) : (
-        <Card>
-          <CardTitle>Budget Controls</CardTitle>
+        <GlassCard>
+          <CardLabel>Budget Controls</CardLabel>
           <p className="mt-2 text-sm text-zinc-500">
             Budget management is available only for Tom (oversight) and Dad (manager).
           </p>
-        </Card>
+        </GlassCard>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useState } from "react";
 import { ClipboardList, DollarSign } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber } from "@/lib/utils";
@@ -25,19 +25,19 @@ export default function AdminPage() {
 
   if (!user || user.role !== "admin") {
     return (
-      <Card>
-        <CardTitle>Execution Queue Access</CardTitle>
+      <GlassCard>
+        <CardLabel>Execution Queue Access</CardLabel>
         <p className="mt-2 text-sm text-zinc-500">Only Brynn (Admin role) can execute approved grants.</p>
-      </Card>
+      </GlassCard>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardTitle>Execution Queue Error</CardTitle>
+      <GlassCard>
+        <CardLabel>Execution Queue Error</CardLabel>
         <p className="mt-2 text-sm text-rose-600">{error.message}</p>
-      </Card>
+      </GlassCard>
     );
   }
 
@@ -105,8 +105,8 @@ export default function AdminPage() {
 
   return (
     <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
-      <Card className="rounded-3xl">
-        <CardTitle>Administrator Workspace</CardTitle>
+      <GlassCard className="rounded-3xl">
+        <CardLabel>Administrator Workspace</CardLabel>
         <CardValue>Donation Execution Cues</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
           <span className="status-dot bg-emerald-500" />
@@ -119,7 +119,7 @@ export default function AdminPage() {
           <span className="hidden text-zinc-300 dark:text-zinc-600 sm:inline">|</span>
           <span>{formatNumber(discretionaryQueued)} discretionary</span>
         </div>
-      </Card>
+      </GlassCard>
 
       <section className="grid gap-3 sm:grid-cols-2">
         <MetricCard
@@ -138,9 +138,9 @@ export default function AdminPage() {
 
       <div className="space-y-3">
         {data.proposals.length === 0 ? (
-          <Card>
+          <GlassCard>
             <p className="text-sm text-zinc-500">No approved proposals awaiting execution.</p>
-          </Card>
+          </GlassCard>
         ) : (
           data.proposals.map((proposal) => {
             const sentDate = sentDateByProposalId[proposal.id] ?? "";
@@ -148,7 +148,7 @@ export default function AdminPage() {
             const isSaving = savingProposalId === proposal.id;
 
             return (
-              <Card
+              <GlassCard
                 key={proposal.id}
                 className={`border-t-2 ${
                   proposal.proposalType === "joint"
@@ -250,7 +250,7 @@ export default function AdminPage() {
                 </div>
 
                 {errorMessage ? <p className="mt-2 text-xs text-rose-600">{errorMessage}</p> : null}
-              </Card>
+              </GlassCard>
             );
           })
         )}

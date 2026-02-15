@@ -1,6 +1,50 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* ─── Dark mode: class-based strategy ─── */
+@variant dark (&:where(.dark, .dark *));
+
+/* ─── Theme: design tokens (migrated from tailwind.config.ts + shadcn/ui) ─── */
+@theme {
+  /* App tokens */
+  --color-surface: hsl(var(--surface));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-accent: hsl(var(--accent));
+  --color-muted: hsl(var(--muted));
+  --color-border: hsl(var(--border));
+  --color-success: hsl(var(--success));
+  --color-danger: hsl(var(--danger));
+
+  /* shadcn/ui standard tokens */
+  --color-background: hsl(var(--surface));
+  --color-card-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--accent));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--muted));
+  --color-secondary-foreground: hsl(var(--foreground));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--danger));
+  --color-ring: hsl(var(--accent));
+  --color-input: hsl(var(--border));
+
+  --shadow-soft: 0 8px 30px rgba(0, 0, 0, 0.08);
+  --animate-fade-up: fade-up 500ms ease-out both;
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── CSS Variables: Light ─── */
 
 :root {
   --surface: 201 45% 98%;
@@ -11,6 +55,9 @@
   --border: 212 24% 85%;
   --success: 154 61% 37%;
   --danger: 0 72% 50%;
+  --primary-foreground: 0 0% 100%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent-foreground: 0 0% 100%;
   --proposal-cta: 49 106 216;
   --proposal-cta-hover: 43 94 192;
   --proposal-cta-border: 41 90 184;
@@ -22,6 +69,8 @@
   --role-manager: 262 60% 55%;
 }
 
+/* ─── CSS Variables: Dark ─── */
+
 .dark {
   --surface: 219 31% 11%;
   --foreground: 204 36% 96%;
@@ -31,6 +80,9 @@
   --border: 220 16% 27%;
   --success: 154 56% 44%;
   --danger: 0 78% 62%;
+  --primary-foreground: 0 0% 100%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent-foreground: 0 0% 100%;
   --proposal-cta: 63 128 222;
   --proposal-cta-hover: 78 140 229;
   --proposal-cta-border: 111 160 233;
@@ -41,6 +93,8 @@
   --role-admin: 38 85% 58%;
   --role-manager: 262 55% 65%;
 }
+
+/* ─── Base overrides ─── */
 
 * {
   border-color: hsl(var(--border));
@@ -63,20 +117,10 @@ body {
     linear-gradient(180deg, hsl(var(--surface)), hsl(220 24% 9%));
 }
 
-.page-enter {
+/* ─── Reusable utilities (v4 @utility replaces @apply-based custom classes) ─── */
+
+@utility page-enter {
   animation: fade-up 500ms ease-out both;
-}
-
-@keyframes fade-up {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .page-stack {
@@ -84,7 +128,7 @@ body {
 }
 
 .field-control {
-  @apply rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
+  @apply rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 shadow-xs transition-[border-color,box-shadow,background-color] duration-150 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
 }
 
 .field-control:focus {
@@ -141,7 +185,7 @@ body {
 }
 
 .segmented-control-button--active {
-  @apply bg-accent text-white shadow-sm;
+  @apply bg-accent text-white shadow-xs;
 }
 
 .segmented-control-button--inactive {
@@ -149,7 +193,7 @@ body {
 }
 
 .glass-card {
-  @apply border bg-card/90 backdrop-blur;
+  @apply border bg-card/90 backdrop-blur-sm;
   box-shadow:
     0 1px 2px rgba(15, 23, 42, 0.04),
     0 8px 24px rgba(15, 23, 42, 0.07);
@@ -576,21 +620,21 @@ body {
   }
 }
 
-/* Phase 1: Ensure all mobile interactive elements meet 44px minimum */
+/* Ensure all mobile interactive elements meet 44px minimum */
 @media (hover: none) and (pointer: coarse) {
   .sidebar-control-button {
     @apply h-11 w-11;
   }
 }
 
-/* Phase 5: Better disabled button visibility for outdoor/glare readability */
+/* Better disabled button visibility for outdoor/glare readability */
 button:disabled,
 [role="button"][aria-disabled="true"] {
-  @apply disabled:opacity-40;
+  @apply opacity-40;
   filter: grayscale(0.3);
 }
 
-/* Phase 7: Tactile press feedback on mobile nav */
+/* Tactile press feedback on mobile nav */
 @media (prefers-reduced-motion: no-preference) {
   .sidebar-link--expanded:hover:not(.sidebar-link--active) {
     transform: translateX(1px);
@@ -625,7 +669,7 @@ button:disabled,
   .page-stack > *:nth-child(6) { animation-delay: 300ms; }
 }
 
-/* Phase 5: Error message container styling */
+/* Error message container styling */
 .error-message-box {
   @apply mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400;
 }

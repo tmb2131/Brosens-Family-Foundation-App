@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Card, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel } from "@/components/ui/card";
 import { NotificationPreferences } from "@/lib/types";
 
 interface PushPreferencesResponse {
@@ -300,8 +301,8 @@ export function PushSettingsCard() {
   };
 
   return (
-    <Card>
-      <CardTitle>Mobile Push Notifications</CardTitle>
+    <GlassCard>
+      <CardLabel>Mobile Push Notifications</CardLabel>
       {error ? <p className="mt-2 text-sm text-rose-600">{error.message}</p> : null}
       {isLoading ? <p className="mt-2 text-sm text-zinc-500">Loading notification settings...</p> : null}
 
@@ -322,22 +323,21 @@ export function PushSettingsCard() {
           ) : null}
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
+            <Button
               type="button"
               onClick={() => void enablePush()}
               disabled={busy || !supported || !standalone || !data?.pushConfigured}
-              className="min-h-10 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {busy ? "Working..." : "Enable Push"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               type="button"
               onClick={() => void disablePush()}
               disabled={busy || !supported}
-              className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200"
             >
               Disable Push
-            </button>
+            </Button>
           </div>
 
           <div className="mt-4 space-y-2">
@@ -350,7 +350,7 @@ export function PushSettingsCard() {
                 <label key={option.key} className="flex items-start gap-3 rounded-xl border p-3">
                   <input
                     type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-zinc-400"
+                    className="mt-1 h-4 w-4 rounded-sm border-zinc-400"
                     checked={checked}
                     disabled={
                       busy ||
@@ -377,6 +377,6 @@ export function PushSettingsCard() {
           ) : null}
         </>
       ) : null}
-    </Card>
+    </GlassCard>
   );
 }

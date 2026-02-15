@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -1233,10 +1234,10 @@ export default function DashboardPage() {
 
   return (
     <div className="page-enter space-y-6 pb-4">
-      <Card className="rounded-3xl p-5">
+      <GlassCard className="rounded-3xl p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>Annual Cycle</CardTitle>
+            <CardLabel>Annual Cycle</CardLabel>
             <CardValue className="text-xl font-bold">
               {isAllYearsView ? "All Years Master List Status" : `${selectedBudgetYear} Master List Status`}
             </CardValue>
@@ -1276,7 +1277,7 @@ export default function DashboardPage() {
             </Link>
           </div>
         </div>
-      </Card>
+      </GlassCard>
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
@@ -1323,8 +1324,8 @@ export default function DashboardPage() {
             <p className="mt-1 text-[11px] text-zinc-400">{Math.round(discretionaryUtilization)}% utilized</p>
           </MetricCard>
         </div>
-        <Card>
-          <CardTitle>Historical Impact</CardTitle>
+        <GlassCard>
+          <CardLabel>Historical Impact</CardLabel>
           {historyData ? (
             <HistoricalImpactChart data={historyData.historyByYear} />
           ) : (
@@ -1333,13 +1334,13 @@ export default function DashboardPage() {
           {!isHistoryLoading && historyError ? (
             <p className="mt-2 text-xs text-zinc-500">Historical data is temporarily unavailable.</p>
           ) : null}
-        </Card>
+        </GlassCard>
       </section>
 
-      <Card className="p-5">
+      <GlassCard className="p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle>{showPendingTab ? "Pending" : "Grant Tracker"}</CardTitle>
+            <CardLabel>{showPendingTab ? "Pending" : "Grant Tracker"}</CardLabel>
             <p className="text-xs text-zinc-500">
               {showPendingTab
                 ? "All budget years. Includes proposals not yet Sent or Declined."
@@ -1354,7 +1355,7 @@ export default function DashboardPage() {
                   onClick={() => setActiveTab("tracker")}
                   className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
                     activeTab === "tracker"
-                      ? "bg-accent text-white shadow-sm"
+                      ? "bg-accent text-white shadow-xs"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   }`}
                 >
@@ -1365,7 +1366,7 @@ export default function DashboardPage() {
                   onClick={() => setActiveTab("pending")}
                   className={`rounded-md px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 ${
                     activeTab === "pending"
-                      ? "bg-accent text-white shadow-sm"
+                      ? "bg-accent text-white shadow-xs"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   }`}
                 >
@@ -1487,20 +1488,20 @@ export default function DashboardPage() {
                 Showing {formatNumber(filteredAndSortedProposals.length)} proposals for {selectedBudgetYearLabel}
               </p>
               <div className="relative shrink-0" ref={exportMenuRef}>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setIsExportMenuOpen((current) => !current);
                     setExportMessage(null);
                   }}
-                  className="inline-flex min-h-10 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                   aria-haspopup="menu"
                   aria-expanded={isExportMenuOpen}
                 >
                   <Download className="h-3.5 w-3.5" />
                   Export
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
-                </button>
+                </Button>
                 {isExportMenuOpen ? (
                   <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                     <button
@@ -1579,13 +1580,14 @@ export default function DashboardPage() {
                 </select>
               </label>
               <div className="flex items-end">
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={clearTrackerFilters}
-                  className="min-h-10 w-full rounded-md border border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 xl:w-auto"
+                  className="w-full xl:w-auto"
                 >
                   Clear filters
-                </button>
+                </Button>
               </div>
             </FilterPanel>
 
@@ -1759,14 +1761,14 @@ export default function DashboardPage() {
                     ) : null}
 
                     {!canEditHistorical && isOwnProposal && proposal.status === "sent" ? (
-                      <button
+                      <Button
                         type="button"
                         disabled={savingProposalId === proposal.id}
                         onClick={() => void saveProposalSentDate(proposal)}
-                        className="w-full rounded-md bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        className="w-full"
                       >
                         {savingProposalId === proposal.id ? "Saving..." : "Save date"}
-                      </button>
+                      </Button>
                     ) : null}
 
                     {user &&
@@ -1941,14 +1943,14 @@ export default function DashboardPage() {
                         ) : null}
                       </td>
                       <td className="px-2 py-3 text-right">
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
                           onClick={() => setDetailProposalId(proposal.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                           aria-label={`View details for ${proposal.title}`}
                         >
                           <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </td>
                     </DataTableRow>
                   );
@@ -1960,7 +1962,7 @@ export default function DashboardPage() {
 
           </>
         )}
-      </Card>
+      </GlassCard>
 
       {detailProposal && detailDraft && detailRequiredAction ? (
         <ModalOverlay
@@ -1983,14 +1985,14 @@ export default function DashboardPage() {
                 </div>
                 <p className="mt-1 text-sm text-zinc-500">{detailProposal.title}</p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={closeDetailDrawer}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 aria-label="Close proposal details"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <dl className="mt-4 grid gap-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-950/40 md:grid-cols-2">
@@ -2239,26 +2241,25 @@ export default function DashboardPage() {
                   <p className="mt-3 text-xs text-rose-600">{detailEditError}</p>
                 ) : null}
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
                       setIsDetailEditMode(false);
                       setDetailEditError(null);
                     }}
                     disabled={isDetailSaving}
-                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     Cancel edit
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="sm"
                     onClick={() => void saveDetailProposalEdits()}
                     disabled={isDetailSaving}
-                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                   >
                     {isDetailSaving ? "Saving..." : "Save proposal changes"}
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : null}
@@ -2273,8 +2274,9 @@ export default function DashboardPage() {
                 </Link>
               ) : null}
               {detailCanOversightEditProposal ? (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   disabled={isDetailSaving}
                   onClick={() => {
                     if (isDetailEditMode) {
@@ -2286,20 +2288,18 @@ export default function DashboardPage() {
                     setDetailEditError(null);
                     setIsDetailEditMode(true);
                   }}
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   {isDetailEditMode ? "Close edit" : "Edit proposal"}
-                </button>
+                </Button>
               ) : null}
               {!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent" ? (
-                <button
-                  type="button"
+                <Button
+                  size="sm"
                   disabled={savingProposalId === detailProposal.id}
                   onClick={() => void saveProposalSentDate(detailProposal)}
-                  className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
                   {savingProposalId === detailProposal.id ? "Saving..." : "Save date"}
-                </button>
+                </Button>
               ) : null}
             </div>
 

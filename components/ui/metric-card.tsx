@@ -1,6 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type MetricTone = "emerald" | "sky" | "indigo" | "amber";
@@ -47,16 +47,16 @@ export function MetricCard({
   const toneClass = toneClasses[tone];
 
   return (
-    <Card className={cn("border-l-[3px]", toneClass.border, className)}>
+    <GlassCard className={cn("border-l-[3px]", toneClass.border, className)}>
       <div className="flex items-center gap-2">
         <span className={cn("inline-flex h-7 w-7 items-center justify-center rounded-lg", toneClass.icon)}>
           <Icon className="h-4 w-4" />
         </span>
-        <CardTitle>{title}</CardTitle>
+        <CardLabel>{title}</CardLabel>
       </div>
       <CardValue className={cn("metric-value-prominent", valueClassName)}>{value}</CardValue>
       {subtitle ? <p className="mt-1 text-xs text-zinc-500">{subtitle}</p> : null}
       {children}
-    </Card>
+    </GlassCard>
   );
 }

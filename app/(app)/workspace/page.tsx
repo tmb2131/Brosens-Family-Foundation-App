@@ -4,8 +4,9 @@ import Link from "next/link";
 import useSWR from "swr";
 import { Gift, History, ListChecks, Plus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Button } from "@/components/ui/button";
 import { WorkspaceSnapshot } from "@/lib/types";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
@@ -32,19 +33,20 @@ export default function WorkspacePage() {
 
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
-      <Card className="p-4">
+      <GlassCard className="p-4">
         <p className="text-sm text-rose-600">
           Failed to load workspace data
           {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
         </p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="lg"
+          className="mt-3"
           onClick={() => void workspaceQuery.mutate()}
-          className="mt-3 inline-flex min-h-11 items-center gap-1.5 rounded-xl border bg-card px-4 py-2 text-sm font-semibold"
         >
           <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </button>
-      </Card>
+        </Button>
+      </GlassCard>
     );
   }
 
@@ -57,10 +59,10 @@ export default function WorkspacePage() {
   return (
     <div className="page-stack pb-4">
       <section className="grid gap-3 xl:grid-cols-[2fr_1fr]">
-        <Card className="rounded-3xl">
+        <GlassCard className="rounded-3xl">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle>My Workspace</CardTitle>
+              <CardLabel>My Workspace</CardLabel>
               <CardValue>{workspace.user.name}</CardValue>
               <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
                 <span className="status-dot bg-emerald-500" />
@@ -78,14 +80,14 @@ export default function WorkspacePage() {
               <Plus className="h-4 w-4" /> New Proposal
             </Link>
           </div>
-        </Card>
+        </GlassCard>
         {isManager ? (
-          <Card className="rounded-3xl">
-            <CardTitle>Individual Budget</CardTitle>
+          <GlassCard className="rounded-3xl">
+            <CardLabel>Individual Budget</CardLabel>
             <p className="mt-1 text-sm text-zinc-500">
               Managers do not have an individual budget. Joint proposals are still available.
             </p>
-          </Card>
+          </GlassCard>
         ) : (
           <PersonalBudgetBars
             title="Total Individual Budget Tracker"
@@ -110,13 +112,13 @@ export default function WorkspacePage() {
         </section>
       ) : null}
 
-      <Card>
+      <GlassCard>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
               <ListChecks className="h-4 w-4" />
             </span>
-            <CardTitle>Action Items</CardTitle>
+            <CardLabel>Action Items</CardLabel>
           </div>
           <Link href="/dashboard" className="inline-flex min-h-10 items-center text-xs font-semibold text-accent">
             Open full tracker
@@ -179,15 +181,15 @@ export default function WorkspacePage() {
             })
           )}
         </div>
-      </Card>
+      </GlassCard>
 
       <section className="grid gap-3 lg:grid-cols-2">
-        <Card>
+        <GlassCard>
           <div className="flex items-center gap-2">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
               <History className="h-4 w-4" />
             </span>
-            <CardTitle>Personal History</CardTitle>
+            <CardLabel>Personal History</CardLabel>
           </div>
           <div className="mt-3 space-y-2">
             {workspace.voteHistory.map((vote) => (
@@ -203,14 +205,14 @@ export default function WorkspacePage() {
               </div>
             ))}
           </div>
-        </Card>
+        </GlassCard>
 
-        <Card>
+        <GlassCard>
           <div className="flex items-center gap-2">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
               <Gift className="h-4 w-4" />
             </span>
-            <CardTitle>My Submitted Gifts</CardTitle>
+            <CardLabel>My Submitted Gifts</CardLabel>
           </div>
           <div className="mt-3 space-y-2">
             {workspace.submittedGifts.length === 0 ? (
@@ -232,7 +234,7 @@ export default function WorkspacePage() {
               ))
             )}
           </div>
-        </Card>
+        </GlassCard>
       </section>
     </div>
   );

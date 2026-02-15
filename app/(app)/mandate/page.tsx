@@ -3,7 +3,8 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import {
   MandatePolicyContent,
   MandatePolicyPageData,
@@ -320,10 +321,10 @@ export default function MandatePage() {
 
   return (
     <div className="page-stack pb-6">
-      <Card className="rounded-3xl">
+      <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>Foundation Mandate</CardTitle>
+            <CardLabel>Foundation Mandate</CardLabel>
             <CardValue>{data.policy.title}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
               <span className="status-dot bg-emerald-500" />
@@ -341,39 +342,38 @@ export default function MandatePage() {
             <div className="flex flex-wrap gap-2">
               {isEditing ? (
                 <>
-                  <button
-                    type="button"
+                  <Button
+                    size="lg"
                     disabled={saving}
                     onClick={() => void savePolicy()}
-                    className="min-h-11 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
                     disabled={saving}
                     onClick={() => {
                       setIsEditing(false);
                       setDraft(data.policy.content);
                       setSaveMessage(null);
                     }}
-                    className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="lg"
                   onClick={() => {
                     setIsEditing(true);
                     setDraft(data.policy.content);
                     setSaveMessage(null);
                   }}
-                  className="min-h-11 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:text-zinc-200"
                 >
                   Edit Mandate
-                </button>
+                </Button>
               )}
             </div>
           ) : null}
@@ -390,11 +390,11 @@ export default function MandatePage() {
             {saveMessage.text}
           </p>
         ) : null}
-      </Card>
+      </GlassCard>
 
       {isEditing && canEdit && draft ? (
-        <Card>
-          <CardTitle>Edit Mandate</CardTitle>
+        <GlassCard>
+          <CardLabel>Edit Mandate</CardLabel>
           <p className="mt-1 text-sm text-zinc-500">
             Saving creates a new version and notifies non-oversight users about what changed in each section.
           </p>
@@ -410,21 +410,21 @@ export default function MandatePage() {
               </label>
             ))}
           </div>
-        </Card>
+        </GlassCard>
       ) : (
         <section className="space-y-3">
           {sections.map((section) => (
-            <Card key={section.key}>
-              <CardTitle>{section.label}</CardTitle>
+            <GlassCard key={section.key}>
+              <CardLabel>{section.label}</CardLabel>
               {renderSectionContent(data.policy.content[section.key], section.key)}
-            </Card>
+            </GlassCard>
           ))}
         </section>
       )}
 
       {canEdit ? (
-        <Card>
-          <CardTitle>Flagged for Discussion</CardTitle>
+        <GlassCard>
+          <CardLabel>Flagged for Discussion</CardLabel>
           <p className="mt-1 text-sm text-zinc-500">
             Non-oversight users can flag updates here and leave notes for follow-up.
           </p>
@@ -448,12 +448,12 @@ export default function MandatePage() {
               ))
             )}
           </div>
-        </Card>
+        </GlassCard>
       ) : null}
 
       {!canEdit ? (
-        <Card>
-          <CardTitle>Policy Update Notifications</CardTitle>
+        <GlassCard>
+          <CardLabel>Policy Update Notifications</CardLabel>
           <p className="mt-1 text-sm text-zinc-500">
             Review each update and either acknowledge it or flag it for discussion.
           </p>
@@ -524,22 +524,22 @@ export default function MandatePage() {
                   {notification.status === "pending" ? (
                     <div className="mt-3 space-y-2">
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                        <Button
+                          size="lg"
                           disabled={activeNotificationId === notification.id}
                           onClick={() => void updateNotificationStatus(notification.id, "acknowledge")}
-                          className="min-h-11 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                          className="bg-emerald-600 hover:bg-emerald-600/90"
                         >
                           Mark Acknowledged
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="lg"
                           disabled={activeNotificationId === notification.id}
                           onClick={() => void updateNotificationStatus(notification.id, "flag")}
-                          className="min-h-11 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                         >
                           Flag for Discussion
-                        </button>
+                        </Button>
                       </div>
                       <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
                         Discussion note (required if you flag this update)
@@ -562,7 +562,7 @@ export default function MandatePage() {
               ))
             )}
           </div>
-        </Card>
+        </GlassCard>
       ) : null}
     </div>
   );

@@ -4,7 +4,8 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 
 const minimumPasswordLength = 12;
 
@@ -64,8 +65,8 @@ export default function ResetPasswordClient() {
 
   return (
     <div className="page-enter mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">
-      <Card className="w-full rounded-3xl p-5">
-        <CardTitle>Secure Access</CardTitle>
+      <GlassCard className="w-full rounded-3xl p-5">
+        <CardLabel>Secure Access</CardLabel>
         <CardValue>Reset Password</CardValue>
         <p className="mt-1 text-sm text-zinc-500">
           Set a new password for your account.
@@ -122,13 +123,14 @@ export default function ResetPasswordClient() {
               />
             </label>
             <p className="text-xs text-zinc-500">Use at least {minimumPasswordLength} characters.</p>
-            <button
-              className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            <Button
+              size="lg"
+              className="w-full"
               type="submit"
               disabled={submitting}
             >
               {submitting ? "Updating password..." : "Update password"}
-            </button>
+            </Button>
           </form>
         ) : null}
 
@@ -137,7 +139,7 @@ export default function ResetPasswordClient() {
             {error}
           </p>
         ) : null}
-      </Card>
+      </GlassCard>
     </div>
   );
 }

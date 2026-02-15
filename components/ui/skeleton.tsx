@@ -1,17 +1,16 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
-export function Skeleton({ className }: { className?: string }) {
+function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn(
-        "animate-pulse rounded-lg bg-zinc-200/70 dark:bg-zinc-700/50",
-        className
-      )}
+      data-slot="skeleton"
+      className={cn("animate-pulse rounded-md bg-zinc-200/70 dark:bg-zinc-700/50", className)}
+      {...props}
     />
-  );
+  )
 }
 
-export function SkeletonCard({ className }: { className?: string }) {
+function SkeletonCard({ className }: { className?: string }) {
   return (
     <div className={cn("glass-card rounded-2xl p-4", className)}>
       <Skeleton className="mb-3 h-4 w-1/3" />
@@ -19,10 +18,10 @@ export function SkeletonCard({ className }: { className?: string }) {
       <Skeleton className="h-4 w-full" />
       <Skeleton className="mt-2 h-4 w-4/5" />
     </div>
-  );
+  )
 }
 
-export function SkeletonChart({ className }: { className?: string }) {
+function SkeletonChart({ className }: { className?: string }) {
   return (
     <div className={cn("glass-card rounded-2xl p-4", className)}>
       <Skeleton className="mb-3 h-4 w-1/4" />
@@ -34,5 +33,7 @@ export function SkeletonChart({ className }: { className?: string }) {
         <Skeleton className="h-[70%] flex-1 rounded-t-md rounded-b-none" />
       </div>
     </div>
-  );
+  )
 }
+
+export { Skeleton, SkeletonCard, SkeletonChart }

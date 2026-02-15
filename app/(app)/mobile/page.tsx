@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { ListChecks, RefreshCw, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle } from "@/components/ui/card";
+import { GlassCard, CardLabel } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { VoteForm } from "@/components/voting/vote-form";
@@ -55,7 +55,7 @@ export default function MobileFocusPage() {
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
       <div className="page-stack pb-4">
-        <Card className="p-3">
+        <GlassCard className="p-3">
           <p className="text-sm text-rose-600">
             Could not load the focus view
             {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
@@ -75,7 +75,7 @@ export default function MobileFocusPage() {
               View Full Details
             </Link>
           </div>
-        </Card>
+        </GlassCard>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function MobileFocusPage() {
       </div>
 
       {deepLinkTarget ? (
-        <Card className="p-3">
+        <GlassCard className="p-3">
           <p className="text-xs text-zinc-500">Continue to the required action from your email.</p>
           <Link
             href={deepLinkTarget}
@@ -124,17 +124,17 @@ export default function MobileFocusPage() {
           >
             Continue to required action
           </Link>
-        </Card>
+        </GlassCard>
       ) : null}
 
-      <Card className="p-3">
+      <GlassCard className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                 <ListChecks className="h-4 w-4" />
               </span>
-              <CardTitle>Outstanding Action Items</CardTitle>
+              <CardLabel>Outstanding Action Items</CardLabel>
             </div>
             <p className="mt-1 text-xs text-zinc-500">
               {workspace.actionItems.length === 0
@@ -218,14 +218,14 @@ export default function MobileFocusPage() {
             View {remainingActionItems} more action item{remainingActionItems === 1 ? "" : "s"}
           </Link>
         ) : null}
-      </Card>
+      </GlassCard>
 
-      <Card className="p-3">
+      <GlassCard className="p-3">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <Wallet className="h-4 w-4" />
           </span>
-          <CardTitle>Personal Budget</CardTitle>
+          <CardLabel>Personal Budget</CardLabel>
         </div>
         {isManager ? (
           <p className="mt-2 text-sm text-zinc-500">
@@ -251,7 +251,7 @@ export default function MobileFocusPage() {
             </div>
           </>
         )}
-      </Card>
+      </GlassCard>
     </div>
   );
 }

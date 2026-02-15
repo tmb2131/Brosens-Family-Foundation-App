@@ -5,7 +5,8 @@ import useSWR from "swr";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -871,12 +872,12 @@ export default function FrankDeeniePage() {
 
   if (!canAccess) {
     return (
-      <Card>
-        <CardTitle>Frank &amp; Deenie</CardTitle>
+      <GlassCard>
+        <CardLabel>Frank &amp; Deenie</CardLabel>
         <p className="mt-2 text-sm text-rose-600">
           This page is available only to Oversight, Admin, and Manager users.
         </p>
-      </Card>
+      </GlassCard>
     );
   }
 
@@ -894,10 +895,10 @@ export default function FrankDeeniePage() {
 
   return (
     <div className="page-stack pb-6">
-      <Card className="rounded-3xl">
+      <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>Frank &amp; Deenie</CardTitle>
+            <CardLabel>Frank &amp; Deenie</CardLabel>
             <CardValue>Donation Ledger</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
               <span className="status-dot bg-emerald-500" />
@@ -941,32 +942,32 @@ export default function FrankDeeniePage() {
             </button>
           </div>
         </div>
-      </Card>
+      </GlassCard>
 
       <section className="grid gap-3 2xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] 2xl:items-start">
-        <Card className="min-h-0">
+        <GlassCard className="min-h-0">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <CardTitle>Donations</CardTitle>
+              <CardLabel>Donations</CardLabel>
               <p className="text-xs text-zinc-500">
                 Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
               </p>
             </div>
             <div className="relative shrink-0" ref={exportMenuRef}>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setIsExportMenuOpen((current) => !current);
                   setExportMessage(null);
                 }}
-                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 aria-haspopup="menu"
                 aria-expanded={isExportMenuOpen}
               >
                 <Download className="h-3.5 w-3.5" />
                 Export
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
-              </button>
+              </Button>
               {isExportMenuOpen ? (
                 <div className="absolute right-0 top-11 z-30 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                   <button
@@ -1047,17 +1048,18 @@ export default function FrankDeeniePage() {
               </select>
             </label>
             <div className="flex items-end">
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);
                   setExportMessage(null);
                   setIsExportMenuOpen(false);
                 }}
-                className="min-h-10 w-full rounded-md border border-zinc-300 px-2 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 xl:w-auto"
+                className="w-full xl:w-auto"
               >
                 Clear filters
-              </button>
+              </Button>
             </div>
           </FilterPanel>
 
@@ -1175,17 +1177,17 @@ export default function FrankDeeniePage() {
                           </td>
                           <td className="px-2 py-3 align-middle">
                             <div className="relative flex justify-end">
-                              <button
-                                type="button"
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setOpenActionMenuRowId((current) => (current === row.id ? null : row.id));
                                 }}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                                 aria-label="Open actions"
                               >
                                 <MoreHorizontal className="h-3.5 w-3.5" />
-                              </button>
+                              </Button>
                               {openActionMenuRowId === row.id ? (
                                 <div
                                   className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-zinc-200 bg-white p-1 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
@@ -1252,20 +1254,20 @@ export default function FrankDeeniePage() {
               </tbody>
             </table>
           </div>
-        </Card>
+        </GlassCard>
 
         <div className="grid gap-3">
-          <Card>
+          <GlassCard>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <CardTitle>Year Split</CardTitle>
+                <CardLabel>Year Split</CardLabel>
                 <p className="text-xs text-zinc-500">
                   Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
                 </p>
               </div>
             </div>
             <FrankDeenieYearSplitChart data={yearSplitChartData} />
-          </Card>
+          </GlassCard>
 
           <section className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
             <MetricCard
@@ -1284,8 +1286,8 @@ export default function FrankDeeniePage() {
           </section>
 
           {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
-            <Card>
-              <CardTitle>Import Frank &amp; Deenie CSV</CardTitle>
+            <GlassCard>
+              <CardLabel>Import Frank &amp; Deenie CSV</CardLabel>
               <p className="mt-1 text-sm text-zinc-500">
                 Required headers:{" "}
                 <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">
@@ -1307,13 +1309,14 @@ export default function FrankDeeniePage() {
                   }}
                   className="block w-full text-sm text-zinc-600 file:mr-3 file:rounded-lg file:border file:border-zinc-300 file:bg-zinc-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-100 dark:text-zinc-300 dark:file:border-zinc-700 dark:file:bg-zinc-900 dark:file:text-zinc-200 dark:hover:file:bg-zinc-800"
                 />
-                <button
+                <Button
+                  size="lg"
                   type="submit"
                   disabled={importingCsv}
-                  className="min-h-11 w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+                  className="w-full sm:w-auto"
                 >
                   {importingCsv ? "Importing..." : "Import CSV"}
-                </button>
+                </Button>
               </form>
               {importMessage ? (
                 <p
@@ -1326,7 +1329,7 @@ export default function FrankDeeniePage() {
                   {importMessage.text}
                 </p>
               ) : null}
-            </Card>
+            </GlassCard>
           ) : null}
         </div>
       </section>
@@ -1364,14 +1367,14 @@ export default function FrankDeeniePage() {
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={closeDetailDrawer}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 aria-label="Close donation details"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             {editingId === detailRow.id && editDraft ? (
@@ -1477,14 +1480,13 @@ export default function FrankDeeniePage() {
                   >
                     {savingRowId === detailRow.id ? "Saving..." : "Save"}
                   </button>
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
                     onClick={cancelEdit}
                     disabled={savingRowId === detailRow.id}
-                    className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
                 </form>
               </>
@@ -1551,23 +1553,22 @@ export default function FrankDeeniePage() {
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {detailRow.editable && editingId !== detailRow.id ? (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={() => beginEdit(detailRow)}
-                  className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   Edit donation
-                </button>
+                </Button>
               ) : null}
               {detailRow.editable ? (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={() => void deleteRow(detailRow)}
                   disabled={deletingRowId === detailRow.id}
-                  className="min-h-10 rounded-xl border border-rose-300 px-4 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/20"
+                  className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/20"
                 >
                   {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
-                </button>
+                </Button>
               ) : null}
             </div>
           </ModalPanel>
@@ -1590,15 +1591,15 @@ export default function FrankDeeniePage() {
                   Add a new ledger entry for the selected period.
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={closeAddForm}
                 disabled={isCreating}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 aria-label="Close add donation dialog"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
 
             <form className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
@@ -1680,23 +1681,22 @@ export default function FrankDeeniePage() {
                 </label>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
                     type="submit"
                     disabled={isCreating}
-                    className="min-h-10 rounded-xl bg-accent px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
                   >
                     {isCreating ? "Saving..." : "Save Donation"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={closeAddForm}
                     disabled={isCreating}
-                    className="min-h-10 rounded-xl border border-zinc-300 px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
                 {createMessage ? (
                   <p

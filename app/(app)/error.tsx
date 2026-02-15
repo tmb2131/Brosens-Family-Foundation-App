@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 export default function AppError({
   error,
   reset,
@@ -13,13 +15,9 @@ export default function AppError({
       <p className="text-sm text-zinc-500">
         {error.message || "An unexpected error occurred."}
       </p>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white"
-      >
+      <Button type="button" onClick={reset}>
         Try again
-      </button>
+      </Button>
     </div>
   );
 }

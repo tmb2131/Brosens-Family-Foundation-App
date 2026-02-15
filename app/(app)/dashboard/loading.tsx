@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 
 export default function DashboardLoading() {
   return (
     <div className="page-stack pb-4">
-      <Card className="rounded-3xl">
+      <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>Annual Cycle</CardTitle>
+            <CardLabel>Annual Cycle</CardLabel>
             <CardValue>Loading dashboard...</CardValue>
             <p className="mt-1 text-sm text-zinc-500">
               Fetching current-year totals and proposal statuses.
@@ -18,7 +18,7 @@ export default function DashboardLoading() {
             <Plus className="h-4 w-4" /> New Proposal
           </Link>
         </div>
-      </Card>
+      </GlassCard>
       <p className="text-sm text-zinc-500">Loading foundation dashboard...</p>
     </div>
   );

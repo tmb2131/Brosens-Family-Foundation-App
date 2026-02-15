@@ -5,7 +5,8 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { UserProfile } from "@/lib/types";
 
 const allowedRedirects = [
@@ -148,8 +149,8 @@ export default function LoginPage() {
   if (recoveryMode) {
     return (
       <div className="page-enter mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">
-        <Card className="w-full rounded-3xl p-5">
-          <CardTitle>Redirecting</CardTitle>
+        <GlassCard className="w-full rounded-3xl p-5">
+          <CardLabel>Redirecting</CardLabel>
           <CardValue>Password Reset</CardValue>
           <p className="mt-1 text-sm text-zinc-500">
             Redirecting to the password reset page...
@@ -160,15 +161,15 @@ export default function LoginPage() {
           >
             Continue manually
           </Link>
-        </Card>
+        </GlassCard>
       </div>
     );
   }
 
   return (
     <div className="page-enter mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">
-      <Card className="w-full rounded-3xl p-5">
-        <CardTitle>Secure Access</CardTitle>
+      <GlassCard className="w-full rounded-3xl p-5">
+        <CardLabel>Secure Access</CardLabel>
         <CardValue>Foundation Login</CardValue>
         <p className="mt-1 text-sm text-zinc-500">Sign in with your email and password.</p>
 
@@ -206,13 +207,14 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
-          <button
-            className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          <Button
+            size="lg"
+            className="w-full"
             type="submit"
             disabled={loading || !configured}
           >
             {!configured ? "Set Supabase env vars" : loading ? "Signing in..." : "Sign in"}
-          </button>
+          </Button>
         </form>
 
         {!configured ? (
@@ -239,7 +241,7 @@ export default function LoginPage() {
             {error}
           </p>
         ) : null}
-      </Card>
+      </GlassCard>
     </div>
   );
 }

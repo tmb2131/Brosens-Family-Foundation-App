@@ -6,7 +6,8 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { AlertCircle, ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardTitle, CardValue } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
@@ -156,7 +157,7 @@ export default function NewProposalPage() {
 
   const budgetCardContent = (
     <>
-      <CardTitle>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardTitle>
+      <CardLabel>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardLabel>
       {workspaceQuery.isLoading ? (
         <p className="mt-2 text-sm text-zinc-500">Loading budget details...</p>
       ) : workspaceQuery.error || !workspaceQuery.data ? (
@@ -206,24 +207,24 @@ export default function NewProposalPage() {
 
   return (
     <div className="page-stack pb-4">
-      <Card className="hidden rounded-3xl sm:block">
-        <CardTitle>Submission Flow</CardTitle>
+      <GlassCard className="hidden rounded-3xl sm:block">
+        <CardLabel>Submission Flow</CardLabel>
         <CardValue>New Giving Idea</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
           <span className="status-dot bg-emerald-500" />
           Proposals are added to the full grant list and move to blind voting by eligible voters.
         </p>
-      </Card>
+      </GlassCard>
 
-      <Card className="lg:hidden">{budgetCardContent}</Card>
+      <GlassCard className="lg:hidden">{budgetCardContent}</GlassCard>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
-      <Card>
+      <GlassCard>
         <form className="space-y-4" onSubmit={submit}>
           <label className="block text-sm font-medium">
             Organization name
             <div
-              className="relative mt-1 flex rounded-xl border border-zinc-300 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)] dark:border-zinc-700"
+              className="relative mt-1 flex rounded-xl border border-zinc-300 shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)] dark:border-zinc-700"
               onBlur={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                   setIsTitleSuggestionsOpen(false);
@@ -454,21 +455,24 @@ export default function NewProposalPage() {
           </label>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <button
+            <Button
+              variant="outline"
+              size="lg"
               type="button"
               disabled={saving}
               onClick={() => router.push("/dashboard")}
-              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-200"
+              className="w-full"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              size="lg"
               type="submit"
               disabled={saving || !proposalType || (isManager && proposalType !== "joint")}
-              className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="w-full"
             >
               {saving ? "Submitting..." : "Submit Proposal"}
-            </button>
+            </Button>
           </div>
 
           {error ? (
@@ -478,11 +482,11 @@ export default function NewProposalPage() {
             </div>
           ) : null}
         </form>
-      </Card>
+      </GlassCard>
 
       <div className="hidden lg:block">
         <div className="lg:sticky lg:top-6">
-          <Card>{budgetCardContent}</Card>
+          <GlassCard>{budgetCardContent}</GlassCard>
         </div>
       </div>
       </div>
@@ -546,22 +550,25 @@ export default function NewProposalPage() {
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <button
+              <Button
+                variant="outline"
+                size="lg"
                 type="button"
                 disabled={saving}
                 onClick={() => setIsConfirmDialogOpen(false)}
-                className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-200"
+                className="w-full"
               >
                 Go Back
-              </button>
-              <button
+              </Button>
+              <Button
+                size="lg"
                 type="button"
                 disabled={saving}
                 onClick={() => void confirmSubmit()}
-                className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="w-full"
               >
                 {saving ? "Submitting..." : "Confirm"}
-              </button>
+              </Button>
             </div>
 
             {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}

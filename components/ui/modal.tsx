@@ -1,8 +1,7 @@
 "use client";
 
 import type { HTMLAttributes, PropsWithChildren } from "react";
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { Dialog as DialogPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 
 interface ModalOverlayProps extends PropsWithChildren {
@@ -12,6 +11,10 @@ interface ModalOverlayProps extends PropsWithChildren {
   className?: string;
 }
 
+/**
+ * Backward-compatible modal overlay powered by Radix Dialog.
+ * Provides focus trapping, Escape key dismissal, scroll lock, and focus restoration.
+ */
 export function ModalOverlay({
   children,
   onClose,
@@ -19,38 +22,37 @@ export function ModalOverlay({
   placement = "bottom",
   className
 }: ModalOverlayProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className={cn(
-        "fixed inset-0 z-40 flex justify-center bg-black/50",
-        placement === "center"
-          ? "items-center px-4 py-6 sm:px-6 sm:py-6"
-          : "items-end px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6",
-        className
-      )}
-      onMouseDown={(event) => {
-        if (!closeOnBackdrop) {
-          return;
-        }
-        if (event.currentTarget === event.target) {
-          onClose?.();
-        }
+  return (
+    <DialogPrimitive.Root
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onClose?.();
       }}
     >
-      {children}
-    </div>,
-    document.body
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className={cn(
+            "fixed inset-0 z-40 flex justify-center bg-black/50",
+            placement === "center"
+              ? "items-center px-4 py-6 sm:px-6 sm:py-6"
+              : "items-end px-0 pb-0 pt-4 sm:items-center sm:px-6 sm:py-6",
+            className
+          )}
+        >
+          <DialogPrimitive.Content
+            onInteractOutside={(e) => {
+              if (!closeOnBackdrop) e.preventDefault();
+            }}
+            onPointerDownOutside={(e) => {
+              if (!closeOnBackdrop) e.preventDefault();
+            }}
+            className="contents"
+          >
+            {children}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Overlay>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
 
