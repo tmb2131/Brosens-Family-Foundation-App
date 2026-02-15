@@ -725,10 +725,28 @@ async function markEmailNotificationsProcessedIfDone(admin: AdminClient, notific
   }
 }
 
+async function loadOversightEmails(admin: AdminClient): Promise<string[]> {
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("email")
+    .eq("role", "oversight")
+    .returns<Array<{ email: string }>>();
+
+  if (error) {
+    console.error("[email] Could not load oversight emails for BCC:", error.message);
+    return [];
+  }
+
+  return (data ?? [])
+    .map((row) => row.email?.trim())
+    .filter(Boolean);
+}
+
 async function sendEmailViaResend(
   config: EmailConfig,
   delivery: Pick<EmailDeliveryRow, "email">,
-  notification: EmailNotificationRow
+  notification: EmailNotificationRow,
+  bcc?: string[]
 ): Promise<SendEmailResult> {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -740,6 +758,7 @@ async function sendEmailViaResend(
       from: config.from,
       to: [delivery.email],
       reply_to: config.replyTo ?? undefined,
+      bcc: bcc?.length ? bcc : undefined,
       subject: notification.subject,
       html: notification.html_body,
       text: notification.text_body
@@ -1158,6 +1177,7 @@ export async function processPendingEmailDeliveries(
   }
 
   const notificationById = new Map((notifications ?? []).map((notification) => [notification.id, notification]));
+  const oversightEmails = await loadOversightEmails(admin);
   const touchedNotificationIds: string[] = [];
   let sent = 0;
   let failed = 0;
@@ -1190,7 +1210,8 @@ export async function processPendingEmailDeliveries(
     const attemptCount = delivery.attempt_count + 1;
 
     try {
-      const result = await sendEmailViaResend(config, delivery, notification);
+      const bcc = oversightEmails.filter((email) => email.toLowerCase() !== delivery.email.toLowerCase());
+      const result = await sendEmailViaResend(config, delivery, notification, bcc);
 
       if (result.ok) {
         const { error } = await admin
