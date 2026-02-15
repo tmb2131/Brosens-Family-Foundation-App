@@ -3,7 +3,7 @@ import { AppRole, ProposalType } from "@/lib/types";
 import { HttpError } from "@/lib/http-error";
 
 type AdminClient = SupabaseClient;
-type EmailNotificationType = "action_required" | "weekly_action_reminder" | "proposal_sent_fyi";
+type EmailNotificationType = "action_required" | "weekly_action_reminder" | "proposal_sent_fyi" | "introduction";
 
 type OutstandingActionType = "vote_required" | "meeting_review_required" | "admin_send_required";
 
@@ -1522,6 +1522,144 @@ export async function processWeeklyActionReminderEmails(
     skippedNoActions,
     skippedWrongLocalTime,
     skippedAlreadySent
+  };
+}
+
+export interface ProcessIntroductionEmailResult {
+  dueForWindow: boolean;
+  usersFound: number;
+  emailsQueued: number;
+  skippedAlreadySent: number;
+  skippedWrongLocalTime: number;
+}
+
+function buildIntroductionEmailContent(recipientName: string) {
+  const appUrl = buildOpenUrl("/dashboard");
+  const subject = "Action needed: Add notifications@brosensfoundation.com to your contacts";
+
+  const textBody = [
+    `Hi ${recipientName},`,
+    "",
+    "Starting this week, you'll receive emails from the Foundation app only when something needs your attention:",
+    "",
+    "- Vote or review needed — a proposal is waiting for you",
+    "- Tuesday summary — your pending proposals and who to chase",
+    "- Sent confirmation — proposals marked as sent that day",
+    "",
+    "Each email links directly to the action. No noise.",
+    "",
+    "Please add notifications@brosensfoundation.com to your contacts now so these don't end up in spam.",
+    "",
+    `Open Foundation App: ${appUrl}`,
+    "",
+    "Brosens Family Foundation"
+  ].join("\n");
+
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hi ${escapeHtml(recipientName)},</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Starting this week, you&rsquo;ll receive emails from the Foundation app only when something needs your attention:</p>
+<ul style="margin:0 0 16px 0;padding-left:24px;font-size:15px;line-height:1.7;color:#111827;">
+<li><strong>Vote or review needed</strong> &mdash; a proposal is waiting for you</li>
+<li><strong>Tuesday summary</strong> &mdash; your pending proposals and who to chase</li>
+<li><strong>Sent confirmation</strong> &mdash; proposals marked as sent that day</li>
+</ul>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Each email links directly to the action. No noise.</p>
+<p style="margin:0 0 4px 0;font-size:15px;line-height:1.5;color:#111827;"><strong>Please add <span style="color:#2563eb;">notifications@brosensfoundation.com</span> to your contacts now</strong> so these don&rsquo;t end up in spam.</p>
+${emailButton("Open Foundation App", appUrl)}`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
+
+  return { subject, htmlBody, textBody };
+}
+
+export async function processIntroductionEmail(
+  admin: AdminClient,
+  options?: { forceRecipientUserId?: string; now?: Date }
+): Promise<ProcessIntroductionEmailResult> {
+  const now = options?.now ?? new Date();
+  const forceUserId = options?.forceRecipientUserId?.trim() || null;
+
+  // Time gate: Monday Feb 17 2026, hour >= 9, NY time — bypassed when forcing a recipient
+  if (!forceUserId) {
+    const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
+    if (
+      !nyLocalTime ||
+      nyLocalTime.year !== 2026 ||
+      nyLocalTime.month !== 2 ||
+      nyLocalTime.day !== 16 ||
+      nyLocalTime.hour < 9
+    ) {
+      return {
+        dueForWindow: false,
+        usersFound: 0,
+        emailsQueued: 0,
+        skippedAlreadySent: 0,
+        skippedWrongLocalTime: 1
+      };
+    }
+  }
+
+  // Load recipients
+  let recipients: UserProfileRow[];
+  if (forceUserId) {
+    const usersById = await loadUsersByIds(admin, [forceUserId]);
+    const user = usersById.get(forceUserId);
+    recipients = user ? [user] : [];
+  } else {
+    recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
+  }
+
+  if (!recipients.length) {
+    return {
+      dueForWindow: true,
+      usersFound: 0,
+      emailsQueued: 0,
+      skippedAlreadySent: 0,
+      skippedWrongLocalTime: 0
+    };
+  }
+
+  let emailsQueued = 0;
+  let skippedAlreadySent = 0;
+
+  for (const user of recipients) {
+    if (!user.email?.trim()) {
+      continue;
+    }
+
+    const idempotencyKey = forceUserId
+      ? `test-intro-email-2026-02-16:${user.id}`
+      : `intro-email-2026-02-16:${user.id}`;
+
+    const content = buildIntroductionEmailContent(displayName(user));
+
+    const queueResult = await queueEmailNotification(admin, {
+      notificationType: "introduction",
+      actorUserId: null,
+      entityId: null,
+      idempotencyKey,
+      subject: content.subject,
+      htmlBody: content.htmlBody,
+      textBody: content.textBody,
+      primaryLinkPath: "/dashboard",
+      primaryLinkLabel: "Open Foundation App",
+      payload: { introDate: "2026-02-16" },
+      recipientUserIds: [user.id]
+    });
+
+    if (queueResult.enqueued) {
+      emailsQueued += 1;
+    } else if (queueResult.reason === "duplicate") {
+      skippedAlreadySent += 1;
+    }
+  }
+
+  return {
+    dueForWindow: true,
+    usersFound: recipients.length,
+    emailsQueued,
+    skippedAlreadySent,
+    skippedWrongLocalTime: 0
   };
 }
 

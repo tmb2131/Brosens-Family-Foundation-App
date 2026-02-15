@@ -3,6 +3,7 @@ import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
 import {
   processDailyProposalSentDigestEmails,
+  processIntroductionEmail,
   processWeeklyActionReminderEmails
 } from "@/lib/email-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -32,13 +33,25 @@ export async function POST(request: NextRequest) {
       assertRole(context.profile, ["oversight", "admin"]);
     }
 
-    const [weeklyUpdate, dailySentDigest] = await Promise.all([
+    let forceIntroUserId: string | undefined;
+    try {
+      const body = (await request.json()) as Record<string, unknown>;
+      if (typeof body.forceIntroUserId === "string" && body.forceIntroUserId.trim()) {
+        forceIntroUserId = body.forceIntroUserId.trim();
+      }
+    } catch {
+      // No JSON body — that's fine
+    }
+
+    const [weeklyUpdate, dailySentDigest, introEmail] = await Promise.all([
       processWeeklyActionReminderEmails(admin),
-      processDailyProposalSentDigestEmails(admin)
+      processDailyProposalSentDigestEmails(admin),
+      processIntroductionEmail(admin, forceIntroUserId ? { forceRecipientUserId: forceIntroUserId } : undefined)
     ]);
     return NextResponse.json({
       weeklyUpdate,
-      dailySentDigest
+      dailySentDigest,
+      introEmail
     });
   } catch (error) {
     const response = toErrorResponse(error);
