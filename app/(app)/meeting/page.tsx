@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR, { mutate as globalMutate } from "swr";
-import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, PieChart, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -92,7 +92,7 @@ export default function MeetingPage() {
         </div>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2">
         <MetricCard
           title="PENDING DECISIONS"
           value={formatNumber(data.proposals.length)}
@@ -104,12 +104,6 @@ export default function MeetingPage() {
           value={currency(totalRecommendedAmount)}
           icon={DollarSign}
           tone="indigo"
-        />
-        <MetricCard
-          title="AVERAGE RECOMMENDED"
-          value={currency(data.proposals.length ? totalRecommendedAmount / data.proposals.length : 0)}
-          icon={PieChart}
-          tone="emerald"
         />
       </section>
 

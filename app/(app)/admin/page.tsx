@@ -2,7 +2,7 @@
 
 import useSWR, { mutate as globalMutate } from "swr";
 import { useState } from "react";
-import { ClipboardList, DollarSign, Wallet } from "lucide-react";
+import { ClipboardList, DollarSign } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -121,7 +121,7 @@ export default function AdminPage() {
         </div>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2">
         <MetricCard
           title="QUEUE SIZE"
           value={formatNumber(data.proposals.length)}
@@ -133,12 +133,6 @@ export default function AdminPage() {
           value={currency(totalQueuedAmount)}
           icon={DollarSign}
           tone="indigo"
-        />
-        <MetricCard
-          title="AVERAGE AMOUNT"
-          value={currency(data.proposals.length ? totalQueuedAmount / data.proposals.length : 0)}
-          icon={Wallet}
-          tone="amber"
         />
       </section>
 
