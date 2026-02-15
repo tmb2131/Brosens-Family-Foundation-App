@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest & Record<string, unknown> {
   return {
     name: "Brosens Family Foundation",
-    short_name: "Brosens",
+    short_name: "Foundation",
     description: "Mobile-first grant management platform for the Brosens Family Foundation",
     start_url: "/",
     scope: "/",
