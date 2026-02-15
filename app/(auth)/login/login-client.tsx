@@ -30,6 +30,10 @@ function resolvePostLoginRedirect(role: UserProfile["role"] | null | undefined, 
     return "/admin";
   }
 
+  if (role === "member") {
+    return "/workspace";
+  }
+
   return fallback;
 }
 
