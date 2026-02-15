@@ -18,7 +18,7 @@ import {
 import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, Send } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Card, CardTitle, CardValue } from "@/components/ui/card";
-import { DataTableHeadRow, DataTableRow } from "@/components/ui/data-table";
+import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -42,6 +42,15 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
 type StatusFilterState = Record<ProposalStatus, boolean>;
 type SelectedYear = number | "all" | null;
 type CategoryFilter = "all" | DirectionalCategory;
+type ReportSortKey = "proposal" | "type" | "status" | "amount" | "sentAt" | "category";
+type SortDirection = "asc" | "desc";
+
+const STATUS_RANK: Record<ProposalStatus, number> = {
+  to_review: 0,
+  approved: 1,
+  sent: 2,
+  declined: 3
+};
 
 const DEFAULT_STATUS_FILTERS: StatusFilterState = {
   to_review: true,
@@ -58,6 +67,25 @@ interface StatusCountDatum {
   countAndAmountLabel: string;
 }
 
+interface CategoryCountDatum {
+  category: DirectionalCategory;
+  label: string;
+  count: number;
+  amount: number;
+  countAndAmountLabel: string;
+}
+
+const CATEGORY_COLORS: Record<DirectionalCategory, string> = {
+  arts_culture: "#8B5CF6",
+  education: "#0EA5E9",
+  environment: "#10B981",
+  health: "#F43F5E",
+  housing: "#F59E0B",
+  international_aid: "#6366F1",
+  food_security: "#14B8A6",
+  other: "#94A3B8"
+};
+
 function sumAmount(rows: FoundationSnapshot["proposals"]) {
   return rows.reduce((sum, row) => sum + row.progress.computedFinalAmount, 0);
 }
@@ -67,6 +95,8 @@ export default function ReportsPage() {
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [sortKey, setSortKey] = useState<ReportSortKey>("proposal");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const canAccess = user ? user.role === "oversight" || user.role === "manager" : false;
 
@@ -120,15 +150,54 @@ export default function ReportsPage() {
       return [];
     }
 
-    return data.proposals
+    const filtered = data.proposals
       .filter((proposal) => statusFilters[proposal.status])
       .filter((proposal) =>
         categoryFilter === "all"
           ? true
           : proposal.organizationDirectionalCategory === categoryFilter
-      )
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [categoryFilter, data, statusFilters]);
+      );
+
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      if (sortKey === "proposal") {
+        comparison = a.title.localeCompare(b.title);
+      } else if (sortKey === "type") {
+        comparison = a.proposalType.localeCompare(b.proposalType);
+      } else if (sortKey === "status") {
+        comparison = STATUS_RANK[a.status] - STATUS_RANK[b.status];
+      } else if (sortKey === "amount") {
+        comparison = a.progress.computedFinalAmount - b.progress.computedFinalAmount;
+      } else if (sortKey === "sentAt") {
+        comparison = (a.sentAt ?? "").localeCompare(b.sentAt ?? "");
+      } else if (sortKey === "category") {
+        comparison = DIRECTIONAL_CATEGORY_LABELS[a.organizationDirectionalCategory].localeCompare(
+          DIRECTIONAL_CATEGORY_LABELS[b.organizationDirectionalCategory]
+        );
+      }
+
+      if (comparison === 0) {
+        comparison = a.title.localeCompare(b.title);
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [categoryFilter, data, sortDirection, sortKey, statusFilters]);
+
+  const toggleSort = (nextKey: ReportSortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection("asc");
+  };
+
+  const sortMarker = (key: ReportSortKey) => {
+    if (sortKey !== key) return "";
+    return sortDirection === "asc" ? " ^" : " v";
+  };
 
   const statusCounts = useMemo<StatusCountDatum[]>(
     () =>
@@ -144,6 +213,25 @@ export default function ReportsPage() {
           countAndAmountLabel: `${formatNumber(count)} | ${compactCurrency(amount)}`
         };
       }),
+    [filteredProposals]
+  );
+
+  const categoryCounts = useMemo<CategoryCountDatum[]>(
+    () =>
+      DIRECTIONAL_CATEGORIES.map((category) => {
+        const proposalsForCategory = filteredProposals.filter(
+          (proposal) => proposal.organizationDirectionalCategory === category
+        );
+        const count = proposalsForCategory.length;
+        const amount = sumAmount(proposalsForCategory);
+        return {
+          category,
+          label: DIRECTIONAL_CATEGORY_LABELS[category],
+          count,
+          amount,
+          countAndAmountLabel: count > 0 ? `${formatNumber(count)} | ${compactCurrency(amount)}` : ""
+        };
+      }).filter((entry) => entry.count > 0).sort((a, b) => b.amount - a.amount),
     [filteredProposals]
   );
 
@@ -352,12 +440,12 @@ export default function ReportsPage() {
 
       <section className="grid gap-3 lg:grid-cols-2">
         <Card>
-          <CardTitle>Proposals by Status</CardTitle>
-          <div className="h-[190px] w-full sm:h-[210px]">
+          <CardTitle>Proposals by Category</CardTitle>
+          <div className="h-[260px] w-full sm:h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statusCounts} margin={{ top: 28, right: 8, left: 8, bottom: 0 }}>
-                <XAxis dataKey="label" tick={{ fill: chartText.axis, fontSize: 12 }} />
-                <YAxis
+              <BarChart layout="vertical" data={categoryCounts} margin={{ top: 4, right: 110, left: 8, bottom: 0 }}>
+                <XAxis
+                  type="number"
                   tickFormatter={(value) =>
                     compactCurrency(Number(value), {
                       maximumFractionDigits: 0
@@ -366,7 +454,14 @@ export default function ReportsPage() {
                   tick={{ fill: chartText.axis, fontSize: 12 }}
                   axisLine={{ stroke: "hsl(var(--border))" }}
                   tickLine={false}
-                  width={74}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tick={{ fill: chartText.axis, fontSize: 12 }}
+                  axisLine={{ stroke: "hsl(var(--border))" }}
+                  tickLine={false}
+                  width={155}
                 />
                 <Tooltip
                   cursor={{ fill: "hsl(var(--muted) / 0.55)" }}
@@ -380,30 +475,39 @@ export default function ReportsPage() {
                   labelStyle={{ color: "hsl(var(--foreground) / 0.92)", fontWeight: 600 }}
                   itemStyle={{ color: "hsl(var(--foreground) / 0.84)" }}
                   formatter={(value, _name, item) => {
-                    const row = item.payload as StatusCountDatum | undefined;
+                    const row = item.payload as CategoryCountDatum | undefined;
                     if (!row) {
                       return [currency(Number(value)), ""];
                     }
                     return [`${formatNumber(row.count)} proposals | ${currency(row.amount)}`, ""];
                   }}
                   labelFormatter={(label, payload) => {
-                    const row = payload?.[0]?.payload as StatusCountDatum | undefined;
+                    const row = payload?.[0]?.payload as CategoryCountDatum | undefined;
                     if (!row) {
                       return String(label);
                     }
                     return row.label;
                   }}
                 />
-                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                  {statusCounts.map((entry) => (
-                    <Cell key={entry.status} fill={STATUS_COLORS[entry.status]} />
+                <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
+                  {categoryCounts.map((entry) => (
+                    <Cell key={entry.category} fill={CATEGORY_COLORS[entry.category]} />
                   ))}
                   <LabelList
                     dataKey="countAndAmountLabel"
-                    position="top"
-                    fill={chartText.axis}
-                    fontSize={12}
-                    fontWeight={600}
+                    position="right"
+                    content={({ x, y, width, height, value }) => (
+                      <text
+                        x={Number(x) + Number(width) + 6}
+                        y={Number(y) + Number(height) / 2}
+                        dominantBaseline="central"
+                        fill={chartText.axis}
+                        fontSize={11}
+                        fontWeight={600}
+                      >
+                        {String(value)}
+                      </text>
+                    )}
                   />
                 </Bar>
               </BarChart>
@@ -479,8 +583,7 @@ export default function ReportsPage() {
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                   <p>Type: {titleCase(proposal.proposalType)}</p>
                   <p>Sent: {proposal.sentAt ?? "—"}</p>
-                  <p>Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}</p>
-                  <p>Created: {proposal.createdAt.slice(0, 10)}</p>
+                  <p className="col-span-2">Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}</p>
                 </div>
               </article>
             ))
@@ -491,19 +594,30 @@ export default function ReportsPage() {
           <table className="min-w-[860px] table-auto text-left text-sm">
             <thead>
               <DataTableHeadRow>
-                <th className="px-2 py-2">Proposal</th>
-                <th className="px-2 py-2">Type</th>
-                <th className="px-2 py-2">Category</th>
-                <th className="px-2 py-2">Status</th>
-                <th className="px-2 py-2">Amount</th>
-                <th className="px-2 py-2">Sent Date</th>
-                <th className="px-2 py-2">Created</th>
+                <th className="px-2 py-2">
+                  <DataTableSortButton onClick={() => toggleSort("proposal")}>Proposal{sortMarker("proposal")}</DataTableSortButton>
+                </th>
+                <th className="px-2 py-2">
+                  <DataTableSortButton onClick={() => toggleSort("type")}>Type{sortMarker("type")}</DataTableSortButton>
+                </th>
+                <th className="px-2 py-2">
+                  <DataTableSortButton onClick={() => toggleSort("status")}>Status{sortMarker("status")}</DataTableSortButton>
+                </th>
+                <th className="px-2 py-2">
+                  <DataTableSortButton onClick={() => toggleSort("amount")}>Amount{sortMarker("amount")}</DataTableSortButton>
+                </th>
+                <th className="px-2 py-2">
+                  <DataTableSortButton onClick={() => toggleSort("sentAt")}>Sent Date{sortMarker("sentAt")}</DataTableSortButton>
+                </th>
+                <th className="px-2 py-2">
+                  <DataTableSortButton onClick={() => toggleSort("category")}>Category{sortMarker("category")}</DataTableSortButton>
+                </th>
               </DataTableHeadRow>
             </thead>
             <tbody>
               {filteredProposals.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-2 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={6} className="px-2 py-6 text-center text-sm text-zinc-500">
                     No proposals match the selected status filters.
                   </td>
                 </tr>
@@ -516,9 +630,6 @@ export default function ReportsPage() {
                     <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
                       {titleCase(proposal.proposalType)}
                     </td>
-                    <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
-                      {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
-                    </td>
                     <td className="px-2 py-2">
                       <StatusPill status={proposal.status} />
                     </td>
@@ -529,7 +640,7 @@ export default function ReportsPage() {
                       {proposal.sentAt ?? "—"}
                     </td>
                     <td className="px-2 py-2 text-xs text-zinc-600 dark:text-zinc-300">
-                      {proposal.createdAt.slice(0, 10)}
+                      {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
                     </td>
                   </DataTableRow>
                 ))
