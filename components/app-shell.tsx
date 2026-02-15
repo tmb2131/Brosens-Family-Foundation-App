@@ -154,7 +154,7 @@ interface SidebarProfileCardProps {
 
 function SidebarProfileCard({ isOpen, user }: SidebarProfileCardProps) {
   return (
-    <div className={cn("flex items-center gap-2.5 border-t border-border/40 pt-3 pb-1", isOpen ? "px-2" : "justify-center px-1")}>
+    <div className={cn("flex items-center gap-3 border-t border-border/40 py-4", isOpen ? "px-2" : "justify-center px-1")}>
       <span
         className={cn(
           "inline-flex shrink-0 items-center justify-center rounded-xl bg-accent/10 font-bold text-accent",
@@ -173,7 +173,7 @@ function SidebarProfileCard({ isOpen, user }: SidebarProfileCardProps) {
         <p className="truncate text-sm font-semibold leading-tight">Brosens Family</p>
         {user ? (
           <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="truncate font-medium text-foreground/60">{user.name}</span>
+            <span className="min-w-0 truncate font-medium text-foreground/60">{user.name}</span>
             <RolePill role={user.role} />
           </div>
         ) : null}
@@ -336,25 +336,6 @@ function DesktopSidebar({
       )}
     >
       <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
-        {/* Collapse toggle */}
-        <div className={cn("mb-1 flex", isOpen ? "justify-end px-1" : "justify-center")}>
-          <button
-            onClick={onToggle}
-            className="sidebar-control-button"
-            type="button"
-            aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-            title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-            aria-expanded={isOpen}
-            aria-controls="desktop-sidebar-navigation"
-          >
-            {isOpen ? (
-              <PanelLeftClose className="h-4 w-4" strokeWidth={1.5} />
-            ) : (
-              <PanelLeft className="h-4 w-4" strokeWidth={1.5} />
-            )}
-          </button>
-        </div>
-
         {/* Navigation sections */}
         <DesktopSidebarNav
           pathname={pathname}
@@ -383,6 +364,21 @@ function DesktopSidebar({
 
           <div className={cn("flex items-center", isOpen ? "gap-1 px-1" : "flex-col gap-1")}>
             <ThemeToggle className="sidebar-control-button" />
+            <button
+              onClick={onToggle}
+              className="sidebar-control-button"
+              type="button"
+              aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+              title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+              aria-expanded={isOpen}
+              aria-controls="desktop-sidebar-navigation"
+            >
+              {isOpen ? (
+                <PanelLeftClose className="h-4 w-4" strokeWidth={1.5} />
+              ) : (
+                <PanelLeft className="h-4 w-4" strokeWidth={1.5} />
+              )}
+            </button>
             {isOpen ? (
               <button
                 onClick={onSignOut}
