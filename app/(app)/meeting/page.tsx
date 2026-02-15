@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
+import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
@@ -20,6 +22,11 @@ export default function MeetingPage() {
   const { data, mutate, isLoading, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000
   });
+  const [confirmAction, setConfirmAction] = useState<{
+    proposalId: string;
+    proposalTitle: string;
+    status: "approved" | "declined";
+  } | null>(null);
 
   if (!user || !["oversight", "manager"].includes(user.role)) {
     return (
@@ -154,7 +161,7 @@ export default function MeetingPage() {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="lg"
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: true })}
                 >
                   <Eye className="h-3.5 w-3.5" />
@@ -162,24 +169,24 @@ export default function MeetingPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="lg"
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: false })}
                 >
                   <EyeOff className="h-3.5 w-3.5" />
                   Mask Again
                 </Button>
                 <Button
-                  size="sm"
+                  size="lg"
                   className="bg-emerald-600 hover:bg-emerald-600/90"
-                  onClick={() => void updateMeeting({ action: "decision", proposalId: proposal.id, status: "approved" })}
+                  onClick={() => setConfirmAction({ proposalId: proposal.id, proposalTitle: proposal.title, status: "approved" })}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Confirm Approved
                 </Button>
                 <Button
                   variant="destructive"
-                  size="sm"
-                  onClick={() => void updateMeeting({ action: "decision", proposalId: proposal.id, status: "declined" })}
+                  size="lg"
+                  onClick={() => setConfirmAction({ proposalId: proposal.id, proposalTitle: proposal.title, status: "declined" })}
                 >
                   <XCircle className="h-3.5 w-3.5" />
                   Confirm Declined
@@ -208,6 +215,64 @@ export default function MeetingPage() {
           ))
         )}
       </div>
+
+      <ResponsiveModal
+        open={confirmAction !== null}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+      >
+        {confirmAction ? (
+          <ResponsiveModalContent
+            aria-labelledby="confirm-decision-title"
+            dialogClassName="max-w-md rounded-3xl p-5"
+            showCloseButton={false}
+          >
+            <h2
+              id="confirm-decision-title"
+              className="text-base font-semibold"
+            >
+              {confirmAction.status === "approved" ? "Approve" : "Decline"} Proposal?
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This will mark <span className="font-medium text-foreground">{confirmAction.proposalTitle}</span> as{" "}
+              <span className="font-medium text-foreground">{confirmAction.status}</span>. This action cannot be undone.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setConfirmAction(null)}
+              >
+                Cancel
+              </Button>
+              {confirmAction.status === "approved" ? (
+                <Button
+                  size="lg"
+                  className="bg-emerald-600 hover:bg-emerald-600/90"
+                  onClick={() => {
+                    void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "approved" });
+                    setConfirmAction(null);
+                  }}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Approve
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="lg"
+                  onClick={() => {
+                    void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "declined" });
+                    setConfirmAction(null);
+                  }}
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Decline
+                </Button>
+              )}
+            </div>
+          </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
     </div>
   );
 }

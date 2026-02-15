@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -232,9 +233,15 @@ export default function MandatePage() {
 
   if (error) {
     return (
-      <p className="text-sm text-rose-600">
-        We could not load the mandate: {error.message}
-      </p>
+      <GlassCard>
+        <CardLabel>Mandate Error</CardLabel>
+        <p className="mt-2 text-sm text-rose-600">
+          We could not load the mandate: {error.message}
+        </p>
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </Button>
+      </GlassCard>
     );
   }
 

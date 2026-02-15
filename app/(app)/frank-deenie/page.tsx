@@ -3,7 +3,7 @@
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
-import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, X } from "lucide-react";
+import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, RefreshCw, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -866,9 +866,15 @@ export default function FrankDeeniePage() {
 
   if (error || !data) {
     return (
-      <p className="text-sm text-rose-600">
-        Failed to load Frank &amp; Deenie donations{error ? `: ${error.message}` : "."}
-      </p>
+      <GlassCard>
+        <CardLabel>Donation Ledger Error</CardLabel>
+        <p className="mt-2 text-sm text-rose-600">
+          Failed to load Frank &amp; Deenie donations{error ? `: ${error.message}` : "."}
+        </p>
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </Button>
+      </GlassCard>
     );
   }
 
@@ -1025,8 +1031,101 @@ export default function FrankDeeniePage() {
             </p>
           ) : null}
 
+          {/* Mobile card list */}
+          <div className="space-y-3 md:hidden">
+            {filteredRows.length === 0 ? (
+              <p className="rounded-xl border p-4 text-center text-sm text-muted-foreground">
+                No donations match the selected filters for {selectedYearLabel}.
+              </p>
+            ) : (
+              filteredRows.map((row) => {
+                const detailsText = [row.memo.trim(), row.split.trim()].filter(Boolean).join(" | ");
+                const rowMessage = rowMessageById[row.id];
+
+                return (
+                  <article
+                    key={row.id}
+                    className={`rounded-xl border p-4 ${
+                      row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setDetailRowId(row.id)}
+                          className="truncate text-left text-sm font-semibold hover:underline"
+                          title={row.name}
+                        >
+                          {row.name}
+                        </button>
+                        {row.source === "children" ? (
+                          <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                            <Users className="h-3 w-3" />
+                            Children
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                            row.status === "Planned"
+                              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
+                              : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                        {row.editable ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon-sm" aria-label="Open actions">
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-36">
+                              <DropdownMenuItem
+                                className="text-xs font-semibold"
+                                onSelect={() => {
+                                  beginEdit(row);
+                                  setDetailRowId(row.id);
+                                }}
+                              >
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-xs font-semibold text-destructive focus:text-destructive"
+                                onSelect={() => void deleteRow(row)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-lg font-semibold tabular-nums text-foreground">
+                      ${formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                      <p>{tableDate(row.date)}</p>
+                      <p className="truncate font-semibold uppercase tracking-wide">{row.type}</p>
+                      {detailsText ? <p className="col-span-2 truncate">{detailsText}</p> : null}
+                    </div>
+                    {rowMessage ? (
+                      <p className={`mt-2 text-xs ${rowMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
+                        {rowMessage.text}
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop table */}
           <div
-            className="max-h-[62vh] overflow-auto rounded-xl border border-border"
+            className="hidden max-h-[62vh] overflow-auto rounded-xl border border-border md:block"
             onClick={() => {
               setOpenActionMenuRowId(null);
               setIsExportMenuOpen(false);

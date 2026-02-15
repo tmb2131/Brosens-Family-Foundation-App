@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, Wallet, X } from "lucide-react";
+import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -647,9 +647,15 @@ export default function DashboardClient() {
 
   if (error || !data) {
     return (
-      <p className="text-sm text-rose-600">
-        Failed to load dashboard{error ? `: ${error.message}` : "."}
-      </p>
+      <GlassCard>
+        <CardLabel>Dashboard Error</CardLabel>
+        <p className="mt-2 text-sm text-rose-600">
+          Failed to load dashboard{error ? `: ${error.message}` : "."}
+        </p>
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </Button>
+      </GlassCard>
     );
   }
 
@@ -1396,45 +1402,81 @@ export default function DashboardClient() {
                 No pending proposals across all budget years.
               </p>
             ) : (
-              <table className="min-w-[860px] table-auto text-left text-sm">
-                <thead>
-                  <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="px-2 py-2">Proposal</th>
-                    <th className="px-2 py-2">Type</th>
-                    <th className="px-2 py-2">Amount</th>
-                    <th className="px-2 py-2">Status</th>
-                    <th className="px-2 py-2">Required Action</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Mobile card list */}
+                <div className="space-y-3 md:hidden">
                   {pendingProposals.map((proposal) => {
                     const masked = proposal.progress.masked && proposal.status === "to_review";
 
                     return (
-                      <tr key={proposal.id} className="border-b align-top">
-                        <td className="px-2 py-3">
-                          <p className="font-semibold">{proposal.title}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Budget year {proposal.budgetYear}</p>
-                        </td>
-                        <td className="px-2 py-3 text-xs text-muted-foreground">
-                          {titleCase(proposal.proposalType)}
-                        </td>
-                        <td className="px-2 py-3 text-xs text-muted-foreground">
-                          {masked
-                            ? "Blind until your vote is submitted"
-                            : currency(proposal.progress.computedFinalAmount)}
-                        </td>
-                        <td className="px-2 py-3">
+                      <article
+                        key={proposal.id}
+                        className={`rounded-xl border border-t-2 p-4 ${
+                          proposal.proposalType === "joint"
+                            ? "border-t-indigo-400 dark:border-t-indigo-500"
+                            : "border-t-amber-400 dark:border-t-amber-500"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold">{proposal.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Budget year {proposal.budgetYear}</p>
+                          </div>
                           <StatusPill status={proposal.status} />
-                        </td>
-                        <td className="px-2 py-3 text-xs text-muted-foreground">
-                          {buildPendingActionRequiredLabel(proposal)}
-                        </td>
-                      </tr>
+                        </div>
+                        <p className="mt-2 text-lg font-semibold text-foreground">
+                          {masked ? "Blind until voted" : currency(proposal.progress.computedFinalAmount)}
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <p>Type: {titleCase(proposal.proposalType)}</p>
+                          <p className="col-span-2">{buildPendingActionRequiredLabel(proposal)}</p>
+                        </div>
+                      </article>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+
+                {/* Desktop table */}
+                <table className="hidden min-w-[860px] table-auto text-left text-sm md:table">
+                  <thead>
+                    <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-2 py-2">Proposal</th>
+                      <th className="px-2 py-2">Type</th>
+                      <th className="px-2 py-2">Amount</th>
+                      <th className="px-2 py-2">Status</th>
+                      <th className="px-2 py-2">Required Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingProposals.map((proposal) => {
+                      const masked = proposal.progress.masked && proposal.status === "to_review";
+
+                      return (
+                        <tr key={proposal.id} className="border-b align-top">
+                          <td className="px-2 py-3">
+                            <p className="font-semibold">{proposal.title}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">Budget year {proposal.budgetYear}</p>
+                          </td>
+                          <td className="px-2 py-3 text-xs text-muted-foreground">
+                            {titleCase(proposal.proposalType)}
+                          </td>
+                          <td className="px-2 py-3 text-xs text-muted-foreground">
+                            {masked
+                              ? "Blind until your vote is submitted"
+                              : currency(proposal.progress.computedFinalAmount)}
+                          </td>
+                          <td className="px-2 py-3">
+                            <StatusPill status={proposal.status} />
+                          </td>
+                          <td className="px-2 py-3 text-xs text-muted-foreground">
+                            {buildPendingActionRequiredLabel(proposal)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
             )}
           </div>
         ) : (
@@ -1563,9 +1605,9 @@ export default function DashboardClient() {
                     : "border-t-amber-400 dark:border-t-amber-500"
                 }`}>
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{proposal.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{proposal.description}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{proposal.title}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{proposal.description}</p>
                     </div>
                     <StatusPill status={proposal.status} />
                   </div>

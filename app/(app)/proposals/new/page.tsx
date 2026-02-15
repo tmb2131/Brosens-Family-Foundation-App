@@ -265,7 +265,7 @@ export default function NewProposalPage() {
                 <div
                   id="organization-name-suggestions-list"
                   role="listbox"
-                  className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
+                  className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
                 >
                   {matchingTitleSuggestions.map((suggestion) => (
                     <button

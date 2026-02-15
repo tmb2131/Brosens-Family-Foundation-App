@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
-import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, Send } from "lucide-react";
+import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, RefreshCw, Send } from "lucide-react";
 
 const ReportsCharts = dynamic(
   () => import("@/components/dashboard/reports-charts").then((mod) => mod.ReportsCharts),
@@ -93,7 +93,7 @@ export default function ReportsPage() {
     return `/api/foundation?budgetYear=${selectedYear}`;
   }, [canAccess, selectedYear]);
 
-  const { data, isLoading, error } = useSWR<FoundationSnapshot>(foundationKey);
+  const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey);
 
   const availableYears = useMemo(() => {
     if (!data) {
@@ -286,9 +286,15 @@ export default function ReportsPage() {
 
   if (error || !data) {
     return (
-      <p className="text-sm text-rose-600">
-        Failed to load annual report{error ? `: ${error.message}` : "."}
-      </p>
+      <GlassCard>
+        <CardLabel>Report Error</CardLabel>
+        <p className="mt-2 text-sm text-rose-600">
+          Failed to load annual report{error ? `: ${error.message}` : "."}
+        </p>
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </Button>
+      </GlassCard>
     );
   }
 
@@ -446,7 +452,7 @@ export default function ReportsPage() {
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium">{proposal.title}</p>
+                  <p className="min-w-0 truncate text-sm font-medium">{proposal.title}</p>
                   <StatusPill status={proposal.status} />
                 </div>
                 <p className="mt-2 text-lg font-semibold text-foreground">

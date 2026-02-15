@@ -71,11 +71,10 @@ export function VoteForm({
           onClick={() => setChoice(primaryChoice)}
           variant={choice === primaryChoice ? "default" : "outline"}
           size="lg"
-          className={`sm:text-xs ${
-            choice === primaryChoice
-              ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
-              : ""
-          }`}
+          className={choice === primaryChoice
+            ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
+            : ""
+          }
           type="button"
         >
           {proposalType === "joint" ? "Yes" : "Acknowledged"}
@@ -84,7 +83,6 @@ export function VoteForm({
           onClick={() => setChoice(secondaryChoice)}
           variant={choice === secondaryChoice ? "destructive" : "outline"}
           size="lg"
-          className="sm:text-xs"
           type="button"
         >
           {proposalType === "joint" ? "No" : "Flag for Discussion"}
@@ -121,7 +119,7 @@ export function VoteForm({
 
       <Button
         size="lg"
-        className="mt-3 w-full sm:text-xs"
+        className="mt-3 w-full"
         type="button"
         onClick={() => void submitVote()}
         disabled={saving}
