@@ -4,6 +4,7 @@ import { PropsWithChildren } from "react";
 import { ThemeProvider } from "next-themes";
 import { SWRConfig } from "swr";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: PropsWithChildren) {
   return (
@@ -23,7 +24,9 @@ export function Providers({ children }: PropsWithChildren) {
             refreshWhenOffline: false
           }}
         >
-          {children}
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
         </SWRConfig>
       </AuthProvider>
     </ThemeProvider>

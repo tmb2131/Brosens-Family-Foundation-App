@@ -19,6 +19,7 @@ import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, Send } f
 import { useAuth } from "@/components/auth/auth-provider";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -323,7 +324,7 @@ export default function ReportsPage() {
             <CardLabel>Annual Proposal Report</CardLabel>
             <CardValue>{selectedYearLabel}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-zinc-500">
-              <span className="status-dot bg-emerald-500" />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Include/exclude proposal statuses below, then export using Print / PDF.
             </p>
           </div>
@@ -331,7 +332,7 @@ export default function ReportsPage() {
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
-                className="field-control field-control--compact mt-1 block"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-md border px-3 py-1 text-sm outline-none mt-1 block"
                 value={selectedYearFilterValue}
                 onChange={(event) =>
                   setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
@@ -345,14 +346,14 @@ export default function ReportsPage() {
                 ))}
               </select>
             </label>
-            <button
+            <Button
               type="button"
+              variant="prominent"
               onClick={exportToPdf}
-              className="prominent-accent-cta"
             >
               <Download className="h-4 w-4" />
               Print / PDF
-            </button>
+            </Button>
           </div>
         </div>
 

@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
-import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 
@@ -901,7 +902,7 @@ export default function FrankDeeniePage() {
             <CardLabel>Frank &amp; Deenie</CardLabel>
             <CardValue>Donation Ledger</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              <span className="status-dot bg-emerald-500" />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Track Frank &amp; Deenie giving, with optional Children donations from this app.
             </p>
           </div>
@@ -909,7 +910,7 @@ export default function FrankDeeniePage() {
             <label className="text-xs font-semibold text-zinc-500">
               Year
               <select
-                className="field-control field-control--compact mt-1 block"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-md border px-3 py-1 text-sm outline-none mt-1 block"
                 value={selectedYear === null ? "all" : String(selectedYear)}
                 onChange={(event) =>
                   setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
@@ -932,14 +933,14 @@ export default function FrankDeeniePage() {
               />
               Include Children
             </label>
-            <button
+            <Button
               type="button"
+              variant="prominent"
               onClick={showAddForm ? closeAddForm : openAddForm}
-              className="prominent-accent-cta"
             >
               {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {showAddForm ? "Close" : "Add Donation"}
-            </button>
+            </Button>
           </div>
         </div>
       </GlassCard>
@@ -1008,13 +1009,13 @@ export default function FrankDeeniePage() {
           <FilterPanel className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
             <label className="text-xs font-semibold text-zinc-500">
               Search
-              <input
+              <Input
                 type="text"
                 value={filters.search}
                 onChange={(event) => setFilter("search", event.target.value)}
                 onFocus={() => setExportMessage(null)}
                 placeholder="Name, type, memo, split"
-                className="field-control mt-1 w-full normal-case"
+                className="mt-1 normal-case"
               />
             </label>
             <label className="text-xs font-semibold text-zinc-500">
@@ -1022,7 +1023,7 @@ export default function FrankDeeniePage() {
               <select
                 value={filters.type}
                 onChange={(event) => setFilter("type", event.target.value)}
-                className="field-control mt-1 w-full normal-case"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1 normal-case"
               >
                 <option value="all">All</option>
                 {typeOptions.map((option) => (
@@ -1037,7 +1038,7 @@ export default function FrankDeeniePage() {
               <select
                 value={filters.status}
                 onChange={(event) => setFilter("status", event.target.value)}
-                className="field-control mt-1 w-full normal-case"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1 normal-case"
               >
                 <option value="all">All</option>
                 {DONATION_STATUSES.map((option) => (
@@ -1334,12 +1335,13 @@ export default function FrankDeeniePage() {
         </div>
       </section>
 
-      {detailRow ? (
-        <ModalOverlay
-          onClose={closeDetailDrawer}
-          placement="center"
+      <Dialog open={!!detailRow} onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}>
+        {detailRow ? (
+        <DialogContent
+          aria-labelledby="donation-details-title"
+          className="max-w-3xl rounded-3xl p-4 sm:p-5"
+          showCloseButton={false}
         >
-          <ModalPanel aria-labelledby="donation-details-title" className="max-w-3xl rounded-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 id="donation-details-title" className="text-lg font-bold">
@@ -1388,40 +1390,40 @@ export default function FrankDeeniePage() {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   <label className="text-xs font-semibold text-zinc-500">
                     Date
-                    <input
+                    <Input
                       type="date"
                       value={editDraft.date}
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, date: event.target.value } : current))
                       }
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
                     Type
-                    <input
+                    <Input
                       type="text"
                       value={editDraft.type}
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, type: event.target.value } : current))
                       }
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
                     Name
-                    <input
+                    <Input
                       type="text"
                       value={editDraft.name}
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, name: event.target.value } : current))
                       }
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
                     Amount
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step="0.01"
@@ -1429,7 +1431,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, amount: event.target.value } : current))
                       }
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
@@ -1439,7 +1441,7 @@ export default function FrankDeeniePage() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, status: event.target.value } : current))
                       }
-                      className="field-control mt-1 w-full"
+                      className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1"
                     >
                       {DONATION_STATUSES.map((statusOption) => (
                         <option key={statusOption} value={statusOption}>
@@ -1450,36 +1452,36 @@ export default function FrankDeeniePage() {
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
                     Split
-                    <input
+                    <Input
                       type="text"
                       value={editDraft.split}
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, split: event.target.value } : current))
                       }
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                   </label>
                 </div>
                 <label className="text-xs font-semibold text-zinc-500">
                   Memo / Description
-                  <input
+                  <Input
                     type="text"
                     value={editDraft.memo}
                     onChange={(event) =>
                       setEditDraft((current) => (current ? { ...current, memo: event.target.value } : current))
                     }
-                    className="field-control mt-1 w-full"
+                    className="mt-1"
                   />
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="prominent"
                     onClick={() => void saveEdit()}
                     disabled={savingRowId === detailRow.id}
-                    className="prominent-accent-cta disabled:opacity-60"
                   >
                     {savingRowId === detailRow.id ? "Saving..." : "Save"}
-                  </button>
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={cancelEdit}
@@ -1571,17 +1573,20 @@ export default function FrankDeeniePage() {
                 </Button>
               ) : null}
             </div>
-          </ModalPanel>
-        </ModalOverlay>
-      ) : null}
+        </DialogContent>
+        ) : null}
+      </Dialog>
 
-      {showAddForm ? (
-        <ModalOverlay
-          onClose={closeAddForm}
-          closeOnBackdrop={!isCreating}
-          className="z-50 bg-black/55"
+      <Dialog
+        open={showAddForm}
+        onOpenChange={(open) => { if (!open && !isCreating) closeAddForm(); }}
+      >
+        <DialogContent
+          aria-labelledby="add-donation-title"
+          className="sm:max-w-5xl p-4 sm:p-5"
+          showCloseButton={false}
+          onInteractOutside={(e) => { if (isCreating) e.preventDefault(); }}
         >
-          <ModalPanel aria-labelledby="add-donation-title" className="sm:max-w-5xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 id="add-donation-title" className="text-lg font-bold">
@@ -1606,63 +1611,63 @@ export default function FrankDeeniePage() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <label className="text-xs font-semibold text-zinc-500">
                   Date
-                  <input
+                  <Input
                     type="date"
                     value={newDraft.date}
                     onChange={(event) => setNewDraft((current) => ({ ...current, date: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="mt-1 rounded-lg"
                     required
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
                   Type
-                  <input
+                  <Input
                     type="text"
                     value={newDraft.type}
                     onChange={(event) => setNewDraft((current) => ({ ...current, type: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="mt-1 rounded-lg"
                     required
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
                   Name
-                  <input
+                  <Input
                     ref={addDonationNameInputRef}
                     type="text"
                     value={newDraft.name}
                     onChange={(event) => setNewDraft((current) => ({ ...current, name: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="mt-1 rounded-lg"
                     required
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
                   Amount
-                  <input
+                  <Input
                     type="number"
                     min={0}
                     step="0.01"
                     value={newDraft.amount}
                     onChange={(event) => setNewDraft((current) => ({ ...current, amount: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="mt-1 rounded-lg"
                     required
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
                   Memo / Description
-                  <input
+                  <Input
                     type="text"
                     value={newDraft.memo}
                     onChange={(event) => setNewDraft((current) => ({ ...current, memo: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="mt-1 rounded-lg"
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
                   Split
-                  <input
+                  <Input
                     type="text"
                     value={newDraft.split}
                     onChange={(event) => setNewDraft((current) => ({ ...current, split: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="mt-1 rounded-lg"
                   />
                 </label>
                 <label className="text-xs font-semibold text-zinc-500">
@@ -1670,7 +1675,7 @@ export default function FrankDeeniePage() {
                   <select
                     value={newDraft.status}
                     onChange={(event) => setNewDraft((current) => ({ ...current, status: event.target.value }))}
-                    className="field-control mt-1 w-full rounded-lg"
+                    className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-lg border px-3 py-1 text-base outline-none md:text-sm mt-1"
                   >
                     {DONATION_STATUSES.map((statusOption) => (
                       <option key={statusOption} value={statusOption}>
@@ -1711,9 +1716,8 @@ export default function FrankDeeniePage() {
                 ) : null}
               </div>
             </form>
-          </ModalPanel>
-        </ModalOverlay>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

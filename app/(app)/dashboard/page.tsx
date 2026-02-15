@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
-import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -1242,7 +1245,7 @@ export default function DashboardPage() {
               {isAllYearsView ? "All Years Master List Status" : `${selectedBudgetYear} Master List Status`}
             </CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              <span className="status-dot bg-emerald-500" />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               {data.annualCycle.monthHint}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
@@ -1255,7 +1258,7 @@ export default function DashboardPage() {
             <label className="text-xs font-semibold text-zinc-500">
               Budget year
               <select
-                className="field-control field-control--compact mt-1 block rounded-lg"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-lg border px-3 py-1 text-sm outline-none mt-1 block"
                 value={selectedYearFilterValue}
                 onChange={(event) =>
                   setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
@@ -1269,12 +1272,11 @@ export default function DashboardPage() {
                 ))}
               </select>
             </label>
-            <Link
-              href="/proposals/new"
-              className="new-proposal-cta sm:min-h-11 sm:px-4 sm:text-sm"
-            >
-              <Plus className="h-4 w-4" /> New Proposal
-            </Link>
+            <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
+              <Link href="/proposals/new">
+                <Plus className="h-4 w-4" /> New Proposal
+              </Link>
+            </Button>
           </div>
         </div>
       </GlassCard>
@@ -1300,12 +1302,11 @@ export default function DashboardPage() {
             icon={Users}
             tone="indigo"
           >
-            <div className="budget-progress-track mt-2">
-              <div
-                className={`budget-progress-fill ${jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}`}
-                style={{ width: `${Math.min(jointUtilization, 100)}%` }}
-              />
-            </div>
+            <Progress
+              value={Math.min(jointUtilization, 100)}
+              className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+              indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
+            />
             <p className="mt-1 text-[11px] text-zinc-400">{Math.round(jointUtilization)}% utilized</p>
           </MetricCard>
           <MetricCard
@@ -1315,12 +1316,11 @@ export default function DashboardPage() {
             icon={Wallet}
             tone="amber"
           >
-            <div className="budget-progress-track mt-2">
-              <div
-                className={`budget-progress-fill ${discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}`}
-                style={{ width: `${Math.min(discretionaryUtilization, 100)}%` }}
-              />
-            </div>
+            <Progress
+              value={Math.min(discretionaryUtilization, 100)}
+              className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+              indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
+            />
             <p className="mt-1 text-[11px] text-zinc-400">{Math.round(discretionaryUtilization)}% utilized</p>
           </MetricCard>
         </div>
@@ -1542,12 +1542,12 @@ export default function DashboardPage() {
             <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
               <label className="text-xs font-semibold text-zinc-500">
                 Search
-                <input
+                <Input
                   type="text"
                   value={filters.proposal}
                   onChange={(event) => setFilter("proposal", event.target.value)}
                   placeholder="Title or description"
-                  className="field-control mt-1 w-full normal-case"
+                  className="mt-1 normal-case"
                 />
               </label>
               <label className="text-xs font-semibold text-zinc-500">
@@ -1557,7 +1557,7 @@ export default function DashboardPage() {
                   onChange={(event) =>
                     setFilter("proposalType", event.target.value as TableFilters["proposalType"])
                   }
-                  className="field-control mt-1 w-full normal-case"
+                  className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1 normal-case"
                 >
                   <option value="all">All</option>
                   <option value="joint">Joint</option>
@@ -1569,7 +1569,7 @@ export default function DashboardPage() {
                 <select
                   value={filters.status}
                   onChange={(event) => setFilter("status", event.target.value as TableFilters["status"])}
-                  className="field-control mt-1 w-full normal-case"
+                  className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1 normal-case"
                 >
                   <option value="all">All</option>
                   {STATUS_OPTIONS.map((statusOption) => (
@@ -1683,13 +1683,13 @@ export default function DashboardPage() {
                       <p className="text-xs font-semibold text-zinc-500">Amount</p>
                       {isRowEditable ? (
                         <>
-                          <input
+                          <Input
                             type="number"
                             min={0}
                             step="0.01"
                             value={draft.finalAmount}
                             onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
-                            className="field-control mt-1 w-full"
+                            className="mt-1"
                           />
                           <p className="mt-1 text-[11px] text-zinc-500">
                             Amount preview: {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
@@ -1715,7 +1715,7 @@ export default function DashboardPage() {
                               ...(event.target.value === "sent" ? {} : { sentAt: "" })
                             })
                           }
-                          className="field-control mt-1 w-full"
+                          className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1"
                         >
                           {STATUS_OPTIONS.map((statusOption) => (
                             <option key={statusOption} value={statusOption}>
@@ -1733,12 +1733,12 @@ export default function DashboardPage() {
                     {canEditSentDate ? (
                       <label className="block text-xs font-semibold text-zinc-500">
                         Date amount sent
-                        <input
+                        <Input
                           type="date"
                           value={draft.sentAt}
                           disabled={sentDateDisabled}
                           onChange={(event) => updateDraft(proposal.id, { sentAt: event.target.value })}
-                          className="field-control mt-1 w-full disabled:opacity-50"
+                          className="mt-1"
                         />
                       </label>
                     ) : (
@@ -1748,12 +1748,12 @@ export default function DashboardPage() {
                     {isRowEditable ? (
                       <label className="block text-xs font-semibold text-zinc-500">
                         Notes
-                        <input
+                        <Input
                           type="text"
                           value={draft.notes}
                           onChange={(event) => updateDraft(proposal.id, { notes: event.target.value })}
                           placeholder="Optional notes"
-                          className="field-control mt-1 w-full"
+                          className="mt-1"
                         />
                       </label>
                     ) : proposal.notes?.trim() ? (
@@ -1964,12 +1964,16 @@ export default function DashboardPage() {
         )}
       </GlassCard>
 
-      {detailProposal && detailDraft && detailRequiredAction ? (
-        <ModalOverlay
-          onClose={closeDetailDrawer}
-          placement="center"
+      <Dialog
+        open={!!(detailProposal && detailDraft && detailRequiredAction)}
+        onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}
+      >
+        {detailProposal && detailDraft && detailRequiredAction ? (
+        <DialogContent
+          aria-labelledby="proposal-details-title"
+          className="max-w-3xl rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto"
+          showCloseButton={false}
         >
-          <ModalPanel aria-labelledby="proposal-details-title" className="max-w-3xl rounded-3xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -2081,7 +2085,7 @@ export default function DashboardPage() {
                 {detailIsRowEditable ? (
                   <label className="text-xs font-semibold text-zinc-500">
                     Amount
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step="0.01"
@@ -2089,7 +2093,7 @@ export default function DashboardPage() {
                       onChange={(event) =>
                         updateDraft(detailProposal.id, { finalAmount: event.target.value })
                       }
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                     <span className="mt-1 block text-[11px] text-zinc-500">
                       Amount preview:{" "}
@@ -2111,7 +2115,7 @@ export default function DashboardPage() {
                           ...(event.target.value === "sent" ? {} : { sentAt: "" })
                         })
                       }
-                      className="field-control mt-1 w-full"
+                      className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1"
                     >
                       {STATUS_OPTIONS.map((statusOption) => (
                         <option key={statusOption} value={statusOption}>
@@ -2125,12 +2129,12 @@ export default function DashboardPage() {
                 {detailCanEditSentDate ? (
                   <label className="text-xs font-semibold text-zinc-500">
                     Date amount sent
-                    <input
+                    <Input
                       type="date"
                       value={detailDraft.sentAt}
                       disabled={detailSentDateDisabled}
                       onChange={(event) => updateDraft(detailProposal.id, { sentAt: event.target.value })}
-                      className="field-control mt-1 w-full disabled:opacity-50"
+                      className="mt-1"
                     />
                   </label>
                 ) : null}
@@ -2138,12 +2142,12 @@ export default function DashboardPage() {
                 {detailIsRowEditable ? (
                   <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
                     Notes
-                    <input
+                    <Input
                       type="text"
                       value={detailDraft.notes}
                       onChange={(event) => updateDraft(detailProposal.id, { notes: event.target.value })}
                       placeholder="Optional notes"
-                      className="field-control mt-1 w-full"
+                      className="mt-1"
                     />
                   </label>
                 ) : null}
@@ -2168,24 +2172,24 @@ export default function DashboardPage() {
                 <div className="mt-3 grid gap-4 md:grid-cols-2">
                   <label className="text-xs font-semibold text-zinc-500">
                     Proposal title
-                    <input
+                    <Input
                       type="text"
                       value={detailEditDraft.title}
                       disabled={!detailCanEditNonUrlFields || isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("title", event.target.value)}
-                      className="field-control mt-1 w-full disabled:opacity-50"
+                      className="mt-1"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500">
                     Proposed amount
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step="0.01"
                       value={detailEditDraft.proposedAmount}
                       disabled={!detailCanEditNonUrlFields || isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("proposedAmount", event.target.value)}
-                      className="field-control mt-1 w-full disabled:opacity-50"
+                      className="mt-1"
                     />
                     <span className="mt-1 block text-[11px] text-zinc-500">
                       Amount preview:{" "}
@@ -2196,43 +2200,43 @@ export default function DashboardPage() {
                   </label>
                   <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
                     Description
-                    <textarea
+                    <Textarea
                       value={detailEditDraft.description}
                       disabled={!detailCanEditNonUrlFields || isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("description", event.target.value)}
-                      className="field-control mt-1 min-h-20 w-full disabled:opacity-50"
+                      className="mt-1 min-h-20"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
                     Notes
-                    <input
+                    <Input
                       type="text"
                       value={detailEditDraft.notes}
                       disabled={!detailCanEditNonUrlFields || isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("notes", event.target.value)}
                       placeholder="Optional notes"
-                      className="field-control mt-1 w-full disabled:opacity-50"
+                      className="mt-1"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
                     Organization website URL
-                    <input
+                    <Input
                       type="url"
                       value={detailEditDraft.website}
                       disabled={isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("website", event.target.value)}
-                      className="field-control mt-1 w-full disabled:opacity-50"
+                      className="mt-1"
                       placeholder="https://example.org"
                     />
                   </label>
                   <label className="text-xs font-semibold text-zinc-500 md:col-span-2">
                     Charity Navigator URL
-                    <input
+                    <Input
                       type="url"
                       value={detailEditDraft.charityNavigatorUrl}
                       disabled={isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("charityNavigatorUrl", event.target.value)}
-                      className="field-control mt-1 w-full disabled:opacity-50"
+                      className="mt-1"
                       placeholder="https://www.charitynavigator.org/..."
                     />
                   </label>
@@ -2334,9 +2338,9 @@ export default function DashboardPage() {
                 {detailRowState.text}
               </p>
             ) : null}
-          </ModalPanel>
-        </ModalOverlay>
-      ) : null}
+        </DialogContent>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

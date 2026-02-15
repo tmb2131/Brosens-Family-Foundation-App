@@ -81,7 +81,7 @@ export default function MeetingPage() {
         <CardLabel>Reveal & Decision Stage</CardLabel>
         <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <span className="status-dot bg-emerald-500" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           <span className="hidden sm:inline">Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.</span>
           <span className="sm:hidden">{formatNumber(data.proposals.length)} pending decisions</span>
         </p>

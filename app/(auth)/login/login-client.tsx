@@ -7,6 +7,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { UserProfile } from "@/lib/types";
 
 const allowedRedirects = [
@@ -174,10 +176,11 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-zinc-500">Sign in with your email and password.</p>
 
         <form className="mt-4 space-y-3" onSubmit={submitLogin} aria-busy={loading}>
-          <label className="block text-sm font-medium">
-            Email
-            <input
-              className="field-control mt-1 w-full rounded-xl"
+          <div className="space-y-1.5">
+            <Label htmlFor="login-email">Email</Label>
+            <Input
+              id="login-email"
+              className="rounded-xl"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -187,18 +190,19 @@ export default function LoginPage() {
               spellCheck={false}
               inputMode="email"
             />
-          </label>
-          <label className="block text-sm font-medium">
-            Password
-            <input
-              className="field-control mt-1 w-full rounded-xl"
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="login-password">Password</Label>
+            <Input
+              id="login-password"
+              className="rounded-xl"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
               type="password"
               autoComplete="current-password"
             />
-          </label>
+          </div>
           <div className="flex justify-end">
             <Link
               href={forgotPasswordHref}

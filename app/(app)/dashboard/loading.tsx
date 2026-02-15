@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 
 export default function DashboardLoading() {
@@ -14,9 +15,11 @@ export default function DashboardLoading() {
               Fetching current-year totals and proposal statuses.
             </p>
           </div>
-          <Link href="/proposals/new" className="new-proposal-cta sm:min-h-11 sm:px-4 sm:text-sm">
-            <Plus className="h-4 w-4" /> New Proposal
-          </Link>
+          <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
+            <Link href="/proposals/new">
+              <Plus className="h-4 w-4" /> New Proposal
+            </Link>
+          </Button>
         </div>
       </GlassCard>
       <p className="text-sm text-zinc-500">Loading foundation dashboard...</p>

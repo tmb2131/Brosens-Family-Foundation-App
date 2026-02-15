@@ -4,7 +4,9 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useState } from "react";
 import { ClipboardList, DollarSign } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber } from "@/lib/utils";
@@ -109,7 +111,7 @@ export default function AdminPage() {
         <CardLabel>Administrator Workspace</CardLabel>
         <CardValue>Donation Execution Cues</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <span className="status-dot bg-emerald-500" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           Approved grants appear here. Mark as Sent once external donation execution is complete.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 dark:text-zinc-500">
@@ -181,7 +183,7 @@ export default function AdminPage() {
                         >
                           Date sent
                         </label>
-                        <input
+                        <Input
                           id={`sent-date-${proposal.id}`}
                           type="date"
                           value={sentDate}
@@ -197,19 +199,20 @@ export default function AdminPage() {
                               return next;
                             });
                           }}
-                          className="field-control field-control--compact mt-1 block h-9 w-full min-w-0"
+                          className="mt-1"
                           required
                         />
                       </div>
 
-                      <button
+                      <Button
                         type="button"
-                        className="prominent-accent-cta w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:shrink-0 sm:self-end"
+                        variant="prominent"
+                        className="w-full sm:w-auto sm:shrink-0 sm:self-end"
                         onClick={() => void markSent(proposal.id)}
                         disabled={!sentDate || isSaving}
                       >
                         {isSaving ? "Saving..." : "Mark as Sent"}
-                      </button>
+                      </Button>
                     </div>
 
                     {proposal.organizationWebsite || proposal.charityNavigatorUrl ? (

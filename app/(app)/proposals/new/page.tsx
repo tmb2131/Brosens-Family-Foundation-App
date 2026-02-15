@@ -8,7 +8,10 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
-import { ModalOverlay, ModalPanel } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
@@ -211,7 +214,7 @@ export default function NewProposalPage() {
         <CardLabel>Submission Flow</CardLabel>
         <CardValue>New Giving Idea</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <span className="status-dot bg-emerald-500" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           Proposals are added to the full grant list and move to blind voting by eligible voters.
         </p>
       </GlassCard>
@@ -305,20 +308,22 @@ export default function NewProposalPage() {
             </p>
           </label>
 
-          <label className="block text-sm font-medium">
-            Description
-            <textarea
+          <div className="space-y-1.5">
+            <Label htmlFor="proposal-description">Description</Label>
+            <Textarea
+              id="proposal-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              className="field-control mt-1 min-h-24 w-full rounded-xl"
+              className="min-h-24 rounded-xl"
               required
             />
-          </label>
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm font-medium">
-              Proposal type
+            <div className="space-y-1.5">
+              <Label htmlFor="proposal-type">Proposal type</Label>
               <select
+                id="proposal-type"
                 value={proposalType}
                 onChange={(event) => {
                   const nextType = event.target.value as ProposalTypeOption;
@@ -338,7 +343,7 @@ export default function NewProposalPage() {
                     });
                   }
                 }}
-                className="field-control mt-1 w-full rounded-xl"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-xl border px-3 py-1 text-base outline-none disabled:opacity-50 md:text-sm"
                 disabled={isManager}
                 required
               >
@@ -357,7 +362,7 @@ export default function NewProposalPage() {
               {isManager ? (
                 <p className="mt-1 text-xs text-zinc-500">Managers can submit joint proposals only.</p>
               ) : null}
-            </label>
+            </div>
 
             <div className="block text-sm font-medium">
               Final amount rule
@@ -371,13 +376,16 @@ export default function NewProposalPage() {
             </div>
           </div>
 
-          <label className="block text-sm font-medium">
-            {proposalType === "joint"
-              ? "Proposed total donation (joint)"
-              : proposalType === "discretionary"
-              ? "Proposed amount (discretionary)"
-              : "Proposed amount"}
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="proposed-amount">
+              {proposalType === "joint"
+                ? "Proposed total donation (joint)"
+                : proposalType === "discretionary"
+                ? "Proposed amount (discretionary)"
+                : "Proposed amount"}
+            </Label>
+            <Input
+              id="proposed-amount"
               type="number"
               min={0}
               max={proposalType === "discretionary" && discretionaryLimit !== null ? discretionaryLimit : undefined}
@@ -405,7 +413,7 @@ export default function NewProposalPage() {
 
                 setProposedAmount(nextValue);
               }}
-              className="field-control field-control--no-spinner mt-1 w-full rounded-xl"
+              className="rounded-xl [appearance:textfield] [&::-webkit-inner-spin-button]:[-webkit-appearance:none] [&::-webkit-outer-spin-button]:[-webkit-appearance:none]"
               required
             />
             <p className="mt-1 text-xs text-zinc-500">
@@ -420,15 +428,16 @@ export default function NewProposalPage() {
             <p className="mt-1 text-[11px] text-zinc-500">
               Amount preview: {parsedProposedAmount !== null ? currency(parsedProposedAmount) : "—"}
             </p>
-          </label>
+          </div>
 
-          <label className="block text-sm font-medium">
-            Organization website link (optional)
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="org-website">Organization website link (optional)</Label>
+            <Input
+              id="org-website"
               type="url"
               value={website}
               onChange={(event) => setWebsite(event.target.value)}
-              className="field-control mt-1 w-full rounded-xl"
+              className="rounded-xl"
               placeholder="https://example.org"
               inputMode="url"
             />
@@ -436,15 +445,16 @@ export default function NewProposalPage() {
               Add the organization website for proposal context and to help Brynn complete the
               donation.
             </p>
-          </label>
+          </div>
 
-          <label className="block text-sm font-medium">
-            Charity Navigator link (optional)
-            <input
+          <div className="space-y-1.5">
+            <Label htmlFor="charity-nav-url">Charity Navigator link (optional)</Label>
+            <Input
+              id="charity-nav-url"
               type="url"
               value={charityNavigatorUrl}
               onChange={(event) => setCharityNavigatorUrl(event.target.value)}
-              className="field-control mt-1 w-full rounded-xl"
+              className="rounded-xl"
               placeholder="https://www.charitynavigator.org/..."
               inputMode="url"
             />
@@ -452,7 +462,7 @@ export default function NewProposalPage() {
               Add the Charity Navigator profile URL. A future update can auto-populate the score
               and summary from this link.
             </p>
-          </label>
+          </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
@@ -476,7 +486,7 @@ export default function NewProposalPage() {
           </div>
 
           {error ? (
-            <div className="error-message-box">
+            <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
               <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
               <span>{error}</span>
             </div>
@@ -491,13 +501,16 @@ export default function NewProposalPage() {
       </div>
       </div>
 
-      {isConfirmDialogOpen ? (
-        <ModalOverlay
-          onClose={() => setIsConfirmDialogOpen(false)}
-          closeOnBackdrop={!saving}
-          className="z-50 items-center justify-center px-4 py-6"
+      <Dialog
+        open={isConfirmDialogOpen}
+        onOpenChange={(open) => { if (!open && !saving) setIsConfirmDialogOpen(false); }}
+      >
+        <DialogContent
+          aria-labelledby="proposal-submit-confirm-title"
+          className="max-w-lg rounded-3xl p-5"
+          showCloseButton={false}
+          onInteractOutside={(e) => { if (saving) e.preventDefault(); }}
         >
-          <ModalPanel aria-labelledby="proposal-submit-confirm-title" className="max-w-lg rounded-3xl p-5">
             <div className="flex flex-wrap items-center gap-2">
               <h2 id="proposal-submit-confirm-title" className="text-lg font-bold">
                 Review Proposal Submission
@@ -572,9 +585,8 @@ export default function NewProposalPage() {
             </div>
 
             {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
-          </ModalPanel>
-        </ModalOverlay>
-      ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

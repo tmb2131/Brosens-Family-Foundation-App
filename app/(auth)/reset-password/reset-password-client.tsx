@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const minimumPasswordLength = 12;
 
@@ -98,10 +100,11 @@ export default function ResetPasswordClient() {
 
         {!authLoading && configured && user ? (
           <form className="mt-4 space-y-3" onSubmit={submitPasswordUpdate} aria-busy={submitting}>
-            <label className="block text-sm font-medium">
-              New password
-              <input
-                className="field-control mt-1 w-full rounded-xl"
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">New password</Label>
+              <Input
+                id="new-password"
+                className="rounded-xl"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 required
@@ -109,11 +112,12 @@ export default function ResetPasswordClient() {
                 minLength={minimumPasswordLength}
                 autoComplete="new-password"
               />
-            </label>
-            <label className="block text-sm font-medium">
-              Confirm new password
-              <input
-                className="field-control mt-1 w-full rounded-xl"
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-password">Confirm new password</Label>
+              <Input
+                id="confirm-password"
+                className="rounded-xl"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
@@ -121,7 +125,7 @@ export default function ResetPasswordClient() {
                 minLength={minimumPasswordLength}
                 autoComplete="new-password"
               />
-            </label>
+            </div>
             <p className="text-xs text-zinc-500">Use at least {minimumPasswordLength} characters.</p>
             <Button
               size="lg"

@@ -65,7 +65,7 @@ export default function WorkspacePage() {
               <CardLabel>My Workspace</CardLabel>
               <CardValue>{workspace.user.name}</CardValue>
               <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                <span className="status-dot bg-emerald-500" />
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 {isManager
                   ? "Track action items, submitted proposals, and voting history. Manager profiles do not have individual budgets."
                   : "Track your joint/discretionary balances, action items, and personal voting history."}
@@ -76,9 +76,11 @@ export default function WorkspacePage() {
                 <span>{formatNumber(workspace.submittedGifts.length)} submitted proposal(s)</span>
               </div>
             </div>
-            <Link href="/proposals/new" className="new-proposal-cta sm:min-h-11 sm:px-4 sm:text-sm">
-              <Plus className="h-4 w-4" /> New Proposal
-            </Link>
+            <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
+              <Link href="/proposals/new">
+                <Plus className="h-4 w-4" /> New Proposal
+              </Link>
+            </Button>
           </div>
         </GlassCard>
         {isManager ? (

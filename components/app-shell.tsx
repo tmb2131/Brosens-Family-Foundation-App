@@ -24,6 +24,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 
 function getInitials(name: string): string {
@@ -57,6 +58,18 @@ interface NavSection {
 }
 
 const DESKTOP_SIDEBAR_STORAGE_KEY = "bf_desktop_sidebar_open";
+
+/* Sidebar class constants (co-located with the component instead of globals.css) */
+const sidebarLinkClass =
+  "relative flex min-h-9 min-w-0 items-center rounded-[0.625rem] py-1.5 text-[0.8125rem] font-medium text-[hsl(var(--foreground)/0.65)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-[hsl(var(--muted)/0.7)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
+const sidebarLinkExpanded = "gap-2.5 px-2.5 motion-safe:hover:translate-x-px";
+const sidebarLinkCollapsed = "justify-center px-0";
+const sidebarLinkActive =
+  "bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))] font-semibold shadow-none hover:bg-[hsl(var(--accent)/0.15)] hover:text-[hsl(var(--accent))] motion-safe:hover:translate-x-0";
+const sidebarIndicatorClass =
+  "absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-[hsl(var(--accent))] transition-opacity duration-150 ease-in-out";
+const sidebarControlBtnClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/50 transition-[background-color,color] duration-200 hover:bg-[hsl(var(--muted)/0.85)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
 
 const fullNavItems: NavItem[] = [
   {
@@ -159,15 +172,19 @@ function OutstandingBadge({ count }: { count: number }) {
     return null;
   }
 
-  return <span className="nav-outstanding-badge">{count > 99 ? "99+" : count}</span>;
+  return (
+    <span className="absolute -right-2 -top-2 inline-flex min-w-[1.125rem] h-[1.125rem] items-center justify-center rounded-full border-[1.5px] border-card bg-danger px-1 text-white text-[0.625rem] font-bold leading-none">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
 }
 
 /* ─── Sidebar: Brand Header ─── */
 
 function SidebarHeader({ isOpen }: { isOpen: boolean }) {
-  return (
-    <div className={cn("sidebar-header", isOpen ? "sidebar-header--expanded" : "sidebar-header--collapsed")}>
-      <span className="sidebar-header__monogram">
+  const inner = (
+    <div className={cn("relative flex items-center gap-2.5 px-2 pt-2.5 pb-2", isOpen ? "pl-3" : "justify-center")}>
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.625rem] bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] transition-[background-color] duration-200 hover:bg-[hsl(var(--accent)/0.18)]">
         <Leaf className="h-4 w-4" strokeWidth={2} />
       </span>
       <span
@@ -178,12 +195,16 @@ function SidebarHeader({ isOpen }: { isOpen: boolean }) {
       >
         Brosens Foundation
       </span>
-      {!isOpen && (
-        <span className="sidebar-link__tooltip" aria-hidden>
-          Brosens Family Foundation
-        </span>
-      )}
     </div>
+  );
+
+  if (isOpen) return inner;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>Brosens Family Foundation</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -199,12 +220,9 @@ function SidebarUserCard({ isOpen, user }: SidebarUserCardProps) {
   const avatarClass = user ? roleAvatarClasses[user.role] : "bg-muted text-foreground/50";
   const tooltipText = user ? `${user.name} (${user.role})` : "Not signed in";
 
-  return (
-    <div className={cn("sidebar-user-card", isOpen ? "sidebar-user-card--expanded" : "sidebar-user-card--collapsed")}>
-      <span
-        className={cn("sidebar-user-avatar", avatarClass)}
-        title={isOpen ? undefined : tooltipText}
-      >
+  const inner = (
+    <div className={cn("group flex items-center gap-2.5 border-b border-[hsl(var(--border)/0.4)] px-2 pt-2 pb-3 mb-1", isOpen ? "pl-3 pr-3" : "justify-center")}>
+      <span className={cn("inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[0.6875rem] font-bold tracking-[0.02em] transition-transform duration-200 group-hover:scale-105", avatarClass)}>
         {initials}
       </span>
       <div
@@ -222,12 +240,16 @@ function SidebarUserCard({ isOpen, user }: SidebarUserCardProps) {
           </>
         )}
       </div>
-      {!isOpen && user && (
-        <span className="sidebar-link__tooltip" aria-hidden>
-          {user.name}
-        </span>
-      )}
     </div>
+  );
+
+  if (isOpen) return inner;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>{tooltipText}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -241,23 +263,22 @@ interface DesktopNavLinkProps {
 }
 
 function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLinkProps) {
-  return (
+  const link = (
     <Link
       href={item.href}
       prefetch={false}
       className={cn(
-        "sidebar-link",
-        isOpen ? "sidebar-link--expanded" : "sidebar-link--collapsed",
-        active && "sidebar-link--active"
+        sidebarLinkClass,
+        isOpen ? sidebarLinkExpanded : sidebarLinkCollapsed,
+        active && sidebarLinkActive
       )}
-      title={isOpen ? undefined : item.label}
       aria-current={active ? "page" : undefined}
       data-nav-href={item.href}
     >
       <span
         className={cn(
-          "sidebar-link__active-indicator",
-          active ? "sidebar-link__active-indicator--visible" : "sidebar-link__active-indicator--hidden"
+          sidebarIndicatorClass,
+          active ? "opacity-100" : "opacity-0"
         )}
       />
       <span className="relative inline-flex w-4 shrink-0 items-center justify-center">
@@ -270,13 +291,18 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
           {outstandingCount > 99 ? "99+" : outstandingCount}
         </span>
       )}
-      {!isOpen ? (
-        <span className="sidebar-link__tooltip" aria-hidden>
-          {item.label}
-          {outstandingCount > 0 && ` (${outstandingCount})`}
-        </span>
-      ) : null}
     </Link>
+  );
+
+  if (isOpen) return link;
+
+  const tooltipLabel = outstandingCount > 0 ? `${item.label} (${outstandingCount})` : item.label;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>{tooltipLabel}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -295,9 +321,9 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
       {sections.map((section, sectionIndex) => (
         <section key={section.id} className={cn(sectionIndex > 0 && "mt-4")}>
           {sectionIndex > 0 && (
-            <div className={cn("sidebar-section-divider", !isOpen && "mx-auto w-6")} aria-hidden />
+            <div className={cn("h-px mb-3 bg-[hsl(var(--border)/0.4)]", !isOpen && "mx-auto w-6")} aria-hidden />
           )}
-          {isOpen && <span className="sidebar-section-label">{section.label}</span>}
+          {isOpen && <span className="block mb-2 pl-3 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase text-[hsl(var(--foreground)/0.38)]">{section.label}</span>}
           <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = isRouteActive(pathname, item.href);
@@ -335,34 +361,37 @@ function SidebarFooterLink({
   isOpen: boolean;
   active: boolean;
 }) {
-  return (
+  const link = (
     <Link
       href={href}
       prefetch={false}
       className={cn(
-        "sidebar-link",
-        isOpen ? "sidebar-link--expanded" : "sidebar-link--collapsed",
-        active && "sidebar-link--active"
+        sidebarLinkClass,
+        isOpen ? sidebarLinkExpanded : sidebarLinkCollapsed,
+        active && sidebarLinkActive
       )}
-      title={isOpen ? undefined : label}
       aria-current={active ? "page" : undefined}
     >
       <span
         className={cn(
-          "sidebar-link__active-indicator",
-          active ? "sidebar-link__active-indicator--visible" : "sidebar-link__active-indicator--hidden"
+          sidebarIndicatorClass,
+          active ? "opacity-100" : "opacity-0"
         )}
       />
       <span className="relative inline-flex w-4 shrink-0 items-center justify-center">
         <Icon className="h-4 w-4" strokeWidth={1.5} />
       </span>
       <span className={cn("truncate", !isOpen && "sr-only")}>{label}</span>
-      {!isOpen && (
-        <span className="sidebar-link__tooltip" aria-hidden>
-          {label}
-        </span>
-      )}
     </Link>
+  );
+
+  if (isOpen) return link;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -410,7 +439,7 @@ function DesktopSidebar({
         />
 
         {/* Zone 4: Footer utilities */}
-        <div className="sidebar-footer">
+        <div className="flex flex-col gap-0.5 border-t border-[hsl(var(--border)/0.4)] pt-2">
           <SidebarFooterLink
             href="/settings"
             label="Settings"
@@ -419,11 +448,11 @@ function DesktopSidebar({
             active={isRouteActive(pathname, "/settings")}
           />
 
-          <div className={cn("sidebar-footer__controls", isOpen ? "sidebar-footer__controls--expanded" : "sidebar-footer__controls--collapsed")}>
-            <ThemeToggle className="sidebar-control-button" />
+          <div className={cn("flex items-center gap-0.5", isOpen ? "px-1" : "flex-col items-center")}>
+            <ThemeToggle className={sidebarControlBtnClass} />
             <button
               onClick={onToggle}
-              className="sidebar-control-button"
+              className={sidebarControlBtnClass}
               type="button"
               aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
               title={isOpen ? "Collapse sidebar" : "Expand sidebar"}
@@ -438,7 +467,7 @@ function DesktopSidebar({
             </button>
             <button
               onClick={onSignOut}
-              className="sidebar-control-button sidebar-control-button--danger"
+              className={cn(sidebarControlBtnClass, "hover:bg-[hsl(var(--danger)/0.1)] hover:text-[hsl(var(--danger))]")}
               type="button"
               aria-label="Sign out"
               title="Sign out"
@@ -479,14 +508,14 @@ function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottom
                 href={item.href}
                 prefetch={false}
                 className={cn(
-                  "mobile-nav-link",
-                  active && "mobile-nav-link--active",
-                  showNewProposalCta && "mobile-nav-link--cta"
+                  "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl p-2 text-[0.6875rem] font-semibold text-[hsl(var(--foreground)/0.72)] transition-[background-color,border-color,color,box-shadow,transform] duration-[180ms] ease-in-out hover:bg-[hsl(var(--muted)/0.8)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2 motion-safe:active:scale-95",
+                  active && "bg-accent text-white shadow-[0_10px_20px_-14px_hsl(var(--accent)/1)] hover:bg-accent hover:text-white",
+                  showNewProposalCta && "border border-[rgb(var(--proposal-cta-border)/0.56)] bg-[rgb(var(--proposal-cta)/0.12)] text-[rgb(var(--proposal-cta-hover))] shadow-[0_10px_20px_-16px_rgb(var(--proposal-cta)/0.95)] dark:border-[rgb(var(--proposal-cta-border)/0.62)] dark:bg-[rgb(var(--proposal-cta)/0.2)] dark:text-[rgb(var(--proposal-cta-foreground))] dark:shadow-[0_12px_22px_-16px_rgb(var(--proposal-cta)/1)]"
                 )}
                 aria-current={active ? "page" : undefined}
                 data-nav-href={item.href}
               >
-                <span className={cn("mobile-nav-link__icon", showNewProposalCta && "mobile-nav-link__icon--cta")}>
+                <span className={cn("relative inline-flex", showNewProposalCta && "h-6 w-6 items-center justify-center rounded-full bg-[rgb(var(--proposal-cta))] text-[rgb(var(--proposal-cta-foreground))] shadow-[0_6px_12px_-8px_rgb(var(--proposal-cta)/1)] motion-safe:animate-[sidebar-cta-pulse_900ms_ease-out_1]")}>
                   <item.icon className="h-4 w-4" strokeWidth={1.5} />
                   <OutstandingBadge count={outstandingCount} />
                 </span>

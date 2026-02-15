@@ -7,7 +7,10 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MetricCard } from "@/components/ui/metric-card";
+import { Progress } from "@/components/ui/progress";
 import {
   DirectionalCategory,
   DIRECTIONAL_CATEGORIES,
@@ -337,7 +340,7 @@ export default function SettingsPage() {
         <CardLabel>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardLabel>
         <CardValue>{canManageBudget ? "Budget & Annual Cycle" : "Password & Security"}</CardValue>
         <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-          <span className="status-dot bg-emerald-500" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           {canManageBudget
             ? "February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31."
             : "Use password reset to securely change your sign-in credentials."}
@@ -454,10 +457,11 @@ export default function SettingsPage() {
             <p className="mt-2 text-sm text-zinc-500">No organizations available yet.</p>
           ) : (
             <form className="mt-3 space-y-3" onSubmit={saveCategoryOverride}>
-              <label className="block text-sm font-medium">
-                Organization
+              <div className="space-y-1.5">
+                <Label htmlFor="cat-organization">Organization</Label>
                 <select
-                  className="field-control mt-1 w-full rounded-xl"
+                  id="cat-organization"
+                  className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-xl border px-3 py-1 text-base outline-none disabled:opacity-50 md:text-sm"
                   value={selectedOrganizationId}
                   onChange={(event) => {
                     const organizationId = event.target.value;
@@ -478,12 +482,13 @@ export default function SettingsPage() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
 
-              <label className="block text-sm font-medium">
-                Directional category
+              <div className="space-y-1.5">
+                <Label htmlFor="cat-category">Directional category</Label>
                 <select
-                  className="field-control mt-1 w-full rounded-xl"
+                  id="cat-category"
+                  className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-xl border px-3 py-1 text-base outline-none disabled:opacity-50 md:text-sm"
                   value={selectedCategory}
                   onChange={(event) => {
                     setSelectedCategory(event.target.value as DirectionalCategory);
@@ -496,7 +501,7 @@ export default function SettingsPage() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
 
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -563,48 +568,52 @@ export default function SettingsPage() {
             ) : (
               <form className="space-y-3" onSubmit={submit}>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm font-medium">
-                    Budget year
-                    <input
+                  <div className="space-y-1.5">
+                    <Label htmlFor="budget-year">Budget year</Label>
+                    <Input
+                      id="budget-year"
                       type="number"
-                      className="field-control mt-1 w-full rounded-xl"
+                      className="rounded-xl"
                       value={year}
                       onChange={(event) => setYear(event.target.value)}
                     />
-                  </label>
-                  <label className="text-sm font-medium">
-                    Annual fund size
-                    <input
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fund-size">Annual fund size</Label>
+                    <Input
+                      id="fund-size"
                       type="number"
-                      className="field-control mt-1 w-full rounded-xl"
+                      className="rounded-xl"
                       value={totalAmount}
                       onChange={(event) => setTotalAmount(event.target.value)}
                     />
                     <p className="mt-1 text-[11px] text-zinc-500">
                       Amount preview: {parsedTotalAmount !== null ? currency(parsedTotalAmount) : "—"}
                     </p>
-                  </label>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="text-sm font-medium">
-                    Roll-over amount
-                    <input
+                  <div className="space-y-1.5">
+                    <Label htmlFor="rollover">Roll-over amount</Label>
+                    <Input
+                      id="rollover"
                       type="number"
-                      className="field-control mt-1 w-full rounded-xl"
+                      className="rounded-xl"
                       value={rollover}
                       onChange={(event) => setRollover(event.target.value)}
                     />
                     <p className="mt-1 text-[11px] text-zinc-500">
                       Amount preview: {parsedRollover !== null ? currency(parsedRollover) : "—"}
                     </p>
-                  </label>
-                  <label className="text-sm font-medium">
-                    Joint ratio
-                    <input
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="joint-ratio">Joint ratio</Label>
+                    <Input
+                      id="joint-ratio"
                       type="number"
                       step="0.01"
-                      className="field-control mt-1 w-full rounded-xl"
+                      className="rounded-xl"
                       value={jointRatio}
                       onChange={(event) => setJointRatio(event.target.value)}
                     />
@@ -617,13 +626,14 @@ export default function SettingsPage() {
                           })}%`
                         : "—"}
                     </p>
-                  </label>
-                  <label className="text-sm font-medium">
-                    Discretionary ratio
-                    <input
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="disc-ratio">Discretionary ratio</Label>
+                    <Input
+                      id="disc-ratio"
                       type="number"
                       step="0.01"
-                      className="field-control mt-1 w-full rounded-xl"
+                      className="rounded-xl"
                       value={discretionaryRatio}
                       onChange={(event) => setDiscretionaryRatio(event.target.value)}
                     />
@@ -636,7 +646,7 @@ export default function SettingsPage() {
                           })}%`
                         : "—"}
                     </p>
-                  </label>
+                  </div>
                 </div>
 
                 <p className="text-xs text-zinc-500">
@@ -684,14 +694,11 @@ export default function SettingsPage() {
                   tone="indigo"
                   className="p-3"
                 >
-                  <div className="budget-progress-track mt-2">
-                    <div
-                      className={`budget-progress-fill ${
-                        jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"
-                      }`}
-                      style={{ width: `${Math.min(jointUtilization, 100)}%` }}
-                    />
-                  </div>
+                  <Progress
+                    value={Math.min(jointUtilization, 100)}
+                    className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+                    indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
+                  />
                   <p className="mt-1 text-[11px] text-zinc-400">
                     {Math.round(jointUtilization)}% utilized
                   </p>
@@ -704,16 +711,11 @@ export default function SettingsPage() {
                   tone="amber"
                   className="p-3"
                 >
-                  <div className="budget-progress-track mt-2">
-                    <div
-                      className={`budget-progress-fill ${
-                        discretionaryUtilization > 100
-                          ? "bg-rose-500"
-                          : "bg-amber-500 dark:bg-amber-400"
-                      }`}
-                      style={{ width: `${Math.min(discretionaryUtilization, 100)}%` }}
-                    />
-                  </div>
+                  <Progress
+                    value={Math.min(discretionaryUtilization, 100)}
+                    className="mt-2 h-1.5 bg-zinc-200 dark:bg-zinc-700"
+                    indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
+                  />
                   <p className="mt-1 text-[11px] text-zinc-400">
                     {Math.round(discretionaryUtilization)}% utilized
                   </p>

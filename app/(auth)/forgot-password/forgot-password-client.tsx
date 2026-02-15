@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function friendlyResetRequestError(error: unknown): string {
   if (!(error instanceof Error)) {
@@ -67,10 +69,11 @@ export default function ForgotPasswordClient() {
         </p>
 
         <form className="mt-4 space-y-3" onSubmit={submitResetRequest} aria-busy={loading}>
-          <label className="block text-sm font-medium">
-            Email
-            <input
-              className="field-control mt-1 w-full rounded-xl"
+          <div className="space-y-1.5">
+            <Label htmlFor="reset-email">Email</Label>
+            <Input
+              id="reset-email"
+              className="rounded-xl"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -80,7 +83,7 @@ export default function ForgotPasswordClient() {
               spellCheck={false}
               inputMode="email"
             />
-          </label>
+          </div>
           <Button
             size="lg"
             className="w-full"

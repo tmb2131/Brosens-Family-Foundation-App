@@ -5,6 +5,9 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   MandatePolicyContent,
   MandatePolicyPageData,
@@ -327,7 +330,7 @@ export default function MandatePage() {
             <CardLabel>Foundation Mandate</CardLabel>
             <CardValue>{data.policy.title}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-              <span className="status-dot bg-emerald-500" />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Version {formatNumber(data.policy.version)} | Last updated {prettyDate(data.policy.updatedAt)}
               {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
             </p>
@@ -400,14 +403,15 @@ export default function MandatePage() {
           </p>
           <div className="mt-4 space-y-3">
             {sections.map((section) => (
-              <label key={section.key} className="block text-sm font-medium">
-                {section.label}
-                <textarea
+              <div key={section.key} className="space-y-1.5">
+                <Label htmlFor={`mandate-${section.key}`}>{section.label}</Label>
+                <Textarea
+                  id={`mandate-${section.key}`}
                   value={draft[section.key]}
                   onChange={(event) => updateDraftField(section.key, event.target.value)}
-                  className="field-control mt-1 min-h-32 w-full rounded-xl text-sm"
+                  className="min-h-32 rounded-xl text-sm"
                 />
-              </label>
+              </div>
             ))}
           </div>
         </GlassCard>
@@ -541,9 +545,12 @@ export default function MandatePage() {
                           Flag for Discussion
                         </Button>
                       </div>
-                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                        Discussion note (required if you flag this update)
-                        <input
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`flag-reason-${notification.id}`} className="text-xs text-zinc-600 dark:text-zinc-300">
+                          Discussion note (required if you flag this update)
+                        </Label>
+                        <Input
+                          id={`flag-reason-${notification.id}`}
                           type="text"
                           value={flagReasons[notification.id] ?? ""}
                           onChange={(event) =>
@@ -552,10 +559,9 @@ export default function MandatePage() {
                               [notification.id]: event.target.value
                             }))
                           }
-                          className="field-control mt-1 w-full"
                           placeholder="What should the team discuss?"
                         />
-                      </label>
+                      </div>
                     </div>
                   ) : null}
                 </article>

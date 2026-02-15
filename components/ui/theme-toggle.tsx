@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
@@ -12,9 +13,11 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="icon"
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className={className ?? "rounded-full border bg-card px-3 py-1 text-xs font-semibold"}
+      className={cn("rounded-full", className)}
       type="button"
       aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
@@ -24,6 +27,6 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       ) : (
         <Moon className="h-4 w-4" strokeWidth={1.5} />
       )}
-    </button>
+    </Button>
   );
 }
