@@ -106,7 +106,7 @@ body {
     radial-gradient(circle at 5% 0%, hsl(154 100% 92% / 0.65), transparent 38%),
     radial-gradient(circle at 95% 10%, hsl(43 100% 90% / 0.72), transparent 34%),
     linear-gradient(180deg, hsl(var(--surface)), hsl(210 35% 96%));
-  font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+  font-family: "Avenir Next", var(--font-inter), "Trebuchet MS", "Gill Sans", sans-serif;
   min-height: 100vh;
 }
 

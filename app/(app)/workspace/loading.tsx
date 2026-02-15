@@ -1,3 +1,11 @@
+import { SkeletonCard } from "@/components/ui/skeleton";
+
 export default function WorkspaceLoading() {
-  return <p className="text-sm text-muted-foreground">Loading workspace...</p>;
+  return (
+    <div className="page-stack pb-4">
+      <SkeletonCard />
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  );
 }

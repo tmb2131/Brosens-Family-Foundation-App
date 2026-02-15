@@ -5,7 +5,7 @@ import {
   setMeetingDecision,
   setMeetingReveal
 } from "@/lib/foundation-data";
-import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { HttpError, PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 import { writeAuditLog } from "@/lib/audit";
 import { AppRole } from "@/lib/types";
 
@@ -15,7 +15,7 @@ export async function GET() {
     assertRole(profile, ["oversight", "manager"]);
 
     const proposals = await getMeetingProposals(admin, profile.id);
-    return NextResponse.json({ proposals });
+    return NextResponse.json({ proposals }, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);
     return NextResponse.json(response.body, { status: response.status });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth-server";
 import { getFoundationSnapshot } from "@/lib/foundation-data";
-import { toErrorResponse } from "@/lib/http-error";
+import { PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       includeAllYears,
       includeHistory
     );
-    return NextResponse.json(snapshot);
+    return NextResponse.json(snapshot, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);
     return NextResponse.json(response.body, { status: response.status });

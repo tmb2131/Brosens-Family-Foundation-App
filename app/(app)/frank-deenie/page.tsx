@@ -1,10 +1,15 @@
 "use client";
 
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
-import { FrankDeenieYearSplitChart } from "@/components/frank-deenie/year-split-chart";
+
+const FrankDeenieYearSplitChart = dynamic(
+  () => import("@/components/frank-deenie/year-split-chart").then((mod) => mod.FrankDeenieYearSplitChart),
+  { ssr: false, loading: () => <div className="h-[180px] w-full animate-pulse rounded-2xl bg-muted" /> }
+);
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";

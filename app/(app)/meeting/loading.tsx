@@ -1,3 +1,10 @@
+import { SkeletonCard } from "@/components/ui/skeleton";
+
 export default function MeetingLoading() {
-  return <p className="text-sm text-muted-foreground">Loading meeting view...</p>;
+  return (
+    <div className="page-stack pb-4">
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  );
 }

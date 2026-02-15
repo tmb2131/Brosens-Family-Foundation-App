@@ -1,3 +1,8 @@
+/** Cache-Control for authenticated, read-only API responses. */
+export const PRIVATE_CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=0, stale-while-revalidate=30"
+} as const;
+
 export class HttpError extends Error {
   status: number;
 

@@ -1,3 +1,10 @@
+import { SkeletonCard } from "@/components/ui/skeleton";
+
 export default function MobileLoading() {
-  return <p className="text-sm text-muted-foreground">Loading your mobile focus view...</p>;
+  return (
+    <div className="page-stack pb-4">
+      <SkeletonCard />
+      <SkeletonCard />
+    </div>
+  );
 }

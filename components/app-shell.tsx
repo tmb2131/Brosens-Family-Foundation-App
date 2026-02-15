@@ -266,7 +266,6 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
   const link = (
     <Link
       href={item.href}
-      prefetch={false}
       className={cn(
         sidebarLinkClass,
         isOpen ? sidebarLinkExpanded : sidebarLinkCollapsed,
@@ -364,7 +363,6 @@ function SidebarFooterLink({
   const link = (
     <Link
       href={href}
-      prefetch={false}
       className={cn(
         sidebarLinkClass,
         isOpen ? sidebarLinkExpanded : sidebarLinkCollapsed,
@@ -506,7 +504,6 @@ function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottom
             <li key={item.href} className="min-w-0">
               <Link
                 href={item.href}
-                prefetch={false}
                 className={cn(
                   "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl p-2 text-[0.6875rem] font-semibold text-[hsl(var(--foreground)/0.72)] transition-[background-color,border-color,color,box-shadow,transform] duration-[180ms] ease-in-out hover:bg-[hsl(var(--muted)/0.8)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2 motion-safe:active:scale-95",
                   active && "bg-accent text-white shadow-[0_10px_20px_-14px_hsl(var(--accent)/1)] hover:bg-accent hover:text-white",

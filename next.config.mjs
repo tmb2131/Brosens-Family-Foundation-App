@@ -3,7 +3,13 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
-    optimizePackageImports: ["lucide-react", "recharts"],
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@supabase/supabase-js",
+      "radix-ui",
+      "sonner"
+    ],
   },
 };
 
