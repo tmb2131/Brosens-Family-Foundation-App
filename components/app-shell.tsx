@@ -7,6 +7,7 @@ import {
   FileText,
   HandCoins,
   Home,
+  Leaf,
   ListChecks,
   LogOut,
   PanelLeft,
@@ -24,6 +25,20 @@ import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+const roleAvatarClasses: Record<AppRole, string> = {
+  member: "bg-[hsl(var(--role-member)/0.14)] text-[hsl(var(--role-member))]",
+  oversight: "bg-[hsl(var(--role-oversight)/0.14)] text-[hsl(var(--role-oversight))]",
+  admin: "bg-[hsl(var(--role-admin)/0.14)] text-[hsl(var(--role-admin))]",
+  manager: "bg-[hsl(var(--role-manager)/0.14)] text-[hsl(var(--role-manager))]"
+};
 
 type NavItem = {
   href: Route;
@@ -147,40 +162,76 @@ function OutstandingBadge({ count }: { count: number }) {
   return <span className="nav-outstanding-badge">{count > 99 ? "99+" : count}</span>;
 }
 
-interface SidebarProfileCardProps {
+/* ─── Sidebar: Brand Header ─── */
+
+function SidebarHeader({ isOpen }: { isOpen: boolean }) {
+  return (
+    <div className={cn("sidebar-header", isOpen ? "sidebar-header--expanded" : "sidebar-header--collapsed")}>
+      <span className="sidebar-header__monogram">
+        <Leaf className="h-4 w-4" strokeWidth={2} />
+      </span>
+      <span
+        className={cn(
+          "min-w-0 overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight text-foreground transition-all duration-300",
+          isOpen ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
+        )}
+      >
+        Brosens Foundation
+      </span>
+      {!isOpen && (
+        <span className="sidebar-link__tooltip" aria-hidden>
+          Brosens Family Foundation
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ─── Sidebar: User Identity ─── */
+
+interface SidebarUserCardProps {
   isOpen: boolean;
   user: UserProfile | null;
 }
 
-function SidebarProfileCard({ isOpen, user }: SidebarProfileCardProps) {
+function SidebarUserCard({ isOpen, user }: SidebarUserCardProps) {
+  const initials = user ? getInitials(user.name) : "?";
+  const avatarClass = user ? roleAvatarClasses[user.role] : "bg-muted text-foreground/50";
+  const tooltipText = user ? `${user.name} (${user.role})` : "Not signed in";
+
   return (
-    <div className={cn("flex items-center gap-3 border-t border-border/40 py-4", isOpen ? "px-2" : "justify-center px-1")}>
+    <div className={cn("sidebar-user-card", isOpen ? "sidebar-user-card--expanded" : "sidebar-user-card--collapsed")}>
       <span
-        className={cn(
-          "inline-flex shrink-0 items-center justify-center rounded-xl bg-accent/10 font-bold text-accent",
-          isOpen ? "h-9 w-9 text-sm" : "h-9 w-9 text-[11px]"
-        )}
-        title={isOpen ? undefined : user?.name ?? "Brosens Family Foundation"}
+        className={cn("sidebar-user-avatar", avatarClass)}
+        title={isOpen ? undefined : tooltipText}
       >
-        BF
+        {initials}
       </span>
       <div
         className={cn(
           "min-w-0 overflow-hidden transition-all duration-300",
-          isOpen ? "max-w-[200px] opacity-100" : "max-w-0 opacity-0"
+          isOpen ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
         )}
       >
-        <p className="truncate text-sm font-semibold leading-tight">Brosens Family</p>
-        {user ? (
-          <div className="mt-1 flex items-center gap-2 text-xs">
-            <span className="min-w-0 truncate font-medium text-foreground/60">{user.name}</span>
-            <RolePill role={user.role} />
-          </div>
-        ) : null}
+        {user && (
+          <>
+            <p className="truncate text-[13px] font-semibold leading-tight text-foreground">{user.name}</p>
+            <div className="mt-1">
+              <RolePill role={user.role} />
+            </div>
+          </>
+        )}
       </div>
+      {!isOpen && user && (
+        <span className="sidebar-link__tooltip" aria-hidden>
+          {user.name}
+        </span>
+      )}
     </div>
   );
 }
+
+/* ─── Sidebar: Nav Link ─── */
 
 interface DesktopNavLinkProps {
   item: NavItem;
@@ -229,6 +280,8 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
   );
 }
 
+/* ─── Sidebar: Navigation Sections ─── */
+
 interface DesktopSidebarNavProps {
   pathname: string;
   isOpen: boolean;
@@ -240,10 +293,12 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
   return (
     <nav id="desktop-sidebar-navigation" className="min-h-0 flex-1 overflow-y-auto px-1 pb-2" aria-label="Primary">
       {sections.map((section, sectionIndex) => (
-        <section key={section.id} className={cn(sectionIndex > 0 && "mt-5 pt-2")}>
-          {sectionIndex > 0 && <div className="mb-3 h-px bg-border/40" aria-hidden />}
+        <section key={section.id} className={cn(sectionIndex > 0 && "mt-4")}>
+          {sectionIndex > 0 && (
+            <div className={cn("sidebar-section-divider", !isOpen && "mx-auto w-6")} aria-hidden />
+          )}
           {isOpen && <span className="sidebar-section-label">{section.label}</span>}
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = isRouteActive(pathname, item.href);
               const outstandingCount = outstandingByHref[item.href] ?? 0;
@@ -265,15 +320,7 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
   );
 }
 
-interface DesktopSidebarProps {
-  user: UserProfile | null;
-  pathname: string;
-  isOpen: boolean;
-  sections: NavSection[];
-  outstandingByHref: NavOutstandingCounts;
-  onToggle: () => void;
-  onSignOut: () => void;
-}
+/* ─── Sidebar: Footer Link ─── */
 
 function SidebarFooterLink({
   href,
@@ -319,6 +366,18 @@ function SidebarFooterLink({
   );
 }
 
+/* ─── Sidebar: Desktop Sidebar Shell ─── */
+
+interface DesktopSidebarProps {
+  user: UserProfile | null;
+  pathname: string;
+  isOpen: boolean;
+  sections: NavSection[];
+  outstandingByHref: NavOutstandingCounts;
+  onToggle: () => void;
+  onSignOut: () => void;
+}
+
 function DesktopSidebar({
   user,
   pathname,
@@ -336,7 +395,13 @@ function DesktopSidebar({
       )}
     >
       <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2">
-        {/* Navigation sections */}
+        {/* Zone 1: Brand header */}
+        <SidebarHeader isOpen={isOpen} />
+
+        {/* Zone 2: User identity */}
+        <SidebarUserCard isOpen={isOpen} user={user} />
+
+        {/* Zone 3: Navigation sections */}
         <DesktopSidebarNav
           pathname={pathname}
           isOpen={isOpen}
@@ -344,16 +409,8 @@ function DesktopSidebar({
           outstandingByHref={outstandingByHref}
         />
 
-        {/* Profile card — above footer */}
-        <SidebarProfileCard isOpen={isOpen} user={user} />
-
-        {/* Pinned footer: Settings, Theme, Log out */}
-        <div
-          className={cn(
-            "flex flex-col gap-1 border-t border-border/40 pt-2",
-            isOpen ? "px-0" : "items-center"
-          )}
-        >
+        {/* Zone 4: Footer utilities */}
+        <div className="sidebar-footer">
           <SidebarFooterLink
             href="/settings"
             label="Settings"
@@ -362,7 +419,7 @@ function DesktopSidebar({
             active={isRouteActive(pathname, "/settings")}
           />
 
-          <div className={cn("flex items-center", isOpen ? "gap-1 px-1" : "flex-col gap-1")}>
+          <div className={cn("sidebar-footer__controls", isOpen ? "sidebar-footer__controls--expanded" : "sidebar-footer__controls--collapsed")}>
             <ThemeToggle className="sidebar-control-button" />
             <button
               onClick={onToggle}
@@ -379,26 +436,15 @@ function DesktopSidebar({
                 <PanelLeft className="h-4 w-4" strokeWidth={1.5} />
               )}
             </button>
-            {isOpen ? (
-              <button
-                onClick={onSignOut}
-                className="sidebar-footer-action"
-                type="button"
-              >
-                <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Log out
-              </button>
-            ) : (
-              <button
-                onClick={onSignOut}
-                className="sidebar-control-button"
-                type="button"
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </button>
-            )}
+            <button
+              onClick={onSignOut}
+              className="sidebar-control-button sidebar-control-button--danger"
+              type="button"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       </div>
