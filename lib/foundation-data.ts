@@ -1204,7 +1204,7 @@ export async function submitProposal(
       logNotificationError("submitProposal enqueue", error);
     });
 
-    void queueVoteRequiredActionEmails(admin, {
+    await queueVoteRequiredActionEmails(admin, {
       proposalId: insertedProposal.id,
       proposalTitle: insertedProposal.proposal_title?.trim() || normalizedOrganizationName,
       proposalType: input.proposalType,
@@ -1321,7 +1321,7 @@ export async function submitVote(
           logNotificationError("submitVote enqueue", error);
         });
 
-        void queueMeetingReviewActionEmails(admin, {
+        await queueMeetingReviewActionEmails(admin, {
           proposalId: proposal.id,
           proposalTitle,
           recipientUserIds: recipients,

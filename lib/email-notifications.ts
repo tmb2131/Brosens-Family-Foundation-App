@@ -1116,9 +1116,9 @@ export async function queueEmailNotification(admin: AdminClient, input: QueueEma
     throw new HttpError(500, `Could not enqueue email deliveries: ${deliveryError.message}`);
   }
 
-  void processPendingEmailDeliveries(admin, { limit: Math.max(25, deliveries.length) }).catch((error) => {
+  await processPendingEmailDeliveries(admin, { limit: Math.max(25, deliveries.length) }).catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[email] background processing failed", message);
+    console.error("[email] delivery processing failed", message);
   });
 
   return {
