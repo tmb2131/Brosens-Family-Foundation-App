@@ -213,16 +213,16 @@ function SidebarHeader({ isOpen, onToggle }: SidebarHeaderProps) {
   }
 
   return (
-    <div className="flex items-center gap-2.5 pl-3 pr-1.5 pt-2.5 pb-2">
+    <div className="flex min-w-0 items-center gap-1.5 pl-3 pr-1 pt-2.5 pb-2">
       {brandMark}
-      <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm font-semibold tracking-tight text-foreground transition-[max-width,opacity] duration-200 delay-75 max-w-[180px] opacity-100">
+      <span className="min-w-0 max-w-[200px] flex-1 truncate text-sm font-semibold tracking-tight text-foreground transition-[max-width,opacity] duration-200 delay-75 opacity-100">
         Brosens Foundation
       </span>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             onClick={onToggle}
-            className={sidebarControlBtnClass}
+            className={cn(sidebarControlBtnClass, "shrink-0")}
             type="button"
             aria-label="Collapse sidebar"
             aria-expanded={true}
