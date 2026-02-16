@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
+import { ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -570,6 +570,9 @@ export default function DashboardClient() {
     : 0;
   const discretionaryUtilization = data && data.budget.discretionaryPool > 0
     ? (data.budget.discretionaryAllocated / data.budget.discretionaryPool) * 100
+    : 0;
+  const totalUtilization = data && data.budget.total > 0
+    ? (totalAllocatedForYear / data.budget.total) * 100
     : 0;
 
   useEffect(() => {
@@ -1265,17 +1268,20 @@ export default function DashboardClient() {
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
           <MetricCard
-            title="TOTAL BUDGET"
+            title="FOUNDATION TOTAL BUDGET"
             value={currency(data.budget.total)}
+            subtitle={`Allocated: ${currency(totalAllocatedForYear)}`}
             icon={DollarSign}
             tone="emerald"
-          />
-          <MetricCard
-            title="TOTAL ALLOCATED"
-            value={currency(totalAllocatedForYear)}
-            icon={PieChart}
-            tone="sky"
-          />
+            className="sm:col-span-2"
+          >
+            <Progress
+              value={Math.min(totalUtilization, 100)}
+              className="mt-2 h-1.5 bg-muted"
+              indicatorClassName={totalUtilization > 100 ? "bg-rose-500" : "bg-emerald-500 dark:bg-emerald-400"}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(totalUtilization)}% utilized</p>
+          </MetricCard>
           <MetricCard
             title="JOINT POOL REMAINING"
             value={currency(data.budget.jointRemaining)}
