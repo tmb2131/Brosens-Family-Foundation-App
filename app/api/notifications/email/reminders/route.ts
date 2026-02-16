@@ -3,6 +3,7 @@ import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
 import {
   processDailyProposalSentDigestEmails,
+  processPendingEmailDeliveries,
   processIntroductionEmail,
   processWeeklyActionReminderEmails
 } from "@/lib/email-notifications";
@@ -52,10 +53,16 @@ async function runReminders(request: NextRequest): Promise<NextResponse> {
     processDailyProposalSentDigestEmails(admin),
     processIntroductionEmail(admin, forceIntroUserId ? { forceRecipientUserId: forceIntroUserId } : undefined)
   ]);
+
+  // Explicitly process all pending deliveries before returning the response,
+  // since Vercel kills serverless functions after response is sent
+  const deliveryResult = await processPendingEmailDeliveries(admin);
+
   return NextResponse.json({
     weeklyUpdate,
     dailySentDigest,
-    introEmail
+    introEmail,
+    deliveryResult
   });
 }
 

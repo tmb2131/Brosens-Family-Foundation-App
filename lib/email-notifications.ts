@@ -1633,7 +1633,7 @@ export async function processIntroductionEmail(
 
     const idempotencyKey = forceUserId
       ? `test-intro-email-2026-02-16:${user.id}`
-      : `intro-email-2026-02-16-v5:${user.id}`;
+      : `intro-email-2026-02-16-v6:${user.id}`;
 
     const content = buildIntroductionEmailContent(displayName(user));
 
