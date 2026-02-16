@@ -1609,13 +1609,6 @@ export async function processIntroductionEmail(
     }
   }
 
-  // Target recipients for intro email rollout
-  const INTRO_RECIPIENT_EMAILS = new Set([
-    "deeniebrosens@hotmail.com",
-    "bcarosella@taconiccap.com",
-    "cbrosens2010@gmail.com"
-  ]);
-
   // Load recipients
   let recipients: UserProfileRow[];
   if (forceUserId) {
@@ -1623,8 +1616,7 @@ export async function processIntroductionEmail(
     const user = usersById.get(forceUserId);
     recipients = user ? [user] : [];
   } else {
-    const allUsers = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
-    recipients = allUsers.filter((user) => INTRO_RECIPIENT_EMAILS.has(user.email?.trim().toLowerCase()));
+    recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
   }
 
   if (!recipients.length) {
