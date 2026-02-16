@@ -1116,7 +1116,10 @@ export async function queueEmailNotification(admin: AdminClient, input: QueueEma
     throw new HttpError(500, `Could not enqueue email deliveries: ${deliveryError.message}`);
   }
 
-  await processPendingEmailDeliveries(admin, { limit: Math.max(25, deliveries.length) }).catch((error) => {
+  await processPendingEmailDeliveries(admin, {
+    limit: Math.max(25, deliveries.length),
+    notificationId
+  }).catch((error) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[email] delivery processing failed", message);
   });
@@ -1130,7 +1133,7 @@ export async function queueEmailNotification(admin: AdminClient, input: QueueEma
 
 export async function processPendingEmailDeliveries(
   admin: AdminClient,
-  options?: { limit?: number }
+  options?: { limit?: number; notificationId?: string }
 ): Promise<ProcessEmailDeliveryResult> {
   const config = getEmailConfig();
   if (!config) {
@@ -1146,14 +1149,19 @@ export async function processPendingEmailDeliveries(
 
   const limit = Math.max(1, Math.min(200, options?.limit ?? 50));
   const now = new Date().toISOString();
-  const { data: pendingRows, error: pendingError } = await admin
+  let query = admin
     .from("email_deliveries")
     .select("id, notification_id, user_id, email, attempt_count")
     .eq("status", "pending")
     .lte("next_attempt_at", now)
     .order("next_attempt_at", { ascending: true })
-    .limit(limit)
-    .returns<EmailDeliveryRow[]>();
+    .limit(limit);
+
+  if (options?.notificationId) {
+    query = query.eq("notification_id", options.notificationId);
+  }
+
+  const { data: pendingRows, error: pendingError } = await query.returns<EmailDeliveryRow[]>();
 
   if (pendingError) {
     throw new HttpError(500, `Could not load pending email deliveries: ${pendingError.message}`);
@@ -1633,7 +1641,7 @@ export async function processIntroductionEmail(
 
     const idempotencyKey = forceUserId
       ? `test-intro-email-2026-02-16:${user.id}`
-      : `intro-email-2026-02-16-v6:${user.id}`;
+      : `intro-email-2026-02-16-v7:${user.id}`;
 
     const content = buildIntroductionEmailContent(displayName(user));
 
