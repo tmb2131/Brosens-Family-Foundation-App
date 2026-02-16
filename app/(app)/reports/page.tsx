@@ -75,7 +75,7 @@ export default function ReportsPage() {
   const [sortKey, setSortKey] = useState<ReportSortKey>("proposal");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const canAccess = user ? user.role === "oversight" || user.role === "manager" : false;
+  const canAccess = !!user;
 
   const foundationKey = useMemo(() => {
     if (!canAccess) {
@@ -267,17 +267,6 @@ export default function ReportsPage() {
 
   if (!user) {
     return <p className="text-sm text-muted-foreground">Loading secure report view...</p>;
-  }
-
-  if (!canAccess) {
-    return (
-      <GlassCard>
-        <CardLabel>Reports</CardLabel>
-        <p className="mt-2 text-sm text-rose-600">
-          This page is available only to Oversight and Manager users.
-        </p>
-      </GlassCard>
-    );
   }
 
   if (isLoading) {

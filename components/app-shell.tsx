@@ -90,12 +90,7 @@ const fullNavItems: NavItem[] = [
     icon: Vote,
     roles: ["oversight", "manager"]
   },
-  {
-    href: "/reports" as Route,
-    label: "Reports",
-    icon: FileText,
-    roles: ["oversight", "manager"]
-  },
+  { href: "/reports" as Route, label: "Reports", icon: FileText },
   {
     href: "/frank-deenie" as Route,
     label: "Frank & Deenie",
@@ -136,7 +131,7 @@ const fullNavSectionByHref: Record<string, NavSectionId> = {
   "/dashboard": "work",
   "/workspace": "work",
   "/meeting": "work",
-  "/reports": "work",
+  "/reports": "governance",
   "/frank-deenie": "governance",
   "/mandate": "governance",
   "/admin": "work"
