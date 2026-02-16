@@ -92,6 +92,11 @@ export default function SettingsPage() {
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const [runningEmailWorker, setRunningEmailWorker] = useState(false);
+  const [emailWorkerMessage, setEmailWorkerMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const parsedTotalAmount = parseNumberInput(totalAmount);
   const parsedRollover = parseNumberInput(rollover);
   const parsedJointRatio = parseNumberInput(jointRatio);
@@ -330,6 +335,50 @@ export default function SettingsPage() {
     }
   };
 
+  const runEmailWorker = async () => {
+    setRunningEmailWorker(true);
+    setEmailWorkerMessage(null);
+
+    try {
+      const response = await fetch("/api/notifications/email/reminders", {
+        method: "POST"
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to run email worker."));
+      }
+
+      const weekly = payload.weeklyUpdate as Record<string, number> | undefined;
+      const digest = payload.dailySentDigest as Record<string, number> | undefined;
+      const intro = payload.introEmail as Record<string, number> | undefined;
+      const parts: string[] = [];
+
+      if (weekly) {
+        parts.push(`Weekly: ${weekly.remindersQueued ?? 0} queued`);
+      }
+      if (digest) {
+        parts.push(`Digest: ${digest.digestQueued ?? 0} queued`);
+      }
+      if (intro) {
+        parts.push(`Intro: ${intro.emailsQueued ?? 0} queued`);
+      }
+
+      setEmailWorkerMessage({
+        tone: "success",
+        text: parts.length ? parts.join(". ") + "." : "Email worker completed — nothing to send."
+      });
+    } catch (error) {
+      setEmailWorkerMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Failed to run email worker."
+      });
+    } finally {
+      setRunningEmailWorker(false);
+    }
+  };
+
   const selectedOrganization = (organizationCategoriesQuery.data?.organizations ?? []).find(
     (organization) => organization.id === selectedOrganizationId
   );
@@ -439,6 +488,34 @@ export default function SettingsPage() {
               }`}
             >
               {categoryWorkerMessage.text}
+            </p>
+          ) : null}
+        </GlassCard>
+      ) : null}
+
+      {canManageOrganizationCategories ? (
+        <GlassCard>
+          <CardLabel>Email Notification Worker</CardLabel>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manually trigger the email worker to process weekly reminders and daily sent digests now.
+          </p>
+          <Button
+            size="lg"
+            className="mt-3 w-full sm:w-auto"
+            onClick={() => void runEmailWorker()}
+            disabled={runningEmailWorker}
+          >
+            {runningEmailWorker ? "Running..." : "Run Email Worker"}
+          </Button>
+          {emailWorkerMessage ? (
+            <p
+              className={`mt-2 text-xs ${
+                emailWorkerMessage.tone === "error"
+                  ? "text-rose-600"
+                  : "text-emerald-700 dark:text-emerald-300"
+              }`}
+            >
+              {emailWorkerMessage.text}
             </p>
           ) : null}
         </GlassCard>

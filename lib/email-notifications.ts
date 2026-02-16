@@ -1589,25 +1589,12 @@ export async function processIntroductionEmail(
   const now = options?.now ?? new Date();
   const forceUserId = options?.forceRecipientUserId?.trim() || null;
 
-  // Time gate: Mon Feb 16 2026, hour >= 10:30 NY time — bypassed when forcing a recipient
-  if (!forceUserId) {
-    const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
-    if (
-      !nyLocalTime ||
-      nyLocalTime.year !== 2026 ||
-      nyLocalTime.month !== 2 ||
-      nyLocalTime.day !== 16 ||
-      nyLocalTime.hour < 10
-    ) {
-      return {
-        dueForWindow: false,
-        usersFound: 0,
-        emailsQueued: 0,
-        skippedAlreadySent: 0,
-        skippedWrongLocalTime: 1
-      };
-    }
-  }
+  // Target recipients for intro email rollout
+  const INTRO_RECIPIENT_EMAILS = new Set([
+    "deeniebrosens@hotmail.com",
+    "bcarosella@taconiccap.com",
+    "cbrosens2010@gmail.com"
+  ]);
 
   // Load recipients
   let recipients: UserProfileRow[];
@@ -1616,7 +1603,8 @@ export async function processIntroductionEmail(
     const user = usersById.get(forceUserId);
     recipients = user ? [user] : [];
   } else {
-    recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
+    const allUsers = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
+    recipients = allUsers.filter((user) => INTRO_RECIPIENT_EMAILS.has(user.email?.trim().toLowerCase()));
   }
 
   if (!recipients.length) {
