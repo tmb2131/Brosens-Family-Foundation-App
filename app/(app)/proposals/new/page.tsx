@@ -557,8 +557,9 @@ export default function NewProposalPage() {
             <div className="mt-3 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">Immediate next steps:</p>
               <p className="mt-1">
-                The proposal is added to the review queue, eligible family members are notified to
-                vote, and it moves to meeting review once voting requirements are met.
+                {proposalType === "joint"
+                  ? "The proposal is added to the review queue; eligible family members are notified to vote, and it moves to meeting review once voting requirements are met."
+                  : "The proposal is added to the review queue; eligible family members are notified to acknowledge, and it moves to meeting review once everyone has acknowledged the donation."}
               </p>
             </div>
 
