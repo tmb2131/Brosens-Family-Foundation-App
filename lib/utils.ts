@@ -80,3 +80,39 @@ export function voteChoiceLabel(choice: VoteChoice) {
 export function toISODate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
+
+/** Charity Navigator score bands and meaning copy for Meeting tab (Oversight). */
+export function charityNavigatorRating(score: number): { starLabel: string; meaning: string } {
+  if (score >= 90) {
+    return {
+      starLabel: "Four-Star",
+      meaning:
+        "Exceeds or meets best practices and industry standards across almost all areas. Likely to be a highly-effective charity."
+    };
+  }
+  if (score >= 75) {
+    return {
+      starLabel: "Three-Star",
+      meaning: "Exceeds or meets best practices and industry standards across some areas."
+    };
+  }
+  if (score >= 60) {
+    return {
+      starLabel: "Two-Star",
+      meaning:
+        "Meets or nearly meets industry standards in a few areas and underperforms most charities."
+    };
+  }
+  if (score >= 50) {
+    return {
+      starLabel: "One-Star",
+      meaning:
+        "Fails to meet industry standards in most areas and underperforms almost all charities."
+    };
+  }
+  return {
+    starLabel: "No stars",
+    meaning:
+      "Performs below industry standards and well underperforms nearly all charities."
+  };
+}

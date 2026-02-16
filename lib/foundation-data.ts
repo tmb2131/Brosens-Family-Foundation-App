@@ -601,6 +601,11 @@ function buildProposalViews(input: {
       organizationWebsite: row.proposal_website ?? organization?.website ?? null,
       charityNavigatorUrl:
         row.proposal_charity_navigator_url ?? organization?.charity_navigator_url ?? null,
+      charityNavigatorScore: organization
+        ? organization.charity_navigator_score != null
+          ? toNumber(organization.charity_navigator_score)
+          : null
+        : null,
       organizationDirectionalCategory: toDirectionalCategory(organization?.directional_category),
       voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,

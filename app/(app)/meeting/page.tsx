@@ -10,7 +10,7 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { StatusPill } from "@/components/ui/status-pill";
-import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
+import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
 
 interface MeetingResponse {
@@ -157,6 +157,35 @@ export default function MeetingPage() {
                   Recommended: {currency(proposal.progress.computedFinalAmount)}
                 </p>
               </div>
+
+              {user.role === "oversight" && proposal.charityNavigatorUrl ? (
+                <div className="mt-3 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Charity Navigator
+                  </p>
+                  {proposal.charityNavigatorScore != null ? (
+                    <>
+                      <p className="mt-1.5 font-medium text-foreground">
+                        This charity&apos;s score is {Math.round(proposal.charityNavigatorScore)}%, earning it a{" "}
+                        {charityNavigatorRating(proposal.charityNavigatorScore).starLabel} rating.
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        {charityNavigatorRating(proposal.charityNavigatorScore).meaning}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1.5 text-muted-foreground">Score not yet available.</p>
+                  )}
+                  <a
+                    href={proposal.charityNavigatorUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block font-medium text-primary underline underline-offset-2 hover:no-underline"
+                  >
+                    View on Charity Navigator
+                  </a>
+                </div>
+              ) : null}
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button

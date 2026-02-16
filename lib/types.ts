@@ -137,6 +137,7 @@ export interface FoundationSnapshot {
       organizationName: string;
       organizationWebsite?: string | null;
       charityNavigatorUrl?: string | null;
+      charityNavigatorScore?: number | null;
       organizationDirectionalCategory: DirectionalCategory;
       voteBreakdown: Array<{
         userId: string;
