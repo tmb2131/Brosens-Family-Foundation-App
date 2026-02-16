@@ -1190,7 +1190,13 @@ export async function processPendingEmailDeliveries(
   let pendingRetries = 0;
   let skipped = 0;
 
-  for (const delivery of pendingDeliveries) {
+  for (let i = 0; i < pendingDeliveries.length; i++) {
+    // Respect Resend rate limit (2 req/s) — pause 600ms between sends
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    }
+
+    const delivery = pendingDeliveries[i];
     touchedNotificationIds.push(delivery.notification_id);
     const notification = notificationById.get(delivery.notification_id);
 
