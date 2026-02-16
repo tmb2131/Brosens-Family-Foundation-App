@@ -1584,7 +1584,7 @@ export async function processIntroductionEmail(
   const now = options?.now ?? new Date();
   const forceUserId = options?.forceRecipientUserId?.trim() || null;
 
-  // Time gate: Monday Feb 17 2026, hour >= 9, NY time — bypassed when forcing a recipient
+  // Time gate: Monday Feb 16 2026, hour >= 9, NY time — bypassed when forcing a recipient
   if (!forceUserId) {
     const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
     if (

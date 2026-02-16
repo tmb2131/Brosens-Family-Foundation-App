@@ -112,7 +112,8 @@ Artifacts are saved under `test-results/` and include no-horizontal-overflow che
 - Notification queue + retries:
   - `/api/notifications/email/process` (supports `Authorization: Bearer $EMAIL_WORKER_SECRET`)
 - Weekly action reminders:
-  - `/api/notifications/email/reminders` (run hourly; sends Tuesday 10am America/New_York user updates and daily 7pm America/New_York proposal-sent digests)
+  - `/api/notifications/email/reminders` — GET (Vercel cron) or POST (manual). Auth: `Authorization: Bearer $EMAIL_WORKER_SECRET` or `Bearer $CRON_SECRET`.
+  - Cron schedule: `vercel.json` runs this endpoint **hourly** (`0 * * * *` UTC). The app time-gates in America/New_York: **intro** (one-off Feb 16 9am ET), **Tuesday 10am ET** weekly reminders, **daily 7pm ET** proposal-sent digest. Set `CRON_SECRET` in Vercel (e.g. same value as `EMAIL_WORKER_SECRET`) so cron requests are authorized.
 - Device-aware email links:
   - `/open?to=/target/path` routes mobile users to `/mobile` and desktop users to the web target
 
