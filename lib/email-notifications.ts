@@ -40,6 +40,7 @@ interface EmailNotificationRow {
   subject: string;
   html_body: string;
   text_body: string;
+  payload: Record<string, unknown> | null;
 }
 
 interface EmailDeliveryRow {
@@ -1173,7 +1174,7 @@ export async function processPendingEmailDeliveries(
   const notificationIds = uniqueIds(pendingDeliveries.map((row) => row.notification_id));
   const { data: notifications, error: notificationError } = await admin
     .from("email_notifications")
-    .select("id, subject, html_body, text_body")
+    .select("id, subject, html_body, text_body, payload")
     .in("id", notificationIds)
     .returns<EmailNotificationRow[]>();
 
@@ -1215,7 +1216,11 @@ export async function processPendingEmailDeliveries(
     const attemptCount = delivery.attempt_count + 1;
 
     try {
-      const bcc = oversightEmails.filter((email) => email.toLowerCase() !== delivery.email.toLowerCase());
+      const payloadBcc = Array.isArray(notification.payload?.bcc_emails)
+        ? (notification.payload.bcc_emails as string[]).map((e) => String(e).trim()).filter(Boolean)
+        : [];
+      const bcc = [...new Set([...oversightEmails, ...payloadBcc])]
+        .filter((email) => email.toLowerCase() !== delivery.email.toLowerCase());
       const result = await sendEmailViaResend(config, delivery, notification, bcc);
 
       if (result.ok) {
@@ -1584,7 +1589,7 @@ export async function processIntroductionEmail(
   const now = options?.now ?? new Date();
   const forceUserId = options?.forceRecipientUserId?.trim() || null;
 
-  // Time gate: Monday Feb 16 2026, hour >= 9, NY time — bypassed when forcing a recipient
+  // Time gate: Mon Feb 16 2026, hour >= 10:30 NY time — bypassed when forcing a recipient
   if (!forceUserId) {
     const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
     if (
@@ -1592,7 +1597,7 @@ export async function processIntroductionEmail(
       nyLocalTime.year !== 2026 ||
       nyLocalTime.month !== 2 ||
       nyLocalTime.day !== 16 ||
-      nyLocalTime.hour < 9
+      nyLocalTime.hour < 10
     ) {
       return {
         dueForWindow: false,
@@ -1604,6 +1609,13 @@ export async function processIntroductionEmail(
     }
   }
 
+  // Target recipients for intro email rollout
+  const INTRO_RECIPIENT_EMAILS = new Set([
+    "deeniebrosens@hotmail.com",
+    "bcarosella@taconiccap.com",
+    "cbrosens2010@gmail.com"
+  ]);
+
   // Load recipients
   let recipients: UserProfileRow[];
   if (forceUserId) {
@@ -1611,7 +1623,8 @@ export async function processIntroductionEmail(
     const user = usersById.get(forceUserId);
     recipients = user ? [user] : [];
   } else {
-    recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
+    const allUsers = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
+    recipients = allUsers.filter((user) => INTRO_RECIPIENT_EMAILS.has(user.email?.trim().toLowerCase()));
   }
 
   if (!recipients.length) {
@@ -1634,7 +1647,7 @@ export async function processIntroductionEmail(
 
     const idempotencyKey = forceUserId
       ? `test-intro-email-2026-02-16:${user.id}`
-      : `intro-email-2026-02-16:${user.id}`;
+      : `intro-email-2026-02-16-v2:${user.id}`;
 
     const content = buildIntroductionEmailContent(displayName(user));
 
@@ -1648,7 +1661,7 @@ export async function processIntroductionEmail(
       textBody: content.textBody,
       primaryLinkPath: "/dashboard",
       primaryLinkLabel: "Open Foundation App",
-      payload: { introDate: "2026-02-16" },
+      payload: { introDate: "2026-02-16", bcc_emails: ["thomas.brosens@gmail.com"] },
       recipientUserIds: [user.id]
     });
 
