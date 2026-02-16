@@ -28,6 +28,10 @@ import {
   enqueueOrganizationCategoryJob,
   enqueueOrganizationCategoryJobs
 } from "@/lib/organization-categorization";
+import {
+  fetchScoreByEin,
+  parseEinFromCharityNavigatorUrl
+} from "@/lib/charity-navigator";
 
 type AdminClient = SupabaseClient;
 
@@ -971,6 +975,46 @@ export async function listProposalTitleSuggestions(admin: AdminClient, limit = 2
   return suggestions;
 }
 
+/**
+ * Parse EIN from Charity Navigator URL, fetch encompass score from API, and update
+ * organization's charity_navigator_score (and charity_navigator_url if currently null).
+ * Does not throw; logs and returns on parse/API errors.
+ */
+async function updateOrganizationCharityNavigatorFromUrl(
+  admin: AdminClient,
+  organizationId: string,
+  charityNavigatorUrl: string
+): Promise<void> {
+  const ein = parseEinFromCharityNavigatorUrl(charityNavigatorUrl);
+  if (!ein) return;
+
+  const score = await fetchScoreByEin(ein);
+  if (score === null) return;
+
+  const updates: { charity_navigator_score: number; charity_navigator_url?: string } = {
+    charity_navigator_score: score
+  };
+
+  const { data: org, error: fetchOrgError } = await admin
+    .from("organizations")
+    .select("charity_navigator_url")
+    .eq("id", organizationId)
+    .maybeSingle<{ charity_navigator_url: string | null }>();
+
+  if (!fetchOrgError && org?.charity_navigator_url == null) {
+    updates.charity_navigator_url = charityNavigatorUrl.trim();
+  }
+
+  const { error: updateError } = await admin
+    .from("organizations")
+    .update(updates)
+    .eq("id", organizationId);
+
+  if (updateError) {
+    logNotificationError("updateOrganizationCharityNavigatorFromUrl", updateError);
+  }
+}
+
 export async function submitProposal(
   admin: AdminClient,
   input: {
@@ -1118,6 +1162,17 @@ export async function submitProposal(
     organizationId,
     "Organization resolution failed while submitting proposal."
   );
+
+  if (normalizedCharityNavigatorUrl) {
+    await updateOrganizationCharityNavigatorFromUrl(
+      admin,
+      resolvedOrganizationId,
+      normalizedCharityNavigatorUrl
+    ).catch((err) => {
+      logNotificationError("submitProposal Charity Navigator score", err);
+    });
+  }
+
   const proposalWebsiteSnapshot = normalizedWebsite || existingOrganizationByName?.website || null;
   const proposalCharityNavigatorUrlSnapshot =
     normalizedCharityNavigatorUrl || existingOrganizationByName?.charity_navigator_url || null;
@@ -1717,6 +1772,18 @@ export async function updateProposalRecord(
   }
 
   if (proposal.organization_id) {
+    if (hasCharityNavigatorUrl && input.charityNavigatorUrl != null) {
+      const normalizedUrl = String(input.charityNavigatorUrl).trim() || null;
+      if (normalizedUrl) {
+        await updateOrganizationCharityNavigatorFromUrl(
+          admin,
+          proposal.organization_id,
+          normalizedUrl
+        ).catch((err) => {
+          logNotificationError("updateProposalRecord Charity Navigator score", err);
+        });
+      }
+    }
     void enqueueOrganizationCategoryJob(admin, proposal.organization_id).catch((enqueueError) => {
       logNotificationError("updateProposalRecord enqueue organization categorization", enqueueError);
     });

@@ -15,7 +15,7 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
+import { charityNavigatorRating, currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -2027,16 +2027,33 @@ export default function DashboardClient() {
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator URL</dt>
                 <dd className="mt-1.5 text-foreground">
                   {detailProposal.charityNavigatorUrl ? (
-                    <a
-                      href={detailProposal.charityNavigatorUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
-                    >
-                      {detailProposal.charityNavigatorUrl}
-                    </a>
+                    <>
+                      <a
+                        href={detailProposal.charityNavigatorUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
+                      >
+                        {detailProposal.charityNavigatorUrl}
+                      </a>
+                      {detailProposal.charityNavigatorScore != null ? (
+                        <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
+                          <p className="font-medium text-foreground">
+                            This charity&apos;s score is {Math.round(detailProposal.charityNavigatorScore)}%, earning it a{" "}
+                            {charityNavigatorRating(detailProposal.charityNavigatorScore).starLabel} rating.
+                          </p>
+                          <p className="mt-1 text-muted-foreground">
+                            {charityNavigatorRating(detailProposal.charityNavigatorScore).meaning}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-muted-foreground">Score not yet available.</p>
+                      )}
+                    </>
                   ) : (
-                    "—"
+                    <span className="text-muted-foreground">
+                      Add the Charity Navigator URL to autopopulate the charity&apos;s score.
+                    </span>
                   )}
                 </dd>
               </div>

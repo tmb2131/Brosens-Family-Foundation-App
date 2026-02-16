@@ -459,8 +459,8 @@ export default function NewProposalPage() {
               inputMode="url"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Add the Charity Navigator profile URL. A future update can auto-populate the score
-              and summary from this link.
+              Add the Charity Navigator profile URL. The app auto-populates the score and summary
+              from this link.
             </p>
           </div>
 

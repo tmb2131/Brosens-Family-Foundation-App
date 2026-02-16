@@ -179,6 +179,9 @@ public/                # Static assets, sw.js service worker, manifest
 - `SERPER_API_KEY` — optional org enrichment
 - `ORG_CATEGORY_WORKER_SECRET`
 
+### Charity Navigator score auto-populate
+- `CHARITY_NAVIGATOR_API_KEY` — optional; when set, the app fetches Charity Navigator encompass score from the profile URL (new proposal or proposal edit) and saves it on the organization. Requires [developer registration](https://developer.charitynavigator.org/). If unset, score is not auto-populated.
+
 ## Testing
 
 Playwright is configured for mobile viewport E2E screenshot testing:
