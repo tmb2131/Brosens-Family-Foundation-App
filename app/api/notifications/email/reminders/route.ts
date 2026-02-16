@@ -4,7 +4,6 @@ import { HttpError, toErrorResponse } from "@/lib/http-error";
 import {
   processDailyProposalSentDigestEmails,
   processPendingEmailDeliveries,
-  processIntroductionEmail,
   processWeeklyActionReminderEmails
 } from "@/lib/email-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -36,22 +35,9 @@ async function runReminders(request: NextRequest): Promise<NextResponse> {
     assertRole(context.profile, ["oversight", "admin"]);
   }
 
-  let forceIntroUserId: string | undefined;
-  if (request.method === "POST") {
-    try {
-      const body = (await request.json()) as Record<string, unknown>;
-      if (typeof body.forceIntroUserId === "string" && body.forceIntroUserId.trim()) {
-        forceIntroUserId = body.forceIntroUserId.trim();
-      }
-    } catch {
-      // No JSON body — that's fine
-    }
-  }
-
-  const [weeklyUpdate, dailySentDigest, introEmail] = await Promise.all([
+  const [weeklyUpdate, dailySentDigest] = await Promise.all([
     processWeeklyActionReminderEmails(admin),
-    processDailyProposalSentDigestEmails(admin),
-    processIntroductionEmail(admin, forceIntroUserId ? { forceRecipientUserId: forceIntroUserId } : undefined)
+    processDailyProposalSentDigestEmails(admin)
   ]);
 
   // Explicitly process all pending deliveries before returning the response,
@@ -61,7 +47,6 @@ async function runReminders(request: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     weeklyUpdate,
     dailySentDigest,
-    introEmail,
     deliveryResult
   });
 }

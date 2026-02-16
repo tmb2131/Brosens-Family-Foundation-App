@@ -352,7 +352,6 @@ export default function SettingsPage() {
 
       const weekly = payload.weeklyUpdate as Record<string, number> | undefined;
       const digest = payload.dailySentDigest as Record<string, number> | undefined;
-      const intro = payload.introEmail as Record<string, number> | undefined;
       const parts: string[] = [];
 
       if (weekly) {
@@ -360,9 +359,6 @@ export default function SettingsPage() {
       }
       if (digest) {
         parts.push(`Digest: ${digest.digestQueued ?? 0} queued`);
-      }
-      if (intro) {
-        parts.push(`Intro: ${intro.emailsQueued ?? 0} queued`);
       }
 
       setEmailWorkerMessage({
