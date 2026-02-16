@@ -152,7 +152,7 @@ export interface ProcessDailyProposalSentDigestResult {
 
 const MAX_EMAIL_DELIVERY_ATTEMPTS = 5;
 const WEEKLY_REMINDER_LOCAL_HOUR = 10;
-const DAILY_SENT_DIGEST_LOCAL_HOUR = 19;
+const DAILY_SENT_DIGEST_LOCAL_HOUR = 10;
 const DEFAULT_TIMEZONE = "America/New_York";
 const WEEKDAY_TUESDAY = 2;
 
