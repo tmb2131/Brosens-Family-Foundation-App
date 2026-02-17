@@ -5,9 +5,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { ListChecks, RefreshCw, Wallet } from "lucide-react";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
+import { ListChecks, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { VoteForm } from "@/components/voting/vote-form";
@@ -35,6 +43,10 @@ export default function MobileFocusClient() {
     return value;
   }, [searchParams]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
+  const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
+    Record<string, number>
+  >({});
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -84,6 +96,22 @@ export default function MobileFocusClient() {
   const isManager = workspace.user.role === "manager";
   const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
   const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
+  const pendingJointTotal = workspace.actionItems
+    .filter((item) => item.proposalType === "joint")
+    .reduce(
+      (sum, item) => sum + (pendingJointAllocationByProposalId[item.proposalId] ?? 0),
+      0
+    );
+  const totalIndividualAllocated =
+    workspace.personalBudget.jointAllocated +
+    workspace.personalBudget.discretionaryAllocated +
+    pendingJointTotal;
+  const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
+
+  const voteDialogItem =
+    voteDialogProposalId != null
+      ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId)
+      : null;
 
   return (
     <div className="page-stack pb-4">
@@ -126,6 +154,44 @@ export default function MobileFocusClient() {
           </Link>
         </GlassCard>
       ) : null}
+
+      <GlassCard className="p-3">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <Wallet className="h-4 w-4" />
+          </span>
+          <CardLabel>Personal Budget</CardLabel>
+        </div>
+        {isManager ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 space-y-2">
+              <PersonalBudgetBars
+                title="Total Individual Budget Tracker"
+                allocated={totalIndividualAllocated}
+                total={totalIndividualTarget}
+              />
+              <PersonalBudgetBars
+                title="Joint Budget Tracker"
+                allocated={workspace.personalBudget.jointAllocated + pendingJointTotal}
+                total={workspace.personalBudget.jointTarget}
+              />
+              <PersonalBudgetBars
+                title="Discretionary Budget Tracker"
+                allocated={workspace.personalBudget.discretionaryAllocated}
+                total={workspace.personalBudget.discretionaryCap}
+              />
+            </div>
+            <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+              <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
+              <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
+            </div>
+          </>
+        )}
+      </GlassCard>
 
       <GlassCard className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">
@@ -189,27 +255,12 @@ export default function MobileFocusClient() {
                       </p>
                     </div>
                   </div>
-                  <VoteForm
-                    proposalId={item.proposalId}
-                    proposalType={item.proposalType}
-                    proposedAmount={item.proposedAmount}
-                    totalRequiredVotes={item.totalRequiredVotes}
-                    onSuccess={() => {
-                      void workspaceQuery.mutate();
-                    }}
-                    maxJointAllocation={
-                      item.proposalType === "joint" && !isManager
-                        ? workspace.personalBudget.jointRemaining +
-                          workspace.personalBudget.discretionaryRemaining
-                        : undefined
-                    }
-                  />
-                  <Link
-                    href="/dashboard"
-                    className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-border py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                  <Button
+                    className="mt-3 w-full"
+                    onClick={() => setVoteDialogProposalId(item.proposalId)}
                   >
-                    View Details
-                  </Link>
+                    <Vote className="h-4 w-4" /> Enter vote & amount
+                  </Button>
                 </article>
               );
             })
@@ -226,38 +277,62 @@ export default function MobileFocusClient() {
         ) : null}
       </GlassCard>
 
-      <GlassCard className="p-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-            <Wallet className="h-4 w-4" />
-          </span>
-          <CardLabel>Personal Budget</CardLabel>
-        </div>
-        {isManager ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
-          </p>
-        ) : (
-          <>
-            <div className="mt-2 space-y-2">
-              <PersonalBudgetBars
-                title="Joint Budget Tracker"
-                allocated={workspace.personalBudget.jointAllocated}
-                total={workspace.personalBudget.jointTarget}
+      <Dialog
+        open={voteDialogProposalId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVoteDialogProposalId(null);
+            if (voteDialogProposalId) {
+              setPendingJointAllocationByProposalId((prev) => {
+                const next = { ...prev };
+                delete next[voteDialogProposalId];
+                return next;
+              });
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={true}>
+          {voteDialogItem ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Cast vote: {voteDialogItem.title}</DialogTitle>
+              </DialogHeader>
+              <VoteForm
+                proposalId={voteDialogItem.proposalId}
+                proposalType={voteDialogItem.proposalType}
+                proposedAmount={voteDialogItem.proposedAmount}
+                totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                onSuccess={() => {
+                  setPendingJointAllocationByProposalId((prev) => {
+                    const next = { ...prev };
+                    delete next[voteDialogItem.proposalId];
+                    return next;
+                  });
+                  setVoteDialogProposalId(null);
+                  void workspaceQuery.mutate();
+                  mutateAllFoundation();
+                }}
+                onAllocationChange={
+                  voteDialogItem.proposalType === "joint"
+                    ? (amount) =>
+                        setPendingJointAllocationByProposalId((prev) => ({
+                          ...prev,
+                          [voteDialogItem.proposalId]: amount
+                        }))
+                    : undefined
+                }
+                maxJointAllocation={
+                  voteDialogItem.proposalType === "joint" && !isManager
+                    ? workspace.personalBudget.jointRemaining +
+                      workspace.personalBudget.discretionaryRemaining
+                    : undefined
+                }
               />
-              <PersonalBudgetBars
-                title="Discretionary Budget Tracker"
-                allocated={workspace.personalBudget.discretionaryAllocated}
-                total={workspace.personalBudget.discretionaryCap}
-              />
-            </div>
-            <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-              <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
-              <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
-            </div>
-          </>
-        )}
-      </GlassCard>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
