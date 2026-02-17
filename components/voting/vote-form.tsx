@@ -36,6 +36,7 @@ export function VoteForm({
   allocationAmountRef.current = allocationAmount;
   const parsedAllocationAmount = parseNumberInput(allocationAmount);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const effectiveAllocation =
@@ -48,6 +49,8 @@ export function VoteForm({
   }, [effectiveAllocation]);
 
   const submitVote = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setError(null);
     setSaving(true);
 
@@ -77,12 +80,31 @@ export function VoteForm({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save vote");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    void submitVote();
+  };
+
+  // Submit on button click (desktop). We don't rely on form submit for clicks
+  // because when the allocation input has focus, blur/focus handling (e.g. in
+  // Radix Dialog) can prevent the form submit event from firing on first click.
+  const handleSubmitClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    if (!saving) void submitVote();
+  };
+
+  // Fire submit on pointerdown (capture) so we run before blur/focus handling.
+  // This fixes the first-click failure when the allocation input has focus inside
+  // a Radix Dialog or other focus-trapping container.
+  const handleSubmitPointerDown = (event: React.PointerEvent) => {
+    if (event.button !== 0 || saving) return; // primary button only
+    event.preventDefault();
+    event.stopPropagation();
     void submitVote();
   };
 
@@ -99,7 +121,7 @@ export function VoteForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 border-t pt-2 text-sm">
+    <form onSubmit={handleSubmit} noValidate className="mt-2 border-t pt-2 text-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
       <div className="mt-1.5 grid grid-cols-2 gap-2">
         <Button
@@ -162,6 +184,8 @@ export function VoteForm({
         className="mt-2 w-full"
         type="submit"
         disabled={saving}
+        onPointerDownCapture={handleSubmitPointerDown}
+        onClick={handleSubmitClick}
         onTouchEnd={handleTouchEnd}
       >
         {saving ? "Saving vote..." : "Submit Blind Vote"}
