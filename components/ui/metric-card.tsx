@@ -25,7 +25,7 @@ const toneClasses: Record<MetricTone, { border: string; icon: string }> = {
 };
 
 interface MetricCardProps extends PropsWithChildren {
-  title: string;
+  title: ReactNode;
   value: ReactNode;
   icon: LucideIcon;
   tone?: MetricTone;

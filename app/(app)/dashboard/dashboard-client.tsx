@@ -1269,7 +1269,7 @@ export default function DashboardClient() {
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <DollarSign className="h-4 w-4" />
           </span>
-          <CardLabel>Foundation Budget</CardLabel>
+          <CardLabel>Foundation <span className="font-semibold">Budget</span></CardLabel>
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2">
           <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
@@ -1308,7 +1308,7 @@ export default function DashboardClient() {
       <section className="hidden lg:grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
           <MetricCard
-            title="FOUNDATION TOTAL BUDGET"
+            title={<>FOUNDATION TOTAL <span className="font-semibold">BUDGET</span></>}
             value={currency(data.budget.total)}
             subtitle={`Allocated: ${currency(totalAllocatedForYear)}`}
             icon={DollarSign}
@@ -1323,7 +1323,7 @@ export default function DashboardClient() {
             <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(totalUtilization)}% utilized</p>
           </MetricCard>
           <MetricCard
-            title="JOINT POOL REMAINING"
+            title={<>JOINT POOL <span className="font-semibold">REMAINING</span></>}
             value={currency(data.budget.jointRemaining)}
             subtitle={`Allocated: ${currency(data.budget.jointAllocated)}`}
             icon={Users}
@@ -1337,7 +1337,7 @@ export default function DashboardClient() {
             <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(jointUtilization)}% utilized</p>
           </MetricCard>
           <MetricCard
-            title="DISCRETIONARY REMAINING"
+            title={<>DISCRETIONARY <span className="font-semibold">REMAINING</span></>}
             value={currency(data.budget.discretionaryRemaining)}
             subtitle={`Allocated: ${currency(data.budget.discretionaryAllocated)}`}
             icon={Wallet}

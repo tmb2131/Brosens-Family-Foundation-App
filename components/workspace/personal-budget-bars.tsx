@@ -18,7 +18,7 @@ export function PersonalBudgetBars({ title, allocated, total }: PersonalBudgetBa
       <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
         {currency(remaining)}
       </p>
-      <p className="text-xs text-muted-foreground">remaining of your budget of {currency(total)}</p>
+      <p className="text-xs text-muted-foreground"><span className="font-semibold">remaining</span> of your budget of {currency(total)}</p>
       <div className="mt-2 h-2 rounded-full bg-muted">
         <div className="h-2 rounded-full bg-accent" style={{ width: `${allocatedRatio}%` }} />
       </div>
