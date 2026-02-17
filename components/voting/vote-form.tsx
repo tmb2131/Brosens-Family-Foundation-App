@@ -168,7 +168,7 @@ export function VoteForm({
         <Button
           onClick={() => {
             setChoice(primaryChoice);
-            if (primaryChoice !== "flagged") setFlagComment("");
+            setFlagComment("");
           }}
           variant={choice === primaryChoice ? "default" : "outline"}
           size="default"
