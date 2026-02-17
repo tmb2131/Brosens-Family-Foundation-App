@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -432,7 +433,9 @@ export default function DashboardClient() {
     return `/api/foundation?budgetYear=${selectedYear}`;
   }, [selectedYear, user]);
 
-  const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey);
+  const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey, {
+    refreshInterval: 30_000
+  });
   const {
     data: historyData,
     error: historyError,
@@ -787,8 +790,9 @@ export default function DashboardClient() {
         }
       }));
 
-      void mutate();
+      mutateAllFoundation();
       void globalMutate("/api/navigation/summary");
+      void globalMutate("/api/workspace");
       if (isOversight) {
         void mutatePending();
       }
@@ -961,8 +965,9 @@ export default function DashboardClient() {
       }
 
       if (savedCount > 0) {
-        void mutate();
+        mutateAllFoundation();
         void globalMutate("/api/navigation/summary");
+        void globalMutate("/api/workspace");
         if (isOversight) {
           void mutatePending();
         }
@@ -1169,8 +1174,9 @@ export default function DashboardClient() {
         }
       }));
 
-      void mutate();
+      mutateAllFoundation();
       void globalMutate("/api/navigation/summary");
+      void globalMutate("/api/workspace");
       if (isOversight) {
         void mutatePending();
       }
@@ -1766,7 +1772,8 @@ export default function DashboardClient() {
                         proposedAmount={proposal.proposedAmount}
                         totalRequiredVotes={proposal.progress.totalRequiredVotes}
                         onSuccess={() => {
-                          void mutate();
+                          mutateAllFoundation();
+                          void globalMutate("/api/workspace");
                           if (isOversight) {
                             void mutatePending();
                           }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export default function MeetingPage() {
     status: "approved" | "declined";
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   if (!user || !["oversight", "manager"].includes(user.role)) {
     return (
@@ -67,6 +69,8 @@ export default function MeetingPage() {
   }
 
   const updateMeeting = async (payload: Record<string, unknown>) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       await fetch("/api/meeting", {
@@ -76,7 +80,10 @@ export default function MeetingPage() {
       });
       void mutate();
       void globalMutate("/api/navigation/summary");
+      void globalMutate("/api/workspace");
+      mutateAllFoundation();
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

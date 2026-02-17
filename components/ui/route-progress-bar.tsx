@@ -27,6 +27,22 @@ export function RouteProgressBar() {
     timerRef.current = setTimeout(() => setProgress(null), 200);
   }, [pathname]);
 
+  // Start the progress bar animation (shared by click handler and custom event)
+  const startProgress = () => {
+    setProgress(15);
+    clearTimeout(timerRef.current);
+
+    let current = 15;
+    const tick = () => {
+      current += Math.max(1, (85 - current) * 0.08);
+      if (current < 85) {
+        setProgress(current);
+        timerRef.current = setTimeout(tick, 120);
+      }
+    };
+    timerRef.current = setTimeout(tick, 120);
+  };
+
   // Intercept click events on nav links to start the bar immediately
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -36,24 +52,21 @@ export function RouteProgressBar() {
       const href = anchor.getAttribute("data-nav-href");
       if (!href || href === prevPathname.current) return;
 
-      // Start the progress bar
-      setProgress(15);
-      clearTimeout(timerRef.current);
-
-      // Simulate incremental progress
-      let current = 15;
-      const tick = () => {
-        current += Math.max(1, (85 - current) * 0.08);
-        if (current < 85) {
-          setProgress(current);
-          timerRef.current = setTimeout(tick, 120);
-        }
-      };
-      timerRef.current = setTimeout(tick, 120);
+      startProgress();
     }
 
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
+  }, []);
+
+  // Listen for imperative "route-progress-start" events from mutation handlers
+  useEffect(() => {
+    function handleStart() {
+      startProgress();
+    }
+
+    window.addEventListener("route-progress-start", handleStart);
+    return () => window.removeEventListener("route-progress-start", handleStart);
   }, []);
 
   useEffect(() => {

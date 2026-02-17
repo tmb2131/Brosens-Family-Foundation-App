@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { AlertCircle, ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
@@ -39,12 +40,16 @@ export default function NewProposalPage() {
   const [charityNavigatorUrl, setCharityNavigatorUrl] = useState("");
   const [proposalType, setProposalType] = useState<ProposalTypeOption>("");
   const [proposedAmount, setProposedAmount] = useState("0");
+  const [proposerAllocationAmount, setProposerAllocationAmount] = useState("");
   const [isTitleSuggestionsOpen, setIsTitleSuggestionsOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const parsedProposedAmount = parseNumberInput(proposedAmount);
+  const parsedProposerAllocation = parseNumberInput(proposerAllocationAmount);
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const savingRef = useRef(false);
+  const isVotingMember = user?.role === "member" || user?.role === "oversight";
   const discretionaryLimit = workspaceQuery.data
     ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
     : null;
@@ -90,6 +95,26 @@ export default function NewProposalPage() {
   const showTitleSuggestionsPanel = isTitleSuggestionsOpen && hasAnyTitleSuggestions;
   const isManager = user?.role === "manager" || user?.role === "admin";
 
+  const jointAllocatedPreview =
+    workspaceQuery.data && proposalType === "joint" && isVotingMember
+      ? workspaceQuery.data.personalBudget.jointAllocated +
+        Math.max(0, parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount) ?? 0)
+      : workspaceQuery.data?.personalBudget.jointAllocated ?? 0;
+  const jointRemainingPreview =
+    workspaceQuery.data && proposalType === "joint" && isVotingMember
+      ? Math.max(0, workspaceQuery.data.personalBudget.jointTarget - jointAllocatedPreview)
+      : workspaceQuery.data?.personalBudget.jointRemaining ?? 0;
+
+  const discretionaryAllocatedPreview =
+    workspaceQuery.data && proposalType === "discretionary"
+      ? workspaceQuery.data.personalBudget.discretionaryAllocated +
+        Math.max(0, parsedProposedAmount ?? parseNumberInput(proposedAmount) ?? 0)
+      : workspaceQuery.data?.personalBudget.discretionaryAllocated ?? 0;
+  const discretionaryRemainingPreview =
+    workspaceQuery.data && proposalType === "discretionary"
+      ? Math.max(0, workspaceQuery.data.personalBudget.discretionaryCap - discretionaryAllocatedPreview)
+      : workspaceQuery.data?.personalBudget.discretionaryRemaining ?? 0;
+
   useEffect(() => {
     if (isManager && proposalType !== "joint") {
       setProposalType("joint");
@@ -101,6 +126,8 @@ export default function NewProposalPage() {
   }
 
   const confirmSubmit = async () => {
+    if (savingRef.current) return;
+
     if (!proposalType) {
       setError("Select a proposal type before submitting.");
       return;
@@ -111,6 +138,7 @@ export default function NewProposalPage() {
       return;
     }
 
+    savingRef.current = true;
     setError(null);
     setSaving(true);
 
@@ -134,14 +162,35 @@ export default function NewProposalPage() {
         throw new Error(payload.error || "Failed to submit");
       }
 
+      const { proposal } = (await response.json()) as { proposal: { id: string } };
+      if (proposalType === "joint" && isVotingMember && proposal?.id) {
+        const allocation =
+          parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount) ?? 0;
+        const voteResponse = await fetch("/api/votes", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            proposalId: proposal.id,
+            choice: "yes",
+            allocationAmount: Math.max(0, Math.round(allocation))
+          })
+        });
+        if (!voteResponse.ok) {
+          const payload = await voteResponse.json().catch(() => ({ error: "Could not save your vote" }));
+          throw new Error(payload.error || "Proposal was created but your vote could not be saved. You can vote from the dashboard or workspace.");
+        }
+      }
+
       void globalMutate("/api/navigation/summary");
       void globalMutate("/api/workspace");
-      void globalMutate("/api/foundation");
+      mutateAllFoundation();
       setIsConfirmDialogOpen(false);
+      window.dispatchEvent(new Event("route-progress-start"));
       router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -156,6 +205,20 @@ export default function NewProposalPage() {
     if (isManager && proposalType !== "joint") {
       setError("Managers can only submit joint proposals.");
       return;
+    }
+    if (proposalType === "joint" && isVotingMember) {
+      const allocation = parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount);
+      if (allocation === null || !Number.isFinite(allocation) || allocation < 0) {
+        setError("Enter your allocation amount for this joint proposal.");
+        return;
+      }
+      const jointRemaining = workspaceQuery.data?.personalBudget.jointRemaining ?? Infinity;
+      if (allocation > jointRemaining) {
+        setError(
+          `Your allocation cannot exceed your joint remaining (${currency(jointRemaining)}).`
+        );
+        return;
+      }
     }
     setIsConfirmDialogOpen(true);
   };
@@ -178,31 +241,38 @@ export default function NewProposalPage() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <PersonalBudgetBars
               title="Joint Budget Tracker"
-              allocated={workspaceQuery.data.personalBudget.jointAllocated}
+              allocated={jointAllocatedPreview}
               total={workspaceQuery.data.personalBudget.jointTarget}
             />
             <PersonalBudgetBars
               title="Discretionary Budget Tracker"
-              allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
+              allocated={discretionaryAllocatedPreview}
               total={workspaceQuery.data.personalBudget.discretionaryCap}
             />
           </div>
           <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
-            <p>Joint remaining: {currency(workspaceQuery.data.personalBudget.jointRemaining)}</p>
             <p>
-              Discretionary remaining:{" "}
-              {currency(workspaceQuery.data.personalBudget.discretionaryRemaining)}
+              Joint remaining: {currency(jointRemainingPreview)}
+              {proposalType === "joint" && isVotingMember && (parsedProposerAllocation ?? 0) > 0 ? (
+                <span className="block text-[11px]">(includes this proposal)</span>
+              ) : null}
+            </p>
+            <p>
+              Discretionary remaining: {currency(discretionaryRemainingPreview)}
+              {proposalType === "discretionary" && (parsedProposedAmount ?? 0) > 0 ? (
+                <span className="block text-[11px]">(includes this proposal)</span>
+              ) : null}
             </p>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {proposalType === "joint"
               ? `Joint proposals use your joint voting allocation. You currently have ${currency(
-                  workspaceQuery.data.personalBudget.jointRemaining
-                )} remaining.`
+                  jointRemainingPreview
+                )} remaining${proposalType === "joint" && isVotingMember && (parsedProposerAllocation ?? 0) > 0 ? " after this allocation" : ""}.`
               : proposalType === "discretionary"
               ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
-                  workspaceQuery.data.personalBudget.discretionaryRemaining
-                )} remaining.`
+                  discretionaryRemainingPreview
+                )} remaining${(parsedProposedAmount ?? 0) > 0 ? " after this proposal" : ""}.`
               : "Select a proposal type to see how this proposal affects your budget."}
           </p>
         </>
@@ -432,6 +502,40 @@ export default function NewProposalPage() {
             </p>
           </div>
 
+          {proposalType === "joint" && isVotingMember ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="proposer-allocation">Your allocation</Label>
+              <Input
+                id="proposer-allocation"
+                type="number"
+                min={0}
+                value={proposerAllocationAmount}
+                onFocus={(event) => {
+                  if (event.target.value === "0") {
+                    setProposerAllocationAmount("");
+                  }
+                }}
+                onBlur={(event) => {
+                  if (event.target.value === "") {
+                    setProposerAllocationAmount("0");
+                  }
+                }}
+                onChange={(event) => setProposerAllocationAmount(event.target.value)}
+                className="rounded-xl [appearance:textfield] [&::-webkit-inner-spin-button]:[-webkit-appearance:none] [&::-webkit-outer-spin-button]:[-webkit-appearance:none]"
+                required
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Amount you are committing from your joint budget for this proposal. Submitting will
+                automatically record your vote as &quot;yes&quot; with this allocation.
+              </p>
+              {workspaceQuery.data ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Your joint remaining: {currency(workspaceQuery.data.personalBudget.jointRemaining)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="space-y-1.5">
             <Label htmlFor="org-website">Organization website link (optional)</Label>
             <Input
@@ -480,7 +584,16 @@ export default function NewProposalPage() {
             <Button
               size="lg"
               type="submit"
-              disabled={saving || !proposalType || (isManager && proposalType !== "joint")}
+              disabled={
+                saving ||
+                !proposalType ||
+                (isManager && proposalType !== "joint") ||
+                (proposalType === "joint" &&
+                  isVotingMember &&
+                  (parsedProposerAllocation === null ||
+                    !Number.isFinite(parsedProposerAllocation) ||
+                    parsedProposerAllocation < 0))
+              }
               className="w-full"
             >
               {saving ? "Submitting..." : "Submit Proposal"}
@@ -554,6 +667,18 @@ export default function NewProposalPage() {
                 </dt>
                 <dd className="text-right font-medium">{titleCase(proposalType)}</dd>
               </div>
+              {proposalType === "joint" && isVotingMember ? (
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Your allocation
+                  </dt>
+                  <dd className="text-right font-medium">
+                    {currency(
+                      (parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount)) ?? 0
+                    )}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
 
             <div className="mt-3 text-sm text-muted-foreground">

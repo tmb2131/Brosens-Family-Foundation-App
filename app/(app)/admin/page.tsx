@@ -1,7 +1,8 @@
 "use client";
 
 import useSWR, { mutate as globalMutate } from "swr";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ClipboardList, DollarSign } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export default function AdminPage() {
   const [sentDateByProposalId, setSentDateByProposalId] = useState<Record<string, string>>({});
   const [sentErrorByProposalId, setSentErrorByProposalId] = useState<Record<string, string>>({});
   const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
   if (!user || user.role !== "admin") {
     return (
@@ -48,6 +50,8 @@ export default function AdminPage() {
   }
 
   const markSent = async (proposalId: string) => {
+    if (savingRef.current) return;
+
     const sentAt = sentDateByProposalId[proposalId]?.trim();
     if (!sentAt) {
       setSentErrorByProposalId((current) => ({
@@ -57,6 +61,7 @@ export default function AdminPage() {
       return;
     }
 
+    savingRef.current = true;
     setSavingProposalId(proposalId);
     setSentErrorByProposalId((current) => {
       const next = { ...current };
@@ -80,6 +85,7 @@ export default function AdminPage() {
 
       await mutate();
       void globalMutate("/api/navigation/summary");
+      mutateAllFoundation();
       setSentDateByProposalId((current) => {
         const next = { ...current };
         delete next[proposalId];
@@ -94,6 +100,7 @@ export default function AdminPage() {
             : "Could not mark proposal as Sent."
       }));
     } finally {
+      savingRef.current = false;
       setSavingProposalId((current) => (current === proposalId ? null : current));
     }
   };

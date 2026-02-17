@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { Gift, History, ListChecks, Plus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -182,6 +183,7 @@ export default function WorkspaceClient() {
                         return next;
                       });
                       void workspaceQuery.mutate();
+                      mutateAllFoundation();
                     }}
                     onAllocationChange={
                       item.proposalType === "joint"
