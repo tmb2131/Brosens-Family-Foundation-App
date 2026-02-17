@@ -147,7 +147,7 @@ export default function MobileFocusClient() {
           </span>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-4">
           {visibleActionItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">You&apos;re all caught up.</p>
           ) : (
@@ -159,7 +159,7 @@ export default function MobileFocusClient() {
               return (
                 <article
                   key={item.proposalId}
-                  className={`rounded-xl border border-t-2 p-4 ${
+                  className={`rounded-xl border border-t-2 bg-background p-4 shadow-sm ${
                     item.proposalType === "joint"
                       ? "border-t-indigo-400 dark:border-t-indigo-500"
                       : "border-t-amber-400 dark:border-t-amber-500"

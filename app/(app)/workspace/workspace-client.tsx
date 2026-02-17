@@ -140,7 +140,7 @@ export default function WorkspaceClient() {
           </Link>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {workspace.actionItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">No vote-required items right now.</p>
           ) : (
@@ -152,7 +152,7 @@ export default function WorkspaceClient() {
               return (
                 <article
                   key={item.proposalId}
-                  className={`rounded-xl border border-t-2 p-3 ${
+                  className={`rounded-xl border border-t-2 bg-background p-4 shadow-sm ${
                     item.proposalType === "joint"
                       ? "border-t-indigo-400 dark:border-t-indigo-500"
                       : "border-t-amber-400 dark:border-t-amber-500"
