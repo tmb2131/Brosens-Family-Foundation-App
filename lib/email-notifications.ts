@@ -497,7 +497,7 @@ function renderOwnProposalUpdatesHtml(updates: OwnProposalUpdate[]) {
 <a href="${escapeHtml(link)}" style="color:#1d4ed8;text-decoration:underline;font-weight:600;">${escapeHtml(proposal.title)}</a>
 <span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;background-color:${badge.bg};color:${badge.text};">${escapeHtml(proposal.statusLabel)}</span><br />
 <span style="color:#4b5563;font-size:14px;">${escapeHtml(proposal.summary)}</span><br />
-<span style="color:#374151;font-size:14px;">Pending action from: ${escapeHtml(chaseLine)}</span>
+<span style="color:#374151;font-size:14px;"><strong>Pending action from:</strong> ${escapeHtml(chaseLine)}</span>
 </td></tr>
 </table>`;
     })
