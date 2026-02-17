@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { Gift, History, ListChecks, Plus, RefreshCw, Vote } from "lucide-react";
+import { Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -196,7 +196,62 @@ export default function WorkspaceClient() {
             </div>
           </GlassCard>
 
-          <div className="lg:hidden">{budgetSidebar}</div>
+          <GlassCard className="p-3 lg:hidden">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <Wallet className="h-4 w-4" />
+              </span>
+              <CardLabel>Personal Budget</CardLabel>
+            </div>
+            {isManager ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Managers do not have an individual budget. Joint proposals are still available.
+              </p>
+            ) : (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[
+                  {
+                    label: "Total",
+                    remaining: Math.max(0, totalIndividualTarget - totalIndividualAllocated),
+                    allocated: totalIndividualAllocated,
+                    total: totalIndividualTarget
+                  },
+                  {
+                    label: "Joint",
+                    remaining: Math.max(0, workspace.personalBudget.jointTarget - (workspace.personalBudget.jointAllocated + pendingJointTotal)),
+                    allocated: workspace.personalBudget.jointAllocated + pendingJointTotal,
+                    total: workspace.personalBudget.jointTarget
+                  },
+                  {
+                    label: "Discretionary",
+                    remaining: workspace.personalBudget.discretionaryRemaining,
+                    allocated: workspace.personalBudget.discretionaryAllocated,
+                    total: workspace.personalBudget.discretionaryCap
+                  }
+                ].map(({ label, remaining, allocated, total }) => {
+                  const ratio = total === 0 ? 0 : Math.min(100, Math.round((allocated / total) * 100));
+                  return (
+                    <div key={label} className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                        {currency(remaining)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">remaining of your budget of {currency(total)}</p>
+                      <div className="mt-2 h-1.5 rounded-full bg-muted">
+                        <div
+                          className="h-1.5 rounded-full bg-accent"
+                          style={{ width: `${ratio}%` }}
+                          aria-hidden
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </GlassCard>
 
           <GlassCard>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
