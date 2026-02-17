@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertCircle, ChevronDown } from "lucide-react";
+import { AlertCircle, ChevronDown, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -301,7 +301,89 @@ export default function NewProposalPage() {
         </p>
       </GlassCard>
 
-      <GlassCard className="lg:hidden">{budgetCardContent}</GlassCard>
+      <GlassCard className="p-3 lg:hidden">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <Wallet className="h-4 w-4" />
+          </span>
+          <CardLabel>Personal Budget</CardLabel>
+        </div>
+        {workspaceQuery.isLoading ? (
+          <p className="mt-2 text-sm text-muted-foreground">Loading budget details...</p>
+        ) : workspaceQuery.error || !workspaceQuery.data ? (
+          <p className="mt-2 text-sm text-rose-600">
+            Could not load your budget details. You can still submit a proposal.
+          </p>
+        ) : isManager ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {[
+                {
+                  label: "Total",
+                  remaining: Math.max(
+                    0,
+                    workspaceQuery.data.personalBudget.jointTarget +
+                      workspaceQuery.data.personalBudget.discretionaryCap -
+                      jointAllocatedPreview -
+                      discretionaryAllocatedPreview
+                  ),
+                  allocated: jointAllocatedPreview + discretionaryAllocatedPreview,
+                  total:
+                    workspaceQuery.data.personalBudget.jointTarget +
+                    workspaceQuery.data.personalBudget.discretionaryCap
+                },
+                {
+                  label: "Joint",
+                  remaining: jointRemainingPreview,
+                  allocated: jointAllocatedPreview,
+                  total: workspaceQuery.data.personalBudget.jointTarget
+                },
+                {
+                  label: "Discretionary",
+                  remaining: discretionaryRemainingPreview,
+                  allocated: discretionaryAllocatedPreview,
+                  total: workspaceQuery.data.personalBudget.discretionaryCap
+                }
+              ].map(({ label, remaining, allocated, total }) => {
+                const ratio = total === 0 ? 0 : Math.min(100, Math.round((allocated / total) * 100));
+                return (
+                  <div key={label} className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                      {currency(remaining)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">remaining of your budget of {currency(total)}</p>
+                    <div className="mt-2 h-1.5 rounded-full bg-muted">
+                      <div
+                        className="h-1.5 rounded-full bg-accent"
+                        style={{ width: `${ratio}%` }}
+                        aria-hidden
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {proposalType === "joint"
+                ? `Your allocation uses joint budget first, then discretionary (max ${currency(
+                    totalBudgetRemaining
+                  )} total).${proposalType === "joint" && isVotingMember && (parsedProposerAllocation ?? 0) > 0 ? ` After this allocation: ${currency(jointRemainingPreview)} joint, ${currency(discretionaryRemainingPreview)} discretionary remaining.` : ""}`
+                : proposalType === "discretionary"
+                ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
+                    discretionaryRemainingPreview
+                  )} remaining${(parsedProposedAmount ?? 0) > 0 ? " after this proposal" : ""}.`
+                : "Select a proposal type to see how this proposal affects your budget."}
+            </p>
+          </>
+        )}
+      </GlassCard>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
       <GlassCard>
