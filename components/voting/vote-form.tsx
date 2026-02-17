@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export function VoteForm({
   const impliedJointAllocation =
     totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
   const [allocationAmount, setAllocationAmount] = useState("");
+  const allocationAmountRef = useRef(allocationAmount);
+  allocationAmountRef.current = allocationAmount;
   const parsedAllocationAmount = parseNumberInput(allocationAmount);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +41,20 @@ export function VoteForm({
   const effectiveAllocation =
     proposalType === "joint" && choice === "yes" ? (parsedAllocationAmount ?? 0) : 0;
 
+  const onAllocationChangeRef = useRef(onAllocationChange);
+  onAllocationChangeRef.current = onAllocationChange;
   useEffect(() => {
-    onAllocationChange?.(effectiveAllocation);
-  }, [effectiveAllocation, onAllocationChange]);
+    onAllocationChangeRef.current?.(effectiveAllocation);
+  }, [effectiveAllocation]);
 
   const submitVote = async () => {
     setError(null);
     setSaving(true);
+
+    const amountToSend =
+      proposalType === "joint" && choice === "yes"
+        ? (parseNumberInput(allocationAmountRef.current) ?? 0)
+        : 0;
 
     try {
       const response = await fetch("/api/votes", {
@@ -54,10 +63,7 @@ export function VoteForm({
         body: JSON.stringify({
           proposalId,
           choice,
-          allocationAmount:
-            proposalType === "joint" && choice === "yes"
-              ? (parsedAllocationAmount ?? 0)
-              : 0
+          allocationAmount: amountToSend
         })
       });
 
@@ -121,7 +127,11 @@ export function VoteForm({
                 className="flex-1 rounded-lg"
                 placeholder={currency(impliedJointAllocation)}
                 value={allocationAmount}
-                onChange={(event) => setAllocationAmount(event.target.value)}
+                onChange={(event) => {
+                  const v = event.target.value;
+                  setAllocationAmount(v);
+                  allocationAmountRef.current = v;
+                }}
               />
               <span className="shrink-0 text-[11px] text-muted-foreground">
                 {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}

@@ -12,6 +12,7 @@ import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/component
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
+import { DialogTitle } from "@/components/ui/dialog";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
@@ -1973,9 +1974,9 @@ export default function DashboardClient() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 id="proposal-details-title" className="text-lg font-bold">
+                  <DialogTitle id="proposal-details-title" className="text-lg font-bold">
                     Proposal Details
-                  </h2>
+                  </DialogTitle>
                   <Badge className={detailProposal.proposalType === "joint"
                     ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
                     : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
