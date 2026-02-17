@@ -673,7 +673,7 @@ export default function DashboardClient() {
     setIsExportMenuOpen(false);
   };
   const exportRows: ProposalExportRow[] = filteredAndSortedProposals.map((proposal) => {
-    const masked = proposal.progress.masked && proposal.status === "to_review";
+    const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
     const requiredAction = buildRequiredActionSummary(proposal, user?.role);
     const requiredActionLabel =
       requiredAction.owner === "None"
@@ -1188,7 +1188,7 @@ export default function DashboardClient() {
     ? data.proposals.find((proposal) => proposal.id === detailProposalId) ?? null
     : null;
   const detailDraft = detailProposal ? drafts[detailProposal.id] ?? toProposalDraft(detailProposal) : null;
-  const detailMasked = Boolean(detailProposal?.progress.masked && detailProposal.status === "to_review");
+  const detailMasked = Boolean(detailProposal?.progress.masked && detailProposal.status === "to_review" && detailProposal.proposalType !== "discretionary");
   const detailRequiredAction = detailProposal
     ? buildRequiredActionSummary(detailProposal, user?.role)
     : null;
@@ -1417,7 +1417,7 @@ export default function DashboardClient() {
                 {/* Mobile card list */}
                 <div className="space-y-3 md:hidden">
                   {pendingProposals.map((proposal) => {
-                    const masked = proposal.progress.masked && proposal.status === "to_review";
+                    const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
 
                     return (
                       <article
@@ -1460,7 +1460,7 @@ export default function DashboardClient() {
                   </thead>
                   <tbody>
                     {pendingProposals.map((proposal) => {
-                      const masked = proposal.progress.masked && proposal.status === "to_review";
+                      const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
 
                       return (
                         <tr key={proposal.id} className="border-b align-top">
@@ -1593,7 +1593,7 @@ export default function DashboardClient() {
           ) : (
             filteredAndSortedProposals.map((proposal) => {
               const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
-              const masked = proposal.progress.masked && proposal.status === "to_review";
+              const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
               const requiredAction = buildRequiredActionSummary(proposal, user?.role);
               const isOwnProposal = Boolean(user && proposal.proposerId === user.id);
               const isRowEditable = isHistoricalBulkEditEnabled;
@@ -1849,7 +1849,7 @@ export default function DashboardClient() {
               ) : (
                 filteredAndSortedProposals.map((proposal) => {
                   const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
-                  const masked = proposal.progress.masked && proposal.status === "to_review";
+                  const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
                   const rowState = rowMessage[proposal.id];
                   const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
                   const requiredAction = buildRequiredActionSummary(proposal, user?.role);
