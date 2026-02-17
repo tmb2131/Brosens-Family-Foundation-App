@@ -379,7 +379,8 @@ function withProgress(proposal: GrantProposal, userId?: string, revealOverride =
       userId: vote.userId,
       choice: vote.choice,
       allocationAmount: vote.allocationAmount,
-      createdAt: vote.createdAt
+      createdAt: vote.createdAt,
+      flagComment: vote.flagComment
     })),
     progress: {
       totalRequiredVotes: requiredVotes,
@@ -625,6 +626,7 @@ export function submitVote(input: {
   userId: string;
   choice: VoteChoice;
   allocationAmount: number;
+  flagComment?: string | null;
 }) {
   const state = db();
   const proposal = state.proposals.find((item) => item.id === input.proposalId);
@@ -663,10 +665,16 @@ export function submitVote(input: {
     (vote) => vote.proposalId === input.proposalId && vote.userId === input.userId
   );
 
+  const flagComment =
+    input.choice === "flagged" && input.flagComment != null && input.flagComment.trim() !== ""
+      ? input.flagComment.trim()
+      : null;
+
   if (existing) {
     existing.choice = input.choice;
     existing.allocationAmount = normalizedAllocation;
     existing.createdAt = isoNow();
+    existing.flagComment = flagComment ?? undefined;
   } else {
     state.votes.push({
       id: `vote-${state.votes.length + 1}`,
@@ -674,7 +682,8 @@ export function submitVote(input: {
       userId: input.userId,
       choice: input.choice,
       allocationAmount: normalizedAllocation,
-      createdAt: isoNow()
+      createdAt: isoNow(),
+      flagComment: flagComment ?? undefined
     });
   }
 

@@ -79,6 +79,7 @@ interface VoteRow {
   choice: VoteChoice;
   allocation_amount: number | string;
   created_at: string;
+  flag_comment: string | null;
 }
 
 interface OrganizationRow {
@@ -216,7 +217,8 @@ function mapVote(row: VoteRow): Vote {
     userId: row.voter_id,
     choice: row.choice,
     allocationAmount: toNumber(row.allocation_amount),
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    flagComment: row.flag_comment ?? undefined
   };
 }
 
@@ -558,7 +560,7 @@ async function loadVotesByProposalIds(admin: AdminClient, proposalIds: string[])
 
   const { data, error } = await admin
     .from("votes")
-    .select("id, proposal_id, voter_id, choice, allocation_amount, created_at")
+    .select("id, proposal_id, voter_id, choice, allocation_amount, created_at, flag_comment")
     .in("proposal_id", proposalIds)
     .returns<VoteRow[]>();
 
@@ -638,7 +640,8 @@ function buildProposalViews(input: {
         userId: vote.userId,
         choice: vote.choice,
         allocationAmount: vote.allocationAmount,
-        createdAt: vote.createdAt
+        createdAt: vote.createdAt,
+        flagComment: vote.flagComment
       })),
       progress: {
         totalRequiredVotes: requiredVotes,
@@ -819,7 +822,7 @@ export async function getWorkspaceSnapshot(
 
   const { data: userVoteRows, error: userVoteError } = await admin
     .from("votes")
-    .select("id, proposal_id, voter_id, choice, allocation_amount, created_at")
+    .select("id, proposal_id, voter_id, choice, allocation_amount, created_at, flag_comment")
     .eq("voter_id", user.id)
     .order("created_at", { ascending: false })
     .returns<VoteRow[]>();
@@ -1315,6 +1318,8 @@ export async function submitVote(
     voterId: string;
     choice: VoteChoice;
     allocationAmount: number;
+    /** Optional comment when choice is "flagged" (discretionary). */
+    flagComment?: string | null;
   }
 ) {
   const { data: proposal, error: proposalError } = await admin
@@ -1378,12 +1383,18 @@ export async function submitVote(
     }
   }
 
+  const flagCommentValue =
+    input.choice === "flagged" && input.flagComment != null && input.flagComment.trim() !== ""
+      ? input.flagComment.trim()
+      : null;
+
   const { error: voteError } = await admin.from("votes").upsert(
     {
       proposal_id: input.proposalId,
       voter_id: input.voterId,
       choice: input.choice,
-      allocation_amount: normalizedAmount
+      allocation_amount: normalizedAmount,
+      flag_comment: flagCommentValue
     },
     { onConflict: "proposal_id,voter_id" }
   );

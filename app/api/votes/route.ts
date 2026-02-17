@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
     const proposalId = String(body.proposalId ?? "").trim();
     const rawChoice = String(body.choice ?? "").trim();
     const allocationAmount = Number(body.allocationAmount ?? 0);
+    const flagComment =
+      body.flagComment != null ? String(body.flagComment).trim() || null : undefined;
 
     if (!proposalId || !rawChoice) {
       throw new HttpError(400, "Missing required fields.");
@@ -34,7 +36,8 @@ export async function POST(request: NextRequest) {
       proposalId,
       voterId: profile.id,
       choice,
-      allocationAmount
+      allocationAmount,
+      flagComment: choice === "flagged" ? flagComment ?? null : undefined
     });
 
     return NextResponse.json({ ok: true });

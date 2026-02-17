@@ -101,6 +101,8 @@ export interface Vote {
   choice: VoteChoice;
   allocationAmount: number;
   createdAt: string;
+  /** Optional comment when choice is "flagged" (discretionary proposals). */
+  flagComment?: string | null;
 }
 
 export interface ProposalProgress {
@@ -144,6 +146,7 @@ export interface FoundationSnapshot {
         choice: VoteChoice;
         allocationAmount: number;
         createdAt: string;
+        flagComment?: string | null;
       }>;
     }
   >;

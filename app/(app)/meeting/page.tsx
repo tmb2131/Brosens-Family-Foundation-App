@@ -77,6 +77,23 @@ function MeetingProposalCard({
         </p>
       </div>
 
+      {proposal.voteBreakdown.some((v) => v.choice === "flagged" && v.flagComment) ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+            Flag comments
+          </p>
+          <ul className="mt-1.5 list-none space-y-1 text-amber-900 dark:text-amber-100">
+            {proposal.voteBreakdown
+              .filter((v) => v.choice === "flagged" && v.flagComment)
+              .map((vote) => (
+                <li key={vote.userId}>
+                  <span className="font-medium">{vote.userId}:</span> {vote.flagComment}
+                </li>
+              ))}
+          </ul>
+        </div>
+      ) : null}
+
       {userRole === "oversight" && proposal.charityNavigatorUrl ? (
         <div className="mt-3 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -380,9 +397,16 @@ export default function MeetingPage() {
                 </p>
                 <div className="mt-1.5 space-y-1 text-xs sm:mt-2 sm:text-sm">
                   {meetingDialogProposal.voteBreakdown.map((vote) => (
-                    <p key={`${meetingDialogProposal.id}-${vote.userId}`}>
-                      {vote.userId}: {voteChoiceLabel(vote.choice)} ({currency(vote.allocationAmount)})
-                    </p>
+                    <div key={`${meetingDialogProposal.id}-${vote.userId}`}>
+                      <p>
+                        {vote.userId}: {voteChoiceLabel(vote.choice)} ({currency(vote.allocationAmount)})
+                        {vote.choice === "flagged" && vote.flagComment ? (
+                          <span className="block mt-0.5 pl-0 text-muted-foreground">
+                            — {vote.flagComment}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -41,6 +41,7 @@ export function VoteForm({
   const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
   const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
   const [choice, setChoice] = useState<VoteChoice>(primaryChoice);
+  const [flagComment, setFlagComment] = useState("");
   const impliedJointAllocation =
     totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
   const [allocationAmount, setAllocationAmount] = useState("");
@@ -80,7 +81,8 @@ export function VoteForm({
         body: JSON.stringify({
           proposalId,
           choice,
-          allocationAmount: amountToSend
+          allocationAmount: amountToSend,
+          ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {})
         })
       });
 
@@ -164,7 +166,10 @@ export function VoteForm({
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
       <div className="mt-1.5 grid grid-cols-2 gap-2">
         <Button
-          onClick={() => setChoice(primaryChoice)}
+          onClick={() => {
+            setChoice(primaryChoice);
+            if (primaryChoice !== "flagged") setFlagComment("");
+          }}
           variant={choice === primaryChoice ? "default" : "outline"}
           size="default"
           className={choice === primaryChoice
@@ -219,9 +224,23 @@ export function VoteForm({
           </label>
         </>
       ) : (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Amount is proposer-set. Acknowledge or flag for discussion.
-        </p>
+        <>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Amount is proposer-set. Acknowledge or flag for discussion.
+          </p>
+          {choice === "flagged" ? (
+            <label className="mt-1.5 block text-xs font-medium">
+              Comment (optional)
+              <Input
+                className="mt-1 rounded-lg placeholder:italic"
+                placeholder="e.g. Would like to discuss amount or scope"
+                value={flagComment}
+                onChange={(e) => setFlagComment(e.target.value)}
+                maxLength={500}
+              />
+            </label>
+          ) : null}
+        </>
       )}
 
       <Button
