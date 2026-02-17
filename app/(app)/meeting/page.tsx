@@ -44,7 +44,7 @@ function MeetingProposalCard({
 }) {
   return (
     <GlassCard
-      className={`border-t-2 p-4 ${
+      className={`border-t-2 p-3 ${
         proposal.proposalType === "joint"
           ? "border-t-indigo-400 dark:border-t-indigo-500"
           : "border-t-amber-400 dark:border-t-amber-500"
@@ -64,21 +64,23 @@ function MeetingProposalCard({
         {currency(proposal.progress.computedFinalAmount)}
       </p>
 
-      <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:mt-3 sm:gap-2 sm:grid-cols-3">
-        <p className="truncate">Type: {titleCase(proposal.proposalType)}</p>
-        <p>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span>Type: {titleCase(proposal.proposalType)}</span>
+        <span className="text-muted-foreground/70" aria-hidden>·</span>
+        <span>
           Rule:{" "}
           {proposal.proposalType === "joint"
             ? titleCase(proposal.allocationMode)
             : "Proposer-set amount"}
-        </p>
-        <p className="font-medium text-muted-foreground">
-          Recommended: {currency(proposal.progress.computedFinalAmount)}
-        </p>
+        </span>
+        <span className="text-muted-foreground/70" aria-hidden>·</span>
+        <span className="font-medium text-muted-foreground">
+          Proposed: {currency(proposal.proposedAmount)}
+        </span>
       </div>
 
       {proposal.voteBreakdown.some((v) => v.choice === "flagged" && v.flagComment) ? (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+        <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
             Flag comments
           </p>
@@ -95,7 +97,7 @@ function MeetingProposalCard({
       ) : null}
 
       {userRole === "oversight" && proposal.charityNavigatorUrl ? (
-        <div className="mt-3 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
+        <div className="mt-2 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Charity Navigator
           </p>
@@ -124,7 +126,7 @@ function MeetingProposalCard({
       ) : null}
 
       <Button
-        className="mt-3 w-full sm:w-auto"
+        className="mt-2 w-full"
         size="lg"
         disabled={saving}
         onClick={() => onOpenDecisionDialog(proposal.id)}
@@ -232,81 +234,97 @@ export default function MeetingPage() {
       ? data.proposals.find((p) => p.id === meetingDialogProposalId)
       : null;
 
+  const metricsCards = [
+    <MetricCard
+      key="pending"
+      title="PENDING DECISIONS"
+      value={formatNumber(data.proposals.length)}
+      icon={ClipboardList}
+      tone="sky"
+    />,
+    <MetricCard
+      key="recommended"
+      title="RECOMMENDED TOTAL"
+      value={currency(totalRecommendedAmount)}
+      icon={DollarSign}
+      tone="indigo"
+    />
+  ];
+
   return (
     <div className="page-stack pb-4">
-      <GlassCard className="rounded-3xl">
-        <CardLabel>Reveal & Decision Stage</CardLabel>
-        <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          <span className="hidden sm:inline">Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.</span>
-          <span className="sm:hidden">{formatNumber(data.proposals.length)} pending decisions</span>
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span>{formatNumber(data.proposals.length)} pending</span>
-          <span className="hidden text-border sm:inline">|</span>
-          <span>{formatNumber(jointCount)} joint</span>
-          <span className="hidden text-border sm:inline">|</span>
-          <span>{formatNumber(discretionaryCount)} discretionary</span>
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
+        <div className="space-y-3">
+          <GlassCard className="rounded-3xl">
+            <CardLabel>Reveal & Decision Stage</CardLabel>
+            <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="hidden sm:inline">Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.</span>
+              <span className="sm:hidden">{formatNumber(data.proposals.length)} pending decisions</span>
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{formatNumber(data.proposals.length)} pending</span>
+              <span className="hidden text-border sm:inline">|</span>
+              <span>{formatNumber(jointCount)} joint</span>
+              <span className="hidden text-border sm:inline">|</span>
+              <span>{formatNumber(discretionaryCount)} discretionary</span>
+            </div>
+          </GlassCard>
+
+          <section className="grid gap-3 sm:grid-cols-2 lg:hidden">
+            {metricsCards}
+          </section>
+
+          <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as MeetingSegment)}>
+            <TabsList className="h-auto w-full flex-wrap gap-2 rounded-none border-0 bg-transparent p-0 shadow-none">
+              <TabsTrigger
+                value="ready"
+                className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+              >
+                Ready ({formatNumber(readyProposals.length)})
+              </TabsTrigger>
+              <TabsTrigger
+                value="pending"
+                className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+              >
+                Pending ({formatNumber(pendingProposals.length)})
+              </TabsTrigger>
+              <TabsTrigger
+                value="needs_discussion"
+                className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+              >
+                Needs discussion ({formatNumber(needsDiscussionProposals.length)})
+              </TabsTrigger>
+            </TabsList>
+            {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
+              <TabsContent key={segment} value={segment} className="mt-3 space-y-3">
+                {segmentProposals[segment].length === 0 ? (
+                  <GlassCard className="p-3 sm:p-4">
+                    <p className="text-sm text-muted-foreground">No proposals in this segment.</p>
+                  </GlassCard>
+                ) : (
+                  segmentProposals[segment].map((proposal) => (
+                    <MeetingProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      userRole={user.role}
+                      saving={saving}
+                      onOpenDecisionDialog={setMeetingDialogProposalId}
+                    />
+                  ))
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
         </div>
-      </GlassCard>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <MetricCard
-          title="PENDING DECISIONS"
-          value={formatNumber(data.proposals.length)}
-          icon={ClipboardList}
-          tone="sky"
-        />
-        <MetricCard
-          title="RECOMMENDED TOTAL"
-          value={currency(totalRecommendedAmount)}
-          icon={DollarSign}
-          tone="indigo"
-        />
-      </section>
-
-      <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as MeetingSegment)}>
-        <TabsList className="h-auto w-full flex-wrap gap-2 rounded-none border-0 bg-transparent p-0 shadow-none">
-          <TabsTrigger
-            value="ready"
-            className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            Ready ({formatNumber(readyProposals.length)})
-          </TabsTrigger>
-          <TabsTrigger
-            value="pending"
-            className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            Pending ({formatNumber(pendingProposals.length)})
-          </TabsTrigger>
-          <TabsTrigger
-            value="needs_discussion"
-            className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-          >
-            Needs discussion ({formatNumber(needsDiscussionProposals.length)})
-          </TabsTrigger>
-        </TabsList>
-        {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
-          <TabsContent key={segment} value={segment} className="mt-3 space-y-3">
-            {segmentProposals[segment].length === 0 ? (
-              <GlassCard className="p-3 sm:p-4">
-                <p className="text-sm text-muted-foreground">No proposals in this segment.</p>
-              </GlassCard>
-            ) : (
-              segmentProposals[segment].map((proposal) => (
-                <MeetingProposalCard
-                  key={proposal.id}
-                  proposal={proposal}
-                  userRole={user.role}
-                  saving={saving}
-                  onOpenDecisionDialog={setMeetingDialogProposalId}
-                />
-              ))
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+        <div className="hidden lg:block">
+          <div className="lg:sticky lg:top-6">
+            <div className="grid gap-3">{metricsCards}</div>
+          </div>
+        </div>
+      </div>
 
       <ResponsiveModal
         open={meetingDialogProposalId !== null}
