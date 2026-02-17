@@ -6,7 +6,7 @@ import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
-import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
@@ -237,14 +237,14 @@ export default function MeetingPage() {
   const metricsCards = [
     <MetricCard
       key="pending"
-      title="PENDING DECISIONS"
+      title="PENDING"
       value={formatNumber(data.proposals.length)}
       icon={ClipboardList}
       tone="sky"
     />,
     <MetricCard
       key="recommended"
-      title="RECOMMENDED TOTAL"
+      title="RECOMMENDED"
       value={currency(totalRecommendedAmount)}
       icon={DollarSign}
       tone="indigo"
@@ -255,24 +255,7 @@ export default function MeetingPage() {
     <div className="page-stack pb-4">
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-3">
-          <GlassCard className="rounded-3xl">
-            <CardLabel>Reveal & Decision Stage</CardLabel>
-            <CardValue className="hidden sm:block">Live Meeting Sync</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="hidden sm:inline">Unmask blind votes during the meeting, then log the final decision to trigger execution for Brynn.</span>
-              <span className="sm:hidden">{formatNumber(data.proposals.length)} pending decisions</span>
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>{formatNumber(data.proposals.length)} pending</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>{formatNumber(jointCount)} joint</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>{formatNumber(discretionaryCount)} discretionary</span>
-            </div>
-          </GlassCard>
-
-          <section className="grid gap-3 sm:grid-cols-2 lg:hidden">
+          <section className="grid grid-cols-2 gap-3 lg:hidden">
             {metricsCards}
           </section>
 
