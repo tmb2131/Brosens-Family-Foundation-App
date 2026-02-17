@@ -4,14 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { Gift, History, ListChecks, Plus, RefreshCw } from "lucide-react";
+import { Gift, History, ListChecks, Plus, RefreshCw, Vote } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { Card, GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
+import { currency, formatNumber, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
 
@@ -20,6 +26,7 @@ export default function WorkspaceClient() {
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
+  const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,
@@ -98,8 +105,70 @@ export default function WorkspaceClient() {
     </Card>
   );
 
+  const voteDialogItem =
+    voteDialogProposalId != null
+      ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId)
+      : null;
+
   return (
     <div className="page-stack pb-4">
+      <Dialog
+        open={voteDialogProposalId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVoteDialogProposalId(null);
+            if (voteDialogProposalId) {
+              setPendingJointAllocationByProposalId((prev) => {
+                const next = { ...prev };
+                delete next[voteDialogProposalId];
+                return next;
+              });
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={true}>
+          {voteDialogItem ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Cast vote: {voteDialogItem.title}</DialogTitle>
+              </DialogHeader>
+              <VoteForm
+                proposalId={voteDialogItem.proposalId}
+                proposalType={voteDialogItem.proposalType}
+                proposedAmount={voteDialogItem.proposedAmount}
+                totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                onSuccess={() => {
+                  setPendingJointAllocationByProposalId((prev) => {
+                    const next = { ...prev };
+                    delete next[voteDialogItem.proposalId];
+                    return next;
+                  });
+                  setVoteDialogProposalId(null);
+                  void workspaceQuery.mutate();
+                  mutateAllFoundation();
+                }}
+                onAllocationChange={
+                  voteDialogItem.proposalType === "joint"
+                    ? (amount) =>
+                        setPendingJointAllocationByProposalId((prev) => ({
+                          ...prev,
+                          [voteDialogItem.proposalId]: amount
+                        }))
+                    : undefined
+                }
+                maxJointAllocation={
+                  voteDialogItem.proposalType === "joint" && !isManager
+                    ? workspace.personalBudget.jointRemaining +
+                      workspace.personalBudget.discretionaryRemaining
+                    : undefined
+                }
+              />
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-3">
           <GlassCard className="rounded-3xl">
@@ -173,36 +242,12 @@ export default function WorkspaceClient() {
                           · {item.voteProgressLabel}
                         </span>
                       </p>
-                      <VoteForm
-                        proposalId={item.proposalId}
-                        proposalType={item.proposalType}
-                        proposedAmount={item.proposedAmount}
-                        totalRequiredVotes={item.totalRequiredVotes}
-                        onSuccess={() => {
-                          setPendingJointAllocationByProposalId((prev) => {
-                            const next = { ...prev };
-                            delete next[item.proposalId];
-                            return next;
-                          });
-                          void workspaceQuery.mutate();
-                          mutateAllFoundation();
-                        }}
-                        onAllocationChange={
-                          item.proposalType === "joint"
-                            ? (amount) =>
-                                setPendingJointAllocationByProposalId((prev) => ({
-                                  ...prev,
-                                  [item.proposalId]: amount
-                                }))
-                            : undefined
-                        }
-                        maxJointAllocation={
-                          item.proposalType === "joint" && !isManager
-                            ? workspace.personalBudget.jointRemaining +
-                              workspace.personalBudget.discretionaryRemaining
-                            : undefined
-                        }
-                      />
+                      <Button
+                        className="mt-3 w-full sm:w-auto"
+                        onClick={() => setVoteDialogProposalId(item.proposalId)}
+                      >
+                        <Vote className="h-4 w-4" /> Enter vote & amount
+                      </Button>
                     </article>
                   );
                 })

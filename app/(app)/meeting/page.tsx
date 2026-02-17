@@ -34,14 +34,12 @@ function MeetingProposalCard({
   proposal,
   userRole,
   saving,
-  onReveal,
-  onDecision
+  onOpenDecisionDialog
 }: {
   proposal: MeetingProposal;
   userRole: string;
   saving: boolean;
-  onReveal: (reveal: boolean) => void;
-  onDecision: (status: "approved" | "declined") => void;
+  onOpenDecisionDialog: (proposalId: string) => void;
 }) {
   return (
     <GlassCard
@@ -107,63 +105,15 @@ function MeetingProposalCard({
         </div>
       ) : null}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button
-          variant="outline"
-          size="lg"
-          disabled={saving}
-          onClick={() => onReveal(true)}
-        >
-          <Eye className="h-3.5 w-3.5" />
-          Reveal Votes
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          disabled={saving}
-          onClick={() => onReveal(false)}
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-          Mask Again
-        </Button>
-        <Button
-          size="lg"
-          className="bg-emerald-600 hover:bg-emerald-600/90"
-          disabled={saving}
-          onClick={() => onDecision("approved")}
-        >
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          Confirm Approved
-        </Button>
-        <Button
-          variant="destructive"
-          size="lg"
-          disabled={saving}
-          onClick={() => onDecision("declined")}
-        >
-          <XCircle className="h-3.5 w-3.5" />
-          Confirm Declined
-        </Button>
-      </div>
-
-      {proposal.revealVotes ? (
-        <div className="mt-3 rounded-xl border border-border/70 bg-muted/60 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Revealed votes
-          </p>
-          <div className="mt-1.5 space-y-1 text-xs sm:mt-2 sm:text-sm">
-            {proposal.voteBreakdown.map((vote) => (
-              <p key={`${proposal.id}-${vote.userId}`}>
-                {vote.userId}: {voteChoiceLabel(vote.choice)} ({currency(vote.allocationAmount)})
-              </p>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p className="mt-3 text-[11px] text-muted-foreground sm:text-xs">
-          Votes remain masked until reveal.
-        </p>
-      )}
+      <Button
+        className="mt-3 w-full sm:w-auto"
+        size="lg"
+        disabled={saving}
+        onClick={() => onOpenDecisionDialog(proposal.id)}
+      >
+        <Eye className="h-3.5 w-3.5" />
+        Reveal & decide
+      </Button>
     </GlassCard>
   );
 }
@@ -174,6 +124,7 @@ export default function MeetingPage() {
     refreshInterval: 30_000
   });
   const [activeSegment, setActiveSegment] = useState<MeetingSegment>("pending");
+  const [meetingDialogProposalId, setMeetingDialogProposalId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     proposalId: string;
     proposalTitle: string;
@@ -258,6 +209,11 @@ export default function MeetingPage() {
     needs_discussion: needsDiscussionProposals
   };
 
+  const meetingDialogProposal =
+    meetingDialogProposalId != null
+      ? data.proposals.find((p) => p.id === meetingDialogProposalId)
+      : null;
+
   return (
     <div className="page-stack pb-4">
       <GlassCard className="rounded-3xl">
@@ -326,22 +282,117 @@ export default function MeetingPage() {
                   proposal={proposal}
                   userRole={user.role}
                   saving={saving}
-                  onReveal={(reveal) =>
-                    void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal })
-                  }
-                  onDecision={(status) =>
-                    setConfirmAction({
-                      proposalId: proposal.id,
-                      proposalTitle: proposal.title,
-                      status
-                    })
-                  }
+                  onOpenDecisionDialog={setMeetingDialogProposalId}
                 />
               ))
             )}
           </TabsContent>
         ))}
       </Tabs>
+
+      <ResponsiveModal
+        open={meetingDialogProposalId !== null}
+        onOpenChange={(open) => { if (!open) setMeetingDialogProposalId(null); }}
+      >
+        {meetingDialogProposal ? (
+          <ResponsiveModalContent
+            aria-labelledby="meeting-decision-dialog-title"
+            dialogClassName="max-w-md rounded-3xl p-5"
+            showCloseButton={true}
+          >
+            <h2 id="meeting-decision-dialog-title" className="text-base font-semibold">
+              {meetingDialogProposal.title}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {currency(meetingDialogProposal.progress.computedFinalAmount)} ·{" "}
+              {formatNumber(meetingDialogProposal.progress.votesSubmitted)} of{" "}
+              {formatNumber(meetingDialogProposal.progress.totalRequiredVotes)} votes in
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                size="lg"
+                disabled={saving}
+                onClick={() => {
+                  void updateMeeting({
+                    action: "reveal",
+                    proposalId: meetingDialogProposal.id,
+                    reveal: true
+                  });
+                }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Reveal Votes
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                disabled={saving}
+                onClick={() => {
+                  void updateMeeting({
+                    action: "reveal",
+                    proposalId: meetingDialogProposal.id,
+                    reveal: false
+                  });
+                }}
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+                Mask Again
+              </Button>
+              <Button
+                size="lg"
+                className="bg-emerald-600 hover:bg-emerald-600/90"
+                disabled={saving}
+                onClick={() => {
+                  setConfirmAction({
+                    proposalId: meetingDialogProposal.id,
+                    proposalTitle: meetingDialogProposal.title,
+                    status: "approved"
+                  });
+                  setMeetingDialogProposalId(null);
+                }}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Confirm Approved
+              </Button>
+              <Button
+                variant="destructive"
+                size="lg"
+                disabled={saving}
+                onClick={() => {
+                  setConfirmAction({
+                    proposalId: meetingDialogProposal.id,
+                    proposalTitle: meetingDialogProposal.title,
+                    status: "declined"
+                  });
+                  setMeetingDialogProposalId(null);
+                }}
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                Confirm Declined
+              </Button>
+            </div>
+            {meetingDialogProposal.revealVotes ? (
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/60 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Revealed votes
+                </p>
+                <div className="mt-1.5 space-y-1 text-xs sm:mt-2 sm:text-sm">
+                  {meetingDialogProposal.voteBreakdown.map((vote) => (
+                    <p key={`${meetingDialogProposal.id}-${vote.userId}`}>
+                      {vote.userId}: {voteChoiceLabel(vote.choice)} ({currency(vote.allocationAmount)})
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-[11px] text-muted-foreground sm:text-xs">
+                Votes remain masked until reveal.
+              </p>
+            )}
+          </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
 
       <ResponsiveModal
         open={confirmAction !== null}
