@@ -291,6 +291,22 @@ export interface PolicyDiscussionFlag {
   reason: string;
 }
 
+/** One reviewer's status for a policy version (Oversight view). */
+export interface PolicyVersionUserReview {
+  userName: string | null;
+  status: PolicyNotificationStatus;
+  flagReason: string | null;
+}
+
+/** Policy version with previous/updated diffs and all users' review statuses (Oversight view). */
+export interface PolicyVersionWithReviews {
+  version: number;
+  changedAt: string;
+  changedByName: string | null;
+  diffs: MandateSectionDiff[];
+  reviews: PolicyVersionUserReview[];
+}
+
 export interface MandateComment {
   id: string;
   policyDocumentId: string;
@@ -313,6 +329,8 @@ export interface MandatePolicyPageData {
   notifications: PolicyChangeNotification[];
   pendingNotificationsCount: number;
   discussionFlags: PolicyDiscussionFlag[];
+  /** When current user is Oversight: each version with diffs and all users' acknowledgement/flag/pending. */
+  oversightVersionReviews?: PolicyVersionWithReviews[];
   mandateComments: MandateComment[];
 }
 

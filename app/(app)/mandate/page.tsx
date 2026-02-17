@@ -22,7 +22,8 @@ import {
   MandatePolicyContent,
   MandatePolicyPageData,
   MandateSectionKey,
-  PolicyChangeNotification
+  PolicyChangeNotification,
+  PolicyVersionWithReviews
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
 import { formatNumber } from "@/lib/utils";
@@ -425,6 +426,77 @@ function renderSectionContentWithHighlights(
         );
       })}
     </ul>
+  );
+}
+
+function OversightVersionCard({ versionReview }: { versionReview: PolicyVersionWithReviews }) {
+  return (
+    <article className="rounded-xl border p-3">
+      <div>
+        <p className="text-sm font-semibold">
+          Version {formatNumber(versionReview.version)} changes
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Changed {prettyDate(versionReview.changedAt)}
+          {versionReview.changedByName ? ` by ${versionReview.changedByName}` : ""}
+        </p>
+      </div>
+      {versionReview.diffs.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">No section-level diff available.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {versionReview.diffs.map((diff) => (
+            <details key={diff.key} className="rounded-lg border p-2">
+              <summary className="cursor-pointer text-sm font-medium">{diff.label}</summary>
+              <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Previous
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                    {diff.before || "(empty)"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Updated
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
+                    {diff.after || "(empty)"}
+                  </p>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 border-t pt-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Reviewer status
+        </p>
+        <ul className="mt-1.5 space-y-1.5">
+          {versionReview.reviews.length === 0 ? (
+            <li className="text-xs text-muted-foreground">No reviewers for this version.</li>
+          ) : (
+            versionReview.reviews.map((review, index) => (
+              <li key={index} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-medium text-foreground">
+                  {review.userName ?? "Unknown"}
+                </span>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${STATUS_STYLES[review.status]}`}
+                >
+                  {review.status}
+                </span>
+                {review.status === "flagged" && review.flagReason ? (
+                  <span className="text-rose-600">— {review.flagReason}</span>
+                ) : null}
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+    </article>
   );
 }
 
@@ -975,35 +1047,6 @@ export default function MandatePage() {
         </DialogContent>
       </Dialog>
 
-      {canEdit ? (
-        <GlassCard>
-          <CardLabel>Flagged for Discussion</CardLabel>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Non-oversight users can flag updates here and leave notes for follow-up.
-          </p>
-
-          <div className="mt-3 space-y-2">
-            {data.discussionFlags.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No flagged notes right now.</p>
-            ) : (
-              data.discussionFlags.map((flag) => (
-                <article key={flag.id} className="rounded-xl border p-3">
-                  <p className="text-sm font-semibold">
-                    {flag.userName ?? "Unknown user"} flagged version {formatNumber(flag.version)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Flagged {prettyDate(flag.flaggedAt)} | Changed {prettyDate(flag.changedAt)}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
-                    {flag.reason}
-                  </p>
-                </article>
-              ))
-            )}
-          </div>
-        </GlassCard>
-      ) : null}
-
       {!canEdit ? (
         <GlassCard>
           <CardLabel>Policy Update Notifications</CardLabel>
@@ -1076,24 +1119,6 @@ export default function MandatePage() {
 
                   {notification.status === "pending" ? (
                     <div className="mt-3 space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="lg"
-                          disabled={activeNotificationId === notification.id}
-                          onClick={() => void updateNotificationStatus(notification.id, "acknowledge")}
-                          className="bg-emerald-600 hover:bg-emerald-600/90"
-                        >
-                          Mark Acknowledged
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="lg"
-                          disabled={activeNotificationId === notification.id}
-                          onClick={() => void updateNotificationStatus(notification.id, "flag")}
-                        >
-                          Flag for Discussion
-                        </Button>
-                      </div>
                       <div className="space-y-1.5">
                         <Label htmlFor={`flag-reason-${notification.id}`} className="text-xs text-muted-foreground">
                           Discussion note (required if you flag this update)
@@ -1111,11 +1136,48 @@ export default function MandatePage() {
                           placeholder="What should the team discuss?"
                         />
                       </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="lg"
+                          disabled={activeNotificationId === notification.id}
+                          onClick={() => void updateNotificationStatus(notification.id, "acknowledge")}
+                          className="bg-emerald-600 hover:bg-emerald-600/90"
+                        >
+                          Mark Acknowledged
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="lg"
+                          disabled={
+                            activeNotificationId === notification.id ||
+                            (flagReasons[notification.id] ?? "").trim().length < 4
+                          }
+                          onClick={() => void updateNotificationStatus(notification.id, "flag")}
+                        >
+                          Flag for Discussion
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
                 </article>
               ))
             )}
+          </div>
+        </GlassCard>
+      ) : null}
+
+      {canEdit && (data.oversightVersionReviews?.length ?? 0) > 0 ? (
+        <GlassCard>
+          <CardLabel>Policy Update Notifications</CardLabel>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Each version change with previous vs updated text, and each reviewer&apos;s acknowledgement, flag (with comment), or pending status.
+          </p>
+          <div className="mt-3 space-y-3">
+            {(data.oversightVersionReviews ?? []).map((versionReview) => (
+              <OversightVersionCard key={versionReview.version} versionReview={versionReview} />
+            ))}
           </div>
         </GlassCard>
       ) : null}

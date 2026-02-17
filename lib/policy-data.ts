@@ -11,6 +11,7 @@ import {
   PolicyChangeNotification,
   PolicyDiscussionFlag,
   PolicyNotificationStatus,
+  PolicyVersionWithReviews,
   UserProfile
 } from "@/lib/types";
 import {
@@ -328,6 +329,75 @@ async function listMandateComments(
     }));
 }
 
+async function listPolicyChangesByDocument(
+  admin: AdminClient,
+  policyDocumentId: string
+): Promise<PolicyChangeRow[]> {
+  const { data, error } = await admin
+    .from("policy_changes")
+    .select("id, policy_document_id, version, previous_content, next_content, changed_by, changed_at")
+    .eq("policy_document_id", policyDocumentId)
+    .order("version", { ascending: false })
+    .limit(50)
+    .returns<PolicyChangeRow[]>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load policy changes: ${error.message}`);
+  }
+  return data ?? [];
+}
+
+async function listVersionReviewsForOversight(
+  admin: AdminClient,
+  policyDocumentId: string
+): Promise<PolicyVersionWithReviews[]> {
+  const changes = await listPolicyChangesByDocument(admin, policyDocumentId);
+  if (!changes.length) {
+    return [];
+  }
+
+  const changeIds = changes.map((c) => c.id);
+  const { data: allNotifications, error: notifError } = await admin
+    .from("policy_change_notifications")
+    .select("id, change_id, user_id, status, flag_reason, handled_at, created_at")
+    .in("change_id", changeIds)
+    .order("created_at", { ascending: true })
+    .returns<PolicyNotificationRow[]>();
+
+  if (notifError) {
+    throw new HttpError(500, `Could not load policy notifications for oversight: ${notifError.message}`);
+  }
+
+  const notifications = allNotifications ?? [];
+  const userIds = [
+    ...new Set([
+      ...changes.map((c) => c.changed_by).filter((id): id is string => Boolean(id)),
+      ...notifications.map((n) => n.user_id)
+    ])
+  ];
+  const userNamesById = await loadUserNames(admin, userIds);
+  const changesById = new Map(changes.map((c) => [c.id, c]));
+
+  return changes.map((change) => {
+    const previous = parsePolicyContent(change.previous_content);
+    const next = parsePolicyContent(change.next_content);
+    const changeNotifications = notifications.filter((n) => n.change_id === change.id);
+    const reviews = changeNotifications.map((n) => ({
+      userName: userNamesById.get(n.user_id) ?? null,
+      status: n.status,
+      flagReason: n.flag_reason
+    }));
+
+    return {
+      version: change.version,
+      changedAt: change.changed_at,
+      changedByName: change.changed_by ? userNamesById.get(change.changed_by) ?? null : null,
+      diffs: buildMandateSectionDiffs(previous, next),
+      reviews
+    };
+  });
+}
+
 async function listDiscussionFlags(
   admin: AdminClient,
   policyDocumentId: string
@@ -431,6 +501,10 @@ export async function getMandatePolicyPageData(
     ),
     discussionFlags:
       currentUser.role === "oversight" ? await listDiscussionFlags(admin, policyDocument.id) : [],
+    oversightVersionReviews:
+      currentUser.role === "oversight"
+        ? await listVersionReviewsForOversight(admin, policyDocument.id)
+        : undefined,
     mandateComments: await listMandateComments(admin, policyDocument.id)
   };
 }
