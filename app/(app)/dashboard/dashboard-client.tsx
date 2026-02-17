@@ -1531,29 +1531,31 @@ export default function DashboardClient() {
               <p className="text-xs text-muted-foreground">
                 Showing {formatNumber(filteredAndSortedProposals.length)} proposals for {selectedBudgetYearLabel}
               </p>
-              <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-3.5 w-3.5" />
-                    Export
-                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem className="text-xs font-semibold" onSelect={exportPdf}>
-                    Export as PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs font-semibold" onSelect={exportCsv}>
-                    Export as CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs font-semibold" onSelect={exportExcel}>
-                    Export as Excel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs font-semibold" onSelect={() => { void exportGoogleSheet(); }}>
-                    Export to Google Sheet
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="hidden md:block">
+                <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-3.5 w-3.5" />
+                      Export
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem className="text-xs font-semibold" onSelect={exportPdf}>
+                      Export as PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs font-semibold" onSelect={exportCsv}>
+                      Export as CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs font-semibold" onSelect={exportExcel}>
+                      Export as Excel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs font-semibold" onSelect={() => { void exportGoogleSheet(); }}>
+                      Export to Google Sheet
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
