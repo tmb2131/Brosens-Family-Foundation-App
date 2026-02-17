@@ -321,14 +321,14 @@ export default function MeetingPage() {
                   value="needs_discussion"
                   className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
                 >
-                  Needs discussion ({formatNumber(needsDiscussionProposals.length)})
+                  <span className="sm:hidden">Flagged</span>
+                  <span className="hidden sm:inline">Needs discussion</span>
+                  {" "}({formatNumber(needsDiscussionProposals.length)})
                 </TabsTrigger>
               </TabsList>
               {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
                 <TabsContent key={segment} value={segment} className="mt-3 space-y-3">
-                  {segmentProposals[segment].length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No proposals in this segment.</p>
-                  ) : (
+                  {segmentProposals[segment].length > 0 &&
                     segmentProposals[segment].map((proposal) => (
                       <MeetingProposalCard
                         key={proposal.id}
