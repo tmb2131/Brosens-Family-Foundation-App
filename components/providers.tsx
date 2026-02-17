@@ -14,7 +14,7 @@ export function Providers({ children }: PropsWithChildren) {
         <SWRConfig
           value={{
             fetcher: (resource: string, init?: RequestInit) =>
-              fetch(resource, init).then(async (response) => {
+              fetch(resource, { cache: "no-cache", ...init }).then(async (response) => {
                 if (!response.ok) {
                   const payload = await response.json().catch(() => ({ error: "Request failed" }));
                   throw new Error(payload.error || `HTTP ${response.status}`);
