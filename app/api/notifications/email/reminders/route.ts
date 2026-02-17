@@ -22,6 +22,13 @@ function isAuthorizedBySecret(request: NextRequest) {
 }
 
 async function runReminders(request: NextRequest): Promise<NextResponse> {
+  if (process.env.DISABLE_EMAIL_CRON === "true") {
+    return NextResponse.json({
+      disabled: true,
+      message: "Email cron is disabled (DISABLE_EMAIL_CRON=true)."
+    });
+  }
+
   const admin = createAdminClient();
   if (!admin) {
     throw new HttpError(
