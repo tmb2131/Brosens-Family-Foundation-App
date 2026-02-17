@@ -19,11 +19,12 @@ type MeetingProposal = FoundationSnapshot["proposals"][number];
 type MeetingSegment = "ready" | "pending" | "needs_discussion";
 
 function getMeetingSegment(proposal: MeetingProposal): MeetingSegment {
-  if (!proposal.progress.isReadyForMeeting) return "pending";
   const hasNoOrFlagged = proposal.voteBreakdown.some(
     (v) => v.choice === "no" || v.choice === "flagged"
   );
-  return hasNoOrFlagged ? "needs_discussion" : "ready";
+  if (hasNoOrFlagged) return "needs_discussion";
+  if (!proposal.progress.isReadyForMeeting) return "pending";
+  return "ready";
 }
 
 interface MeetingResponse {
