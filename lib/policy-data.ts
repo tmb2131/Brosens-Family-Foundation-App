@@ -3,9 +3,11 @@ import { HttpError } from "@/lib/http-error";
 import { queuePushEvent } from "@/lib/push-notifications";
 import {
   AppRole,
+  MandateComment,
   MandatePolicyContent,
   MandatePolicyPageData,
   MandatePolicySnapshot,
+  MandateSectionKey,
   PolicyChangeNotification,
   PolicyDiscussionFlag,
   PolicyNotificationStatus,
@@ -73,6 +75,30 @@ interface UpdatePolicyNotificationInput {
   reason?: string;
 }
 
+interface MandateCommentRow {
+  id: string;
+  policy_document_id: string;
+  parent_id: string | null;
+  section_key: string | null;
+  quoted_text: string | null;
+  start_offset: number | null;
+  end_offset: number | null;
+  body: string;
+  author_id: string;
+  created_at: string;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+}
+
+interface CreateMandateCommentInput {
+  policyDocumentId?: string;
+  sectionKey?: MandateSectionKey;
+  quotedText?: string;
+  body: string;
+  authorId: string;
+  parentId?: string | null;
+}
+
 const POLICY_DOCUMENT_SELECT = "id, slug, title, version, content, updated_by, updated_at";
 
 function logNotificationError(context: string, error: unknown) {
@@ -111,6 +137,11 @@ async function loadUserNames(admin: AdminClient, ids: string[]) {
   }
 
   return new Map((data ?? []).map((row) => [row.id, row.full_name]));
+}
+
+export async function getMandatePolicyDocumentId(admin: AdminClient): Promise<string> {
+  const row = await ensureMandateDocument(admin);
+  return row.id;
 }
 
 async function ensureMandateDocument(admin: AdminClient): Promise<PolicyDocumentRow> {
@@ -230,6 +261,73 @@ function mapNotifications(
   return mapped;
 }
 
+const MANDATE_COMMENTS_SELECT_BASE =
+  "id, policy_document_id, parent_id, section_key, quoted_text, start_offset, end_offset, body, author_id, created_at";
+const MANDATE_COMMENTS_SELECT_WITH_RESOLVED =
+  `${MANDATE_COMMENTS_SELECT_BASE}, resolved_at, resolved_by`;
+
+async function listMandateComments(
+  admin: AdminClient,
+  policyDocumentId: string
+): Promise<MandateComment[]> {
+  let rows: MandateCommentRow[] | null = null;
+  let hasResolvedColumns = false;
+
+  const { data: rowsWithResolved, error: errorWithResolved } = await admin
+    .from("mandate_comments")
+    .select(MANDATE_COMMENTS_SELECT_WITH_RESOLVED)
+    .eq("policy_document_id", policyDocumentId)
+    .order("created_at", { ascending: true })
+    .returns<MandateCommentRow[]>();
+
+  if (!errorWithResolved && rowsWithResolved != null) {
+    rows = rowsWithResolved;
+    hasResolvedColumns = true;
+  } else {
+    const { data: rowsBase, error: errorBase } = await admin
+      .from("mandate_comments")
+      .select(MANDATE_COMMENTS_SELECT_BASE)
+      .eq("policy_document_id", policyDocumentId)
+      .order("created_at", { ascending: true })
+      .returns<MandateCommentRow[]>();
+
+    if (errorBase) {
+      throw new HttpError(500, `Could not load mandate comments: ${errorBase.message}`);
+    }
+    rows = rowsBase;
+  }
+
+  const authorIds = [...new Set((rows ?? []).flatMap((r) => [r.author_id, r.resolved_by].filter(Boolean) as string[]))];
+  const userNamesById = await loadUserNames(admin, authorIds);
+
+  const resolvedRootIds = hasResolvedColumns
+    ? new Set((rows ?? []).filter((r) => r.parent_id === null && r.resolved_at != null).map((r) => r.id))
+    : new Set<string>();
+
+  return (rows ?? [])
+    .filter((row) => {
+      if (!hasResolvedColumns) return true;
+      if (row.parent_id === null) return row.resolved_at == null;
+      return !resolvedRootIds.has(row.parent_id);
+    })
+    .map((row) => ({
+      id: row.id,
+      policyDocumentId: row.policy_document_id,
+      parentId: row.parent_id,
+      sectionKey: row.section_key as MandateSectionKey | null,
+      quotedText: row.quoted_text,
+      startOffset: row.start_offset,
+      endOffset: row.end_offset,
+      body: row.body,
+      authorId: row.author_id,
+      authorName: userNamesById.get(row.author_id) ?? null,
+      createdAt: row.created_at,
+      resolvedAt: row.resolved_at ?? null,
+      resolvedById: row.resolved_by ?? null,
+      resolvedByName: row.resolved_by ? userNamesById.get(row.resolved_by) ?? null : null
+    }));
+}
+
 async function listDiscussionFlags(
   admin: AdminClient,
   policyDocumentId: string
@@ -332,7 +430,8 @@ export async function getMandatePolicyPageData(
       currentUser.role
     ),
     discussionFlags:
-      currentUser.role === "oversight" ? await listDiscussionFlags(admin, policyDocument.id) : []
+      currentUser.role === "oversight" ? await listDiscussionFlags(admin, policyDocument.id) : [],
+    mandateComments: await listMandateComments(admin, policyDocument.id)
   };
 }
 
@@ -506,4 +605,160 @@ export async function updatePolicyNotificationStatus(
     id: input.notificationId,
     status: updates.status
   };
+}
+
+export async function createMandateComment(
+  admin: AdminClient,
+  input: CreateMandateCommentInput
+): Promise<MandateComment> {
+  const bodyTrimmed = input.body.trim();
+  if (bodyTrimmed.length < 1) {
+    throw new HttpError(400, "Comment cannot be empty.");
+  }
+
+  if (input.parentId) {
+    const { data: parent, error: parentError } = await admin
+      .from("mandate_comments")
+      .select("id, policy_document_id, section_key")
+      .eq("id", input.parentId)
+      .is("parent_id", null)
+      .single<{ id: string; policy_document_id: string; section_key: string | null }>();
+
+    if (parentError || !parent) {
+      throw new HttpError(404, "Parent comment not found.");
+    }
+
+    const { data: row, error: insertError } = await admin
+      .from("mandate_comments")
+      .insert({
+        policy_document_id: parent.policy_document_id,
+        parent_id: parent.id,
+        section_key: parent.section_key,
+        quoted_text: null,
+        start_offset: null,
+        end_offset: null,
+        body: bodyTrimmed,
+        author_id: input.authorId
+      })
+      .select(MANDATE_COMMENTS_SELECT_BASE)
+      .single<MandateCommentRow>();
+
+    if (insertError || !row) {
+      throw new HttpError(500, `Could not create reply: ${insertError?.message ?? "unknown"}`);
+    }
+
+    const userNamesById = await loadUserNames(admin, [row.author_id]);
+    return {
+      id: row.id,
+      policyDocumentId: row.policy_document_id,
+      parentId: row.parent_id,
+      sectionKey: row.section_key as MandateSectionKey | null,
+      quotedText: row.quoted_text,
+      startOffset: row.start_offset,
+      endOffset: row.end_offset,
+      body: row.body,
+      authorId: row.author_id,
+      authorName: userNamesById.get(row.author_id) ?? null,
+      createdAt: row.created_at,
+      resolvedAt: row.resolved_at ?? null,
+      resolvedById: row.resolved_by ?? null,
+      resolvedByName: row.resolved_by ? userNamesById.get(row.resolved_by) ?? null : null
+    };
+  }
+
+  const policyDocumentId = input.policyDocumentId;
+  const sectionKey = input.sectionKey;
+  const quotedText = input.quotedText?.trim();
+  if (!policyDocumentId || !sectionKey || !quotedText || quotedText.length < 1) {
+    throw new HttpError(400, "Please select some text to comment on.");
+  }
+
+  const { data: doc, error: docError } = await admin
+    .from("policy_documents")
+    .select("id, content")
+    .eq("id", policyDocumentId)
+    .single<{ id: string; content: MandatePolicyContent }>();
+
+  if (docError || !doc) {
+    throw new HttpError(404, "Mandate document not found.");
+  }
+
+  const content = parsePolicyContent(doc.content);
+  const sectionText = content[sectionKey] ?? "";
+  const start = sectionText.indexOf(quotedText);
+  if (start === -1) {
+    throw new HttpError(400, "Selected text no longer appears in this section. It may have been edited.");
+  }
+  const end = start + quotedText.length;
+
+  const { data: row, error: insertError } = await admin
+    .from("mandate_comments")
+    .insert({
+      policy_document_id: policyDocumentId,
+      parent_id: null,
+      section_key: sectionKey,
+      quoted_text: quotedText,
+      start_offset: start,
+      end_offset: end,
+      body: bodyTrimmed,
+      author_id: input.authorId
+    })
+    .select(MANDATE_COMMENTS_SELECT_BASE)
+    .single<MandateCommentRow>();
+
+  if (insertError || !row) {
+    throw new HttpError(500, `Could not create comment: ${insertError?.message ?? "unknown"}`);
+  }
+
+  const userNamesById = await loadUserNames(admin, [row.author_id]);
+  return {
+    id: row.id,
+    policyDocumentId: row.policy_document_id,
+    parentId: row.parent_id,
+    sectionKey: row.section_key as MandateSectionKey | null,
+    quotedText: row.quoted_text,
+    startOffset: row.start_offset,
+    endOffset: row.end_offset,
+    body: row.body,
+    authorId: row.author_id,
+    authorName: userNamesById.get(row.author_id) ?? null,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at ?? null,
+    resolvedById: row.resolved_by ?? null,
+    resolvedByName: row.resolved_by ? userNamesById.get(row.resolved_by) ?? null : null
+  };
+}
+
+export async function resolveMandateCommentThread(
+  admin: AdminClient,
+  input: { commentId: string; resolvedByUserId: string; userRole: AppRole }
+): Promise<void> {
+  if (input.userRole !== "oversight") {
+    throw new HttpError(403, "Only Oversight can mark a thread as resolved.");
+  }
+
+  const { data: comment, error: fetchError } = await admin
+    .from("mandate_comments")
+    .select("id, parent_id")
+    .eq("id", input.commentId)
+    .single<{ id: string; parent_id: string | null }>();
+
+  if (fetchError || !comment) {
+    throw new HttpError(404, "Comment not found.");
+  }
+  if (comment.parent_id !== null) {
+    throw new HttpError(400, "Only the top-level comment of a thread can be marked resolved.");
+  }
+
+  const { error: updateError } = await admin
+    .from("mandate_comments")
+    .update({
+      resolved_at: new Date().toISOString(),
+      resolved_by: input.resolvedByUserId
+    })
+    .eq("id", input.commentId);
+
+  if (updateError) {
+    throw new HttpError(500, `Could not mark thread as resolved: ${updateError.message}`);
+  }
 }

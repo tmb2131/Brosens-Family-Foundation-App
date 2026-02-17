@@ -1,15 +1,24 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { RefreshCw } from "lucide-react";
+import { MessageSquarePlus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  MandateComment,
   MandatePolicyContent,
   MandatePolicyPageData,
   MandateSectionKey,
@@ -76,6 +85,61 @@ const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
     /grants master tracking sheets/gi
   ]
 };
+
+type SectionSegment =
+  | { type: "plain"; text: string }
+  | { type: "highlight"; text: string; comment: MandateComment };
+
+type CommentRange = { start: number; end: number; comment: MandateComment };
+
+function getCommentRanges(
+  sectionText: string,
+  comments: MandateComment[]
+): CommentRange[] {
+  const roots = comments.filter(
+    (c): c is MandateComment & { quotedText: string; startOffset: number } =>
+      c.parentId == null && c.quotedText != null && c.startOffset != null
+  );
+  if (!roots.length) return [];
+
+  const sorted = [...roots].sort((a, b) => a.startOffset - b.startOffset);
+  let searchStart = 0;
+  const ranges: CommentRange[] = [];
+
+  for (const comment of sorted) {
+    const quoted = comment.quotedText;
+    const idx = sectionText.indexOf(quoted, searchStart);
+    if (idx === -1) continue;
+    const end = idx + quoted.length;
+    ranges.push({ start: idx, end, comment });
+    searchStart = end;
+  }
+  return ranges;
+}
+
+function buildSectionSegments(
+  sectionText: string,
+  comments: MandateComment[]
+): SectionSegment[] {
+  const ranges = getCommentRanges(sectionText, comments);
+  if (!ranges.length) {
+    return [{ type: "plain", text: sectionText }];
+  }
+
+  const segments: SectionSegment[] = [];
+  let pos = 0;
+  for (const { start, end, comment } of ranges) {
+    if (start > pos) {
+      segments.push({ type: "plain", text: sectionText.slice(pos, start) });
+    }
+    segments.push({ type: "highlight", text: comment.quotedText ?? "", comment });
+    pos = end;
+  }
+  if (pos < sectionText.length) {
+    segments.push({ type: "plain", text: sectionText.slice(pos) });
+  }
+  return segments;
+}
 
 function prettyDate(value: string) {
   return new Date(value).toLocaleString();
@@ -192,6 +256,178 @@ function renderSectionContent(value: string, sectionKey: MandateSectionKey) {
   );
 }
 
+type LineSegment = { type: "plain"; text: string } | { type: "highlight"; text: string; comment: MandateComment };
+
+function getLineSegments(
+  displayLine: string,
+  lineStart: number,
+  lineEnd: number,
+  ranges: CommentRange[],
+  sectionKey: MandateSectionKey
+): LineSegment[] {
+  const overlapping = ranges
+    .filter((r) => r.end > lineStart && r.start < lineEnd)
+    .map((r) => ({
+      start: Math.max(0, r.start - lineStart),
+      end: Math.min(displayLine.length, r.end - lineStart),
+      comment: r.comment
+    }))
+    .sort((a, b) => a.start - b.start);
+
+  if (!overlapping.length) {
+    return [{ type: "plain", text: displayLine }];
+  }
+
+  const segments: LineSegment[] = [];
+  let pos = 0;
+  for (const { start, end, comment } of overlapping) {
+    if (start > pos) {
+      segments.push({ type: "plain", text: displayLine.slice(pos, start) });
+    }
+    segments.push({ type: "highlight", text: displayLine.slice(start, end), comment });
+    pos = end;
+  }
+  if (pos < displayLine.length) {
+    segments.push({ type: "plain", text: displayLine.slice(pos) });
+  }
+  return segments;
+}
+
+function renderSectionContentWithHighlights(
+  sectionText: string,
+  sectionKey: MandateSectionKey,
+  comments: MandateComment[],
+  onCommentClick: (comment: MandateComment) => void
+) {
+  const ranges = getCommentRanges(sectionText, comments);
+  const rawLines = sectionText.split("\n");
+  let offset = 0;
+  const lineInfos: { displayLine: string; start: number; end: number }[] = [];
+  for (const raw of rawLines) {
+    const displayLine = raw.trim();
+    if (displayLine) {
+      lineInfos.push({ displayLine, start: offset, end: offset + raw.length });
+    }
+    offset += raw.length + 1;
+  }
+
+  if (lineInfos.length <= 1) {
+    const line = lineInfos[0]?.displayLine ?? sectionText.trim();
+    const start = lineInfos[0]?.start ?? 0;
+    const end = lineInfos[0]?.end ?? sectionText.length;
+    const segments = getLineSegments(line, start, end, ranges, sectionKey);
+    return (
+      <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+        {segments.map((seg, i) =>
+          seg.type === "plain" ? (
+            <span key={i}>{emphasizeImportantText(seg.text, sectionKey, `single-${i}`)}</span>
+          ) : (
+            <span
+              key={i}
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer rounded bg-amber-200/80 text-foreground underline decoration-amber-500/80 decoration-2 underline-offset-1 hover:bg-amber-300/80 dark:bg-amber-600/40 dark:hover:bg-amber-600/50"
+              onClick={(e) => {
+                e.preventDefault();
+                onCommentClick(seg.comment);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onCommentClick(seg.comment);
+                }
+              }}
+            >
+              {emphasizeImportantText(seg.text, sectionKey, `highlight-${i}`)}
+            </span>
+          )
+        )}
+      </p>
+    );
+  }
+
+  const isNumberedList = lineInfos.every((info) => /^\d+[.)]\s+/.test(info.displayLine));
+  const stripPrefix = (line: string) =>
+    isNumberedList ? line.replace(/^\d+[.)]\s+/, "") : line.replace(/^[-*]\s+/, "");
+  const prefixLen = (line: string) => line.length - stripPrefix(line).length;
+
+  const listClassName = "mt-2 space-y-1 pl-5 text-sm text-muted-foreground";
+
+  return isNumberedList ? (
+    <ol className={`${listClassName} list-decimal`}>
+      {lineInfos.map((info, index) => {
+        const contentLine = stripPrefix(info.displayLine);
+        const lineStart = info.start + prefixLen(info.displayLine);
+        const segments = getLineSegments(contentLine, lineStart, info.end, ranges, sectionKey);
+        return (
+          <li key={`${info.displayLine}-${index}`}>
+            {segments.map((seg, i) =>
+              seg.type === "plain" ? (
+                <span key={i}>{emphasizeImportantText(seg.text, sectionKey, `line-${index}-${i}`)}</span>
+              ) : (
+                <span
+                  key={i}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer rounded bg-amber-200/80 text-foreground underline decoration-amber-500/80 decoration-2 underline-offset-1 hover:bg-amber-300/80 dark:bg-amber-600/40 dark:hover:bg-amber-600/50"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onCommentClick(seg.comment);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onCommentClick(seg.comment);
+                    }
+                  }}
+                >
+                  {emphasizeImportantText(seg.text, sectionKey, `line-${index}-hl-${i}`)}
+                </span>
+              )
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  ) : (
+    <ul className={`${listClassName} list-disc`}>
+      {lineInfos.map((info, index) => {
+        const contentLine = stripPrefix(info.displayLine);
+        const lineStart = info.start + prefixLen(info.displayLine);
+        const segments = getLineSegments(contentLine, lineStart, info.end, ranges, sectionKey);
+        return (
+          <li key={`${info.displayLine}-${index}`}>
+            {segments.map((seg, i) =>
+              seg.type === "plain" ? (
+                <span key={i}>{emphasizeImportantText(seg.text, sectionKey, `line-${index}-${i}`)}</span>
+              ) : (
+                <span
+                  key={i}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer rounded bg-amber-200/80 text-foreground underline decoration-amber-500/80 decoration-2 underline-offset-1 hover:bg-amber-300/80 dark:bg-amber-600/40 dark:hover:bg-amber-600/50"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onCommentClick(seg.comment);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onCommentClick(seg.comment);
+                    }
+                  }}
+                >
+                  {emphasizeImportantText(seg.text, sectionKey, `line-${index}-hl-${i}`)}
+                </span>
+              )
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function MandatePage() {
   const { user } = useAuth();
   const canEdit = user?.role === "oversight";
@@ -210,6 +446,21 @@ export default function MandatePage() {
   const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
   const [flagReasons, setFlagReasons] = useState<Record<string, string>>({});
 
+  const [pendingComment, setPendingComment] = useState<{
+    sectionKey: MandateSectionKey;
+    quotedText: string;
+  } | null>(null);
+  const [addCommentBody, setAddCommentBody] = useState("");
+  const [addCommentSubmitting, setAddCommentSubmitting] = useState(false);
+  const [addCommentError, setAddCommentError] = useState<string | null>(null);
+  const [viewingComment, setViewingComment] = useState<MandateComment | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [resolvingThread, setResolvingThread] = useState(false);
+  const [floatingButtonPosition, setFloatingButtonPosition] = useState<{ x: number; y: number } | null>(null);
+  const [addCommentOpen, setAddCommentOpen] = useState(false);
+
   const sections = useMemo(
     () =>
       MANDATE_SECTION_ORDER.map((key) => ({
@@ -226,6 +477,48 @@ export default function MandatePage() {
 
     setDraft(data.policy.content);
   }, [data, isEditing]);
+
+  const handleSelectionOrMouseUp = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel) return;
+    const text = sel.toString().trim();
+    if (!text) {
+      setFloatingButtonPosition(null);
+      return;
+    }
+    if (sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+
+    let node: Node | null = sel.anchorNode;
+    while (node && node !== document.body) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const sectionKey = el.getAttribute?.("data-mandate-section");
+        if (sectionKey) {
+          const rect = range.getBoundingClientRect();
+          setPendingComment({ sectionKey: sectionKey as MandateSectionKey, quotedText: text });
+          setFloatingButtonPosition({ x: rect.left + rect.width / 2, y: rect.top });
+          return;
+        }
+      }
+      node = node.parentNode;
+    }
+    setFloatingButtonPosition(null);
+    setPendingComment(null);
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("mouseup", handleSelectionOrMouseUp);
+    return () => document.removeEventListener("mouseup", handleSelectionOrMouseUp);
+  }, [handleSelectionOrMouseUp]);
+
+  const openAddCommentDialog = useCallback(() => {
+    setAddCommentBody("");
+    setAddCommentError(null);
+    setFloatingButtonPosition(null);
+    window.getSelection()?.removeAllRanges();
+    setAddCommentOpen(true);
+  }, []);
 
   if (!user) {
     return <p className="text-sm text-muted-foreground">Loading mandate...</p>;
@@ -293,6 +586,80 @@ export default function MandatePage() {
     }
   };
 
+  const submitNewComment = async () => {
+    if (!pendingComment || !addCommentBody.trim()) return;
+    setAddCommentSubmitting(true);
+    setAddCommentError(null);
+    try {
+      const response = await fetch("/api/policy/mandate/comments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sectionKey: pendingComment.sectionKey,
+          quotedText: pendingComment.quotedText,
+          body: addCommentBody.trim()
+        })
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to add comment."));
+      }
+      setPendingComment(null);
+      setAddCommentOpen(false);
+      setAddCommentBody("");
+      await mutate();
+    } catch (err) {
+      setAddCommentError(err instanceof Error ? err.message : "Failed to add comment.");
+    } finally {
+      setAddCommentSubmitting(false);
+    }
+  };
+
+  const submitReply = async () => {
+    if (!viewingComment?.id || !replyBody.trim()) return;
+    setReplySubmitting(true);
+    setReplyError(null);
+    try {
+      const response = await fetch("/api/policy/mandate/comments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ parentId: viewingComment.id, body: replyBody.trim() })
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to add reply."));
+      }
+      setReplyBody("");
+      await mutate();
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : "Failed to add reply.");
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
+  const markThreadResolved = async () => {
+    if (!viewingComment?.id) return;
+    setResolvingThread(true);
+    try {
+      const response = await fetch(`/api/policy/mandate/comments/${viewingComment.id}/resolve`, {
+        method: "PATCH"
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to mark as resolved."));
+      }
+      setViewingComment(null);
+      setReplyBody("");
+      setReplyError(null);
+      await mutate();
+    } catch (err) {
+      setReplyError(err instanceof Error ? err.message : "Failed to mark as resolved.");
+    } finally {
+      setResolvingThread(false);
+    }
+  };
+
   const updateNotificationStatus = async (
     notificationId: string,
     action: "acknowledge" | "flag"
@@ -346,6 +713,9 @@ export default function MandatePage() {
                 You have {formatNumber(data.pendingNotificationsCount)} update(s) waiting for review.
               </p>
             ) : null}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Highlight any text and click &ldquo;Add comment&rdquo; to leave a note for the group.
+            </p>
           </div>
 
           {canEdit ? (
@@ -424,14 +794,186 @@ export default function MandatePage() {
         </GlassCard>
       ) : (
         <section className="space-y-3">
-          {sections.map((section) => (
-            <GlassCard key={section.key}>
-              <CardLabel>{section.label}</CardLabel>
-              {renderSectionContent(data.policy.content[section.key], section.key)}
-            </GlassCard>
-          ))}
+          {sections.map((section) => {
+            const sectionComments = data.mandateComments.filter(
+              (c) => c.sectionKey === section.key && c.parentId == null
+            );
+            const sectionText = data.policy.content[section.key];
+            const withHighlights = sectionComments.length > 0;
+
+            return (
+              <GlassCard key={section.key}>
+                <CardLabel>{section.label}</CardLabel>
+                <div
+                  data-mandate-section={section.key}
+                  className="select-text"
+                >
+                  {withHighlights
+                    ? renderSectionContentWithHighlights(
+                        sectionText,
+                        section.key,
+                        sectionComments,
+                        setViewingComment
+                      )
+                    : renderSectionContent(sectionText, section.key)}
+                </div>
+              </GlassCard>
+            );
+          })}
         </section>
       )}
+
+      {typeof document !== "undefined" &&
+        floatingButtonPosition !== null &&
+        pendingComment &&
+        createPortal(
+          <div
+            className="fixed z-50 -translate-x-1/2 -translate-y-full"
+            style={{
+              left: floatingButtonPosition.x,
+              top: floatingButtonPosition.y - 8
+            }}
+          >
+            <Button
+              size="sm"
+              className="gap-1.5 shadow-lg"
+              onClick={openAddCommentDialog}
+            >
+              <MessageSquarePlus className="h-3.5 w-3.5" />
+              Add comment
+            </Button>
+          </div>,
+          document.body
+        )}
+
+      <Dialog
+        open={addCommentOpen}
+        onOpenChange={(open) => {
+          setAddCommentOpen(open);
+          if (!open) {
+            setPendingComment(null);
+            setAddCommentError(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!addCommentSubmitting}>
+          <DialogHeader>
+            <DialogTitle>Add comment</DialogTitle>
+            {pendingComment ? (
+              <p className="text-sm text-muted-foreground">
+                On: &ldquo;{pendingComment.quotedText.slice(0, 120)}
+                {pendingComment.quotedText.length > 120 ? "…" : ""}&rdquo;
+              </p>
+            ) : null}
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="mandate-comment-body">Your comment</Label>
+            <Textarea
+              id="mandate-comment-body"
+              value={addCommentBody}
+              onChange={(e) => setAddCommentBody(e.target.value)}
+              placeholder="Add a note for the group..."
+              className="min-h-24"
+              disabled={addCommentSubmitting}
+            />
+            {addCommentError ? (
+              <p className="text-xs text-rose-600">{addCommentError}</p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => void submitNewComment()}
+              disabled={addCommentSubmitting || !addCommentBody.trim()}
+            >
+              {addCommentSubmitting ? "Adding…" : "Add comment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!viewingComment}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingComment(null);
+            setReplyBody("");
+            setReplyError(null);
+          }
+        }}
+      >
+        <DialogContent showCloseButton={!replySubmitting && !resolvingThread}>
+          {viewingComment ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Comment thread</DialogTitle>
+                {viewingComment.quotedText ? (
+                  <p className="text-xs text-muted-foreground">
+                    On: &ldquo;{viewingComment.quotedText.slice(0, 100)}
+                    {viewingComment.quotedText.length > 100 ? "…" : ""}&rdquo;
+                  </p>
+                ) : null}
+              </DialogHeader>
+              <div className="space-y-3">
+                <article className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {viewingComment.authorName ?? "Unknown"} · {prettyDate(viewingComment.createdAt)}
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-wrap text-sm">{viewingComment.body}</p>
+                </article>
+                {data.mandateComments
+                  .filter((c) => c.parentId === viewingComment.id)
+                  .map((reply) => (
+                    <article
+                      key={reply.id}
+                      className="ml-4 border-l-2 border-muted-foreground/20 pl-3"
+                    >
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {reply.authorName ?? "Unknown"} · {prettyDate(reply.createdAt)}
+                      </p>
+                      <p className="mt-1.5 whitespace-pre-wrap text-sm">{reply.body}</p>
+                    </article>
+                  ))}
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="mandate-reply-body" className="text-xs text-muted-foreground">
+                    Reply
+                  </Label>
+                  <Textarea
+                    id="mandate-reply-body"
+                    value={replyBody}
+                    onChange={(e) => setReplyBody(e.target.value)}
+                    placeholder="Write a reply..."
+                    className="min-h-20 text-sm"
+                    disabled={replySubmitting}
+                  />
+                  {replyError ? (
+                    <p className="text-xs text-rose-600">{replyError}</p>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    onClick={() => void submitReply()}
+                    disabled={replySubmitting || !replyBody.trim()}
+                  >
+                    {replySubmitting ? "Sending…" : "Reply"}
+                  </Button>
+                </div>
+                {canEdit ? (
+                  <div className="border-t pt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-muted-foreground"
+                      onClick={() => void markThreadResolved()}
+                      disabled={resolvingThread}
+                    >
+                      {resolvingThread ? "Marking…" : "Mark thread resolved"}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {canEdit ? (
         <GlassCard>

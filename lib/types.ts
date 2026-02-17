@@ -291,11 +291,29 @@ export interface PolicyDiscussionFlag {
   reason: string;
 }
 
+export interface MandateComment {
+  id: string;
+  policyDocumentId: string;
+  parentId: string | null;
+  sectionKey: MandateSectionKey | null;
+  quotedText: string | null;
+  startOffset: number | null;
+  endOffset: number | null;
+  body: string;
+  authorId: string;
+  authorName: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedById: string | null;
+  resolvedByName: string | null;
+}
+
 export interface MandatePolicyPageData {
   policy: MandatePolicySnapshot;
   notifications: PolicyChangeNotification[];
   pendingNotificationsCount: number;
   discussionFlags: PolicyDiscussionFlag[];
+  mandateComments: MandateComment[];
 }
 
 export type PushNotificationEventType =
