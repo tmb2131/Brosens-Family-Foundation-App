@@ -112,40 +112,48 @@ export default function AdminPage() {
   const jointQueued = data.proposals.filter((proposal) => proposal.proposalType === "joint").length;
   const discretionaryQueued = data.proposals.length - jointQueued;
 
+  const metricsCards = [
+    <MetricCard
+      key="queue"
+      title="QUEUE SIZE"
+      value={formatNumber(data.proposals.length)}
+      icon={ClipboardList}
+      tone="emerald"
+    />,
+    <MetricCard
+      key="total"
+      title="TOTAL TO SEND"
+      value={currency(totalQueuedAmount)}
+      icon={DollarSign}
+      tone="indigo"
+    />
+  ];
+
   return (
     <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
-      <GlassCard className="rounded-3xl">
-        <CardLabel>Administrator Workspace</CardLabel>
-        <CardValue>Donation Execution Cues</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          Approved grants appear here. Mark as Sent once external donation execution is complete.
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span>{formatNumber(data.proposals.length)} queued proposal(s)</span>
-          <span className="hidden text-border sm:inline">|</span>
-          <span>{formatNumber(jointQueued)} joint</span>
-          <span className="hidden text-border sm:inline">|</span>
-          <span>{formatNumber(discretionaryQueued)} discretionary</span>
-        </div>
-      </GlassCard>
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
+        <div className="space-y-3">
+          <GlassCard className="rounded-3xl">
+            <CardLabel>Administrator Workspace</CardLabel>
+            <CardValue>Donation Execution Cues</CardValue>
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              Approved grants appear here. Mark as Sent once external donation execution is complete.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{formatNumber(data.proposals.length)} queued proposal(s)</span>
+              <span className="hidden text-border sm:inline">|</span>
+              <span>{formatNumber(jointQueued)} joint</span>
+              <span className="hidden text-border sm:inline">|</span>
+              <span>{formatNumber(discretionaryQueued)} discretionary</span>
+            </div>
+          </GlassCard>
 
-      <section className="grid gap-3 sm:grid-cols-2">
-        <MetricCard
-          title="QUEUE SIZE"
-          value={formatNumber(data.proposals.length)}
-          icon={ClipboardList}
-          tone="emerald"
-        />
-        <MetricCard
-          title="TOTAL TO SEND"
-          value={currency(totalQueuedAmount)}
-          icon={DollarSign}
-          tone="indigo"
-        />
-      </section>
+          <section className="grid gap-3 sm:grid-cols-2 lg:hidden">
+            {metricsCards}
+          </section>
 
-      <div className="space-y-3">
+          <div className="space-y-3">
         {data.proposals.length === 0 ? (
           <GlassCard>
             <p className="text-sm text-muted-foreground">No approved proposals awaiting execution.</p>
@@ -262,6 +270,14 @@ export default function AdminPage() {
             );
           })
         )}
+          </div>
+        </div>
+
+        <div className="hidden lg:block">
+          <div className="lg:sticky lg:top-6">
+            <div className="grid gap-3">{metricsCards}</div>
+          </div>
+        </div>
       </div>
     </div>
   );
