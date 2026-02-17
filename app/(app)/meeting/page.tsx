@@ -338,7 +338,7 @@ export default function MeetingPage() {
                         onOpenDecisionDialog={setMeetingDialogProposalId}
                       />
                     ))
-                  )}
+                  }
                 </TabsContent>
               ))}
             </Tabs>
