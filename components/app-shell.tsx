@@ -17,14 +17,15 @@ import {
   ShieldCheck,
   Vote
 } from "lucide-react";
-import useSWR from "swr";
-import { ComponentType, PropsWithChildren, useCallback, useEffect, useMemo, useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { ComponentType, PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
+import { RouteProgressBar } from "@/components/ui/route-progress-bar";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -644,8 +645,18 @@ export function AppShell({ children }: PropsWithChildren) {
   const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
   const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
-    { refreshInterval: 120_000 }
+    { refreshInterval: 30_000 }
   );
+
+  // Revalidate navigation badges on every client-side route change so the
+  // sidebar reflects the latest counts without waiting for the polling interval.
+  const prevPathnameRef = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== prevPathnameRef.current) {
+      prevPathnameRef.current = pathname;
+      void globalMutate("/api/navigation/summary");
+    }
+  }, [pathname]);
 
   const outstandingByHref = useMemo(
     () =>
@@ -669,6 +680,7 @@ export function AppShell({ children }: PropsWithChildren) {
       className="page-enter flex min-h-screen w-full flex-col px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8"
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
+      <RouteProgressBar />
       <DesktopSidebar
         user={user}
         pathname={pathname}

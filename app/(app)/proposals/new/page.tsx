@@ -135,6 +135,8 @@ export default function NewProposalPage() {
       }
 
       void globalMutate("/api/navigation/summary");
+      void globalMutate("/api/workspace");
+      void globalMutate("/api/foundation");
       setIsConfirmDialogOpen(false);
       router.push("/dashboard");
     } catch (err) {

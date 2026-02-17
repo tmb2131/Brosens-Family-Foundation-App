@@ -86,6 +86,18 @@ export function VoteForm({
     void submitVote();
   };
 
+  const handleTouchEnd = (event: React.TouchEvent) => {
+    // On mobile, tapping this button while the allocation input has focus
+    // dismisses the virtual keyboard, causing a layout shift that moves the
+    // button away from the original touch coordinates. The browser then
+    // decides the click didn't land on the button, so the form never submits.
+    // Handling touchend directly captures the submit intent before the shift.
+    if (!saving) {
+      event.preventDefault();
+      void submitVote();
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="mt-2 border-t pt-2 text-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
@@ -150,6 +162,7 @@ export function VoteForm({
         className="mt-2 w-full"
         type="submit"
         disabled={saving}
+        onTouchEnd={handleTouchEnd}
       >
         {saving ? "Saving vote..." : "Submit Blind Vote"}
       </Button>

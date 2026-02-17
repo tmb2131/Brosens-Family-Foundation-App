@@ -13,7 +13,7 @@ import {
 const MOBILE_BREAKPOINT = 640
 
 function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
+  const [isMobile, setIsMobile] = React.useState(false)
 
   React.useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
@@ -34,10 +34,6 @@ interface ResponsiveModalProps {
 
 function ResponsiveModal({ open, onOpenChange, children }: ResponsiveModalProps) {
   const isMobile = useIsMobile()
-
-  if (isMobile === undefined) {
-    return null
-  }
 
   if (isMobile) {
     return (
@@ -75,10 +71,6 @@ function ResponsiveModalContent({
 }: ResponsiveModalContentProps) {
   const isMobile = useIsMobile()
 
-  if (isMobile === undefined) {
-    return null
-  }
-
   if (isMobile) {
     return (
       <DrawerContent
@@ -106,10 +98,6 @@ function ResponsiveModalContent({
 
 function ResponsiveModalClose(props: React.ComponentProps<"button">) {
   const isMobile = useIsMobile()
-
-  if (isMobile === undefined) {
-    return null
-  }
 
   if (isMobile) {
     return <DrawerClose {...props} />

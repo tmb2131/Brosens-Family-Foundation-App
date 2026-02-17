@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState, useEffect } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { DollarSign, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
@@ -155,27 +155,31 @@ export default function SettingsPage() {
     setSaving(true);
     setMessage(null);
 
-    const response = await fetch("/api/budgets", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        year: Number(year),
-        totalAmount: Number(totalAmount),
-        rolloverFromPreviousYear: Number(rollover),
-        jointRatio: Number(jointRatio),
-        discretionaryRatio: Number(discretionaryRatio)
-      })
-    });
+    try {
+      const response = await fetch("/api/budgets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          year: Number(year),
+          totalAmount: Number(totalAmount),
+          rolloverFromPreviousYear: Number(rollover),
+          jointRatio: Number(jointRatio),
+          discretionaryRatio: Number(discretionaryRatio)
+        })
+      });
 
-    if (response.ok) {
-      await mutate();
-      setMessage("Budget saved.");
-    } else {
-      const payload = await response.json().catch(() => ({ error: "Failed to save budget" }));
-      setMessage(payload.error || "Failed to save budget");
+      if (response.ok) {
+        void mutate();
+        setMessage("Budget saved.");
+      } else {
+        const payload = await response.json().catch(() => ({ error: "Failed to save budget" }));
+        setMessage(payload.error || "Failed to save budget");
+      }
+    } catch {
+      setMessage("Failed to save budget");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   };
 
   const sendResetEmail = async () => {
@@ -239,6 +243,7 @@ export default function SettingsPage() {
       });
       setHistoricalCsvFile(null);
       setHistoricalImportInputKey((current) => current + 1);
+      void globalMutate("/api/foundation");
     } catch (err) {
       setHistoricalImportMessage({
         tone: "error",

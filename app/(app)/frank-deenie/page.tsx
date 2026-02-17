@@ -592,7 +592,7 @@ export default function FrankDeeniePage() {
       }));
       setEditingId(null);
       setEditDraft(null);
-      await mutate();
+      void mutate();
     } catch (saveError) {
       setRowMessageById((current) => ({
         ...current,
@@ -633,7 +633,7 @@ export default function FrankDeeniePage() {
         setEditingId(null);
         setEditDraft(null);
       }
-      await mutate();
+      void mutate();
     } catch (deleteError) {
       setRowMessageById((current) => ({
         ...current,
@@ -687,7 +687,7 @@ export default function FrankDeeniePage() {
         text: "Donation added."
       });
       setNewDraft(initialDraftForYear(selectedYear));
-      await mutate();
+      void mutate();
     } catch (createError) {
       setCreateMessage({
         tone: "error",
@@ -735,7 +735,7 @@ export default function FrankDeeniePage() {
       });
       setImportCsvFile(null);
       setImportInputKey((current) => current + 1);
-      await mutate();
+      void mutate();
     } catch (importError) {
       setImportMessage({
         tone: "error",

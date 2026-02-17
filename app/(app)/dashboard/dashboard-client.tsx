@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -787,9 +787,10 @@ export default function DashboardClient() {
         }
       }));
 
-      await mutate();
+      void mutate();
+      void globalMutate("/api/navigation/summary");
       if (isOversight) {
-        await mutatePending();
+        void mutatePending();
       }
     } catch (saveError) {
       setRowMessage((current) => ({
@@ -960,9 +961,10 @@ export default function DashboardClient() {
       }
 
       if (savedCount > 0) {
-        await mutate();
+        void mutate();
+        void globalMutate("/api/navigation/summary");
         if (isOversight) {
-          await mutatePending();
+          void mutatePending();
         }
       }
     } finally {
@@ -1167,9 +1169,10 @@ export default function DashboardClient() {
         }
       }));
 
-      await mutate();
+      void mutate();
+      void globalMutate("/api/navigation/summary");
       if (isOversight) {
-        await mutatePending();
+        void mutatePending();
       }
     } catch (saveError) {
       setDetailEditError(

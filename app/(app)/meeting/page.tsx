@@ -27,6 +27,7 @@ export default function MeetingPage() {
     proposalTitle: string;
     status: "approved" | "declined";
   } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   if (!user || !["oversight", "manager"].includes(user.role)) {
     return (
@@ -66,13 +67,18 @@ export default function MeetingPage() {
   }
 
   const updateMeeting = async (payload: Record<string, unknown>) => {
-    await fetch("/api/meeting", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    await mutate();
-    void globalMutate("/api/navigation/summary");
+    setSaving(true);
+    try {
+      await fetch("/api/meeting", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      void mutate();
+      void globalMutate("/api/navigation/summary");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalRecommendedAmount = data.proposals.reduce(
@@ -191,6 +197,7 @@ export default function MeetingPage() {
                 <Button
                   variant="outline"
                   size="lg"
+                  disabled={saving}
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: true })}
                 >
                   <Eye className="h-3.5 w-3.5" />
@@ -199,6 +206,7 @@ export default function MeetingPage() {
                 <Button
                   variant="outline"
                   size="lg"
+                  disabled={saving}
                   onClick={() => void updateMeeting({ action: "reveal", proposalId: proposal.id, reveal: false })}
                 >
                   <EyeOff className="h-3.5 w-3.5" />
@@ -207,6 +215,7 @@ export default function MeetingPage() {
                 <Button
                   size="lg"
                   className="bg-emerald-600 hover:bg-emerald-600/90"
+                  disabled={saving}
                   onClick={() => setConfirmAction({ proposalId: proposal.id, proposalTitle: proposal.title, status: "approved" })}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
@@ -215,6 +224,7 @@ export default function MeetingPage() {
                 <Button
                   variant="destructive"
                   size="lg"
+                  disabled={saving}
                   onClick={() => setConfirmAction({ proposalId: proposal.id, proposalTitle: proposal.title, status: "declined" })}
                 >
                   <XCircle className="h-3.5 w-3.5" />
@@ -269,6 +279,7 @@ export default function MeetingPage() {
               <Button
                 variant="outline"
                 size="lg"
+                disabled={saving}
                 onClick={() => setConfirmAction(null)}
               >
                 Cancel
@@ -277,25 +288,27 @@ export default function MeetingPage() {
                 <Button
                   size="lg"
                   className="bg-emerald-600 hover:bg-emerald-600/90"
+                  disabled={saving}
                   onClick={() => {
                     void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "approved" });
                     setConfirmAction(null);
                   }}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Approve
+                  {saving ? "Saving..." : "Approve"}
                 </Button>
               ) : (
                 <Button
                   variant="destructive"
                   size="lg"
+                  disabled={saving}
                   onClick={() => {
                     void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "declined" });
                     setConfirmAction(null);
                   }}
                 >
                   <XCircle className="h-3.5 w-3.5" />
-                  Decline
+                  {saving ? "Saving..." : "Decline"}
                 </Button>
               )}
             </div>
