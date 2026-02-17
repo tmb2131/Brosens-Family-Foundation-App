@@ -4,13 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:test": "npx env-cmd -f .env.test.local next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:mobile-screenshots": "playwright test tests/mobile-screenshots.spec.ts",
     "test:mobile-screenshots:headed": "playwright test tests/mobile-screenshots.spec.ts --headed",
-    "test:mobile-screenshots:install": "playwright install chromium"
+    "test:mobile-screenshots:install": "playwright install chromium",
+    "supabase": "npx supabase",
+    "db:push": "npx supabase db push",
+    "db:push:dry-run": "npx supabase db push --dry-run"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -32,6 +36,8 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "env-cmd": "^10.1.0",
+    "supabase": "^2.76.9",
     "@playwright/test": "^1.58.2",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",

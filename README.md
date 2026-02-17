@@ -86,16 +86,63 @@ E2E_EMAIL=you@example.com E2E_PASSWORD=your_password npm run test:mobile-screens
 
 Artifacts are saved under `test-results/` and include no-horizontal-overflow checks for each captured route.
 
+## Test project (Supabase CLI)
+
+To use a **separate Supabase project** for testing (e.g. proposal flows without affecting production):
+
+1. **Log in to the Supabase CLI** (one-time; opens browser to get an access token):
+
+   ```bash
+   npx supabase login
+   ```
+
+   Alternatively set `SUPABASE_ACCESS_TOKEN` (e.g. from [Account → Access Tokens](https://supabase.com/dashboard/account/tokens)).
+
+2. **Create a test project** in the [Supabase Dashboard](https://supabase.com/dashboard) and note its **project ref** (Dashboard URL or Project Settings → General).
+
+3. **Link the repo to the test project** (one-time; you’ll be prompted for the database password):
+
+   ```bash
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   ```
+
+   Or use the npm script: `npm run supabase -- link --project-ref YOUR_PROJECT_REF`.
+
+4. **Push migrations** to the linked project:
+
+   ```bash
+   npm run db:push
+   ```
+
+   To see what would be applied without applying it: `npm run db:push:dry-run`.
+
+   If you see "Remote migration versions not found in local migrations directory" (e.g. after renaming migrations), repair the remote history then push again:
+
+   ```bash
+   npx supabase migration repair --status reverted VERSION
+   npm run db:push
+   ```
+
+   Replace `VERSION` with the version shown in the error (e.g. `20260211`).
+
+5. **Run the app against the test project** by setting the Supabase env vars in `.env.local` (or a separate `.env.test.local` and a `dev:test` script) to the test project’s URL, anon key, and service role key. Then run the app and optionally seed a budget row (and sign up a user) in the test project so proposal creation works.
+
+**Step 5 in detail — Run the app against the test project**
+
+- **Get test credentials:** Supabase Dashboard → your test project → **Project Settings** → **API**. Copy Project URL, `anon` public key, and `service_role` secret key.
+- **Option A (recommended):** Copy `.env.test.example` to `.env.test.local` and fill in the test project URL and keys (Dashboard → test project → Project Settings → API). Then run `npm run dev:test`. Opening http://localhost:3000 uses the test project; production keys in `.env.local` are unchanged.
+- **Option B:** Temporarily put those three Supabase vars into `.env.local`, run `npm run dev`, then restore production values when done.
+- **Sign up once** in the app (e.g. at `/login` → Sign up) so the test project has a user and a `user_profiles` row.
+- **Add a budget** so proposal creation works: in the app go to **Settings** (if your user is oversight/manager) and set the budget, or in the test project run **SQL Editor** and execute:
+  `insert into budgets (budget_year, annual_fund_size, rollover_from_previous_year, joint_ratio, discretionary_ratio) values (2025, 100000, 0, 0.75, 0.25) on conflict (budget_year) do nothing;`
+- Then use **Dashboard** and **Proposals → New** to run through the flow without affecting production.
+
+Config: `supabase/config.toml` (migrations live in `supabase/migrations/`).
+
 ## Supabase schema
 
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_initial_schema.sql`
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260211_auth_profile_and_blind_vote_policies.sql`
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_mandate_policy_notifications.sql`
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_push_notifications.sql`
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_email_notifications.sql`
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260213_frank_deenie_donations.sql`
-- Migration: `/Users/tombrosens/brosens-family-foundation/supabase/migrations/20260212_discretionary_vote_choices.sql`
-- Edge function stub: `/Users/tombrosens/brosens-family-foundation/supabase/functions/notify-admin/index.ts`
+- Migrations in `supabase/migrations/` with unique timestamp versions (e.g. `20260211000000_initial_schema.sql` through `20260215000001_proposal_detail_snapshots.sql`).
+- Edge function stub: `supabase/functions/notify-admin/index.ts`
 
 ## Push notifications
 

@@ -2,6 +2,7 @@
 node_modules
 .env
 .env.local
+.env.test.local
 .DS_Store
 npm-debug.log*
 yarn-debug.log*
@@ -11,3 +12,7 @@ out
 playwright-report
 test-results
 .vercel
+
+# Supabase CLI link state and local temp — do not commit
+supabase/.supabase
+supabase/.temp

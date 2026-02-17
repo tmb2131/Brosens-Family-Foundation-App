@@ -3,11 +3,11 @@
 
 create extension if not exists pgcrypto;
 
-create type app_role as enum ('member', 'oversight', 'admin', 'manager');
-create type proposal_status as enum ('to_review', 'approved', 'sent', 'declined');
-create type proposal_type as enum ('joint', 'discretionary');
-create type allocation_mode as enum ('average', 'sum');
-create type vote_choice as enum ('yes', 'no');
+do $$ begin create type app_role as enum ('member', 'oversight', 'admin', 'manager'); exception when duplicate_object then null; end $$;
+do $$ begin create type proposal_status as enum ('to_review', 'approved', 'sent', 'declined'); exception when duplicate_object then null; end $$;
+do $$ begin create type proposal_type as enum ('joint', 'discretionary'); exception when duplicate_object then null; end $$;
+do $$ begin create type allocation_mode as enum ('average', 'sum'); exception when duplicate_object then null; end $$;
+do $$ begin create type vote_choice as enum ('yes', 'no'); exception when duplicate_object then null; end $$;
 
 create table if not exists user_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
