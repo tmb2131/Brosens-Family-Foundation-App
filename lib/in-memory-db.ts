@@ -400,10 +400,6 @@ function aggregateBudgetUsage() {
   let discretionaryAllocated = 0;
 
   for (const proposal of proposals) {
-    if (proposal.status !== "approved" && proposal.status !== "sent") {
-      continue;
-    }
-
     const total = computeFinalAmount(proposal, getEligibleVotesForProposal(proposal, proposalVotes(proposal.id)));
     if (proposal.proposalType === "joint") {
       jointAllocated += total;

@@ -750,10 +750,6 @@ export async function getFoundationSnapshot(
 
   const budgetYearProposals = proposals.filter((proposal) => proposal.budgetYear === budget.budget_year);
   for (const proposal of budgetYearProposals) {
-    if (proposal.status !== "approved" && proposal.status !== "sent") {
-      continue;
-    }
-
     if (proposal.proposalType === "joint") {
       jointAllocated += proposal.progress.computedFinalAmount;
     } else {

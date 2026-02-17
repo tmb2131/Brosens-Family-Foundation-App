@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { Gift, History, ListChecks, Plus, RefreshCw } from "lucide-react";
@@ -15,6 +16,9 @@ import { StatusPill } from "@/components/ui/status-pill";
 
 export default function WorkspaceClient() {
   const { user } = useAuth();
+  const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
+    Record<string, number>
+  >({});
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,
@@ -52,8 +56,16 @@ export default function WorkspaceClient() {
 
   const workspace = workspaceQuery.data;
   const isManager = workspace.user.role === "manager";
+  const pendingJointTotal = workspace.actionItems
+    .filter((item) => item.proposalType === "joint")
+    .reduce(
+      (sum, item) => sum + (pendingJointAllocationByProposalId[item.proposalId] ?? 0),
+      0
+    );
   const totalIndividualAllocated =
-    workspace.personalBudget.jointAllocated + workspace.personalBudget.discretionaryAllocated;
+    workspace.personalBudget.jointAllocated +
+    workspace.personalBudget.discretionaryAllocated +
+    pendingJointTotal;
   const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
 
   return (
@@ -103,7 +115,7 @@ export default function WorkspaceClient() {
         <section className="grid gap-3 sm:grid-cols-2">
           <PersonalBudgetBars
             title="Joint Budget Tracker"
-            allocated={workspace.personalBudget.jointAllocated}
+            allocated={workspace.personalBudget.jointAllocated + pendingJointTotal}
             total={workspace.personalBudget.jointTarget}
           />
           <PersonalBudgetBars
@@ -139,7 +151,7 @@ export default function WorkspaceClient() {
               return (
                 <article
                   key={item.proposalId}
-                  className={`rounded-xl border border-t-2 p-4 ${
+                  className={`rounded-xl border border-t-2 p-3 ${
                     item.proposalType === "joint"
                       ? "border-t-indigo-400 dark:border-t-indigo-500"
                       : "border-t-amber-400 dark:border-t-amber-500"
@@ -152,31 +164,34 @@ export default function WorkspaceClient() {
                     </div>
                     <StatusPill status={item.status} />
                   </div>
-                  <p className="mt-2 text-lg font-semibold text-foreground">
+                  <p className="mt-1 text-lg font-semibold text-foreground">
                     {currency(item.proposedAmount)}
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                      · {item.voteProgressLabel}
+                    </span>
                   </p>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Type</span>
-                      <p className="font-medium text-foreground">
-                        {titleCase(item.proposalType)}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Progress</span>
-                      <p className="font-medium text-foreground">
-                        {item.voteProgressLabel}
-                      </p>
-                    </div>
-                  </div>
                   <VoteForm
                     proposalId={item.proposalId}
                     proposalType={item.proposalType}
                     proposedAmount={item.proposedAmount}
                     totalRequiredVotes={item.totalRequiredVotes}
                     onSuccess={() => {
+                      setPendingJointAllocationByProposalId((prev) => {
+                        const next = { ...prev };
+                        delete next[item.proposalId];
+                        return next;
+                      });
                       void workspaceQuery.mutate();
                     }}
+                    onAllocationChange={
+                      item.proposalType === "joint"
+                        ? (amount) =>
+                            setPendingJointAllocationByProposalId((prev) => ({
+                              ...prev,
+                              [item.proposalId]: amount
+                            }))
+                        : undefined
+                    }
                   />
                 </article>
               );

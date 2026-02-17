@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ interface VoteFormProps {
   proposedAmount: number;
   totalRequiredVotes: number;
   onSuccess: () => void;
+  /** Called when the user changes allocation (joint only). Use to show live budget preview. */
+  onAllocationChange?: (amount: number) => void;
 }
 
 export function VoteForm({
@@ -21,17 +23,25 @@ export function VoteForm({
   proposalType,
   proposedAmount,
   totalRequiredVotes,
-  onSuccess
+  onSuccess,
+  onAllocationChange
 }: VoteFormProps) {
   const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
   const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
   const [choice, setChoice] = useState<VoteChoice>(primaryChoice);
   const impliedJointAllocation =
     totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
-  const [allocationAmount, setAllocationAmount] = useState(String(Math.max(0, impliedJointAllocation)));
+  const [allocationAmount, setAllocationAmount] = useState("");
   const parsedAllocationAmount = parseNumberInput(allocationAmount);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const effectiveAllocation =
+    proposalType === "joint" && choice === "yes" ? (parsedAllocationAmount ?? 0) : 0;
+
+  useEffect(() => {
+    onAllocationChange?.(effectiveAllocation);
+  }, [effectiveAllocation, onAllocationChange]);
 
   const submitVote = async () => {
     setError(null);
@@ -45,7 +55,9 @@ export function VoteForm({
           proposalId,
           choice,
           allocationAmount:
-            proposalType === "joint" && choice === "yes" ? Number(allocationAmount || 0) : 0
+            proposalType === "joint" && choice === "yes"
+              ? (parsedAllocationAmount ?? 0)
+              : 0
         })
       });
 
@@ -69,13 +81,13 @@ export function VoteForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 rounded-xl border bg-card/75 p-3 text-sm">
+    <form onSubmit={handleSubmit} className="mt-2 border-t pt-2 text-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <div className="mt-1.5 grid grid-cols-2 gap-2">
         <Button
           onClick={() => setChoice(primaryChoice)}
           variant={choice === primaryChoice ? "default" : "outline"}
-          size="lg"
+          size="default"
           className={choice === primaryChoice
             ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
             : ""
@@ -87,7 +99,7 @@ export function VoteForm({
         <Button
           onClick={() => setChoice(secondaryChoice)}
           variant={choice === secondaryChoice ? "destructive" : "outline"}
-          size="lg"
+          size="default"
           type="button"
         >
           {proposalType === "joint" ? "No" : "Flag for Discussion"}
@@ -96,35 +108,36 @@ export function VoteForm({
 
       {proposalType === "joint" ? (
         <>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Proposed joint amount implies {currency(impliedJointAllocation)} each. Enter your allocation amount; it
-            can be more or less than {currency(impliedJointAllocation)} (including {currency(0)}).
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
           </p>
-          <label className="mt-2 block text-xs font-medium">
+          <label className="mt-1.5 block text-xs font-medium">
             Allocation amount
-            <Input
-              type="number"
-              min={0}
-              disabled={choice !== "yes"}
-              className="mt-1 rounded-lg"
-              value={allocationAmount}
-              onChange={(event) => setAllocationAmount(event.target.value)}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Amount preview: {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
-            </p>
+            <div className="mt-1 flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                disabled={choice !== "yes"}
+                className="flex-1 rounded-lg"
+                placeholder={currency(impliedJointAllocation)}
+                value={allocationAmount}
+                onChange={(event) => setAllocationAmount(event.target.value)}
+              />
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
+              </span>
+            </div>
           </label>
         </>
       ) : (
-          <p className="mt-2 text-xs text-muted-foreground">
-          Proposed discretionary amount is {currency(proposedAmount)} and is proposer-set. Mark Acknowledged if
-          ready, or Flag for Discussion to route the final Oversight approval/rejection in Meeting.
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Amount is proposer-set. Acknowledge or flag for discussion.
         </p>
       )}
 
       <Button
-        size="lg"
-        className="mt-3 w-full"
+        size="default"
+        className="mt-2 w-full"
         type="submit"
         disabled={saving}
       >
@@ -132,7 +145,7 @@ export function VoteForm({
       </Button>
 
       {error ? (
-        <div role="alert" className="mt-2 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+        <div role="alert" className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{error}</span>
         </div>
