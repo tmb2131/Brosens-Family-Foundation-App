@@ -86,17 +86,17 @@ export default function WorkspaceClient() {
       ) : (
         <div className="grid gap-3">
           <PersonalBudgetBars
-            title="Total Individual Budget Tracker"
+            title="Total Individual Budget"
             allocated={totalIndividualAllocated}
             total={totalIndividualTarget}
           />
           <PersonalBudgetBars
-            title="Joint Budget Tracker"
+            title="Joint Budget"
             allocated={workspace.personalBudget.jointAllocated + pendingJointTotal}
             total={workspace.personalBudget.jointTarget}
           />
           <PersonalBudgetBars
-            title="Discretionary Budget Tracker"
+            title="Discretionary Budget"
             allocated={workspace.personalBudget.discretionaryAllocated}
             total={workspace.personalBudget.discretionaryCap}
           />

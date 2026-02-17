@@ -264,12 +264,12 @@ export default function NewProposalPage() {
         <>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <PersonalBudgetBars
-              title="Joint Budget Tracker"
+              title="Joint Budget"
               allocated={jointAllocatedPreview}
               total={workspaceQuery.data.personalBudget.jointTarget}
             />
             <PersonalBudgetBars
-              title="Discretionary Budget Tracker"
+              title="Discretionary Budget"
               allocated={discretionaryAllocatedPreview}
               total={workspaceQuery.data.personalBudget.discretionaryCap}
             />
