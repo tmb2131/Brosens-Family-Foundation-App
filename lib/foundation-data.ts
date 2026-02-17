@@ -24,6 +24,7 @@ import {
   WorkspaceSnapshot
 } from "@/lib/types";
 import { isVotingRole } from "@/lib/auth-server";
+import { currency } from "@/lib/utils";
 import {
   enqueueOrganizationCategoryJob,
   enqueueOrganizationCategoryJobs
@@ -271,6 +272,28 @@ async function getVotingMemberIds(admin: AdminClient) {
   }
 
   return (data ?? []).map((row) => row.id as string);
+}
+
+type ProfileRow = { id: string; full_name: string; email: string; role: AppRole };
+
+async function getProfileById(admin: AdminClient, userId: string): Promise<UserProfile | null> {
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("id, full_name, email, role")
+    .eq("id", userId)
+    .maybeSingle<ProfileRow>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load user profile: ${error.message}`);
+  }
+
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.full_name,
+    email: data.email,
+    role: data.role
+  };
 }
 
 async function getCurrentBudget(admin: AdminClient): Promise<BudgetRow> {
@@ -748,7 +771,9 @@ export async function getFoundationSnapshot(
   let jointAllocated = 0;
   let discretionaryAllocated = 0;
 
-  const budgetYearProposals = proposals.filter((proposal) => proposal.budgetYear === budget.budget_year);
+  const budgetYearProposals = proposals.filter(
+    (proposal) => proposal.budgetYear === budget.budget_year && proposal.status !== "declined"
+  );
   for (const proposal of budgetYearProposals) {
     if (proposal.proposalType === "joint") {
       jointAllocated += proposal.progress.computedFinalAmount;
@@ -820,12 +845,19 @@ export async function getWorkspaceSnapshot(
     Math.round(foundation.budget.discretionaryPool / Math.max(votingMemberIds.length, 1))
   );
 
-  const jointAllocated = userVotes
+  const totalJointVoteAmount = userVotes
     .filter((vote) => {
       const proposal = votedProposalById.get(vote.proposalId);
-      return proposal?.budget_year === foundation.budget.year && proposal.proposal_type === "joint";
+      return (
+        proposal?.budget_year === foundation.budget.year &&
+        proposal.proposal_type === "joint" &&
+        proposal.status !== "declined"
+      );
     })
     .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+
+  const jointAllocated = Math.min(totalJointVoteAmount, jointTarget);
+  const jointOverflowToDiscretionary = Math.max(0, totalJointVoteAmount - jointTarget);
 
   const discretionaryProposed = foundation.proposals
     .filter(
@@ -836,6 +868,8 @@ export async function getWorkspaceSnapshot(
         proposal.status !== "declined"
     )
     .reduce((sum, proposal) => sum + proposal.progress.computedFinalAmount, 0);
+
+  const discretionaryAllocated = discretionaryProposed + jointOverflowToDiscretionary;
 
   const actionItems = isVotingRole(user.role)
     ? foundation.proposals
@@ -894,8 +928,8 @@ export async function getWorkspaceSnapshot(
         jointAllocated,
         jointRemaining: Math.max(0, jointTarget - jointAllocated),
         discretionaryCap,
-        discretionaryAllocated: discretionaryProposed,
-        discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryProposed)
+        discretionaryAllocated,
+        discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryAllocated)
       }
     : {
         jointTarget: 0,
@@ -1325,6 +1359,24 @@ export async function submitVote(
     proposal.proposal_type === "joint" && input.choice === "yes"
       ? Math.max(0, Math.round(input.allocationAmount))
       : 0;
+
+  if (proposal.proposal_type === "joint" && input.choice === "yes" && normalizedAmount > 0) {
+    const voterProfile = await getProfileById(admin, input.voterId);
+    if (voterProfile) {
+      const workspace = await getWorkspaceSnapshot(admin, voterProfile);
+      const currentVote = workspace.voteHistory.find((v) => v.proposalId === input.proposalId);
+      const totalBudgetRemaining =
+        workspace.personalBudget.jointRemaining +
+        workspace.personalBudget.discretionaryRemaining;
+      const maxAllowed = totalBudgetRemaining + (currentVote?.amount ?? 0);
+      if (normalizedAmount > maxAllowed) {
+        throw new HttpError(
+          400,
+          `Allocation cannot exceed your total budget remaining (${currency(totalBudgetRemaining)}).`
+        );
+      }
+    }
+  }
 
   const { error: voteError } = await admin.from("votes").upsert(
     {

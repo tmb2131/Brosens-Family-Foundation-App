@@ -4,6 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ProposalType, type VoteChoice } from "@/lib/types";
 import { currency, parseNumberInput } from "@/lib/utils";
@@ -16,6 +24,8 @@ interface VoteFormProps {
   onSuccess: () => void;
   /** Called when the user changes allocation (joint only). Use to show live budget preview. */
   onAllocationChange?: (amount: number) => void;
+  /** Max allowed allocation for joint votes (remaining budget + current vote on this proposal). When set, allocation over this is blocked. */
+  maxJointAllocation?: number;
 }
 
 export function VoteForm({
@@ -24,7 +34,8 @@ export function VoteForm({
   proposedAmount,
   totalRequiredVotes,
   onSuccess,
-  onAllocationChange
+  onAllocationChange,
+  maxJointAllocation
 }: VoteFormProps) {
   const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
   const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
@@ -38,6 +49,7 @@ export function VoteForm({
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [showZeroAllocationConfirm, setShowZeroAllocationConfirm] = useState(false);
 
   const effectiveAllocation =
     proposalType === "joint" && choice === "yes" ? (parsedAllocationAmount ?? 0) : 0;
@@ -53,6 +65,7 @@ export function VoteForm({
     savingRef.current = true;
     setError(null);
     setSaving(true);
+    setShowZeroAllocationConfirm(false);
 
     const amountToSend =
       proposalType === "joint" && choice === "yes"
@@ -85,9 +98,34 @@ export function VoteForm({
     }
   };
 
+  const trySubmit = () => {
+    setError(null);
+    const amount = parseNumberInput(allocationAmountRef.current) ?? 0;
+    if (
+      proposalType === "joint" &&
+      choice === "yes" &&
+      maxJointAllocation != null &&
+      amount > maxJointAllocation
+    ) {
+      setError(
+        `Allocation cannot exceed your total budget remaining (${currency(maxJointAllocation)}).`
+      );
+      return;
+    }
+    const isEmpty =
+      proposalType === "joint" &&
+      choice === "yes" &&
+      allocationAmountRef.current.trim() === "";
+    if (isEmpty) {
+      setShowZeroAllocationConfirm(true);
+      return;
+    }
+    void submitVote();
+  };
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    void submitVote();
+    trySubmit();
   };
 
   // Submit on button click (desktop). We don't rely on form submit for clicks
@@ -95,7 +133,7 @@ export function VoteForm({
   // Radix Dialog) can prevent the form submit event from firing on first click.
   const handleSubmitClick = (event: React.MouseEvent) => {
     event.preventDefault();
-    if (!saving) void submitVote();
+    if (!saving) trySubmit();
   };
 
   // Fire submit on pointerdown (capture) so we run before blur/focus handling.
@@ -105,7 +143,7 @@ export function VoteForm({
     if (event.button !== 0 || saving) return; // primary button only
     event.preventDefault();
     event.stopPropagation();
-    void submitVote();
+    trySubmit();
   };
 
   const handleTouchEnd = (event: React.TouchEvent) => {
@@ -116,7 +154,7 @@ export function VoteForm({
     // Handling touchend directly captures the submit intent before the shift.
     if (!saving) {
       event.preventDefault();
-      void submitVote();
+      trySubmit();
     }
   };
 
@@ -158,8 +196,8 @@ export function VoteForm({
                 type="number"
                 min={0}
                 disabled={choice !== "yes"}
-                className="flex-1 rounded-lg"
-                placeholder={currency(impliedJointAllocation)}
+                className="flex-1 rounded-lg placeholder:italic"
+                placeholder={`Implied share: ${currency(impliedJointAllocation)}`}
                 value={allocationAmount}
                 onChange={(event) => {
                   const v = event.target.value;
@@ -171,6 +209,13 @@ export function VoteForm({
                 {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
               </span>
             </div>
+            {maxJointAllocation != null &&
+            choice === "yes" &&
+            (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
+              <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                Exceeds your total budget remaining ({currency(maxJointAllocation)}).
+              </p>
+            ) : null}
           </label>
         </>
       ) : (
@@ -183,7 +228,13 @@ export function VoteForm({
         size="default"
         className="mt-2 w-full"
         type="submit"
-        disabled={saving}
+        disabled={
+          saving ||
+          (proposalType === "joint" &&
+            choice === "yes" &&
+            maxJointAllocation != null &&
+            (parsedAllocationAmount ?? 0) > maxJointAllocation)
+        }
         onPointerDownCapture={handleSubmitPointerDown}
         onClick={handleSubmitClick}
         onTouchEnd={handleTouchEnd}
@@ -197,6 +248,31 @@ export function VoteForm({
           <span>{error}</span>
         </div>
       ) : null}
+
+      <Dialog open={showZeroAllocationConfirm} onOpenChange={setShowZeroAllocationConfirm}>
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle>Confirm allocation</DialogTitle>
+            <DialogDescription>
+              You didn&apos;t enter an amount. Submit a blind vote with an allocation of {currency(0)}?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton={false}>
+            <Button variant="outline" onClick={() => setShowZeroAllocationConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowZeroAllocationConfirm(false);
+                void submitVote();
+              }}
+              disabled={saving}
+            >
+              Submit {currency(0)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

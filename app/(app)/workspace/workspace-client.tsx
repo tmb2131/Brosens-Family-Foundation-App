@@ -194,6 +194,12 @@ export default function WorkspaceClient() {
                             }))
                         : undefined
                     }
+                    maxJointAllocation={
+                      item.proposalType === "joint" && !isManager
+                        ? workspace.personalBudget.jointRemaining +
+                          workspace.personalBudget.discretionaryRemaining
+                        : undefined
+                    }
                   />
                 </article>
               );

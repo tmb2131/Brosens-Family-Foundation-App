@@ -197,6 +197,12 @@ export default function MobileFocusClient() {
                     onSuccess={() => {
                       void workspaceQuery.mutate();
                     }}
+                    maxJointAllocation={
+                      item.proposalType === "joint" && !isManager
+                        ? workspace.personalBudget.jointRemaining +
+                          workspace.personalBudget.discretionaryRemaining
+                        : undefined
+                    }
                   />
                   <Link
                     href="/dashboard"

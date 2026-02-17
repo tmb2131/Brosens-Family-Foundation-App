@@ -394,7 +394,9 @@ function withProgress(proposal: GrantProposal, userId?: string, revealOverride =
 
 function aggregateBudgetUsage() {
   const budget = findCurrentBudget();
-  const proposals = db().proposals.filter((proposal) => proposal.budgetYear === budget.year);
+  const proposals = db().proposals.filter(
+    (proposal) => proposal.budgetYear === budget.year && proposal.status !== "declined"
+  );
 
   let jointAllocated = 0;
   let discretionaryAllocated = 0;
@@ -490,12 +492,18 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
     Math.round(budget.discretionaryPool / VOTING_MEMBER_IDS.length)
   );
 
-  const jointAllocatedByUser = userVotes
+  const totalJointVoteAmountByUser = userVotes
     .filter((vote) => {
       const proposal = db().proposals.find((item) => item.id === vote.proposalId);
-      return proposal?.proposalType === "joint";
+      return proposal?.proposalType === "joint" && proposal.status !== "declined";
     })
     .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+
+  const jointAllocatedByUser = Math.min(totalJointVoteAmountByUser, personalJointTarget);
+  const jointOverflowToDiscretionary = Math.max(
+    0,
+    totalJointVoteAmountByUser - personalJointTarget
+  );
 
   const discretionaryProposedByUser = db()
     .proposals
@@ -507,6 +515,9 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
         proposal.status !== "declined"
     )
     .reduce((sum, proposal) => sum + proposal.proposedAmount, 0);
+
+  const discretionaryAllocatedByUser =
+    discretionaryProposedByUser + jointOverflowToDiscretionary;
 
   const toReview = db()
     .proposals
@@ -552,8 +563,8 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
       jointAllocated: jointAllocatedByUser,
       jointRemaining: Math.max(0, personalJointTarget - jointAllocatedByUser),
       discretionaryCap: personalDiscretionaryCap,
-      discretionaryAllocated: discretionaryProposedByUser,
-      discretionaryRemaining: Math.max(0, personalDiscretionaryCap - discretionaryProposedByUser)
+      discretionaryAllocated: discretionaryAllocatedByUser,
+      discretionaryRemaining: Math.max(0, personalDiscretionaryCap - discretionaryAllocatedByUser)
     },
     actionItems: toReview,
     voteHistory,
