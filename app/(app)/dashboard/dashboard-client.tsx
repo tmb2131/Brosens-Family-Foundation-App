@@ -8,7 +8,7 @@ import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
-import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { GlassCard, CardLabel } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { AmountInput } from "@/components/ui/amount-input";
@@ -1239,52 +1239,73 @@ export default function DashboardClient() {
   const detailRowState = detailProposal ? rowMessage[detailProposal.id] : null;
 
   return (
-    <div className="page-enter space-y-6 pb-4">
-      <GlassCard className="rounded-3xl p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardLabel>Annual Cycle</CardLabel>
-            <CardValue className="text-xl font-bold">
-              {isAllYearsView ? "All Years Master List Status" : `${selectedBudgetYear} Master List Status`}
-            </CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              {data.annualCycle.monthHint}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>Reset: {data.annualCycle.resetDate}</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
-            </div>
+    <div className="page-stack pb-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Details</p>
+        <div className="flex items-center gap-1.5">
+          <select
+            className="h-8 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground outline-none transition-colors active:bg-muted focus:outline-none"
+            value={selectedYearFilterValue}
+            onChange={(event) =>
+              setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
+            }
+          >
+            <option value="all">All years</option>
+            {availableYears.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+          <Link
+            href="/proposals/new"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors active:bg-muted hover:text-foreground focus:outline-none"
+          >
+            <Plus className="h-3 w-3" /> New
+          </Link>
+        </div>
+      </div>
+
+      <GlassCard className="p-3 lg:hidden">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <DollarSign className="h-4 w-4" />
+          </span>
+          <CardLabel>Foundation Budget</CardLabel>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
+            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(data.budget.total)}</p>
+            <p className="text-[10px] text-muted-foreground">{Math.round(totalUtilization)}% used</p>
           </div>
-          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-end">
-            <label className="text-xs font-semibold text-muted-foreground">
-              Budget year
-              <select
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-lg border px-3 py-1 text-sm outline-none mt-1 block"
-                value={selectedYearFilterValue}
-                onChange={(event) =>
-                  setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
-                }
-              >
-                <option value="all">All years</option>
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
-              <Link href="/proposals/new">
-                <Plus className="h-4 w-4" /> New Proposal
-              </Link>
-            </Button>
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Joint</p>
+            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(data.budget.jointRemaining)}</p>
+            <p className="text-[10px] text-muted-foreground">of {currency(data.budget.jointPool)}</p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Disc.</p>
+            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(data.budget.discretionaryRemaining)}</p>
+            <p className="text-[10px] text-muted-foreground">of {currency(data.budget.discretionaryPool)}</p>
           </div>
         </div>
+        <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+          {data.annualCycle.monthHint}
+        </p>
       </GlassCard>
 
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <p className="hidden items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground lg:flex">
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          {data.annualCycle.monthHint}
+        </span>
+        <span className="text-border">|</span>
+        <span>Reset: {data.annualCycle.resetDate}</span>
+        <span className="text-border">|</span>
+        <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
+      </p>
+
+      <section className="hidden lg:grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
           <MetricCard
             title="FOUNDATION TOTAL BUDGET"
