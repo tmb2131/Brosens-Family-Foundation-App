@@ -274,20 +274,6 @@ export default function NewProposalPage() {
               total={workspaceQuery.data.personalBudget.discretionaryCap}
             />
           </div>
-          <div className="mt-3 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
-            <p>
-              Joint remaining: {currency(jointRemainingPreview)}
-              {proposalType === "joint" && isVotingMember && (parsedProposerAllocation ?? 0) > 0 ? (
-                <span className="block text-[11px]">(includes this proposal)</span>
-              ) : null}
-            </p>
-            <p>
-              Discretionary remaining: {currency(discretionaryRemainingPreview)}
-              {proposalType === "discretionary" && (parsedProposedAmount ?? 0) > 0 ? (
-                <span className="block text-[11px]">(includes this proposal)</span>
-              ) : null}
-            </p>
-          </div>
           <p className="mt-2 text-xs text-muted-foreground">
             {proposalType === "joint"
               ? `Your allocation uses joint budget first, then discretionary (max ${currency(
