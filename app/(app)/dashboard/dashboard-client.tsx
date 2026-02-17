@@ -60,6 +60,8 @@ interface RequiredActionSummary {
   tone: "neutral" | "attention" | "complete";
   href?: string;
   ctaLabel?: string;
+  /** When true, CTA should open the proposal detail modal (e.g. to submit vote) instead of navigating. */
+  openDetail?: boolean;
 }
 
 type SortKey = "proposal" | "type" | "amount" | "status" | "sentAt" | "notes";
@@ -171,7 +173,9 @@ function buildRequiredActionSummary(
         return {
           owner: "You",
           detail: `Submit your vote. ${voteDetail}`,
-          tone: "attention"
+          tone: "attention",
+          ctaLabel: "Submit your vote",
+          openDetail: true
         };
       }
 
@@ -1854,9 +1858,12 @@ export default function DashboardClient() {
                       : requiredAction.tone === "complete"
                       ? "text-emerald-700 dark:text-emerald-300"
                       : "text-foreground";
-                  const showRequiredActionButton =
+                  const showRequiredActionLink =
                     requiredAction.tone === "attention" &&
                     Boolean(requiredAction.href && requiredAction.ctaLabel);
+                  const showRequiredActionOpenDetail =
+                    requiredAction.tone === "attention" &&
+                    Boolean(requiredAction.openDetail && requiredAction.ctaLabel);
                   const amountDisplay =
                     masked
                       ? "Blind until your vote is submitted"
@@ -1899,13 +1906,24 @@ export default function DashboardClient() {
                         <p className={`text-xs ${requiredActionToneClass}`}>
                           <span className="font-semibold">{requiredAction.owner}:</span> {requiredAction.detail}
                         </p>
-                        {showRequiredActionButton ? (
+                        {showRequiredActionLink ? (
                           <Link
                             href={requiredAction.href!}
                             className="mt-2 inline-flex rounded-md border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
                           >
                             {requiredAction.ctaLabel}
                           </Link>
+                        ) : null}
+                        {showRequiredActionOpenDetail ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 h-auto rounded-md border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                            onClick={() => setDetailProposalId(proposal.id)}
+                          >
+                            {requiredAction.ctaLabel}
+                          </Button>
                         ) : null}
                         {rowState ? (
                           <p
