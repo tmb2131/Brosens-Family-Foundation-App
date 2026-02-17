@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -651,9 +652,8 @@ export default function SettingsPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="budget-year">Budget year</Label>
-                    <Input
+                    <AmountInput
                       id="budget-year"
-                      type="number"
                       className="rounded-xl"
                       value={year}
                       onChange={(event) => setYear(event.target.value)}
@@ -661,9 +661,8 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="fund-size">Annual fund size</Label>
-                    <Input
+                    <AmountInput
                       id="fund-size"
-                      type="number"
                       className="rounded-xl"
                       value={totalAmount}
                       onChange={(event) => setTotalAmount(event.target.value)}
@@ -677,9 +676,8 @@ export default function SettingsPage() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="rollover">Roll-over amount</Label>
-                    <Input
+                    <AmountInput
                       id="rollover"
-                      type="number"
                       className="rounded-xl"
                       value={rollover}
                       onChange={(event) => setRollover(event.target.value)}
@@ -690,9 +688,8 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="joint-ratio">Joint ratio</Label>
-                    <Input
+                    <AmountInput
                       id="joint-ratio"
-                      type="number"
                       step="0.01"
                       className="rounded-xl"
                       value={jointRatio}
@@ -710,9 +707,8 @@ export default function SettingsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="disc-ratio">Discretionary ratio</Label>
-                    <Input
+                    <AmountInput
                       id="disc-ratio"
-                      type="number"
                       step="0.01"
                       className="rounded-xl"
                       value={discretionaryRatio}

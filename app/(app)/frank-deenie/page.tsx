@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -1473,8 +1474,7 @@ export default function FrankDeeniePage() {
                   </label>
                   <label className="text-xs font-semibold text-muted-foreground">
                     Amount
-                    <Input
-                      type="number"
+                    <AmountInput
                       min={0}
                       step="0.01"
                       value={editDraft.amount}
@@ -1691,8 +1691,7 @@ export default function FrankDeeniePage() {
                 </label>
                 <label className="text-xs font-semibold text-muted-foreground">
                   Amount
-                  <Input
-                    type="number"
+                  <AmountInput
                     min={0}
                     step="0.01"
                     value={newDraft.amount}

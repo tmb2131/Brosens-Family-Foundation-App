@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { ProposalType, type VoteChoice } from "@/lib/types";
 import { currency, parseNumberInput } from "@/lib/utils";
@@ -192,8 +193,7 @@ export function VoteForm({
           <label className="mt-1.5 block text-xs font-medium">
             Allocation amount
             <div className="mt-1 flex items-center gap-2">
-              <Input
-                type="number"
+              <AmountInput
                 min={0}
                 disabled={choice !== "yes"}
                 className="flex-1 rounded-lg placeholder:italic"

@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
@@ -479,9 +480,8 @@ export default function NewProposalPage() {
                 ? "Proposed amount (discretionary)"
                 : "Proposed amount"}
             </Label>
-            <Input
+            <AmountInput
               id="proposed-amount"
-              type="number"
               min={0}
               max={proposalType === "discretionary" && discretionaryLimit !== null ? discretionaryLimit : undefined}
               value={proposedAmount}
@@ -528,9 +528,8 @@ export default function NewProposalPage() {
           {proposalType === "joint" && isVotingMember ? (
             <div className="space-y-1.5">
               <Label htmlFor="proposer-allocation">Your allocation</Label>
-              <Input
+              <AmountInput
                 id="proposer-allocation"
-                type="number"
                 min={0}
                 max={workspaceQuery.data ? totalBudgetRemaining : undefined}
                 value={proposerAllocationAmount}
