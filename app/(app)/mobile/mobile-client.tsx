@@ -19,7 +19,6 @@ import {
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { VoteForm } from "@/components/voting/vote-form";
-import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, titleCase } from "@/lib/utils";
 
@@ -167,29 +166,52 @@ export default function MobileFocusClient() {
             Managers do not have an individual budget. Manager profiles can submit joint proposals only.
           </p>
         ) : (
-          <>
-            <div className="mt-2 space-y-2">
-              <PersonalBudgetBars
-                title="Total Individual Budget Tracker"
-                allocated={totalIndividualAllocated}
-                total={totalIndividualTarget}
-              />
-              <PersonalBudgetBars
-                title="Joint Budget Tracker"
-                allocated={workspace.personalBudget.jointAllocated + pendingJointTotal}
-                total={workspace.personalBudget.jointTarget}
-              />
-              <PersonalBudgetBars
-                title="Discretionary Budget Tracker"
-                allocated={workspace.personalBudget.discretionaryAllocated}
-                total={workspace.personalBudget.discretionaryCap}
-              />
-            </div>
-            <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-              <p>Joint remaining: {currency(workspace.personalBudget.jointRemaining)}</p>
-              <p>Discretionary remaining: {currency(workspace.personalBudget.discretionaryRemaining)}</p>
-            </div>
-          </>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {[
+              {
+                label: "Total",
+                remaining: Math.max(0, totalIndividualTarget - totalIndividualAllocated),
+                allocated: totalIndividualAllocated,
+                total: totalIndividualTarget
+              },
+              {
+                label: "Joint",
+                remaining: Math.max(
+                  0,
+                  workspace.personalBudget.jointTarget -
+                    (workspace.personalBudget.jointAllocated + pendingJointTotal)
+                ),
+                allocated: workspace.personalBudget.jointAllocated + pendingJointTotal,
+                total: workspace.personalBudget.jointTarget
+              },
+              {
+                label: "Discretionary",
+                remaining: workspace.personalBudget.discretionaryRemaining,
+                allocated: workspace.personalBudget.discretionaryAllocated,
+                total: workspace.personalBudget.discretionaryCap
+              }
+            ].map(({ label, remaining, allocated, total }) => {
+              const ratio = total === 0 ? 0 : Math.min(100, Math.round((allocated / total) * 100));
+              return (
+                <div key={label} className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                    {currency(remaining)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">remaining</p>
+                  <div className="mt-2 h-1.5 rounded-full bg-muted">
+                    <div
+                      className="h-1.5 rounded-full bg-accent"
+                      style={{ width: `${ratio}%` }}
+                      aria-hidden
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </GlassCard>
 
