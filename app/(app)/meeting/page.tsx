@@ -54,28 +54,31 @@ function MeetingProposalCard({
         <h3 className="text-sm font-semibold">{proposal.title}</h3>
         <StatusPill status={proposal.status} />
       </div>
-      <p className="mt-2 text-lg font-semibold text-foreground">
+      <p className="mt-1.5 text-lg font-semibold tabular-nums text-foreground">
         {currency(proposal.progress.computedFinalAmount)}
       </p>
+      {proposal.description?.trim() ? (
+        <p className="mt-1 text-sm text-muted-foreground">{proposal.description.trim()}</p>
+      ) : null}
 
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        <div>
+      <div className="mt-2 flex flex-row flex-nowrap gap-x-3 text-xs">
+        <div className="min-w-0 flex-1">
           <span className="text-muted-foreground">Type</span>
           <p className="font-medium text-foreground">{titleCase(proposal.proposalType)}</p>
         </div>
-        <div>
-          <span className="text-muted-foreground">Votes in</span>
-          <p className="font-medium text-foreground">
-            {formatNumber(proposal.progress.votesSubmitted)} of {formatNumber(proposal.progress.totalRequiredVotes)}
-          </p>
-        </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <span className="text-muted-foreground">Rule</span>
           <p className="font-medium text-foreground">
             {proposal.proposalType === "joint" ? titleCase(proposal.allocationMode) : "Proposer-set"}
           </p>
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
+          <span className="text-muted-foreground">Votes in</span>
+          <p className="font-medium text-foreground">
+            {formatNumber(proposal.progress.votesSubmitted)} of {formatNumber(proposal.progress.totalRequiredVotes)}
+          </p>
+        </div>
+        <div className="min-w-0 flex-1">
           <span className="text-muted-foreground">Proposed</span>
           <p className="font-medium text-foreground">{currency(proposal.proposedAmount)}</p>
         </div>
@@ -134,7 +137,7 @@ function MeetingProposalCard({
         onClick={() => onOpenDecisionDialog(proposal.id)}
       >
         <Eye className="h-3.5 w-3.5" />
-        Reveal & decide
+        Confirm
       </Button>
     </article>
   );
@@ -304,28 +307,21 @@ export default function MeetingPage() {
             </div>
 
             <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as MeetingSegment)}>
-              <TabsList className="h-auto w-full flex-wrap gap-2 rounded-none border-0 bg-transparent p-0 shadow-none">
-                <TabsTrigger
-                  value="ready"
-                  className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-                >
+              <div className="flex justify-end">
+                <TabsList className="h-auto flex-wrap gap-2">
+                  <TabsTrigger value="ready">
                   Ready ({formatNumber(readyProposals.length)})
                 </TabsTrigger>
-                <TabsTrigger
-                  value="pending"
-                  className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-                >
+                <TabsTrigger value="pending">
                   Pending ({formatNumber(pendingProposals.length)})
                 </TabsTrigger>
-                <TabsTrigger
-                  value="needs_discussion"
-                  className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
-                >
+                <TabsTrigger value="needs_discussion">
                   <span className="sm:hidden">Flagged</span>
                   <span className="hidden sm:inline">Needs discussion</span>
                   {" "}({formatNumber(needsDiscussionProposals.length)})
                 </TabsTrigger>
               </TabsList>
+              </div>
               {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
                 <TabsContent key={segment} value={segment} className="mt-3 space-y-3">
                   {segmentProposals[segment].length > 0 &&
