@@ -16,6 +16,12 @@ export function Guard({ children }: PropsWithChildren) {
 
     if (!user) {
       router.replace(`/login?redirect=${encodeURIComponent(pathname || "/dashboard")}`);
+      return;
+    }
+
+    // Admin on mobile should always land on Admin Queue; catch PWA restore / cached /mobile.
+    if (pathname === "/mobile" && user.role === "admin") {
+      router.replace("/admin");
     }
   }, [loading, pathname, router, user]);
 
