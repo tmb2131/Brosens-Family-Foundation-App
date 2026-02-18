@@ -9,6 +9,7 @@ import { AlertCircle, ClipboardList } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -145,12 +146,17 @@ function AdminPageClient() {
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-3">
           <GlassCard className="rounded-3xl">
-            <CardLabel>Administrator Workspace</CardLabel>
-            <CardValue>Donation Execution Queue</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              Approved grants appear here. Mark as Sent once external donation execution is complete.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardLabel>Administrator Workspace</CardLabel>
+                <CardValue>Donation Execution Queue</CardValue>
+                <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Approved grants appear here. Mark as Sent once external donation execution is complete.
+                </p>
+              </div>
+              <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
+            </div>
           </GlassCard>
 
           <GlassCard className="p-3 lg:hidden">
