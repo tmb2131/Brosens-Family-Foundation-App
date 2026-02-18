@@ -225,46 +225,44 @@ export default function WorkspaceClient() {
               </p>
             ) : (
               <div className="mt-2 grid grid-cols-3 gap-2">
-                {[
-                  {
-                    label: "Total",
-                    remaining: Math.max(0, totalIndividualTarget - totalIndividualAllocated),
-                    allocated: totalIndividualAllocated,
-                    total: totalIndividualTarget
-                  },
-                  {
-                    label: "Joint",
-                    remaining: Math.max(0, workspace.personalBudget.jointTarget - (workspace.personalBudget.jointAllocated + pendingJointTotal)),
-                    allocated: workspace.personalBudget.jointAllocated + pendingJointTotal,
-                    total: workspace.personalBudget.jointTarget
-                  },
-                  {
-                    label: "Discretionary",
-                    remaining: workspace.personalBudget.discretionaryRemaining,
-                    allocated: workspace.personalBudget.discretionaryAllocated,
-                    total: workspace.personalBudget.discretionaryCap
-                  }
-                ].map(({ label, remaining, allocated, total }) => {
-                  const ratio = total === 0 ? 0 : Math.min(100, Math.round((allocated / total) * 100));
-                  return (
-                    <div key={label} className="rounded-xl border border-border/80 bg-muted/30 p-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {label}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
-                        {currency(remaining)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground"><span className="font-semibold">remaining</span> of your budget of {currency(total)}</p>
-                      <div className="mt-2 h-1.5 rounded-full bg-muted">
-                        <div
-                          className="h-1.5 rounded-full bg-accent"
-                          style={{ width: `${ratio}%` }}
-                          aria-hidden
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                <PersonalBudgetBars
+                  title="Total"
+                  allocated={totalIndividualAllocated - pendingJointTotal}
+                  total={totalIndividualTarget}
+                  pendingAllocation={pendingJointTotal}
+                  compact
+                />
+                <PersonalBudgetBars
+                  title="Joint"
+                  allocated={workspace.personalBudget.jointAllocated}
+                  total={workspace.personalBudget.jointTarget}
+                  pendingAllocation={pendingJointTotal}
+                  compact
+                />
+                <PersonalBudgetBars
+                  title="Discretionary"
+                  allocated={workspace.personalBudget.discretionaryAllocated}
+                  total={workspace.personalBudget.discretionaryCap}
+                  compact
+                />
+                <p
+                  className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+                  role="img"
+                  aria-label="Green is allocated, blue is your current allocation input"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
+                    Allocated
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="h-2.5 w-4 shrink-0 rounded-full"
+                      style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
+                      aria-hidden
+                    />
+                    Your input
+                  </span>
+                </p>
               </div>
             )}
           </GlassCard>

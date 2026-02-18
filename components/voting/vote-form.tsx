@@ -1,17 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle } from "lucide-react";
 import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { ProposalType, type VoteChoice } from "@/lib/types";
@@ -51,7 +43,7 @@ export function VoteForm({
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [showZeroAllocationConfirm, setShowZeroAllocationConfirm] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
 
   const effectiveAllocation =
     proposalType === "joint" && choice === "yes" ? (parsedAllocationAmount ?? 0) : 0;
@@ -67,7 +59,6 @@ export function VoteForm({
     savingRef.current = true;
     setError(null);
     setSaving(true);
-    setShowZeroAllocationConfirm(false);
 
     const amountToSend =
       proposalType === "joint" && choice === "yes"
@@ -91,6 +82,7 @@ export function VoteForm({
         throw new Error(payload.error || "Could not save vote");
       }
 
+      setIsReviewing(false);
       onSuccess();
       void mutate("/api/navigation/summary");
     } catch (err) {
@@ -115,15 +107,7 @@ export function VoteForm({
       );
       return;
     }
-    const isEmpty =
-      proposalType === "joint" &&
-      choice === "yes" &&
-      allocationAmountRef.current.trim() === "";
-    if (isEmpty) {
-      setShowZeroAllocationConfirm(true);
-      return;
-    }
-    void submitVote();
+    setIsReviewing(true);
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -161,105 +145,165 @@ export function VoteForm({
     }
   };
 
+  const confirmedAmount = parseNumberInput(allocationAmountRef.current) ?? 0;
+  const isZeroAllocation = proposalType === "joint" && choice === "yes" && confirmedAmount === 0;
+
   return (
     <form onSubmit={handleSubmit} noValidate className="mt-2 border-t pt-2 text-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
-      <div className="mt-1.5 grid grid-cols-2 gap-2">
-        <Button
-          onClick={() => {
-            setChoice(primaryChoice);
-            setFlagComment("");
-          }}
-          variant={choice === primaryChoice ? "default" : "outline"}
-          size="default"
-          className={choice === primaryChoice
-            ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
-            : ""
-          }
-          type="button"
-        >
-          {proposalType === "joint" ? "Yes" : "Acknowledged"}
-        </Button>
-        <Button
-          onClick={() => setChoice(secondaryChoice)}
-          variant={choice === secondaryChoice ? "destructive" : "outline"}
-          size="default"
-          type="button"
-        >
-          {proposalType === "joint" ? "No" : "Flag for Discussion"}
-        </Button>
-      </div>
-
-      {proposalType === "joint" ? (
+      {isReviewing ? (
         <>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
-          </p>
-          <label className="mt-1.5 block text-xs font-medium">
-            Allocation amount
-            <div className="mt-1 flex items-center gap-2">
-              <AmountInput
-                min={0}
-                disabled={choice !== "yes"}
-                className="flex-1 rounded-lg placeholder:italic"
-                placeholder={`Implied share: ${currency(impliedJointAllocation)}`}
-                value={allocationAmount}
-                onChange={(event) => {
-                  const v = event.target.value;
-                  setAllocationAmount(v);
-                  allocationAmountRef.current = v;
-                }}
-              />
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
-              </span>
-            </div>
-            {maxJointAllocation != null &&
-            choice === "yes" &&
-            (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
-              <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                Exceeds your total budget remaining ({currency(maxJointAllocation)}).
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review your blind vote</p>
+          <div className="mt-2 rounded-lg border bg-muted/40 p-3 text-sm">
+            <p className="font-medium text-foreground">
+              {proposalType === "joint" ? (
+                <>Vote: {choice === "yes" ? "Yes" : "No"}</>
+              ) : (
+                <>Vote: {choice === "acknowledged" ? "Acknowledged" : "Flag for Discussion"}</>
+              )}
+            </p>
+            {proposalType === "joint" && choice === "yes" ? (
+              <p className="mt-1 text-muted-foreground">
+                Allocation: {currency(confirmedAmount)}
               </p>
             ) : null}
-          </label>
+            {proposalType !== "joint" && choice === "flagged" && flagComment.trim() !== "" ? (
+              <p className="mt-1 text-muted-foreground">Comment: {flagComment.trim()}</p>
+            ) : null}
+          </div>
+          {isZeroAllocation ? (
+            <div
+              role="alert"
+              className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+            >
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                You&apos;re about to submit an allocation of {currency(0)}. This will count as a yes vote with no amount allocated.
+              </p>
+            </div>
+          ) : null}
+          <div className="mt-3 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="default"
+              className="flex-1"
+              onClick={() => setIsReviewing(false)}
+              disabled={saving}
+            >
+              Edit
+            </Button>
+            <Button
+              type="button"
+              size="default"
+              className="flex-1"
+              onClick={() => void submitVote()}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : "Confirm"}
+            </Button>
+          </div>
         </>
       ) : (
         <>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Amount is proposer-set. Acknowledge or flag for discussion.
-          </p>
-          {choice === "flagged" ? (
-            <label className="mt-1.5 block text-xs font-medium">
-              Comment (optional)
-              <Input
-                className="mt-1 rounded-lg placeholder:italic"
-                placeholder="e.g. Would like to discuss amount or scope"
-                value={flagComment}
-                onChange={(e) => setFlagComment(e.target.value)}
-                maxLength={500}
-              />
-            </label>
-          ) : null}
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
+          <div className="mt-1.5 grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => {
+                setChoice(primaryChoice);
+                setFlagComment("");
+              }}
+              variant={choice === primaryChoice ? "default" : "outline"}
+              size="default"
+              className={choice === primaryChoice
+                ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
+                : ""
+              }
+              type="button"
+            >
+              {proposalType === "joint" ? "Yes" : "Acknowledged"}
+            </Button>
+            <Button
+              onClick={() => setChoice(secondaryChoice)}
+              variant={choice === secondaryChoice ? "destructive" : "outline"}
+              size="default"
+              type="button"
+            >
+              {proposalType === "joint" ? "No" : "Flag for Discussion"}
+            </Button>
+          </div>
+
+          {proposalType === "joint" ? (
+            <>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
+              </p>
+              <label className="mt-1.5 block text-xs font-medium">
+                Allocation amount
+                <div className="mt-1 flex items-center gap-2">
+                  <AmountInput
+                    min={0}
+                    disabled={choice !== "yes"}
+                    className="flex-1 rounded-lg placeholder:italic"
+                    placeholder={`Implied share: ${currency(impliedJointAllocation)}`}
+                    value={allocationAmount}
+                    onChange={(event) => {
+                      const v = event.target.value;
+                      setAllocationAmount(v);
+                      allocationAmountRef.current = v;
+                    }}
+                  />
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
+                  </span>
+                </div>
+                {maxJointAllocation != null &&
+                choice === "yes" &&
+                (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
+                  <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                    Exceeds your total budget remaining ({currency(maxJointAllocation)}).
+                  </p>
+                ) : null}
+              </label>
+            </>
+          ) : (
+            <>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Amount is proposer-set. Acknowledge or flag for discussion.
+              </p>
+              {choice === "flagged" ? (
+                <label className="mt-1.5 block text-xs font-medium">
+                  Comment (optional)
+                  <Input
+                    className="mt-1 rounded-lg placeholder:italic"
+                    placeholder="e.g. Would like to discuss amount or scope"
+                    value={flagComment}
+                    onChange={(e) => setFlagComment(e.target.value)}
+                    maxLength={500}
+                  />
+                </label>
+              ) : null}
+            </>
+          )}
+
+          <Button
+            size="default"
+            className="mt-2 w-full"
+            type="submit"
+            disabled={
+              saving ||
+              (proposalType === "joint" &&
+                choice === "yes" &&
+                maxJointAllocation != null &&
+                (parsedAllocationAmount ?? 0) > maxJointAllocation)
+            }
+            onPointerDownCapture={handleSubmitPointerDown}
+            onClick={handleSubmitClick}
+            onTouchEnd={handleTouchEnd}
+          >
+            Submit Blind Vote
+          </Button>
         </>
       )}
-
-      <Button
-        size="default"
-        className="mt-2 w-full"
-        type="submit"
-        disabled={
-          saving ||
-          (proposalType === "joint" &&
-            choice === "yes" &&
-            maxJointAllocation != null &&
-            (parsedAllocationAmount ?? 0) > maxJointAllocation)
-        }
-        onPointerDownCapture={handleSubmitPointerDown}
-        onClick={handleSubmitClick}
-        onTouchEnd={handleTouchEnd}
-      >
-        {saving ? "Saving vote..." : "Submit Blind Vote"}
-      </Button>
 
       {error ? (
         <div role="alert" className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
@@ -267,31 +311,6 @@ export function VoteForm({
           <span>{error}</span>
         </div>
       ) : null}
-
-      <Dialog open={showZeroAllocationConfirm} onOpenChange={setShowZeroAllocationConfirm}>
-        <DialogContent showCloseButton={true}>
-          <DialogHeader>
-            <DialogTitle>Confirm allocation</DialogTitle>
-            <DialogDescription>
-              You didn&apos;t enter an amount. Submit a blind vote with an allocation of {currency(0)}?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter showCloseButton={false}>
-            <Button variant="outline" onClick={() => setShowZeroAllocationConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setShowZeroAllocationConfirm(false);
-                void submitVote();
-              }}
-              disabled={saving}
-            >
-              Submit {currency(0)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </form>
   );
 }
