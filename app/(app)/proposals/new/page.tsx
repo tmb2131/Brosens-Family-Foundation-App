@@ -665,8 +665,9 @@ export default function NewProposalPage() {
               </p>
               {workspaceQuery.data ? (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Total budget remaining: {currency(totalBudgetRemaining)} (joint:{" "}
-                  {currency(jointRemaining)}, discretionary: {currency(discretionaryRemaining)})
+                  Total budget remaining: {currency(jointRemainingPreview + discretionaryRemainingPreview)}{" "}
+                  (joint: {currency(jointRemainingPreview)}, discretionary:{" "}
+                  {currency(discretionaryRemainingPreview)})
                 </p>
               ) : null}
             </div>
