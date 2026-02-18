@@ -101,7 +101,6 @@ export default function MobileFocusClient() {
     workspace.personalBudget.discretionaryAllocated +
     pendingJointTotal;
   const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
-
   const voteDialogItem =
     voteDialogProposalId != null
       ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId)
