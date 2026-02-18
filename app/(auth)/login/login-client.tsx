@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getClientIsMobile } from "@/lib/device-detection";
 import { UserProfile } from "@/lib/types";
 
 const allowedRedirects = [
@@ -28,13 +29,17 @@ function sanitizeRedirect(target: string): Route {
   return "/dashboard";
 }
 
-function resolvePostLoginRedirect(role: UserProfile["role"] | null | undefined, fallback: Route): Route {
+function resolvePostLoginRedirect(
+  role: UserProfile["role"] | null | undefined,
+  fallback: Route,
+  isMobile: boolean
+): Route {
   if (role === "admin") {
     return "/admin";
   }
 
   if (role === "member") {
-    return "/workspace";
+    return isMobile ? "/mobile" : "/workspace";
   }
 
   return fallback;
@@ -101,6 +106,7 @@ export default function LoginPage() {
   const resetSuccess = params.get("reset") === "success";
   const redirect = params.get("redirect") || "/dashboard";
   const safeRedirect = sanitizeRedirect(redirect);
+  const isMobile = getClientIsMobile();
   const { signIn, refreshProfile, user, configured } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -116,9 +122,9 @@ export default function LoginPage() {
     }
 
     if (user) {
-      router.replace(resolvePostLoginRedirect(user.role, safeRedirect));
+      router.replace(resolvePostLoginRedirect(user.role, safeRedirect, isMobile));
     }
-  }, [router, safeRedirect, user, recoveryMode]);
+  }, [router, safeRedirect, user, recoveryMode, isMobile]);
 
   const forgotPasswordHref = useMemo(() => {
     const trimmedEmail = email.trim();
@@ -138,7 +144,7 @@ export default function LoginPage() {
       await signIn(email.trim(), password);
       const profile = await loadSignedInProfile();
       await refreshProfile();
-      router.replace(resolvePostLoginRedirect(profile?.role, safeRedirect));
+      router.replace(resolvePostLoginRedirect(profile?.role, safeRedirect, isMobile));
     } catch (err) {
       const parsedError = parseLoginError(err);
       setError(parsedError.message);
