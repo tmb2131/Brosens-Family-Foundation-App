@@ -65,7 +65,7 @@ function MeetingProposalCard({
       {/* Primary amount with context label */}
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Recommended amount
+          Final amount
         </p>
         <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
           {currency(proposal.progress.computedFinalAmount)}
@@ -88,7 +88,11 @@ function MeetingProposalCard({
             Rule
           </span>
           <p className="mt-0.5 font-medium text-foreground">
-            {proposal.proposalType === "joint" ? titleCase(proposal.allocationMode) : "Proposer-set"}
+            {proposal.proposalType === "joint"
+              ? proposal.allocationMode === "sum"
+                ? "Sum of allocations"
+                : titleCase(proposal.allocationMode)
+              : "Proposer-set"}
           </p>
         </div>
         <div className="min-w-0">
@@ -397,6 +401,34 @@ export default function MeetingPage() {
               {formatNumber(meetingDialogProposal.progress.votesSubmitted)} of{" "}
               {formatNumber(meetingDialogProposal.progress.totalRequiredVotes)} votes in
             </p>
+            {meetingDialogProposal.charityNavigatorUrl ? (
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Charity Navigator
+                </p>
+                {meetingDialogProposal.charityNavigatorScore != null ? (
+                  <>
+                    <p className="mt-1.5 font-medium text-foreground">
+                      This charity&apos;s score is {Math.round(meetingDialogProposal.charityNavigatorScore)}%, earning it a{" "}
+                      {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).starLabel} rating.
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).meaning}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1.5 text-muted-foreground">Score not yet available.</p>
+                )}
+                <a
+                  href={meetingDialogProposal.charityNavigatorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block font-medium text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  View on Charity Navigator
+                </a>
+              </div>
+            ) : null}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <Button
                 variant="outline"
