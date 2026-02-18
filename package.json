@@ -4,6 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:1": "next dev -p 3000",
+    "dev:2": "next dev -p 3001",
+    "dev:3": "next dev -p 3002",
+    "dev:4": "next dev -p 3003",
     "dev:test": "NODE_ENV=test npx env-cmd -f .env.test.local next dev",
     "build": "next build",
     "start": "next start",
