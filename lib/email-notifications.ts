@@ -4,7 +4,7 @@ import { HttpError } from "@/lib/http-error";
 import { currency } from "@/lib/utils";
 
 type AdminClient = SupabaseClient;
-type EmailNotificationType = "action_required" | "weekly_action_reminder" | "proposal_sent_fyi" | "introduction";
+type EmailNotificationType = "action_required" | "weekly_action_reminder" | "proposal_sent_fyi" | "introduction" | "proposal_submitted_confirmation";
 
 type OutstandingActionType = "vote_required" | "meeting_review_required" | "admin_send_required";
 
@@ -707,6 +707,63 @@ ${proposalRowsHtml}
 ${emailSectionHeading(outstandingSectionHeading)}
 ${outstandingRowsHtml}
 <p style="margin:20px 0 0 0;color:#6b7280;font-size:13px;">This daily digest is sent to all users.</p>`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
+
+  return {
+    subject,
+    htmlBody,
+    textBody
+  };
+}
+
+function buildProposalSubmittedConfirmationContent(input: {
+  proposerName: string;
+  proposalTitle: string;
+  proposedAmount: number;
+  proposalType: ProposalType;
+  otherMembersNotified: boolean;
+}) {
+  const title = input.proposalTitle.trim() || "Proposal";
+  const amountStr = currency(input.proposedAmount);
+  const typeLabel = input.proposalType === "joint" ? "Joint" : "Discretionary";
+  const subject = `Proposal submitted: ${title}`;
+  const workspaceUrl = buildOpenUrl("/workspace");
+
+  const otherMembersLine = input.otherMembersNotified
+    ? input.proposalType === "joint"
+      ? "We've sent action-required emails to the other members asking them to submit their votes and allocations."
+      : "We've sent action-required emails to the other members asking them to acknowledge or flag the proposal."
+    : "You're the only voting member, so no other notifications were sent.";
+
+  const textBody = [
+    `Hi ${input.proposerName},`,
+    "",
+    "Your proposal has been submitted.",
+    "",
+    "Details:",
+    `  Name: ${title}`,
+    `  Amount: ${amountStr}`,
+    `  Type: ${typeLabel}`,
+    "",
+    otherMembersLine,
+    "",
+    workspaceUrl,
+    "",
+    "Brosens Family Foundation"
+  ].join("\n");
+
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hi ${escapeHtml(input.proposerName)},</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Your proposal has been submitted.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
+<tr><td style="padding:16px 20px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:4px;">
+<p style="margin:0 0 4px 0;font-weight:700;font-size:15px;color:#111827;">${escapeHtml(title)}</p>
+<p style="margin:0;color:#4b5563;font-size:14px;">${escapeHtml(amountStr)} · ${escapeHtml(typeLabel)}</p>
+</td></tr>
+</table>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">${escapeHtml(otherMembersLine)}</p>
+${emailButton("Open Workspace", workspaceUrl)}`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
 
@@ -1423,6 +1480,45 @@ export async function queueVoteRequiredActionEmails(
         : "A discretionary proposal now needs your acknowledgement or flag.",
     actionLinkPath: `/workspace?proposalId=${input.proposalId}`,
     idempotencyKeyPrefix: `action-required:vote:${input.proposalId}`
+  });
+}
+
+export async function queueProposalSubmittedConfirmationEmail(
+  admin: AdminClient,
+  input: {
+    proposalId: string;
+    proposalTitle: string;
+    proposedAmount: number;
+    proposalType: ProposalType;
+    proposerUserId: string;
+    proposerName: string;
+    otherMembersNotified: boolean;
+  }
+) {
+  const content = buildProposalSubmittedConfirmationContent({
+    proposerName: input.proposerName,
+    proposalTitle: input.proposalTitle,
+    proposedAmount: input.proposedAmount,
+    proposalType: input.proposalType,
+    otherMembersNotified: input.otherMembersNotified
+  });
+  const primaryLinkPath = `/workspace?proposalId=${input.proposalId}`;
+  return queueEmailNotification(admin, {
+    notificationType: "proposal_submitted_confirmation",
+    actorUserId: input.proposerUserId,
+    entityId: input.proposalId,
+    idempotencyKey: `proposal-submitted-confirmation:${input.proposalId}`,
+    subject: content.subject,
+    htmlBody: content.htmlBody,
+    textBody: content.textBody,
+    primaryLinkPath,
+    primaryLinkLabel: "Open Workspace",
+    payload: {
+      proposalId: input.proposalId,
+      proposalTitle: input.proposalTitle,
+      proposalType: input.proposalType
+    },
+    recipientUserIds: [input.proposerUserId]
   });
 }
 

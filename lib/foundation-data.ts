@@ -4,6 +4,7 @@ import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
   queueAdminSendRequiredActionEmails,
   queueMeetingReviewActionEmails,
+  queueProposalSubmittedConfirmationEmail,
   queueVoteRequiredActionEmails
 } from "@/lib/email-notifications";
 import {
@@ -1338,6 +1339,18 @@ export async function submitProposal(
       logNotificationError("submitProposal enqueue action-required email", error);
     });
   }
+
+  await queueProposalSubmittedConfirmationEmail(admin, {
+    proposalId: insertedProposal.id,
+    proposalTitle: insertedProposal.proposal_title?.trim() || normalizedOrganizationName,
+    proposedAmount: toNumber(insertedProposal.final_amount) ?? normalizedProposedAmount,
+    proposalType: input.proposalType,
+    proposerUserId: input.proposer.id,
+    proposerName: input.proposer.name,
+    otherMembersNotified: recipients.length > 0
+  }).catch((error) => {
+    logNotificationError("submitProposal enqueue confirmation email", error);
+  });
 
   return insertedProposal;
 }
