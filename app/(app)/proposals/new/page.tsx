@@ -284,6 +284,24 @@ export default function NewProposalPage() {
               }
             />
           </div>
+          <p
+            className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+            role="img"
+            aria-label="Green is allocated, blue is your current allocation input"
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
+              Allocated
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-4 shrink-0 rounded-full"
+                style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
+                aria-hidden
+              />
+              Your input
+            </span>
+          </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {proposalType === "joint"
               ? `Your allocation uses joint budget first, then discretionary (max ${currency(
