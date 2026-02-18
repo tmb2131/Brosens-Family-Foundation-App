@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
+import { Check, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
@@ -42,50 +42,77 @@ function MeetingProposalCard({
   saving: boolean;
   onOpenDecisionDialog: (proposalId: string) => void;
 }) {
+  const votesComplete =
+    proposal.progress.totalRequiredVotes > 0 &&
+    proposal.progress.votesSubmitted >= proposal.progress.totalRequiredVotes;
+
   return (
     <article
-      className={`rounded-xl border border-t-2 bg-background p-4 shadow-sm ${
+      className={`flex flex-col gap-3 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
         proposal.proposalType === "joint"
           ? "border-t-indigo-400 dark:border-t-indigo-500"
           : "border-t-amber-400 dark:border-t-amber-500"
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold">{proposal.title}</h3>
-        <StatusPill status={proposal.status} />
+      {/* Summary: title + status */}
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <h3 className="min-w-0 truncate text-base font-semibold">{proposal.title}</h3>
+        <span className="shrink-0">
+          <StatusPill status={proposal.status} />
+        </span>
       </div>
-      <p className="mt-1.5 text-lg font-semibold tabular-nums text-foreground">
-        {currency(proposal.progress.computedFinalAmount)}
-      </p>
+
+      {/* Primary amount with context label */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Recommended amount
+        </p>
+        <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
+          {currency(proposal.progress.computedFinalAmount)}
+        </p>
+      </div>
       {proposal.description?.trim() ? (
-        <p className="mt-1 text-sm text-muted-foreground">{proposal.description.trim()}</p>
+        <p className="text-sm text-muted-foreground">{proposal.description.trim()}</p>
       ) : null}
 
-      <div className="mt-2 flex flex-row flex-nowrap gap-x-3 text-xs">
-        <div className="min-w-0 flex-1">
-          <span className="text-muted-foreground">Type</span>
-          <p className="font-medium text-foreground">{titleCase(proposal.proposalType)}</p>
+      {/* Metadata block */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+        <div className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Type
+          </span>
+          <p className="mt-0.5 font-medium text-foreground">{titleCase(proposal.proposalType)}</p>
         </div>
-        <div className="min-w-0 flex-1">
-          <span className="text-muted-foreground">Rule</span>
-          <p className="font-medium text-foreground">
+        <div className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Rule
+          </span>
+          <p className="mt-0.5 font-medium text-foreground">
             {proposal.proposalType === "joint" ? titleCase(proposal.allocationMode) : "Proposer-set"}
           </p>
         </div>
-        <div className="min-w-0 flex-1">
-          <span className="text-muted-foreground">Votes in</span>
-          <p className="font-medium text-foreground">
-            {formatNumber(proposal.progress.votesSubmitted)} of {formatNumber(proposal.progress.totalRequiredVotes)}
+        <div className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Votes in
+          </span>
+          <p className="mt-0.5 flex items-center gap-1.5 font-medium text-foreground">
+            {votesComplete ? (
+              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            ) : null}
+            {formatNumber(proposal.progress.votesSubmitted)} of{" "}
+            {formatNumber(proposal.progress.totalRequiredVotes)}
           </p>
         </div>
-        <div className="min-w-0 flex-1">
-          <span className="text-muted-foreground">Proposed</span>
-          <p className="font-medium text-foreground">{currency(proposal.proposedAmount)}</p>
+        <div className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Proposed
+          </span>
+          <p className="mt-0.5 font-medium text-foreground">{currency(proposal.proposedAmount)}</p>
         </div>
       </div>
 
       {proposal.voteBreakdown.some((v) => v.choice === "flagged" && v.flagComment) ? (
-        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
             Flag comments
           </p>
@@ -102,7 +129,7 @@ function MeetingProposalCard({
       ) : null}
 
       {userRole === "oversight" && proposal.charityNavigatorUrl ? (
-        <div className="mt-3 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
+        <div className="rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Charity Navigator
           </p>
@@ -130,15 +157,19 @@ function MeetingProposalCard({
         </div>
       ) : null}
 
-      <Button
-        className="mt-3 w-full"
-        size="lg"
-        disabled={saving}
-        onClick={() => onOpenDecisionDialog(proposal.id)}
-      >
-        <Eye className="h-3.5 w-3.5" />
-        Confirm
-      </Button>
+      {/* CTA separated from content */}
+      <div className="border-t pt-3">
+        <Button
+          className="w-full"
+          size="lg"
+          disabled={saving}
+          onClick={() => onOpenDecisionDialog(proposal.id)}
+          aria-label={`Review and confirm: ${proposal.title}`}
+        >
+          <Eye className="h-3.5 w-3.5" />
+          Review & confirm
+        </Button>
+      </div>
     </article>
   );
 }
