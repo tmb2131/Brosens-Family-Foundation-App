@@ -1,5 +1,11 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+
+/** Port-specific auth cookie name so multiple dev instances (e.g. 3000, 3001) don't share the same session. */
+function getAuthCookieNameForPort(port: string | null): string | undefined {
+  if (port && port !== "3000") return `sb-auth-token-${port}`;
+  return undefined;
+}
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -10,7 +16,13 @@ export async function createClient() {
     return null;
   }
 
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "";
+  const port = host.startsWith("localhost:") ? host.split(":")[1] ?? null : null;
+  const cookieName = getAuthCookieNameForPort(port);
+
   return createServerClient(url, key, {
+    ...(cookieName ? { cookieOptions: { name: cookieName } } : {}),
     cookies: {
       getAll() {
         return cookieStore.getAll();
