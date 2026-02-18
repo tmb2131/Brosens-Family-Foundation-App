@@ -25,6 +25,7 @@ import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
+import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
 import { RouteProgressBar } from "@/components/ui/route-progress-bar";
 
 function getInitials(name: string): string {
@@ -769,6 +770,8 @@ export function AppShell({ children }: PropsWithChildren) {
             </div>
           </header>
         )}
+
+        <PwaIosInstallBanner />
 
         <main className="min-w-0 flex-1">{children}</main>
       </div>

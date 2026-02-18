@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { getClientIsStandalone } from "@/lib/device-detection";
 import { NotificationPreferences } from "@/lib/types";
 
 interface PushPreferencesResponse {
@@ -47,13 +48,6 @@ const EVENT_TOGGLE_OPTIONS: Array<{
     description: "When a proposal is approved and ready for admin action."
   }
 ];
-
-function isStandaloneDisplay() {
-  const nav = window.navigator as Navigator & { standalone?: boolean };
-  return (
-    window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true
-  );
-}
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -99,7 +93,7 @@ export function PushSettingsCard() {
     setSupported(hasSupport);
     setPermission(hasSupport ? Notification.permission : "unsupported");
 
-    const syncStandalone = () => setStandalone(isStandaloneDisplay());
+    const syncStandalone = () => setStandalone(getClientIsStandalone());
     syncStandalone();
 
     const mediaQuery = window.matchMedia("(display-mode: standalone)");

@@ -57,3 +57,29 @@ export function getClientIsMobile(): boolean {
   }
   return /(android|iphone|ipod|blackberry|iemobile|opera mini|webos)/i.test(ua);
 }
+
+/**
+ * Client-side iOS detection (iPhone, iPad, iPod).
+ * Safe to call in the browser; returns false in SSR or when navigator is missing.
+ */
+export function getClientIsIOS(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  const ua = String(navigator.userAgent ?? "").toLowerCase();
+  return /iphone|ipad|ipod/.test(ua);
+}
+
+/**
+ * Client-side PWA/standalone display detection.
+ * Safe to call in the browser; returns false in SSR or when not in standalone mode.
+ */
+export function getClientIsStandalone(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const nav = window.navigator as Navigator & { standalone?: boolean };
+  return (
+    window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true
+  );
+}
