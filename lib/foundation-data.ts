@@ -1313,7 +1313,10 @@ export async function submitProposal(
       actorUserId: input.proposer.id,
       entityId: insertedProposal.id,
       title: "New Proposal Submitted",
-      body: `${input.proposer.name} submitted "${normalizedOrganizationName}".`,
+      body:
+        input.proposalType === "joint"
+          ? "Submit your vote and allocation."
+          : `${input.proposer.name} submitted "${normalizedOrganizationName}".`,
       linkPath: "/workspace",
       payload: {
         proposalId: insertedProposal.id,

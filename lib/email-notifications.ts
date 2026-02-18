@@ -963,7 +963,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
         title,
         description:
           proposal.proposal_type === "joint"
-            ? "Cast your vote and amount recommendation."
+            ? "Submit your vote and allocation."
             : "Mark this proposal as acknowledged or flagged.",
         linkPath: `/workspace?proposalId=${proposal.id}`,
         createdAt: proposal.created_at
