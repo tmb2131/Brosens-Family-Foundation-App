@@ -3,12 +3,11 @@
 import useSWR, { mutate as globalMutate } from "swr";
 import { useRef, useState } from "react";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ClipboardList, DollarSign } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
@@ -112,30 +111,13 @@ export default function AdminPage() {
   const jointQueued = data.proposals.filter((proposal) => proposal.proposalType === "joint").length;
   const discretionaryQueued = data.proposals.length - jointQueued;
 
-  const metricsCards = [
-    <MetricCard
-      key="queue"
-      title="QUEUE SIZE"
-      value={formatNumber(data.proposals.length)}
-      icon={ClipboardList}
-      tone="emerald"
-    />,
-    <MetricCard
-      key="total"
-      title="TOTAL TO SEND"
-      value={currency(totalQueuedAmount)}
-      icon={DollarSign}
-      tone="indigo"
-    />
-  ];
-
   return (
     <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-3">
           <GlassCard className="rounded-3xl">
             <CardLabel>Administrator Workspace</CardLabel>
-            <CardValue>Donation Execution Cues</CardValue>
+            <CardValue>Donation Execution Queue</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Approved grants appear here. Mark as Sent once external donation execution is complete.
@@ -149,9 +131,28 @@ export default function AdminPage() {
             </div>
           </GlassCard>
 
-          <section className="grid gap-3 sm:grid-cols-2 lg:hidden">
-            {metricsCards}
-          </section>
+          <GlassCard className="p-3 lg:hidden">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <ClipboardList className="h-4 w-4" />
+              </span>
+              <CardLabel>Queue <span className="font-semibold">Summary</span></CardLabel>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Queue Size</p>
+                <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                  {formatNumber(data.proposals.length)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total to Send</p>
+                <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                  {currency(totalQueuedAmount)}
+                </p>
+              </div>
+            </div>
+          </GlassCard>
 
           <div className="space-y-3">
         {data.proposals.length === 0 ? (
@@ -275,7 +276,28 @@ export default function AdminPage() {
 
         <div className="hidden lg:block">
           <div className="lg:sticky lg:top-6">
-            <div className="grid gap-3">{metricsCards}</div>
+            <GlassCard className="p-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                  <ClipboardList className="h-4 w-4" />
+                </span>
+                <CardLabel>Queue <span className="font-semibold">Summary</span></CardLabel>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Queue Size</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                    {formatNumber(data.proposals.length)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total to Send</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                    {currency(totalQueuedAmount)}
+                  </p>
+                </div>
+              </div>
+            </GlassCard>
           </div>
         </div>
       </div>

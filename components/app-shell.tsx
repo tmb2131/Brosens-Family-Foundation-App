@@ -123,6 +123,12 @@ const focusNavItems: NavItem[] = [
   { href: "/dashboard", label: "Full Details", icon: FileText }
 ];
 
+/** Mobile-only nav for admin: just Admin Queue and Full Details. */
+const adminMobileNavItems: NavItem[] = [
+  { href: "/admin", label: "Admin Queue", icon: ShieldCheck },
+  { href: "/dashboard", label: "Full Details", icon: FileText }
+];
+
 const fullNavSections: Array<{ id: NavSectionId; label: string }> = [
   { id: "work", label: "Work" },
   { id: "governance", label: "Governance" }
@@ -641,8 +647,14 @@ export function AppShell({ children }: PropsWithChildren) {
     (pathname.startsWith("/mobile") ||
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/proposals/new"));
-  const renderedNav = showMobileFocusNav ? availableFocusNav : availableFullNav;
+      pathname.startsWith("/proposals/new") ||
+      pathname.startsWith("/admin"));
+  const renderedNav =
+    isSmallViewport && user?.role === "admin"
+      ? adminMobileNavItems
+      : showMobileFocusNav
+        ? availableFocusNav
+        : availableFullNav;
   const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
     { refreshInterval: 30_000 }

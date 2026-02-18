@@ -14,7 +14,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "proposalId is required" }), { status: 400 });
   }
 
-  // Replace with email/slack integration for Brynn execution cues.
+  // Replace with email/slack integration for Brynn execution queue.
   return new Response(JSON.stringify({ ok: true, message: "Admin notified", payload }), {
     headers: { "content-type": "application/json" }
   });
