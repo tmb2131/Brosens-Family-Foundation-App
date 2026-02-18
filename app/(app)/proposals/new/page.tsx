@@ -630,6 +630,19 @@ export default function NewProposalPage() {
           {proposalType === "joint" && isVotingMember ? (
             <div className="space-y-1.5">
               <Label htmlFor="proposer-allocation">Your allocation</Label>
+              {workspaceQuery.data && workspaceQuery.data.votingMemberCount > 0 ? (
+                <p className="text-[11px] italic text-muted-foreground">
+                  Implied share:{" "}
+                  {parsedProposedAmount != null && Number.isFinite(parsedProposedAmount)
+                    ? currency(
+                        Math.round(
+                          parsedProposedAmount / workspaceQuery.data.votingMemberCount
+                        )
+                      )
+                    : "—"}{" "}
+                  each (based on proposed total).
+                </p>
+              ) : null}
               <AmountInput
                 id="proposer-allocation"
                 min={0}

@@ -974,6 +974,7 @@ export async function getWorkspaceSnapshot(
 
   return {
     user,
+    votingMemberCount: votingMemberIds.length,
     personalBudget,
     actionItems,
     voteHistory,

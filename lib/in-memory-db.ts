@@ -559,6 +559,7 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
 
   return {
     user,
+    votingMemberCount: VOTING_MEMBER_IDS.length,
     personalBudget: {
       jointTarget: personalJointTarget,
       jointAllocated: jointAllocatedByUser,
