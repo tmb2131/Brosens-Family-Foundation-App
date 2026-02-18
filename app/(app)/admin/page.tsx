@@ -222,55 +222,59 @@ function AdminPageClient() {
                       ) : null}
 
                       <div className="mt-3 rounded-2xl border-2 border-border bg-muted/30 p-4 sm:border-0 sm:bg-transparent sm:p-0">
-                        <div className="flex min-w-0 flex-row flex-wrap items-end gap-2 sm:items-start sm:gap-3">
-                          <div className="min-w-0 shrink-0">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">
-                              Send amount
-                            </p>
-                            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                              {currency(proposal.progress.computedFinalAmount)}
-                            </p>
+                        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3 lg:flex-nowrap lg:items-start">
+                          <div className="flex min-w-0 flex-row flex-wrap items-end gap-2 sm:gap-3 lg:flex-1 lg:flex-nowrap lg:items-start">
+                            <div className="min-w-0 shrink-0">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">
+                                Send amount
+                              </p>
+                              <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                                {currency(proposal.progress.computedFinalAmount)}
+                              </p>
+                            </div>
+
+                            <div className="min-w-0 shrink-0 sm:w-[12rem]">
+                              <label
+                                htmlFor={`sent-date-${proposal.id}`}
+                                className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight"
+                              >
+                                Date sent
+                              </label>
+                              <Input
+                                id={`sent-date-${proposal.id}`}
+                                type="date"
+                                value={sentDate}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setSentDateByProposalId((current) => ({
+                                    ...current,
+                                    [proposal.id]: value
+                                  }));
+                                  setSentErrorByProposalId((current) => {
+                                    const next = { ...current };
+                                    delete next[proposal.id];
+                                    return next;
+                                  });
+                                }}
+                                className="mt-1 w-[10.5rem] max-sm:border-border/60 max-sm:bg-background/50"
+                                required
+                                disabled={isSaving}
+                              />
+                            </div>
                           </div>
 
-                          <div className="min-w-0 shrink-0 sm:w-[12rem]">
-                            <label
-                              htmlFor={`sent-date-${proposal.id}`}
-                              className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight"
+                          <div className="flex shrink-0 justify-end sm:justify-start lg:justify-end lg:self-end">
+                            <Button
+                              type="button"
+                              variant="prominent"
+                              className="min-h-[44px] min-w-[7rem] shrink-0 py-3 sm:w-auto sm:py-2"
+                              onClick={() => void markSent(proposal.id)}
+                              disabled={!sentDate || isSaving}
+                              aria-describedby={errorMessage ? errorId : undefined}
                             >
-                              Date sent
-                            </label>
-                            <Input
-                              id={`sent-date-${proposal.id}`}
-                              type="date"
-                              value={sentDate}
-                              onChange={(event) => {
-                                const value = event.target.value;
-                                setSentDateByProposalId((current) => ({
-                                  ...current,
-                                  [proposal.id]: value
-                                }));
-                                setSentErrorByProposalId((current) => {
-                                  const next = { ...current };
-                                  delete next[proposal.id];
-                                  return next;
-                                });
-                              }}
-                              className="mt-1 w-[10.5rem] max-sm:border-border/60 max-sm:bg-background/50"
-                              required
-                              disabled={isSaving}
-                            />
+                              {isSaving ? "Saving..." : "Mark as Sent"}
+                            </Button>
                           </div>
-
-                          <Button
-                            type="button"
-                            variant="prominent"
-                            className="min-h-[44px] min-w-[7rem] shrink-0 py-3 sm:w-auto sm:py-2"
-                            onClick={() => void markSent(proposal.id)}
-                            disabled={!sentDate || isSaving}
-                            aria-describedby={errorMessage ? errorId : undefined}
-                          >
-                            {isSaving ? "Saving..." : "Mark as Sent"}
-                          </Button>
                         </div>
                       </div>
 
