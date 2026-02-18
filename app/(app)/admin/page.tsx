@@ -139,8 +139,6 @@ function AdminPageClient() {
     (sum, proposal) => sum + proposal.progress.computedFinalAmount,
     0
   );
-  const jointQueued = data.proposals.filter((proposal) => proposal.proposalType === "joint").length;
-  const discretionaryQueued = data.proposals.length - jointQueued;
 
   return (
     <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
@@ -153,13 +151,6 @@ function AdminPageClient() {
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Approved grants appear here. Mark as Sent once external donation execution is complete.
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>{formatNumber(data.proposals.length)} queued proposal(s)</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>{formatNumber(jointQueued)} joint</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>{formatNumber(discretionaryQueued)} discretionary</span>
-            </div>
           </GlassCard>
 
           <GlassCard className="p-3 lg:hidden">
