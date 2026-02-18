@@ -18,9 +18,15 @@ export async function createClient() {
       setAll(
         cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>
       ) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2]);
-        });
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2]);
+          });
+        } catch {
+          // Cookie modification is only allowed in Server Actions and Route Handlers.
+          // When called from a Server Component (e.g. layout/page), skip setting so we don't throw.
+          // Session will still be read correctly; refresh will apply on the next request that can set cookies.
+        }
       }
     }
   });
