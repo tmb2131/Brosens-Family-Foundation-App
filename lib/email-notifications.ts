@@ -151,6 +151,13 @@ export interface ProcessDailyProposalSentDigestResult {
   skippedAlreadySent: number;
 }
 
+/** Preview payload for the daily sent digest (no email sent). */
+export interface DailyDigestPreview {
+  dayKey: string;
+  proposals: Array<{ id: string; title: string; sentAt: string | null; amount: number }>;
+  outstanding: Array<{ id: string; title: string }>;
+}
+
 const MAX_EMAIL_DELIVERY_ATTEMPTS = 5;
 const WEEKLY_REMINDER_LOCAL_HOUR = 10;
 const DAILY_SENT_DIGEST_LOCAL_HOUR = 10;
@@ -1597,16 +1604,27 @@ export async function processWeeklyActionReminderEmails(
 }
 
 
-export async function processDailyProposalSentDigestEmails(
+type DailyDigestDataOptions = {
+  now?: Date;
+  ignoreTimeWindow?: boolean;
+  sendEvenIfNoSentToday?: boolean;
+};
+
+type FetchDailyDigestDataResult =
+  | {
+      kind: "data";
+      dayKey: string;
+      proposals: Array<{ id: string; title: string; sentAt: string | null; amount: number }>;
+      outstanding: Array<{ id: string; title: string }>;
+      sentEventsFound: number;
+    }
+  | { kind: "skipped"; reason: "time"; sentEventsFound: number }
+  | { kind: "skipped"; reason: "no_events"; sentEventsFound: number };
+
+async function fetchDailyDigestData(
   admin: AdminClient,
-  options?: {
-    now?: Date;
-    /** When true (e.g. manual run from Settings), skip the 10am ET time gate so the digest can run at any time. */
-    ignoreTimeWindow?: boolean;
-    /** When true (e.g. dev + manual), send the digest even when no proposals were marked sent today so you can see the email (empty "marked sent" section + outstanding). */
-    sendEvenIfNoSentToday?: boolean;
-  }
-): Promise<ProcessDailyProposalSentDigestResult> {
+  options?: DailyDigestDataOptions
+): Promise<FetchDailyDigestDataResult> {
   const now = options?.now ?? new Date();
   const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
 
@@ -1615,13 +1633,9 @@ export async function processDailyProposalSentDigestEmails(
     (options?.ignoreTimeWindow === true || nyLocalTime.hour >= DAILY_SENT_DIGEST_LOCAL_HOUR);
   if (!nyLocalTime || !inWindow) {
     return {
-      dueForWindow: options?.ignoreTimeWindow ?? false,
-      sentEventsFound: 0,
-      proposalsIncluded: 0,
-      digestQueued: 0,
-      skippedNoEvents: 0,
-      skippedWrongLocalTime: options?.ignoreTimeWindow ? 0 : 1,
-      skippedAlreadySent: 0
+      kind: "skipped",
+      reason: "time",
+      sentEventsFound: 0
     };
   }
 
@@ -1659,13 +1673,9 @@ export async function processDailyProposalSentDigestEmails(
   if (proposalIds.length === 0) {
     if (!options?.sendEvenIfNoSentToday) {
       return {
-        dueForWindow: true,
-        sentEventsFound: sentToday.length,
-        proposalsIncluded: 0,
-        digestQueued: 0,
-        skippedNoEvents: 1,
-        skippedWrongLocalTime: 0,
-        skippedAlreadySent: 0
+        kind: "skipped",
+        reason: "no_events",
+        sentEventsFound: sentToday.length
       };
     }
     proposals = [];
@@ -1710,13 +1720,9 @@ export async function processDailyProposalSentDigestEmails(
 
     if (!built.length && !options?.sendEvenIfNoSentToday) {
       return {
-        dueForWindow: true,
-        sentEventsFound: sentToday.length,
-        proposalsIncluded: 0,
-        digestQueued: 0,
-        skippedNoEvents: 1,
-        skippedWrongLocalTime: 0,
-        skippedAlreadySent: 0
+        kind: "skipped",
+        reason: "no_events",
+        sentEventsFound: sentToday.length
       };
     }
     proposals = built;
@@ -1742,6 +1748,70 @@ export async function processDailyProposalSentDigestEmails(
       title: row.proposal_title?.trim() || "Proposal"
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
+
+  return {
+    kind: "data",
+    dayKey,
+    proposals,
+    outstanding,
+    sentEventsFound: sentToday.length
+  };
+}
+
+/**
+ * Returns the proposals and outstanding list that would be included in today's daily digest (America/New_York).
+ * Does not send any email. Use for previews or scripts.
+ */
+export async function getDailyDigestPreview(
+  admin: AdminClient,
+  options?: { now?: Date }
+): Promise<DailyDigestPreview> {
+  const result = await fetchDailyDigestData(admin, {
+    ...options,
+    ignoreTimeWindow: true,
+    sendEvenIfNoSentToday: true
+  });
+  if (result.kind === "skipped") {
+    return {
+      dayKey: toIsoDateKey(
+        getLocalTimeSnapshot(options?.now ?? new Date(), DEFAULT_TIMEZONE) ?? {
+          year: new Date().getFullYear(),
+          month: new Date().getMonth() + 1,
+          day: new Date().getDate()
+        }
+      ),
+      proposals: [],
+      outstanding: []
+    };
+  }
+  return {
+    dayKey: result.dayKey,
+    proposals: result.proposals,
+    outstanding: result.outstanding
+  };
+}
+
+export async function processDailyProposalSentDigestEmails(
+  admin: AdminClient,
+  options?: DailyDigestDataOptions
+): Promise<ProcessDailyProposalSentDigestResult> {
+  const result = await fetchDailyDigestData(admin, options);
+
+  if (result.kind === "skipped") {
+    const dueForWindow = result.reason === "no_events";
+    return {
+      dueForWindow,
+      sentEventsFound: result.sentEventsFound,
+      proposalsIncluded: 0,
+      digestQueued: 0,
+      skippedNoEvents: result.reason === "no_events" ? 1 : 0,
+      skippedWrongLocalTime: result.reason === "time" ? 1 : 0,
+      skippedAlreadySent: 0
+    };
+  }
+
+  const { dayKey, proposals, outstanding, sentEventsFound } = result;
+  const now = options?.now ?? new Date();
 
   const recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
   const content = buildProposalSentFyiContent({ dayKey, proposals, outstanding });
@@ -1772,7 +1842,7 @@ export async function processDailyProposalSentDigestEmails(
 
   return {
     dueForWindow: true,
-    sentEventsFound: sentToday.length,
+    sentEventsFound,
     proposalsIncluded: proposals.length,
     digestQueued: queueResult.enqueued ? 1 : 0,
     skippedNoEvents: 0,

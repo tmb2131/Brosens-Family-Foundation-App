@@ -14,7 +14,8 @@
     "test:mobile-screenshots:install": "playwright install chromium",
     "supabase": "npx supabase",
     "db:push": "npx supabase db push",
-    "db:push:dry-run": "npx supabase db push --dry-run"
+    "db:push:dry-run": "npx supabase db push --dry-run",
+    "digest-preview": "npx tsx scripts/daily-digest-preview.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
