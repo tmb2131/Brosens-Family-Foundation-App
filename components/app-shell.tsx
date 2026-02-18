@@ -642,6 +642,12 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
+  /** Home, + New Proposal, Full Details: constrain viewport so bottom nav always visible without scrolling. */
+  const stickyBottomNavOnMobile =
+    isSmallViewport &&
+    (pathname.startsWith("/mobile") ||
+      pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/proposals/new"));
   const hideShellHeader =
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||
@@ -710,7 +716,12 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div
-      className="page-enter flex min-h-screen w-full flex-col px-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8"
+      className={cn(
+        "page-enter flex min-h-screen w-full flex-col px-3 pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8",
+        stickyBottomNavOnMobile
+          ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-0"
+          : "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+      )}
       style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
     >
       <RouteProgressBar />
@@ -724,7 +735,13 @@ export function AppShell({ children }: PropsWithChildren) {
         onSignOut={() => void signOut()}
       />
 
-      <div className="min-w-0 flex-1">
+      <div
+        className={cn(
+          "min-w-0 flex-1",
+          stickyBottomNavOnMobile &&
+            "min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+        )}
+      >
         {hideShellHeader ? null : (
           <header className="glass-card mb-4 rounded-3xl p-4 print:hidden sm:hidden">
             <div className="flex flex-wrap items-start justify-between gap-3">
