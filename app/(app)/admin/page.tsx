@@ -14,10 +14,10 @@ import { Input } from "@/components/ui/input";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn, currency, formatNumber } from "@/lib/utils";
-import { FoundationSnapshot } from "@/lib/types";
+import { AdminQueueProposal } from "@/lib/foundation-data";
 
 interface AdminQueueResponse {
-  proposals: FoundationSnapshot["proposals"];
+  proposals: AdminQueueProposal[];
 }
 
 function AdminPageClient() {
@@ -274,36 +274,40 @@ function AdminPageClient() {
                         </div>
                       </div>
 
-                      {proposal.organizationWebsite || proposal.charityNavigatorUrl ? (
-                        <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                          {proposal.organizationWebsite ? (
-                            <p className="break-all">
-                              Organization website:{" "}
-                              <a
-                                href={proposal.organizationWebsite}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
-                              >
-                                {proposal.organizationWebsite}
-                              </a>
-                            </p>
-                          ) : null}
-                          {proposal.charityNavigatorUrl ? (
-                            <p className="break-all">
-                              Charity Navigator:{" "}
-                              <a
-                                href={proposal.charityNavigatorUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
-                              >
-                                {proposal.charityNavigatorUrl}
-                              </a>
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
+                      <div className="mt-3 hidden space-y-1 text-xs text-muted-foreground lg:block">
+                        {proposal.proposerDisplay ? (
+                          <p>
+                            Proposed by{" "}
+                            <span className="font-medium text-foreground">{proposal.proposerDisplay}</span>
+                          </p>
+                        ) : null}
+                        {proposal.organizationWebsite ? (
+                          <p className="break-all">
+                            Organization website:{" "}
+                            <a
+                              href={proposal.organizationWebsite}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
+                            >
+                              {proposal.organizationWebsite}
+                            </a>
+                          </p>
+                        ) : null}
+                        {proposal.charityNavigatorUrl ? (
+                          <p className="break-all">
+                            Charity Navigator:{" "}
+                            <a
+                              href={proposal.charityNavigatorUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
+                            >
+                              {proposal.charityNavigatorUrl}
+                            </a>
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
 
                     <StatusPill status={proposal.status} />

@@ -298,6 +298,34 @@ async function getProfileById(admin: AdminClient, userId: string): Promise<UserP
   };
 }
 
+/** Returns local part of email (e.g. thomas.brosens@gmail.com → thomas.brosens), or null if no email. */
+function proposerDisplayFromEmail(email: string | null | undefined): string | null {
+  if (!email?.trim()) return null;
+  const at = email.indexOf("@");
+  return at > 0 ? email.slice(0, at).trim() : email.trim();
+}
+
+async function loadProposerEmailsById(
+  admin: AdminClient,
+  userIds: string[]
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const uniqueIds = [...new Set(userIds)];
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("id, email")
+    .in("id", uniqueIds)
+    .returns<Array<{ id: string; email: string }>>();
+  if (error) {
+    throw new HttpError(500, `Could not load proposer profiles: ${error.message}`);
+  }
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    map.set(row.id, row.email);
+  }
+  return map;
+}
+
 async function getCurrentBudget(admin: AdminClient): Promise<BudgetRow> {
   const year = currentYear();
 
@@ -1851,6 +1879,8 @@ export async function updateProposalRecord(
   return getProposalViewById(admin, input.proposalId, input.currentUserId);
 }
 
+export type AdminQueueProposal = Awaited<ReturnType<typeof getAdminQueue>>["proposals"][number];
+
 export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
   const votingMemberIds = await getVotingMemberIds(admin);
   const { data: approvedRows, error } = await admin
@@ -1865,10 +1895,13 @@ export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
   }
 
   const proposalRows = approvedRows ?? [];
+  const proposerIds = unique(proposalRows.map((row) => row.proposer_id));
+  const [deps, proposerEmailById] = await Promise.all([
+    loadProposalsWithDependencies(admin, proposalRows),
+    loadProposerEmailsById(admin, proposerIds)
+  ]);
 
-  const deps = await loadProposalsWithDependencies(admin, proposalRows);
-
-  return buildProposalViews({
+  const views = buildProposalViews({
     proposals: proposalRows,
     grantById: deps.grantById,
     organizationById: deps.organizationById,
@@ -1876,6 +1909,13 @@ export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
     currentUserId,
     votingMemberIds
   });
+
+  const proposals = views.map((p) => ({
+    ...p,
+    proposerDisplay: proposerDisplayFromEmail(proposerEmailById.get(p.proposerId)) ?? null
+  }));
+
+  return { proposals };
 }
 
 export async function getBudgetSnapshot(admin: AdminClient) {

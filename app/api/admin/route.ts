@@ -8,7 +8,7 @@ export async function GET() {
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, ["admin"]);
 
-    const proposals = await getAdminQueue(admin, profile.id);
+    const { proposals } = await getAdminQueue(admin, profile.id);
     return NextResponse.json({ proposals }, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);
