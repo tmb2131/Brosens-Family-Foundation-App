@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
+import { getClientIsMobile } from "@/lib/device-detection";
 
 interface ProposalTitleSuggestionsResponse {
   titles: string[];
@@ -211,7 +212,7 @@ export default function NewProposalPage() {
       mutateAllFoundation();
       setIsConfirmDialogOpen(false);
       window.dispatchEvent(new Event("route-progress-start"));
-      router.push("/dashboard");
+      router.push(getClientIsMobile() ? "/mobile" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit");
     } finally {
