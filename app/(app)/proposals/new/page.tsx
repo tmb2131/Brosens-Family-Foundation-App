@@ -108,6 +108,10 @@ export default function NewProposalPage() {
     0,
     jointAllocationFromProposer - jointRemaining
   );
+  const discretionaryProposedPending =
+    proposalType === "discretionary"
+      ? Math.max(0, parsedProposedAmount ?? parseNumberInput(proposedAmount) ?? 0)
+      : 0;
 
   const jointAllocatedPreview =
     workspaceQuery.data && proposalType === "joint" && isVotingMember
@@ -265,13 +269,19 @@ export default function NewProposalPage() {
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <PersonalBudgetBars
               title="Joint Budget"
-              allocated={jointAllocatedPreview}
+              allocated={workspaceQuery.data.personalBudget.jointAllocated}
               total={workspaceQuery.data.personalBudget.jointTarget}
+              pendingAllocation={jointPortionOfProposerAllocation}
             />
             <PersonalBudgetBars
               title="Discretionary Budget"
-              allocated={discretionaryAllocatedPreview}
+              allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
               total={workspaceQuery.data.personalBudget.discretionaryCap}
+              pendingAllocation={
+                proposalType === "joint"
+                  ? discretionaryPortionOfProposerAllocation
+                  : discretionaryProposedPending
+              }
             />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
@@ -321,54 +331,41 @@ export default function NewProposalPage() {
         ) : (
           <>
             <div className="mt-2 grid grid-cols-3 gap-2">
-              {[
-                {
-                  label: "Total",
-                  remaining: Math.max(
-                    0,
-                    workspaceQuery.data.personalBudget.jointTarget +
-                      workspaceQuery.data.personalBudget.discretionaryCap -
-                      jointAllocatedPreview -
-                      discretionaryAllocatedPreview
-                  ),
-                  allocated: jointAllocatedPreview + discretionaryAllocatedPreview,
-                  total:
-                    workspaceQuery.data.personalBudget.jointTarget +
-                    workspaceQuery.data.personalBudget.discretionaryCap
-                },
-                {
-                  label: "Joint",
-                  remaining: jointRemainingPreview,
-                  allocated: jointAllocatedPreview,
-                  total: workspaceQuery.data.personalBudget.jointTarget
-                },
-                {
-                  label: "Discretionary",
-                  remaining: discretionaryRemainingPreview,
-                  allocated: discretionaryAllocatedPreview,
-                  total: workspaceQuery.data.personalBudget.discretionaryCap
+              <PersonalBudgetBars
+                title="Total"
+                allocated={
+                  workspaceQuery.data.personalBudget.jointAllocated +
+                  workspaceQuery.data.personalBudget.discretionaryAllocated
                 }
-              ].map(({ label, remaining, allocated, total }) => {
-                const ratio = total === 0 ? 0 : Math.min(100, Math.round((allocated / total) * 100));
-                return (
-                  <div key={label} className="rounded-xl border border-border/80 bg-muted/30 p-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {label}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
-                      {currency(remaining)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">remaining of your budget of {currency(total)}</p>
-                    <div className="mt-2 h-1.5 rounded-full bg-muted">
-                      <div
-                        className="h-1.5 rounded-full bg-accent"
-                        style={{ width: `${ratio}%` }}
-                        aria-hidden
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                total={
+                  workspaceQuery.data.personalBudget.jointTarget +
+                  workspaceQuery.data.personalBudget.discretionaryCap
+                }
+                pendingAllocation={
+                  proposalType === "joint"
+                    ? jointAllocationFromProposer
+                    : discretionaryProposedPending
+                }
+                compact
+              />
+              <PersonalBudgetBars
+                title="Joint"
+                allocated={workspaceQuery.data.personalBudget.jointAllocated}
+                total={workspaceQuery.data.personalBudget.jointTarget}
+                pendingAllocation={jointPortionOfProposerAllocation}
+                compact
+              />
+              <PersonalBudgetBars
+                title="Discretionary"
+                allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
+                total={workspaceQuery.data.personalBudget.discretionaryCap}
+                pendingAllocation={
+                  proposalType === "joint"
+                    ? discretionaryPortionOfProposerAllocation
+                    : discretionaryProposedPending
+                }
+                compact
+              />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {proposalType === "joint"
