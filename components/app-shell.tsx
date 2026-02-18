@@ -742,10 +742,11 @@ export function AppShell({ children }: PropsWithChildren) {
                 <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
                 <button
                   onClick={() => void signOut()}
-                  className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-card hover:bg-muted focus:outline-none sm:h-9 sm:w-9"
                   type="button"
+                  aria-label="Sign out"
                 >
-                  <LogOut className="h-3.5 w-3.5" /> Sign out
+                  <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
                 </button>
               </div>
             </div>

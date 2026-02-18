@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ListChecks, RefreshCw, Vote, Wallet } from "lucide-react";
+import { ListChecks, LogOut, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
@@ -22,10 +22,8 @@ import { VoteForm } from "@/components/voting/vote-form";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, titleCase } from "@/lib/utils";
 
-const ACTION_ITEMS_PREVIEW_LIMIT = 2;
-
 export default function MobileFocusClient() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [mounted, setMounted] = useState(false);
   const searchParams = useSearchParams();
 
@@ -92,8 +90,6 @@ export default function MobileFocusClient() {
 
   const workspace = workspaceQuery.data;
   const isManager = workspace.user.role === "manager";
-  const visibleActionItems = workspace.actionItems.slice(0, ACTION_ITEMS_PREVIEW_LIMIT);
-  const remainingActionItems = Math.max(0, workspace.actionItems.length - visibleActionItems.length);
   const pendingJointTotal = workspace.actionItems
     .filter((item) => item.proposalType === "joint")
     .reduce(
@@ -117,7 +113,17 @@ export default function MobileFocusClient() {
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Today&apos;s Focus</p>
         <div className="flex items-center gap-1.5">
           {mounted && (
-            <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
+            <>
+              <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-card hover:bg-muted focus:outline-none sm:h-9 sm:w-9"
+                aria-label="Sign out"
+              >
+                <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -228,10 +234,10 @@ export default function MobileFocusClient() {
         </div>
 
         <div className="space-y-4">
-          {visibleActionItems.length === 0 ? (
+          {workspace.actionItems.length === 0 ? (
             <p className="text-sm text-muted-foreground">You&apos;re all caught up.</p>
           ) : (
-            visibleActionItems.map((item) => {
+            workspace.actionItems.map((item) => {
               if (!user) {
                 return null;
               }
@@ -280,15 +286,6 @@ export default function MobileFocusClient() {
             })
           )}
         </div>
-
-        {remainingActionItems > 0 ? (
-          <Link
-            href="/workspace"
-            className="mt-2 inline-flex min-h-9 items-center text-xs font-semibold text-accent"
-          >
-            View {remainingActionItems} more action item{remainingActionItems === 1 ? "" : "s"}
-          </Link>
-        ) : null}
       </GlassCard>
 
       <Dialog
