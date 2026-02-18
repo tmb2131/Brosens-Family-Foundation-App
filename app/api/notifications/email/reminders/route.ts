@@ -22,7 +22,11 @@ function isAuthorizedBySecret(request: NextRequest) {
 }
 
 async function runReminders(request: NextRequest): Promise<NextResponse> {
-  if (process.env.DISABLE_EMAIL_CRON === "true") {
+  const fromCronOrWorker = isAuthorizedBySecret(request);
+  const manual = !fromCronOrWorker;
+
+  // Only apply DISABLE_EMAIL_CRON to cron/worker (Bearer) requests; manual run from Settings always runs
+  if (!manual && process.env.DISABLE_EMAIL_CRON === "true") {
     return NextResponse.json({
       disabled: true,
       message: "Email cron is disabled (DISABLE_EMAIL_CRON=true)."
@@ -37,14 +41,21 @@ async function runReminders(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (!isAuthorizedBySecret(request)) {
+  if (!fromCronOrWorker) {
     const context = await requireAuthContext();
     assertRole(context.profile, ["oversight", "admin"]);
   }
 
+  const dailyDigestOptions = manual
+    ? {
+        ignoreTimeWindow: true,
+        sendEvenIfNoSentToday: true
+      }
+    : undefined;
+
   const [weeklyUpdate, dailySentDigest] = await Promise.all([
     processWeeklyActionReminderEmails(admin),
-    processDailyProposalSentDigestEmails(admin)
+    processDailyProposalSentDigestEmails(admin, dailyDigestOptions)
   ]);
 
   // Explicitly process all pending deliveries before returning the response,

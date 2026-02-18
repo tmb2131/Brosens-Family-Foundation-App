@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { AppRole, ProposalType } from "@/lib/types";
 import { HttpError } from "@/lib/http-error";
+import { currency } from "@/lib/utils";
 
 type AdminClient = SupabaseClient;
 type EmailNotificationType = "action_required" | "weekly_action_reminder" | "proposal_sent_fyi" | "introduction";
@@ -571,8 +572,8 @@ function buildWeeklyReminderContent(input: {
     subjectParts.push(`${actionCount} action${actionCount === 1 ? "" : "s"} for you`);
   }
   const subject = subjectParts.length
-    ? `Tuesday update: ${subjectParts.join(", ")}`
-    : "Tuesday update";
+    ? `Tuesday weekly update: ${subjectParts.join(", ")}`
+    : "Tuesday weekly update";
   const outstandingText = renderOutstandingActionsText(input.outstandingActions);
   const outstandingHtml = renderOutstandingActionsHtml(input.outstandingActions);
   const ownProposalText = renderOwnProposalUpdatesText(input.ownProposalUpdates);
@@ -612,35 +613,47 @@ ${sections.map((s) => `${emailSectionHeading(s.heading)}\n${s.html}`).join("\n")
 
 function buildProposalSentFyiContent(input: {
   dayKey: string;
-  proposals: Array<{ id: string; title: string; sentAt: string | null }>;
+  proposals: Array<{ id: string; title: string; sentAt: string | null; amount: number }>;
   outstanding?: Array<{ id: string; title: string }>;
 }) {
-  const subject = `Daily sent digest: ${input.proposals.length} proposal${input.proposals.length === 1 ? "" : "s"} marked Sent`;
+  const count = input.proposals.length;
+  const subject = `Daily sent digest: ${count} donation${count === 1 ? "" : "s"} sent`;
   const openUrl = buildOpenUrl("/dashboard");
+  const formatSentDate = (sentAt: string | null) => {
+    const dateStr = sentAt?.trim() || input.dayKey;
+    const date = new Date(dateStr);
+    return Number.isNaN(date.getTime())
+      ? dateStr
+      : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
   const proposalRowsText = input.proposals
     .map((proposal, index) => {
-      const sentDate = proposal.sentAt?.trim() ? proposal.sentAt : input.dayKey;
-      return `${index + 1}. ${proposal.title}\n   Sent date: ${sentDate}`;
+      const amountStr = currency(proposal.amount);
+      const sentOn = formatSentDate(proposal.sentAt);
+      return `${index + 1}. ${proposal.title} — ${amountStr} sent on ${sentOn}`;
     })
     .join("\n");
-  const proposalRowsHtml = input.proposals
-    .map((proposal) => {
-      const sentDate = proposal.sentAt?.trim() ? proposal.sentAt : input.dayKey;
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
+  const sentSectionHeading = "Donations marked Sent today";
+  const proposalRowsHtml =
+    input.proposals.length > 0
+      ? input.proposals
+          .map((proposal) => {
+            const amountStr = currency(proposal.amount);
+            const sentOn = formatSentDate(proposal.sentAt);
+            return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
 <tr><td style="padding:12px 16px;border:1px solid #e5e7eb;border-radius:6px;">
-<span style="font-weight:700;color:#111827;">${escapeHtml(proposal.title)}</span><br />
-<span style="color:#4b5563;font-size:14px;">Sent date: ${escapeHtml(sentDate)}</span>
+<span style="font-weight:600;color:#111827;">${escapeHtml(proposal.title)}</span><br />
+<span style="color:#4b5563;font-size:14px;">${escapeHtml(amountStr)} sent on ${escapeHtml(sentOn)}</span>
 </td></tr>
 </table>`;
-    })
-    .join("");
+          })
+          .join("")
+      : "<p style=\"margin:0;color:#4b5563;\">No donations marked Sent today.</p>";
 
   const outstandingList = input.outstanding ?? [];
   const outstandingText =
     outstandingList.length > 0
-      ? outstandingList
-          .map((p, i) => `${i + 1}. ${p.title}\n   ${buildOpenUrl(`/meeting?proposalId=${p.id}`)}`)
-          .join("\n")
+      ? outstandingList.map((p, i) => `${i + 1}. ${p.title}`).join("\n")
       : "None.";
   const outstandingSectionText = [
     "",
@@ -648,44 +661,45 @@ function buildProposalSentFyiContent(input: {
     outstandingText
   ].join("\n");
 
+  const outstandingSectionHeading = "Still outstanding (approved, not yet marked Sent)";
   const outstandingRowsHtml =
     outstandingList.length > 0
       ? outstandingList
           .map((p) => {
-            const meetingUrl = buildOpenUrl(`/meeting?proposalId=${p.id}`);
             return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
 <tr><td style="padding:12px 16px;border:1px solid #e5e7eb;border-radius:6px;">
-<a href="${escapeHtml(meetingUrl)}" style="font-weight:700;color:#111827;text-decoration:none;">${escapeHtml(p.title)}</a>
+<span style="font-weight:600;color:#111827;">${escapeHtml(p.title)}</span>
 </td></tr>
 </table>`;
           })
           .join("")
-      : `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#6b7280;">None.</p>`;
-  const outstandingSectionHtml = `
-<p style="margin:24px 0 8px 0;font-size:15px;line-height:1.5;color:#111827;">Still outstanding (approved, not yet marked Sent):</p>
-${outstandingRowsHtml}`;
+      : "<p style=\"margin:0;color:#4b5563;\">None.</p>";
 
   const textBody = [
     "Hello,",
     "",
-    `The following proposals were marked Sent on ${input.dayKey} (America/New_York):`,
-    proposalRowsText,
+    "Here is your daily sent digest.",
     "",
     `${openUrl}`,
-    outstandingSectionText,
     "",
-    "This daily digest is sent to all users.",
+    `${sentSectionHeading}:`,
+    proposalRowsText || "No donations marked Sent today.",
+    "",
+    outstandingSectionHeading + ":",
+    outstandingText,
     "",
     "Brosens Family Foundation"
   ].join("\n");
 
   const contentHtml = `
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hello,</p>
-<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">The following proposals were marked <strong>Sent</strong> on <strong>${escapeHtml(input.dayKey)}</strong> (America/New_York):</p>
-${proposalRowsHtml}
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Here is your daily sent digest.</p>
 ${emailButton("Open Dashboard", openUrl)}
-${outstandingSectionHtml}
-<p style="margin:16px 0 0 0;color:#6b7280;font-size:13px;">This daily digest is sent to all users.</p>`;
+${emailSectionHeading(sentSectionHeading)}
+${proposalRowsHtml}
+${emailSectionHeading(outstandingSectionHeading)}
+${outstandingRowsHtml}
+<p style="margin:20px 0 0 0;color:#6b7280;font-size:13px;">This daily digest is sent to all users.</p>`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
 
@@ -1585,19 +1599,28 @@ export async function processWeeklyActionReminderEmails(
 
 export async function processDailyProposalSentDigestEmails(
   admin: AdminClient,
-  options?: { now?: Date }
+  options?: {
+    now?: Date;
+    /** When true (e.g. manual run from Settings), skip the 10am ET time gate so the digest can run at any time. */
+    ignoreTimeWindow?: boolean;
+    /** When true (e.g. dev + manual), send the digest even when no proposals were marked sent today so you can see the email (empty "marked sent" section + outstanding). */
+    sendEvenIfNoSentToday?: boolean;
+  }
 ): Promise<ProcessDailyProposalSentDigestResult> {
   const now = options?.now ?? new Date();
   const nyLocalTime = getLocalTimeSnapshot(now, DEFAULT_TIMEZONE);
 
-  if (!nyLocalTime || nyLocalTime.hour < DAILY_SENT_DIGEST_LOCAL_HOUR) {
+  const inWindow =
+    nyLocalTime &&
+    (options?.ignoreTimeWindow === true || nyLocalTime.hour >= DAILY_SENT_DIGEST_LOCAL_HOUR);
+  if (!nyLocalTime || !inWindow) {
     return {
-      dueForWindow: false,
+      dueForWindow: options?.ignoreTimeWindow ?? false,
       sentEventsFound: 0,
       proposalsIncluded: 0,
       digestQueued: 0,
       skippedNoEvents: 0,
-      skippedWrongLocalTime: 1,
+      skippedWrongLocalTime: options?.ignoreTimeWindow ? 0 : 1,
       skippedAlreadySent: 0
     };
   }
@@ -1630,54 +1653,73 @@ export async function processDailyProposalSentDigestEmails(
   });
 
   const proposalIds = uniqueIds(sentToday.map((row) => String(row.entity_id ?? "")));
-  if (!proposalIds.length) {
-    return {
-      dueForWindow: true,
-      sentEventsFound: sentToday.length,
-      proposalsIncluded: 0,
-      digestQueued: 0,
-      skippedNoEvents: 1,
-      skippedWrongLocalTime: 0,
-      skippedAlreadySent: 0
-    };
-  }
 
-  const { data: proposalRows, error: proposalRowsError } = await admin
-    .from("grant_proposals")
-    .select("id, proposal_title, sent_at")
-    .in("id", proposalIds)
-    .returns<Array<{ id: string; proposal_title: string | null; sent_at: string | null }>>();
+  let proposals: Array<{ id: string; title: string; sentAt: string | null; amount: number }>;
 
-  if (proposalRowsError) {
-    throw new HttpError(500, `Could not load sent proposals for digest: ${proposalRowsError.message}`);
-  }
-
-  const proposalById = new Map((proposalRows ?? []).map((row) => [row.id, row]));
-  const proposals = proposalIds
-    .map((proposalId) => {
-      const row = proposalById.get(proposalId);
-      if (!row) {
-        return null;
-      }
+  if (proposalIds.length === 0) {
+    if (!options?.sendEvenIfNoSentToday) {
       return {
-        id: proposalId,
-        title: row.proposal_title?.trim() || "Proposal",
-        sentAt: row.sent_at
+        dueForWindow: true,
+        sentEventsFound: sentToday.length,
+        proposalsIncluded: 0,
+        digestQueued: 0,
+        skippedNoEvents: 1,
+        skippedWrongLocalTime: 0,
+        skippedAlreadySent: 0
       };
-    })
-    .filter((proposal): proposal is { id: string; title: string; sentAt: string | null } => Boolean(proposal))
-    .sort((a, b) => a.title.localeCompare(b.title));
+    }
+    proposals = [];
+  } else {
+    const { data: proposalRows, error: proposalRowsError } = await admin
+      .from("grant_proposals")
+      .select("id, proposal_title, sent_at, final_amount")
+      .in("id", proposalIds)
+      .returns<
+        Array<{
+          id: string;
+          proposal_title: string | null;
+          sent_at: string | null;
+          final_amount: number | string | null;
+        }>
+      >();
 
-  if (!proposals.length) {
-    return {
-      dueForWindow: true,
-      sentEventsFound: sentToday.length,
-      proposalsIncluded: 0,
-      digestQueued: 0,
-      skippedNoEvents: 1,
-      skippedWrongLocalTime: 0,
-      skippedAlreadySent: 0
-    };
+    if (proposalRowsError) {
+      throw new HttpError(500, `Could not load sent proposals for digest: ${proposalRowsError.message}`);
+    }
+
+    const proposalById = new Map((proposalRows ?? []).map((row) => [row.id, row]));
+    const built = proposalIds
+      .map((proposalId) => {
+        const row = proposalById.get(proposalId);
+        if (!row) {
+          return null;
+        }
+        const amount = typeof row.final_amount === "number" ? row.final_amount : Number(row.final_amount) || 0;
+        return {
+          id: proposalId,
+          title: row.proposal_title?.trim() || "Proposal",
+          sentAt: row.sent_at,
+          amount
+        };
+      })
+      .filter(
+        (proposal): proposal is { id: string; title: string; sentAt: string | null; amount: number } =>
+          Boolean(proposal)
+      )
+      .sort((a, b) => a.title.localeCompare(b.title));
+
+    if (!built.length && !options?.sendEvenIfNoSentToday) {
+      return {
+        dueForWindow: true,
+        sentEventsFound: sentToday.length,
+        proposalsIncluded: 0,
+        digestQueued: 0,
+        skippedNoEvents: 1,
+        skippedWrongLocalTime: 0,
+        skippedAlreadySent: 0
+      };
+    }
+    proposals = built;
   }
 
   const { data: approvedRows, error: approvedError } = await admin
@@ -1703,11 +1745,18 @@ export async function processDailyProposalSentDigestEmails(
 
   const recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
   const content = buildProposalSentFyiContent({ dayKey, proposals, outstanding });
+  // Manual run: in development use a unique key per click so each test sends; in production one digest per day
+  const idempotencyKey =
+    options?.ignoreTimeWindow === true
+      ? process.env.NODE_ENV === "development"
+        ? `proposal-sent-digest:${dayKey}:manual:${now.getTime()}`
+        : `proposal-sent-digest:${dayKey}:manual`
+      : `proposal-sent-digest:${dayKey}`;
   const queueResult = await queueEmailNotification(admin, {
     notificationType: "proposal_sent_fyi",
     actorUserId: null,
     entityId: null,
-    idempotencyKey: `proposal-sent-digest:${dayKey}`,
+    idempotencyKey,
     subject: content.subject,
     htmlBody: content.htmlBody,
     textBody: content.textBody,

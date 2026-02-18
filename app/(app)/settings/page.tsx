@@ -359,6 +359,11 @@ export default function SettingsPage() {
         throw new Error(String(payload.error ?? "Failed to run email worker."));
       }
 
+      if (payload.disabled === true && typeof payload.message === "string") {
+        setEmailWorkerMessage({ tone: "success", text: payload.message });
+        return;
+      }
+
       const weekly = payload.weeklyUpdate as Record<string, number> | undefined;
       const digest = payload.dailySentDigest as Record<string, number> | undefined;
       const parts: string[] = [];
@@ -367,7 +372,31 @@ export default function SettingsPage() {
         parts.push(`Weekly: ${weekly.remindersQueued ?? 0} queued`);
       }
       if (digest) {
-        parts.push(`Digest: ${digest.digestQueued ?? 0} queued`);
+        const dq = digest.digestQueued ?? 0;
+        if (dq > 0) {
+          parts.push(`Digest: ${dq} queued`);
+        } else {
+          const reason =
+            digest.skippedWrongLocalTime ? "before 10am ET" :
+            digest.skippedNoEvents ? "no proposals marked sent today" :
+            digest.skippedAlreadySent ? "already sent today" :
+            "no digest sent";
+          parts.push(`Digest: 0 (${reason})`);
+        }
+      }
+
+      const delivery = payload.deliveryResult as Record<string, number | boolean> | undefined;
+      if (delivery?.configMissing === true) {
+        parts.push(
+          "No emails sent: Resend is not configured. Set RESEND_API_KEY and EMAIL_FROM in your env (e.g. .env.test.local)."
+        );
+      } else if (delivery && typeof delivery.sent === "number" && delivery.sent > 0) {
+        parts.push(`${delivery.sent} email(s) sent`);
+        if (typeof delivery.failed === "number" && delivery.failed > 0) {
+          parts.push(`${delivery.failed} failed`);
+        }
+      } else if (delivery && typeof delivery.failed === "number" && delivery.failed > 0) {
+        parts.push(`${delivery.failed} delivery failed`);
       }
 
       setEmailWorkerMessage({

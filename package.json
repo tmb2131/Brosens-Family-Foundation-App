@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:test": "npx env-cmd -f .env.test.local next dev",
+    "dev:test": "NODE_ENV=test npx env-cmd -f .env.test.local next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
