@@ -7,7 +7,16 @@ import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, RefreshC
 
 const ReportsCharts = dynamic(
   () => import("@/components/dashboard/reports-charts").then((mod) => mod.ReportsCharts),
-  { ssr: false, loading: () => <div className="grid gap-3 lg:grid-cols-2"><div className="h-[280px] w-full animate-pulse rounded-2xl bg-muted" /><div className="h-[210px] w-full animate-pulse rounded-2xl bg-muted" /></div> }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="h-[280px] w-full animate-pulse rounded-2xl bg-muted" />
+        <div className="h-[280px] w-full animate-pulse rounded-2xl bg-muted" />
+        <div className="h-[210px] w-full animate-pulse rounded-2xl bg-muted" />
+      </div>
+    )
+  }
 );
 import { useAuth } from "@/components/auth/auth-provider";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -187,7 +196,7 @@ export default function ReportsPage() {
           label: titleCase(status),
           count,
           amount,
-          countAndAmountLabel: `${formatNumber(count)} | ${compactCurrency(amount)}`
+          countAndAmountLabel: count > 0 ? `${formatNumber(count)} | ${compactCurrency(amount)}` : ""
         };
       }),
     [filteredProposals]
@@ -410,7 +419,12 @@ export default function ReportsPage() {
         />
       </section>
 
-      <ReportsCharts categoryCounts={categoryCounts} typeSplit={typeSplit} totalAmount={totalAmount} />
+      <ReportsCharts
+        statusCounts={statusCounts}
+        categoryCounts={categoryCounts}
+        typeSplit={typeSplit}
+        totalAmount={totalAmount}
+      />
 
       <GlassCard>
         <div className="mb-2 flex items-center justify-between gap-2">

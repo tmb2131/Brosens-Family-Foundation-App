@@ -14,9 +14,18 @@ import {
   YAxis
 } from "recharts";
 import { GlassCard, CardLabel } from "@/components/ui/card";
-import { DirectionalCategory } from "@/lib/types";
+import { ChartLegend } from "@/components/ui/chart-legend";
+import { DirectionalCategory, ProposalStatus } from "@/lib/types";
 import { compactCurrency, currency, formatNumber } from "@/lib/utils";
 import { chartPalette, chartText } from "@/lib/chart-styles";
+
+interface StatusCountDatum {
+  status: ProposalStatus;
+  label: string;
+  count: number;
+  amount: number;
+  countAndAmountLabel: string;
+}
 
 interface CategoryCountDatum {
   category: DirectionalCategory;
@@ -32,6 +41,13 @@ interface TypeSplitDatum {
   color: string;
 }
 
+const STATUS_COLORS: Record<ProposalStatus, string> = {
+  to_review: chartPalette.review,
+  approved: chartPalette.approved,
+  sent: chartPalette.sent,
+  declined: chartPalette.declined
+};
+
 const CATEGORY_COLORS: Record<DirectionalCategory, string> = {
   arts_culture: "#8B5CF6",
   education: "#0EA5E9",
@@ -44,16 +60,94 @@ const CATEGORY_COLORS: Record<DirectionalCategory, string> = {
 };
 
 export function ReportsCharts({
+  statusCounts,
   categoryCounts,
   typeSplit,
   totalAmount
 }: {
+  statusCounts: StatusCountDatum[];
   categoryCounts: CategoryCountDatum[];
   typeSplit: TypeSplitDatum[];
   totalAmount: number;
 }) {
   return (
-    <section className="grid gap-3 lg:grid-cols-2">
+    <section className="grid gap-3 lg:grid-cols-3">
+      <GlassCard>
+        <CardLabel>Proposals by Status</CardLabel>
+        <div className="h-[260px] w-full sm:h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart layout="vertical" data={statusCounts} margin={{ top: 4, right: 110, left: 8, bottom: 0 }}>
+              <XAxis
+                type="number"
+                tickFormatter={(value) =>
+                  compactCurrency(Number(value), {
+                    maximumFractionDigits: 0
+                  })
+                }
+                tick={{ fill: chartText.axis, fontSize: 12 }}
+                axisLine={{ stroke: "hsl(var(--border))" }}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="label"
+                tick={{ fill: chartText.axis, fontSize: 12 }}
+                axisLine={{ stroke: "hsl(var(--border))" }}
+                tickLine={false}
+                width={100}
+              />
+              <Tooltip
+                cursor={{ fill: "hsl(var(--muted) / 0.55)" }}
+                separator=""
+                contentStyle={{
+                  borderRadius: 12,
+                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "hsl(var(--card))",
+                  color: "hsl(var(--foreground))"
+                }}
+                labelStyle={{ color: "hsl(var(--foreground) / 0.92)", fontWeight: 600 }}
+                itemStyle={{ color: "hsl(var(--foreground) / 0.84)" }}
+                formatter={(value, _name, item) => {
+                  const row = item.payload as StatusCountDatum | undefined;
+                  if (!row) {
+                    return [currency(Number(value)), ""];
+                  }
+                  return [`${formatNumber(row.count)} proposals | ${currency(row.amount)}`, ""];
+                }}
+                labelFormatter={(label, payload) => {
+                  const row = payload?.[0]?.payload as StatusCountDatum | undefined;
+                  if (!row) {
+                    return String(label);
+                  }
+                  return row.label;
+                }}
+              />
+              <Bar dataKey="amount" radius={[0, 6, 6, 0]}>
+                {statusCounts.map((entry) => (
+                  <Cell key={entry.status} fill={STATUS_COLORS[entry.status]} />
+                ))}
+                <LabelList
+                  dataKey="countAndAmountLabel"
+                  position="right"
+                  content={({ x, y, width, height, value }) => (
+                    <text
+                      x={Number(x) + Number(width) + 6}
+                      y={Number(y) + Number(height) / 2}
+                      dominantBaseline="central"
+                      fill={chartText.axis}
+                      fontSize={11}
+                      fontWeight={600}
+                    >
+                      {String(value)}
+                    </text>
+                  )}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </GlassCard>
+
       <GlassCard>
         <CardLabel>Proposals by Category</CardLabel>
         <div className="h-[260px] w-full sm:h-[280px]">
@@ -132,17 +226,23 @@ export function ReportsCharts({
 
       <GlassCard>
         <CardLabel>Amount by Proposal Type</CardLabel>
-        <div className="h-[190px] w-full sm:h-[210px]">
+        <ChartLegend
+          items={typeSplit.map(({ name, value, color }) => ({
+            label: `${name}: ${compactCurrency(value)}`,
+            color
+          }))}
+        />
+        <div className="h-[200px] w-full sm:h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
               <Pie
                 data={typeSplit}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={45}
-                outerRadius={75}
+                innerRadius={52}
+                outerRadius={88}
                 labelLine={false}
-                label={({ name, value }) => `${name}: ${compactCurrency(Number(value))}`}
+                label={false}
               >
                 {typeSplit.map((entry) => (
                   <Cell key={entry.name} fill={entry.color} />
