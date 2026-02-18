@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
@@ -10,6 +9,7 @@ import { ListChecks, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +26,6 @@ const ACTION_ITEMS_PREVIEW_LIMIT = 2;
 
 export default function MobileFocusClient() {
   const { user } = useAuth();
-  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const searchParams = useSearchParams();
 
@@ -118,14 +117,7 @@ export default function MobileFocusClient() {
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Today&apos;s Focus</p>
         <div className="flex items-center gap-1.5">
           {mounted && (
-            <button
-              type="button"
-              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-card text-sm transition-colors active:bg-muted focus:outline-none"
-              aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
-            >
-              {resolvedTheme === "dark" ? "\u2600\uFE0F" : "\uD83C\uDF19"}
-            </button>
+            <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
           )}
           <button
             type="button"

@@ -739,7 +739,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 ) : null}
               </div>
               <div className="flex items-center gap-2">
-                <ThemeToggle />
+                <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
                 <button
                   onClick={() => void signOut()}
                   className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1 text-xs font-semibold"
