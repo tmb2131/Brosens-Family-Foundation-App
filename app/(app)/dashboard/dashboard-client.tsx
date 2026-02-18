@@ -1255,12 +1255,11 @@ export default function DashboardClient() {
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
-          <Link
-            href="/proposals/new"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors active:bg-muted hover:text-foreground focus:outline-none"
-          >
-            <Plus className="h-3 w-3" /> New
-          </Link>
+          <Button variant="proposal" size="sm" asChild className="h-8 min-h-8">
+            <Link href="/proposals/new">
+              <Plus className="h-3 w-3" /> New Proposal
+            </Link>
+          </Button>
         </div>
       </div>
 
