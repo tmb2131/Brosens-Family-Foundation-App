@@ -613,6 +613,7 @@ ${sections.map((s) => `${emailSectionHeading(s.heading)}\n${s.html}`).join("\n")
 function buildProposalSentFyiContent(input: {
   dayKey: string;
   proposals: Array<{ id: string; title: string; sentAt: string | null }>;
+  outstanding?: Array<{ id: string; title: string }>;
 }) {
   const subject = `Daily sent digest: ${input.proposals.length} proposal${input.proposals.length === 1 ? "" : "s"} marked Sent`;
   const openUrl = buildOpenUrl("/dashboard");
@@ -634,6 +635,36 @@ function buildProposalSentFyiContent(input: {
     })
     .join("");
 
+  const outstandingList = input.outstanding ?? [];
+  const outstandingText =
+    outstandingList.length > 0
+      ? outstandingList
+          .map((p, i) => `${i + 1}. ${p.title}\n   ${buildOpenUrl(`/meeting?proposalId=${p.id}`)}`)
+          .join("\n")
+      : "None.";
+  const outstandingSectionText = [
+    "",
+    "Still outstanding (approved, not yet marked Sent):",
+    outstandingText
+  ].join("\n");
+
+  const outstandingRowsHtml =
+    outstandingList.length > 0
+      ? outstandingList
+          .map((p) => {
+            const meetingUrl = buildOpenUrl(`/meeting?proposalId=${p.id}`);
+            return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0;">
+<tr><td style="padding:12px 16px;border:1px solid #e5e7eb;border-radius:6px;">
+<a href="${escapeHtml(meetingUrl)}" style="font-weight:700;color:#111827;text-decoration:none;">${escapeHtml(p.title)}</a>
+</td></tr>
+</table>`;
+          })
+          .join("")
+      : `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#6b7280;">None.</p>`;
+  const outstandingSectionHtml = `
+<p style="margin:24px 0 8px 0;font-size:15px;line-height:1.5;color:#111827;">Still outstanding (approved, not yet marked Sent):</p>
+${outstandingRowsHtml}`;
+
   const textBody = [
     "Hello,",
     "",
@@ -641,6 +672,7 @@ function buildProposalSentFyiContent(input: {
     proposalRowsText,
     "",
     `${openUrl}`,
+    outstandingSectionText,
     "",
     "This daily digest is sent to all users.",
     "",
@@ -652,6 +684,7 @@ function buildProposalSentFyiContent(input: {
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">The following proposals were marked <strong>Sent</strong> on <strong>${escapeHtml(input.dayKey)}</strong> (America/New_York):</p>
 ${proposalRowsHtml}
 ${emailButton("Open Dashboard", openUrl)}
+${outstandingSectionHtml}
 <p style="margin:16px 0 0 0;color:#6b7280;font-size:13px;">This daily digest is sent to all users.</p>`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
@@ -1647,8 +1680,29 @@ export async function processDailyProposalSentDigestEmails(
     };
   }
 
+  const { data: approvedRows, error: approvedError } = await admin
+    .from("grant_proposals")
+    .select("id, proposal_title")
+    .eq("status", "approved")
+    .order("proposal_title", { ascending: true })
+    .returns<Array<{ id: string; proposal_title: string | null }>>();
+
+  if (approvedError) {
+    throw new HttpError(
+      500,
+      `Could not load approved proposals for digest: ${approvedError.message}`
+    );
+  }
+
+  const outstanding = (approvedRows ?? [])
+    .map((row) => ({
+      id: row.id,
+      title: row.proposal_title?.trim() || "Proposal"
+    }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
   const recipients = await loadUsersByRoles(admin, ["member", "oversight", "manager", "admin"]);
-  const content = buildProposalSentFyiContent({ dayKey, proposals });
+  const content = buildProposalSentFyiContent({ dayKey, proposals, outstanding });
   const queueResult = await queueEmailNotification(admin, {
     notificationType: "proposal_sent_fyi",
     actorUserId: null,
@@ -1661,7 +1715,8 @@ export async function processDailyProposalSentDigestEmails(
     primaryLinkLabel: "Open Dashboard",
     payload: {
       dayKey,
-      proposalIds: proposals.map((proposal) => proposal.id)
+      proposalIds: proposals.map((proposal) => proposal.id),
+      outstandingProposalIds: outstanding.map((p) => p.id)
     },
     recipientUserIds: uniqueIds(recipients.map((recipient) => recipient.id))
   });
