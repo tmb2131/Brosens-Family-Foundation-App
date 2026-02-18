@@ -401,13 +401,13 @@ export default function ReportsPage() {
           tone="emerald"
         />
         <MetricCard title="TOTAL AMOUNT" value={currency(totalAmount)} icon={DollarSign} tone="sky" />
+        <MetricCard title="SENT AMOUNT" value={currency(sentAmount)} icon={Send} tone="amber" />
         <MetricCard
           title="APPROVED AMOUNT"
           value={currency(approvedAmount)}
           icon={PieChartIcon}
           tone="indigo"
         />
-        <MetricCard title="SENT AMOUNT" value={currency(sentAmount)} icon={Send} tone="amber" />
       </section>
 
       <ReportsCharts categoryCounts={categoryCounts} typeSplit={typeSplit} totalAmount={totalAmount} />
