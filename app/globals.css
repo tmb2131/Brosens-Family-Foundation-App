@@ -131,12 +131,10 @@ body {
 }
 
 @utility page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
   animation: fade-up 500ms ease-out both;
-}
-
-/* page-stack child rules (cannot live inside @utility — requires descendant selectors) */
-.page-stack > * + * {
-  margin-top: 1.5rem;
 }
 
 /* ─── Sidebar thin scrollbar ─── */
