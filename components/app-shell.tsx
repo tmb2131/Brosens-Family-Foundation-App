@@ -493,7 +493,7 @@ function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "sticky top-4 hidden h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
+        "sticky top-4 bottom-4 hidden h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
         isOpen ? "w-60" : "w-16"
       )}
     >
