@@ -58,7 +58,10 @@ const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
     /Oversight admin/gi,
     /approved or rejected/gi,
     /proposer-set/gi,
-    /\$5,000,000/gi
+    /\$5,000,000/gi,
+    /discretionary cap/gi,
+    /lower of \$5 million/gi,
+    /Foundation's discretionary pool divided by the number of voting members/gi
   ],
   process: [
     /Create a proposal/gi,
