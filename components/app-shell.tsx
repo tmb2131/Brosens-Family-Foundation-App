@@ -822,7 +822,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
         <PwaIosInstallBanner />
 
-        <main className="min-w-0 flex-1 sm:pt-4">
+        <main className="min-w-0 flex-1 pt-4 sm:pt-0">
           {children}
         </main>
       </div>
