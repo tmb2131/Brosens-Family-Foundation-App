@@ -67,7 +67,7 @@ interface RequiredActionSummary {
   openDetail?: boolean;
 }
 
-type SortKey = "proposal" | "type" | "amount" | "status" | "sentAt" | "notes";
+type SortKey = "proposal" | "type" | "amount" | "status" | "sentAt" | "notes" | "createdAt";
 type SortDirection = "asc" | "desc";
 
 interface TableFilters {
@@ -397,8 +397,8 @@ export default function DashboardClient() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
   const [filters, setFilters] = useState<TableFilters>(DEFAULT_FILTERS);
-  const [sortKey, setSortKey] = useState<SortKey>("proposal");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
   const [rowMessage, setRowMessage] = useState<
     Record<string, { tone: "success" | "error"; text: string }>
@@ -535,6 +535,8 @@ export default function DashboardClient() {
         comparison = (a.sentAt ?? "").localeCompare(b.sentAt ?? "");
       } else if (sortKey === "notes") {
         comparison = (a.notes ?? "").localeCompare(b.notes ?? "");
+      } else if (sortKey === "createdAt") {
+        comparison = a.createdAt.localeCompare(b.createdAt);
       }
 
       if (comparison === 0) {
