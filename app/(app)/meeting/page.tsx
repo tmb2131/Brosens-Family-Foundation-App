@@ -63,8 +63,8 @@ function MeetingProposalCard({
     >
       <div className="flex min-w-0 items-baseline justify-between gap-3">
         <h3 className="min-w-0 truncate text-sm font-semibold">{proposal.title}</h3>
-        <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
-          {currency(proposal.progress.computedFinalAmount)}
+        <span className="shrink-0">
+          <StatusPill status={proposal.status} />
         </span>
       </div>
 
@@ -94,13 +94,13 @@ function MeetingProposalCard({
             </>
           ) : null}
         </span>
-        <span className="shrink-0">
-          <StatusPill status={proposal.status} />
+        <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+          {currency(proposal.progress.computedFinalAmount)}
         </span>
       </div>
 
       <Button
-        className="w-full"
+        className="w-full sm:w-auto sm:self-start"
         size="sm"
         disabled={saving}
         onClick={() => onOpenDecisionDialog(proposal.id)}
@@ -355,8 +355,20 @@ export default function MeetingPage() {
             <h2 id="meeting-decision-dialog-title" className="text-base font-semibold">
               {meetingDialogProposal.title}
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {currency(meetingDialogProposal.progress.computedFinalAmount)} ·{" "}
+            <div className="mt-3 rounded-xl border border-border/70 bg-muted/50 px-3 py-2.5">
+              <p className="text-lg font-bold tabular-nums text-foreground">
+                {currency(meetingDialogProposal.progress.computedFinalAmount)}
+              </p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Final amount
+              </p>
+              {meetingDialogProposal.proposalType === "joint" ? (
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  Proposed: {currency(meetingDialogProposal.proposedAmount)}
+                </p>
+              ) : null}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
               {formatNumber(meetingDialogProposal.progress.votesSubmitted)} of{" "}
               {formatNumber(meetingDialogProposal.progress.totalRequiredVotes)} votes in
             </p>
