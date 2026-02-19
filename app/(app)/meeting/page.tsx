@@ -6,7 +6,7 @@ import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { Check, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
-import { GlassCard, CardLabel } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
@@ -293,7 +293,8 @@ export default function MeetingPage() {
 
   return (
     <div className="page-stack pb-4">
-      <div className="flex items-center justify-between gap-2">
+      {/* Mobile: compact header row (same as before) */}
+      <div className="flex items-center justify-between gap-2 lg:hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Live Meeting</p>
         <button
           type="button"
@@ -304,6 +305,34 @@ export default function MeetingPage() {
           <RefreshCw className="h-3 w-3" /> Refresh
         </button>
       </div>
+
+      {/* Desktop: page header card (consistent with My Workspace) */}
+      <GlassCard className="hidden rounded-3xl lg:block">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardLabel>Meeting</CardLabel>
+            <CardValue>Live Meeting</CardValue>
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-500" />
+              Live meeting
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{formatNumber(data.proposals.length)} pending</span>
+              <span className="hidden text-border sm:inline">|</span>
+              <span>{currency(totalRecommendedAmount)} recommended</span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void mutate()}
+            disabled={saving}
+            className="sm:min-h-11 sm:px-4 sm:text-sm"
+          >
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </Button>
+        </div>
+      </GlassCard>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-6">

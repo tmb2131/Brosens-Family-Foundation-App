@@ -1480,22 +1480,23 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      {/* Desktop: page header card (consistent with Reports, Mandate, Frank-deenie) */}
+      {/* Desktop: page header card (consistent with My Workspace) */}
       <GlassCard data-walkthrough="dashboard-intro" className="hidden rounded-3xl lg:block">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardLabel>Dashboard</CardLabel>
             <CardValue>{selectedYearFilterValue === "all" ? "All years" : selectedYearFilterValue}</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               {data.annualCycle.monthHint}
-              <span className="text-border">|</span>
-              Reset: {data.annualCycle.resetDate}
-              <span className="text-border">|</span>
-              Year-end deadline: {data.annualCycle.yearEndDeadline}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>Reset: {data.annualCycle.resetDate}</span>
+              <span className="hidden text-border sm:inline">|</span>
+              <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
+            </div>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start">
             <label className="text-xs font-semibold text-muted-foreground">
               Budget year
               <select
@@ -1511,7 +1512,7 @@ export default function DashboardClient() {
                 ))}
               </select>
             </label>
-            <Button variant="proposal" size="sm" asChild>
+            <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
               <Link href="/proposals/new">
                 <Plus className="h-4 w-4" /> New Proposal
               </Link>
