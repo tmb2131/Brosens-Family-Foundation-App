@@ -37,9 +37,10 @@ const STATUS_STYLES: Record<PolicyChangeNotification["status"], string> = {
 
 const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
   missionStatement: [
-    /economic opportunity/gi,
+    /Brosens Family Foundation/gi,
+    /left out of economic opportunity/gi,
     /education/gi,
-    /long-term pathways to equity/gi
+    /long-term pathways to social equity\./gi
   ],
   structure: [
     /non-operating entity/gi,
