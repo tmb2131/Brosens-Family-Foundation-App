@@ -699,7 +699,7 @@ export default function NewProposalPage() {
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Add the organization website for proposal context and to help Brynn complete the
-              donation. You can enter just the domain; we&apos;ll add https:// if needed.
+              donation.
             </p>
           </div>
 
@@ -716,8 +716,7 @@ export default function NewProposalPage() {
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Add the Charity Navigator profile URL. The app auto-populates the score and summary
-              from this link. You can enter just the domain or a full URL; we&apos;ll add https://
-              if needed.
+              from this link.
             </p>
           </div>
 
