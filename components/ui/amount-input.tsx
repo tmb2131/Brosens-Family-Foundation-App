@@ -39,7 +39,10 @@ const AmountInput = React.forwardRef<
     <Input
       ref={mergedRef}
       type="number"
-      className={cn(className)}
+      className={cn(
+        "[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]",
+        className
+      )}
       onKeyDown={(e) => {
         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           e.preventDefault();

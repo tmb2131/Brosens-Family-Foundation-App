@@ -892,23 +892,21 @@ export default function FrankDeeniePage() {
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
-            <label className="text-xs font-semibold text-muted-foreground">
-              Year
-              <select
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-8 rounded-md border px-3 py-1 text-sm outline-none mt-1 block"
-                value={selectedYear === null ? "all" : String(selectedYear)}
-                onChange={(event) =>
-                  setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
-                }
-              >
-                <option value="all">All years</option>
-                {data.availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <select
+              aria-label="Year"
+              className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 rounded-md border px-3 py-2 text-sm outline-none block"
+              value={selectedYear === null ? "all" : String(selectedYear)}
+              onChange={(event) =>
+                setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
+              }
+            >
+              <option value="all">All years</option>
+              {data.availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
             <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold">
               <input
                 type="checkbox"

@@ -1492,21 +1492,19 @@ export default function DashboardClient() {
             </p>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
-            <label className="text-xs font-semibold text-muted-foreground">
-              Budget year
-              <select
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] mt-1 block h-8 rounded-md border px-3 py-1 text-sm outline-none"
-                value={selectedYearFilterValue}
-                onChange={(event) =>
-                  setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
-                }
-              >
-                <option value="all">All years</option>
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
-              </select>
-            </label>
+            <select
+              aria-label="Budget year"
+              className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] block h-10 rounded-md border px-3 py-2 text-sm outline-none"
+              value={selectedYearFilterValue}
+              onChange={(event) =>
+                setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
+              }
+            >
+              <option value="all">All years</option>
+              {availableYears.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
             <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
               <Link href="/proposals/new">
                 <Plus className="h-4 w-4" /> New Proposal
