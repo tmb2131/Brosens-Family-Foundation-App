@@ -153,21 +153,28 @@ export function VoteForm({
       {isReviewing ? (
         <>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review your blind vote</p>
-          <div className="mt-2 rounded-lg border bg-muted/40 p-3 text-sm">
-            <p className="font-medium text-foreground">
+          <div className="mt-2 rounded-xl border-2 border-border bg-muted/50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vote</p>
+            <p className="mt-0.5 text-lg font-semibold text-foreground">
               {proposalType === "joint" ? (
-                <>Vote: {choice === "yes" ? "Yes" : "No"}</>
+                <>{choice === "yes" ? "Yes" : "No"}</>
               ) : (
-                <>Vote: {choice === "acknowledged" ? "Acknowledged" : "Flag for Discussion"}</>
+                <>{choice === "acknowledged" ? "Acknowledged" : "Flag for Discussion"}</>
               )}
             </p>
             {proposalType === "joint" && choice === "yes" ? (
-              <p className="mt-1 text-muted-foreground">
-                Allocation: {currency(confirmedAmount)}
-              </p>
+              <>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Allocation</p>
+                <p className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">
+                  {currency(confirmedAmount)}
+                </p>
+              </>
             ) : null}
             {proposalType !== "joint" && choice === "flagged" && flagComment.trim() !== "" ? (
-              <p className="mt-1 text-muted-foreground">Comment: {flagComment.trim()}</p>
+              <>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comment</p>
+                <p className="mt-0.5 text-sm text-foreground">{flagComment.trim()}</p>
+              </>
             ) : null}
           </div>
           {isZeroAllocation ? (
@@ -205,7 +212,7 @@ export function VoteForm({
         </>
       ) : (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cast {proposalType} vote</p>
+          <p className="text-base font-semibold text-foreground">Cast {proposalType} vote</p>
           <div className="mt-1.5 grid grid-cols-2 gap-2">
             <Button
               onClick={() => {
@@ -235,10 +242,12 @@ export function VoteForm({
           {proposalType === "joint" ? (
             <>
               <p className="mt-1.5 text-xs text-muted-foreground">
-                Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
+                Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
               </p>
-              <label className="mt-1.5 block text-xs font-medium">
-                Allocation amount
+              <label className="mt-1.5 block">
+                <span className="block text-base font-semibold text-foreground">
+                  Allocation amount
+                </span>
                 <div className="mt-1 flex items-center gap-2">
                   <AmountInput
                     min={0}

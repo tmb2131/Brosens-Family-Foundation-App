@@ -256,7 +256,7 @@ export default function WorkspaceClient() {
           {voteDialogItem ? (
             <>
               <DialogHeader>
-                <DialogTitle>Cast vote: {voteDialogItem.title}</DialogTitle>
+                <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
               </DialogHeader>
               <VoteForm
                 proposalId={voteDialogItem.proposalId}
@@ -508,12 +508,17 @@ export default function WorkspaceClient() {
                           <h3 className="text-sm font-semibold">{item.title}</h3>
                           <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                         </div>
-                        <StatusPill status={item.status} />
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {item.voteProgressLabel}
+                          </span>
+                          <StatusPill status={item.status} />
+                        </div>
                       </div>
                       <p className="mt-1 text-lg font-semibold text-foreground">
                         {currency(item.proposedAmount)}
-                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                          · {item.voteProgressLabel}
+                        <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                          proposed donation
                         </span>
                       </p>
                       <Button

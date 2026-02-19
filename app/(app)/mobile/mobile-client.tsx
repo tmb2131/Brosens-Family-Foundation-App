@@ -301,7 +301,7 @@ export default function MobileFocusClient() {
           {voteDialogItem ? (
             <>
               <DialogHeader>
-                <DialogTitle>Cast vote: {voteDialogItem.title}</DialogTitle>
+                <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
               </DialogHeader>
               {voteDialogItem.proposalType === "joint" && !isManager ? (
                 <div className="grid grid-cols-3 gap-2">
