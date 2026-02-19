@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  BookOpen,
   FileText,
   HandCoins,
   Home,
@@ -27,6 +28,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
 import { RouteProgressBar } from "@/components/ui/route-progress-bar";
+import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
+import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -480,14 +483,21 @@ function DesktopSidebar({
   onToggle,
   onSignOut
 }: DesktopSidebarProps) {
+  const { startWalkthrough } = useWorkspaceWalkthrough();
+  const { startWalkthrough: startDashboardWalkthrough } = useDashboardWalkthrough();
+  const isWorkspace = pathname === "/workspace";
+  const isDashboard = pathname === "/dashboard";
+  const showWalkthroughGuide = isWorkspace || isDashboard;
+  const onStartWalkthrough = isWorkspace ? startWalkthrough : startDashboardWalkthrough;
+
   return (
     <aside
       className={cn(
-        "sticky top-4 hidden max-h-[calc(100vh-2rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
+        "sticky top-4 hidden h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
         isOpen ? "w-60" : "w-16"
       )}
     >
-      <div className="glass-card flex h-full w-full flex-col rounded-3xl p-2.5">
+      <div className="glass-card flex h-full min-h-0 w-full flex-col rounded-3xl p-2.5">
         {/* Zone 1: Brand header + collapse toggle */}
         <SidebarHeader isOpen={isOpen} onToggle={onToggle} />
 
@@ -506,6 +516,43 @@ function DesktopSidebar({
           pathname={pathname}
           onSignOut={onSignOut}
         />
+
+        {/* Zone 4: Walkthrough guide (Workspace or Dashboard) */}
+        {showWalkthroughGuide && (
+          <div className="mt-auto border-t border-[hsl(var(--border)/0.4)] pt-2">
+            {isOpen ? (
+              <button
+                type="button"
+                onClick={onStartWalkthrough}
+                className={cn(
+                  sidebarLinkClass,
+                  sidebarLinkExpanded,
+                  "w-full justify-start"
+                )}
+                aria-label="Open walkthrough guide"
+              >
+                <BookOpen className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                <span className="truncate">Walkthrough Guide</span>
+              </button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onStartWalkthrough}
+                    className={cn(sidebarControlBtnClass, "w-full")}
+                    aria-label="Open walkthrough guide"
+                  >
+                    <BookOpen className="h-4 w-4" strokeWidth={1.5} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  Walkthrough Guide
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -723,7 +770,9 @@ export function AppShell({ children }: PropsWithChildren) {
           ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-0"
           : "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
       )}
-      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+      style={{
+        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : 0
+      }}
     >
       <RouteProgressBar />
       <DesktopSidebar
@@ -773,7 +822,14 @@ export function AppShell({ children }: PropsWithChildren) {
 
         <PwaIosInstallBanner />
 
-        <main className="min-w-0 flex-1">{children}</main>
+        <main
+          className={cn(
+            "min-w-0 flex-1",
+            pathname !== "/dashboard" && "sm:pt-4"
+          )}
+        >
+          {children}
+        </main>
       </div>
 
       <MobileBottomNav pathname={pathname} navItems={renderedNav} outstandingByHref={outstandingByHref} />

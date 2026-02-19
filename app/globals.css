@@ -218,3 +218,10 @@ button:disabled,
   .page-stack > *:nth-child(5) { animation-delay: 240ms; }
   .page-stack > *:nth-child(6) { animation-delay: 300ms; }
 }
+
+/* Workspace walkthrough: keep referenced section in view when scrolling */
+[data-walkthrough] {
+  scroll-margin-top: max(1.5rem, env(safe-area-inset-top));
+  scroll-margin-bottom: 1.5rem;
+}
+

@@ -2,19 +2,27 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
-import { GlassCard, CardLabel } from "@/components/ui/card";
+import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
-import { DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +38,40 @@ const HistoricalImpactChart = dynamic(
 );
 import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, WorkspaceSnapshot } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
+import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
+
+const DASHBOARD_WALKTHROUGH_STEPS: Array<{
+  target: string;
+  targetFallback?: string;
+  title: string;
+  body: string;
+}> = [
+  {
+    target: "dashboard-intro",
+    targetFallback: "dashboard-intro-mobile",
+    title: "Dashboard",
+    body:
+      "Foundation-wide view. Pick a budget year and use New Proposal to start a grant."
+  },
+  {
+    target: "dashboard-budget",
+    targetFallback: "dashboard-budget-mobile",
+    title: "Foundation budget",
+    body:
+      "View the Foundation's total budget, Joint pool remaining, and Discretionary remaining for the selected year. Progress bars show how much has been allocated."
+  },
+  {
+    target: "dashboard-history",
+    title: "Historical Impact",
+    body: "See how grant spending has changed over budget years."
+  },
+  {
+    target: "dashboard-tracker",
+    title: "Grant Tracker",
+    body:
+      "Grant Tracker lists all proposals for the selected year with status. Use filters and sort to find items."
+  }
+];
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
@@ -417,6 +459,79 @@ export default function DashboardClient() {
     null
   );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
+  const [spotlightRect, setSpotlightRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const { registerStartWalkthrough } = useDashboardWalkthrough();
+
+  useEffect(() => {
+    return registerStartWalkthrough(() => {
+      setWalkthroughStep(0);
+      setWalkthroughOpen(true);
+    });
+  }, [registerStartWalkthrough]);
+
+  const closeWalkthrough = useCallback(() => {
+    setWalkthroughOpen(false);
+    setWalkthroughStep(0);
+    setSpotlightRect(null);
+  }, []);
+
+  function getTargetElementForStep(stepIndex: number): HTMLElement | null {
+    const step = DASHBOARD_WALKTHROUGH_STEPS[stepIndex];
+    if (!step) return null;
+    const primary = document.querySelector<HTMLElement>(`[data-walkthrough="${step.target}"]`);
+    const fallback = step.targetFallback
+      ? document.querySelector<HTMLElement>(`[data-walkthrough="${step.targetFallback}"]`)
+      : null;
+    const hasSize = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    if (primary && hasSize(primary)) return primary;
+    if (fallback && hasSize(fallback)) return fallback;
+    return primary ?? fallback ?? null;
+  }
+
+  function measureAndSetRect(stepIndex: number) {
+    const el = getTargetElementForStep(stepIndex);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setSpotlightRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+    } else {
+      setSpotlightRect(null);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (!walkthroughOpen) return;
+    const el = getTargetElementForStep(walkthroughStep);
+    if (!el) {
+      setSpotlightRect(null);
+      return;
+    }
+    el.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
+    measureAndSetRect(walkthroughStep);
+    const t1 = setTimeout(() => measureAndSetRect(walkthroughStep), 50);
+    const t2 = setTimeout(() => measureAndSetRect(walkthroughStep), 200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [walkthroughOpen, walkthroughStep]);
+
+  useEffect(() => {
+    if (!walkthroughOpen) return;
+    const handleResize = () => measureAndSetRect(walkthroughStep);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [walkthroughOpen, walkthroughStep]);
 
   const foundationKey = useMemo(() => {
     if (!user) {
@@ -1242,7 +1357,107 @@ export default function DashboardClient() {
 
   return (
     <div className="page-stack pb-4">
-      <div className="flex items-center justify-between gap-2">
+      {walkthroughOpen &&
+        spotlightRect &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[45] pointer-events-none" aria-hidden>
+              <div
+                className="bg-transparent"
+                style={{
+                  position: "fixed",
+                  left: spotlightRect.left,
+                  top: spotlightRect.top,
+                  width: spotlightRect.width,
+                  height: spotlightRect.height,
+                  boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
+                  outline: "2px solid hsl(var(--accent))",
+                  outlineOffset: 4,
+                  borderRadius: "0.75rem"
+                }}
+              />
+            </div>
+            <div className="fixed inset-0 z-[45] pointer-events-auto" aria-hidden>
+              <div
+                className="pointer-events-none"
+                style={{
+                  position: "fixed",
+                  left: spotlightRect.left,
+                  top: spotlightRect.top,
+                  width: spotlightRect.width,
+                  height: spotlightRect.height
+                }}
+              />
+            </div>
+          </>,
+          document.body
+        )}
+
+      <Dialog
+        open={walkthroughOpen}
+        onOpenChange={(open) => {
+          if (!open) closeWalkthrough();
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          {(() => {
+            const step = DASHBOARD_WALKTHROUGH_STEPS[walkthroughStep];
+            if (!step) return null;
+            const isFirst = walkthroughStep === 0;
+            const isLast = walkthroughStep === DASHBOARD_WALKTHROUGH_STEPS.length - 1;
+            return (
+              <>
+                <DialogHeader>
+                  <p className="text-xs font-medium text-muted-foreground" aria-hidden>
+                    Step {walkthroughStep + 1} of {DASHBOARD_WALKTHROUGH_STEPS.length}
+                  </p>
+                  <DialogTitle id="dashboard-walkthrough-title">{step.title}</DialogTitle>
+                  <DialogDescription id="dashboard-walkthrough-description" className="mt-1 text-left">
+                    {step.body}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="order-last sm:order-first text-muted-foreground"
+                    onClick={closeWalkthrough}
+                  >
+                    Skip tour
+                  </Button>
+                  <div className="flex gap-2">
+                    {!isFirst && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setWalkthroughStep((s) => s - 1)}
+                      >
+                        Back
+                      </Button>
+                    )}
+                    {isLast ? (
+                      <Button size="sm" onClick={closeWalkthrough}>
+                        Finish
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={() => setWalkthroughStep((s) => s + 1)}>
+                        Next
+                      </Button>
+                    )}
+                  </div>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile: compact header bar (Full Details style) */}
+      <div
+        data-walkthrough="dashboard-intro-mobile"
+        className="flex items-center justify-between gap-2 lg:hidden"
+      >
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Details</p>
         <div className="flex items-center gap-1.5">
           <select
@@ -1265,7 +1480,47 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      <GlassCard className="p-3 lg:hidden">
+      {/* Desktop: page header card (consistent with Reports, Mandate, Frank-deenie) */}
+      <GlassCard data-walkthrough="dashboard-intro" className="hidden rounded-3xl lg:block">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <CardLabel>Dashboard</CardLabel>
+            <CardValue>{selectedYearFilterValue === "all" ? "All years" : selectedYearFilterValue}</CardValue>
+            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              {data.annualCycle.monthHint}
+              <span className="text-border">|</span>
+              Reset: {data.annualCycle.resetDate}
+              <span className="text-border">|</span>
+              Year-end deadline: {data.annualCycle.yearEndDeadline}
+            </p>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+            <label className="text-xs font-semibold text-muted-foreground">
+              Budget year
+              <select
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] mt-1 block h-8 rounded-md border px-3 py-1 text-sm outline-none"
+                value={selectedYearFilterValue}
+                onChange={(event) =>
+                  setSelectedYear(event.target.value === "all" ? "all" : Number(event.target.value))
+                }
+              >
+                <option value="all">All years</option>
+                {availableYears.map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </label>
+            <Button variant="proposal" size="sm" asChild>
+              <Link href="/proposals/new">
+                <Plus className="h-4 w-4" /> New Proposal
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-3 lg:hidden" data-walkthrough="dashboard-budget-mobile">
         <div className="flex items-center gap-2">
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             <DollarSign className="h-4 w-4" />
@@ -1295,19 +1550,8 @@ export default function DashboardClient() {
         </p>
       </GlassCard>
 
-      <p className="hidden items-center flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground lg:flex">
-        <span className="inline-flex items-center gap-1.5 font-medium">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          {data.annualCycle.monthHint}
-        </span>
-        <span className="text-border">|</span>
-        <span>Reset: {data.annualCycle.resetDate}</span>
-        <span className="text-border">|</span>
-        <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
-      </p>
-
       <section className="hidden lg:grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr">
+        <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr" data-walkthrough="dashboard-budget">
           <MetricCard
             title={<>FOUNDATION TOTAL <span className="font-semibold">BUDGET</span></>}
             value={currency(data.budget.total)}
@@ -1352,7 +1596,7 @@ export default function DashboardClient() {
             <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(discretionaryUtilization)}% utilized</p>
           </MetricCard>
         </div>
-        <GlassCard>
+        <GlassCard data-walkthrough="dashboard-history">
           <CardLabel>Historical Impact</CardLabel>
           {historyData ? (
             <HistoricalImpactChart data={historyData.historyByYear} />
@@ -1366,7 +1610,7 @@ export default function DashboardClient() {
       </section>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
-      <GlassCard className="p-5">
+      <GlassCard className="p-5" data-walkthrough="dashboard-tracker">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardLabel>{showPendingTab ? "Pending" : "Grant Tracker"}</CardLabel>

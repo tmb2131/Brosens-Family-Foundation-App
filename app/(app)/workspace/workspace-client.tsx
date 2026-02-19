@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useLayoutEffect, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
@@ -10,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
@@ -20,6 +23,44 @@ import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars"
 import { currency, formatNumber, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
+import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
+
+const WALKTHROUGH_STEPS: Array<{
+  target: string;
+  targetFallback?: string;
+  title: string;
+  body: string;
+}> = [
+  {
+    target: "workspace-intro",
+    title: "My Workspace",
+    body:
+      "This is your personal workspace. Here you can see your budget summary, action items that need your vote, and your submitted proposals. Use New Proposal to submit a new grant."
+  },
+  {
+    target: "budget-card",
+    targetFallback: "budget",
+    title: "Your budget",
+    body:
+      "View your remaining individual budget here, split into Joint and Discretionary. Green shows what's already been allocated."
+  },
+  {
+    target: "action-items",
+    title: "Action items",
+    body:
+      "Proposals that still need your vote appear here. Click Enter vote & amount to cast your vote and, for joint proposals, assign your allocation from your budget."
+  },
+  {
+    target: "personal-history",
+    title: "Personal history",
+    body: "Your past votes are listed here so you can see what you’ve supported and how much you allocated."
+  },
+  {
+    target: "submitted-gifts",
+    title: "My submitted gifts",
+    body: "Proposals you’ve submitted appear here. You can track their status as they move through the process."
+  }
+];
 
 export default function WorkspaceClient() {
   const { user } = useAuth();
@@ -27,6 +68,74 @@ export default function WorkspaceClient() {
     Record<string, number>
   >({});
   const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
+  const { registerStartWalkthrough } = useWorkspaceWalkthrough();
+
+  useEffect(() => {
+    return registerStartWalkthrough(() => {
+      setWalkthroughStep(0);
+      setWalkthroughOpen(true);
+    });
+  }, [registerStartWalkthrough]);
+
+  const closeWalkthrough = useCallback(() => {
+    setWalkthroughOpen(false);
+    setWalkthroughStep(0);
+    setSpotlightRect(null);
+  }, []);
+
+  const [spotlightRect, setSpotlightRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  function getTargetElementForStep(stepIndex: number): HTMLElement | null {
+    const step = WALKTHROUGH_STEPS[stepIndex];
+    if (!step) return null;
+    const primary = document.querySelector<HTMLElement>(`[data-walkthrough="${step.target}"]`);
+    const fallback = step.targetFallback
+      ? document.querySelector<HTMLElement>(`[data-walkthrough="${step.targetFallback}"]`)
+      : null;
+    const hasSize = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    if (primary && hasSize(primary)) return primary;
+    if (fallback && hasSize(fallback)) return fallback;
+    return primary ?? fallback ?? null;
+  }
+
+  function measureAndSetRect(stepIndex: number) {
+    const el = getTargetElementForStep(stepIndex);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setSpotlightRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+    } else {
+      setSpotlightRect(null);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (!walkthroughOpen) return;
+    const el = getTargetElementForStep(walkthroughStep);
+    if (!el) {
+      setSpotlightRect(null);
+      return;
+    }
+    el.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
+    measureAndSetRect(walkthroughStep);
+    const t1 = setTimeout(() => measureAndSetRect(walkthroughStep), 50);
+    const t2 = setTimeout(() => measureAndSetRect(walkthroughStep), 200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [walkthroughOpen, walkthroughStep]);
+
+  useEffect(() => {
+    if (!walkthroughOpen) return;
+    const handleResize = () => measureAndSetRect(walkthroughStep);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [walkthroughOpen, walkthroughStep]);
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,
@@ -77,7 +186,7 @@ export default function WorkspaceClient() {
   const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
 
   const budgetSidebar = (
-    <Card className="gap-4 p-4">
+    <Card className="gap-4 p-4" data-walkthrough="budget-card">
       <CardLabel>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardLabel>
       {isManager ? (
         <p className="text-sm text-muted-foreground">
@@ -185,9 +294,105 @@ export default function WorkspaceClient() {
         </DialogContent>
       </Dialog>
 
+      {walkthroughOpen &&
+        spotlightRect &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[45] pointer-events-none" aria-hidden>
+              <div
+                className="bg-transparent"
+                style={{
+                  position: "fixed",
+                  left: spotlightRect.left,
+                  top: spotlightRect.top,
+                  width: spotlightRect.width,
+                  height: spotlightRect.height,
+                  boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
+                  outline: "2px solid hsl(var(--accent))",
+                  outlineOffset: 4,
+                  borderRadius: "0.75rem"
+                }}
+              />
+            </div>
+            <div className="fixed inset-0 z-[45] pointer-events-auto" aria-hidden>
+              <div
+                className="pointer-events-none"
+                style={{
+                  position: "fixed",
+                  left: spotlightRect.left,
+                  top: spotlightRect.top,
+                  width: spotlightRect.width,
+                  height: spotlightRect.height
+                }}
+              />
+            </div>
+          </>,
+          document.body
+        )}
+
+      <Dialog
+        open={walkthroughOpen}
+        onOpenChange={(open) => {
+          if (!open) closeWalkthrough();
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          {(() => {
+            const step = WALKTHROUGH_STEPS[walkthroughStep];
+            if (!step) return null;
+            const isFirst = walkthroughStep === 0;
+            const isLast = walkthroughStep === WALKTHROUGH_STEPS.length - 1;
+            return (
+              <>
+                <DialogHeader>
+                  <p className="text-xs font-medium text-muted-foreground" aria-hidden>
+                    Step {walkthroughStep + 1} of {WALKTHROUGH_STEPS.length}
+                  </p>
+                  <DialogTitle id="walkthrough-title">{step.title}</DialogTitle>
+                  <DialogDescription id="walkthrough-description" className="mt-1 text-left">
+                    {step.body}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="order-last sm:order-first text-muted-foreground"
+                    onClick={closeWalkthrough}
+                  >
+                    Skip tour
+                  </Button>
+                  <div className="flex gap-2">
+                    {!isFirst && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setWalkthroughStep((s) => s - 1)}
+                      >
+                        Back
+                      </Button>
+                    )}
+                    {isLast ? (
+                      <Button size="sm" onClick={closeWalkthrough}>
+                        Finish
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={() => setWalkthroughStep((s) => s + 1)}>
+                        Next
+                      </Button>
+                    )}
+                  </div>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-3">
-          <GlassCard className="rounded-3xl">
+          <GlassCard className="rounded-3xl" data-walkthrough="workspace-intro">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <CardLabel>My Workspace</CardLabel>
@@ -212,7 +417,7 @@ export default function WorkspaceClient() {
             </div>
           </GlassCard>
 
-          <GlassCard className="p-3 lg:hidden">
+          <GlassCard className="p-3 lg:hidden" data-walkthrough="budget">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                 <Wallet className="h-4 w-4" />
@@ -267,7 +472,7 @@ export default function WorkspaceClient() {
             )}
           </GlassCard>
 
-          <GlassCard>
+          <GlassCard data-walkthrough="action-items">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
@@ -325,7 +530,7 @@ export default function WorkspaceClient() {
           </GlassCard>
 
           <section className="grid gap-3 lg:grid-cols-2">
-            <GlassCard>
+            <GlassCard data-walkthrough="personal-history">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
                   <History className="h-4 w-4" />
@@ -348,7 +553,7 @@ export default function WorkspaceClient() {
               </div>
             </GlassCard>
 
-            <GlassCard>
+            <GlassCard data-walkthrough="submitted-gifts">
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                   <Gift className="h-4 w-4" />

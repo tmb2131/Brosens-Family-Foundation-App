@@ -85,8 +85,12 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
  * Legacy convenience component: renders glass-card styled section.
  * Used across the app for dashboard/workspace/meeting cards.
  */
-function GlassCard({ children, className }: React.PropsWithChildren<{ className?: string }>) {
-  return <section className={cn("glass-card rounded-2xl p-4", className)}>{children}</section>
+function GlassCard({ children, className, ...props }: React.ComponentProps<"section">) {
+  return (
+    <section className={cn("glass-card rounded-2xl p-4", className)} {...props}>
+      {children}
+    </section>
+  )
 }
 
 /**
