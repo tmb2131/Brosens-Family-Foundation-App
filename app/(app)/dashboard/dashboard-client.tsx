@@ -1458,7 +1458,7 @@ export default function DashboardClient() {
         data-walkthrough="dashboard-intro-mobile"
         className="flex items-center justify-between gap-2 lg:hidden"
       >
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Details</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dashboard</p>
         <div className="flex items-center gap-1.5">
           <select
             className="h-8 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground outline-none transition-colors active:bg-muted focus:outline-none"
@@ -1490,11 +1490,6 @@ export default function DashboardClient() {
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               {data.annualCycle.monthHint}
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>Reset: {data.annualCycle.resetDate}</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>Year-end deadline: {data.annualCycle.yearEndDeadline}</span>
-            </div>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start">
             <label className="text-xs font-semibold text-muted-foreground">

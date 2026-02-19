@@ -311,10 +311,10 @@ export default function MeetingPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardLabel>Meeting</CardLabel>
-            <CardValue>Live Meeting</CardValue>
+            <CardValue>Voting & Decisions</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-500" />
-              Live meeting
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              Vote on pending proposals and finalize grant recommendations.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span>{formatNumber(data.proposals.length)} pending</span>
