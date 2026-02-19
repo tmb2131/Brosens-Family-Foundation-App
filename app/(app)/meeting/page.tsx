@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { Check, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -45,135 +45,70 @@ function MeetingProposalCard({
   const votesComplete =
     proposal.progress.totalRequiredVotes > 0 &&
     proposal.progress.votesSubmitted >= proposal.progress.totalRequiredVotes;
+  const flagCount = proposal.voteBreakdown.filter(
+    (v) => v.choice === "flagged" && v.flagComment
+  ).length;
+  const cnScore =
+    userRole === "oversight" && proposal.charityNavigatorScore != null
+      ? Math.round(proposal.charityNavigatorScore)
+      : null;
 
   return (
     <article
-      className={`flex flex-col gap-3 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
+      className={`flex flex-col gap-1.5 rounded-xl border border-t-2 bg-background p-3 shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
         proposal.proposalType === "joint"
           ? "border-t-indigo-400 dark:border-t-indigo-500"
           : "border-t-amber-400 dark:border-t-amber-500"
       }`}
     >
-      {/* Summary: title + status */}
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <h3 className="min-w-0 truncate text-base font-semibold">{proposal.title}</h3>
+      <div className="flex min-w-0 items-baseline justify-between gap-3">
+        <h3 className="min-w-0 truncate text-sm font-semibold">{proposal.title}</h3>
+        <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+          {currency(proposal.progress.computedFinalAmount)}
+        </span>
+      </div>
+
+      <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span>{titleCase(proposal.proposalType)}</span>
+          <span aria-hidden>·</span>
+          <span className="inline-flex items-center gap-1">
+            {votesComplete ? (
+              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            ) : null}
+            {formatNumber(proposal.progress.votesSubmitted)}/{formatNumber(proposal.progress.totalRequiredVotes)} votes
+          </span>
+          {flagCount > 0 ? (
+            <>
+              <span aria-hidden>·</span>
+              <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" aria-hidden />
+                {flagCount}
+              </span>
+            </>
+          ) : null}
+          {cnScore != null ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>CN {cnScore}%</span>
+            </>
+          ) : null}
+        </span>
         <span className="shrink-0">
           <StatusPill status={proposal.status} />
         </span>
       </div>
 
-      {/* Primary amount with context label */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Final amount
-        </p>
-        <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
-          {currency(proposal.progress.computedFinalAmount)}
-        </p>
-      </div>
-      {proposal.description?.trim() ? (
-        <p className="text-sm text-muted-foreground">{proposal.description.trim()}</p>
-      ) : null}
-
-      {/* Metadata block */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-        <div className="min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Type
-          </span>
-          <p className="mt-0.5 font-medium text-foreground">{titleCase(proposal.proposalType)}</p>
-        </div>
-        <div className="min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Rule
-          </span>
-          <p className="mt-0.5 font-medium text-foreground">
-            {proposal.proposalType === "joint"
-              ? proposal.allocationMode === "sum"
-                ? "Sum of allocations"
-                : titleCase(proposal.allocationMode)
-              : "Proposer-set"}
-          </p>
-        </div>
-        <div className="min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Votes in
-          </span>
-          <p className="mt-0.5 flex items-center gap-1.5 font-medium text-foreground">
-            {votesComplete ? (
-              <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            ) : null}
-            {formatNumber(proposal.progress.votesSubmitted)} of{" "}
-            {formatNumber(proposal.progress.totalRequiredVotes)}
-          </p>
-        </div>
-        <div className="min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Proposed
-          </span>
-          <p className="mt-0.5 font-medium text-foreground">{currency(proposal.proposedAmount)}</p>
-        </div>
-      </div>
-
-      {proposal.voteBreakdown.some((v) => v.choice === "flagged" && v.flagComment) ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/30">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-            Flag comments
-          </p>
-          <ul className="mt-1.5 list-none space-y-1 text-amber-900 dark:text-amber-100">
-            {proposal.voteBreakdown
-              .filter((v) => v.choice === "flagged" && v.flagComment)
-              .map((vote) => (
-                <li key={vote.userId}>
-                  <span className="font-medium">{vote.userId}:</span> {vote.flagComment}
-                </li>
-              ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {userRole === "oversight" && proposal.charityNavigatorUrl ? (
-        <div className="rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Charity Navigator
-          </p>
-          {proposal.charityNavigatorScore != null ? (
-            <>
-              <p className="mt-1.5 font-medium text-foreground">
-                This charity&apos;s score is {Math.round(proposal.charityNavigatorScore)}%, earning it a{" "}
-                {charityNavigatorRating(proposal.charityNavigatorScore).starLabel} rating.
-              </p>
-              <p className="mt-1 text-muted-foreground">
-                {charityNavigatorRating(proposal.charityNavigatorScore).meaning}
-              </p>
-            </>
-          ) : (
-            <p className="mt-1.5 text-muted-foreground">Score not yet available.</p>
-          )}
-          <a
-            href={proposal.charityNavigatorUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-block font-medium text-primary underline underline-offset-2 hover:no-underline"
-          >
-            View on Charity Navigator
-          </a>
-        </div>
-      ) : null}
-
-      {/* CTA separated from content */}
-      <div className="border-t pt-3">
-        <Button
-          className="w-full"
-          size="lg"
-          disabled={saving}
-          onClick={() => onOpenDecisionDialog(proposal.id)}
-          aria-label={`Review and confirm: ${proposal.title}`}
-        >
-          <Eye className="h-3.5 w-3.5" />
-          Review & confirm
-        </Button>
-      </div>
+      <Button
+        className="w-full"
+        size="sm"
+        disabled={saving}
+        onClick={() => onOpenDecisionDialog(proposal.id)}
+        aria-label={`Review and confirm: ${proposal.title}`}
+      >
+        <Eye className="h-3.5 w-3.5" />
+        Review & confirm
+      </Button>
     </article>
   );
 }
@@ -425,6 +360,11 @@ export default function MeetingPage() {
               {formatNumber(meetingDialogProposal.progress.votesSubmitted)} of{" "}
               {formatNumber(meetingDialogProposal.progress.totalRequiredVotes)} votes in
             </p>
+            {meetingDialogProposal.description?.trim() ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {meetingDialogProposal.description.trim()}
+              </p>
+            ) : null}
             {meetingDialogProposal.charityNavigatorUrl ? (
               <div className="mt-4 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
