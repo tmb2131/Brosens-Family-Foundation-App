@@ -1803,18 +1803,18 @@ export default function DashboardClient() {
               </div>
             </div>
 
-            <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
-              <label className="text-xs font-semibold text-muted-foreground">
+            <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] xl:items-end">
+              <label className="text-xs font-semibold text-muted-foreground flex flex-col">
                 Search
                 <Input
                   type="text"
                   value={filters.proposal}
                   onChange={(event) => setFilter("proposal", event.target.value)}
                   placeholder="Title or description"
-                  className="mt-1 normal-case"
+                  className="mt-1 h-9 normal-case"
                 />
               </label>
-              <label className="text-xs font-semibold text-muted-foreground">
+              <label className="text-xs font-semibold text-muted-foreground flex flex-col">
                 Type
                 <select
                   value={filters.proposalType}
@@ -1828,7 +1828,7 @@ export default function DashboardClient() {
                   <option value="discretionary">Discretionary</option>
                 </select>
               </label>
-              <label className="text-xs font-semibold text-muted-foreground">
+              <label className="text-xs font-semibold text-muted-foreground flex flex-col">
                 Status
                 <select
                   value={filters.status}
@@ -1848,7 +1848,7 @@ export default function DashboardClient() {
                   variant="outline"
                   size="sm"
                   onClick={clearTrackerFilters}
-                  className="w-full xl:w-auto"
+                  className="h-9 w-full xl:w-auto"
                 >
                   Clear filters
                 </Button>
