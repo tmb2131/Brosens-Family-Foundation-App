@@ -509,10 +509,10 @@ export default function WorkspaceClient() {
                           <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
+                          <StatusPill status={item.status} />
                           <span className="text-xs font-medium text-muted-foreground">
                             {item.voteProgressLabel}
                           </span>
-                          <StatusPill status={item.status} />
                         </div>
                       </div>
                       <p className="mt-1 text-lg font-semibold text-foreground">
