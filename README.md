@@ -160,7 +160,7 @@ Config: `supabase/config.toml` (migrations live in `supabase/migrations/`).
   - `/api/notifications/email/process` (supports `Authorization: Bearer $EMAIL_WORKER_SECRET`)
 - Weekly action reminders:
   - `/api/notifications/email/reminders` — GET (Vercel cron) or POST (manual). Auth: `Authorization: Bearer $EMAIL_WORKER_SECRET` or `Bearer $CRON_SECRET`.
-  - Cron schedule: `vercel.json` runs this endpoint **twice per day** (UTC): **0 0 * * *** (daily at 00:00 UTC ≈ 7pm ET) and **0 15 * * 2** (Tuesdays at 15:00 UTC ≈ 10am ET). The app time-gates in America/New_York: **Tuesday 10am ET** weekly reminders, **daily 7pm ET** proposal-sent digest. Set `CRON_SECRET` in Vercel (e.g. same value as `EMAIL_WORKER_SECRET`) so cron requests are authorized. To disable email crons on a deployment (e.g. test/staging), set **`DISABLE_EMAIL_CRON=true`** in that project's environment variables.
+  - Cron schedule: `vercel.json` runs this endpoint **twice per day** (UTC): **45 23 * * *** (daily at 23:45 UTC = 6:45pm ET, digest sent by 7pm) and **45 14 * * 2** (Tuesdays at 14:45 UTC = 9:45am ET, sent by 10am). The app time-gates in America/New_York: **Tuesday 10am ET** weekly reminders, **daily 7pm ET** proposal-sent digest. Set `CRON_SECRET` in Vercel (e.g. same value as `EMAIL_WORKER_SECRET`) so cron requests are authorized. To disable email crons on a deployment (e.g. test/staging), set **`DISABLE_EMAIL_CRON=true`** in that project's environment variables.
 - Device-aware email links:
   - `/open?to=/target/path` routes mobile users to `/mobile` and desktop users to the web target
 
