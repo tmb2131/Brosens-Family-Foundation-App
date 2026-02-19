@@ -493,7 +493,7 @@ function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "sticky top-4 bottom-4 hidden h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
+        "sticky top-6 hidden h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
         isOpen ? "w-60" : "w-16"
       )}
     >
@@ -771,7 +771,7 @@ export function AppShell({ children }: PropsWithChildren) {
           : "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
       )}
       style={{
-        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : "1rem"
+        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : "1.5rem"
       }}
     >
       <RouteProgressBar />
