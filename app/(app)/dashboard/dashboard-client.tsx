@@ -1488,10 +1488,10 @@ export default function DashboardClient() {
             <CardValue>{selectedYearFilterValue === "all" ? "All years" : selectedYearFilterValue}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              {data.annualCycle.monthHint}
+              Budget year runs from February 1, {selectedBudgetYear} to January 31, {selectedBudgetYear + 1}
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-start">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
             <label className="text-xs font-semibold text-muted-foreground">
               Budget year
               <select
@@ -1542,7 +1542,7 @@ export default function DashboardClient() {
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-          {data.annualCycle.monthHint}
+          Budget year runs from February 1, {selectedBudgetYear} to January 31, {selectedBudgetYear + 1}
         </p>
       </GlassCard>
 

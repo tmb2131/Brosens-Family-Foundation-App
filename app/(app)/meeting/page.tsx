@@ -316,11 +316,6 @@ export default function MeetingPage() {
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Vote on pending proposals and finalize grant recommendations.
             </p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span>{formatNumber(data.proposals.length)} pending</span>
-              <span className="hidden text-border sm:inline">|</span>
-              <span>{currency(totalRecommendedAmount)} recommended</span>
-            </div>
           </div>
           <Button
             type="button"
