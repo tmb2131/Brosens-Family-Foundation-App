@@ -771,7 +771,7 @@ export function AppShell({ children }: PropsWithChildren) {
           : "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
       )}
       style={{
-        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : 0
+        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : "1rem"
       }}
     >
       <RouteProgressBar />
