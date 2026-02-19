@@ -797,14 +797,13 @@ function buildUserAccessNotificationContent(input: {
   userEmail: string;
   lastAccessedAt: string;
 }) {
-  const { dateTime, iso } = formatLastAccessedAt(input.lastAccessedAt);
+  const { dateTime } = formatLastAccessedAt(input.lastAccessedAt);
   const subject = `User access: ${input.userEmail}`;
   const textBody = [
     "A foundation member has just accessed the app.",
     "",
     "User email: " + input.userEmail,
     "Last accessed at: " + dateTime,
-    "Timestamp (UTC): " + iso,
     "",
     "Brosens Family Foundation"
   ].join("\n");
@@ -814,8 +813,7 @@ function buildUserAccessNotificationContent(input: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
 <tr><td style="padding:16px 20px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:4px;">
 <p style="margin:0 0 4px 0;font-size:15px;color:#111827;"><strong>User email:</strong> ${escapeHtml(input.userEmail)}</p>
-<p style="margin:0 0 4px 0;color:#4b5563;font-size:14px;"><strong>Last accessed at:</strong> ${escapeHtml(dateTime)}</p>
-<p style="margin:0;color:#4b5563;font-size:14px;"><strong>Timestamp (UTC):</strong> ${escapeHtml(iso)}</p>
+<p style="margin:0;color:#4b5563;font-size:14px;"><strong>Last accessed at:</strong> ${escapeHtml(dateTime)}</p>
 </td></tr>
 </table>`;
 
