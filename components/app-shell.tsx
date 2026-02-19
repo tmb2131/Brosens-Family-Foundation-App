@@ -822,12 +822,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
         <PwaIosInstallBanner />
 
-        <main
-          className={cn(
-            "min-w-0 flex-1",
-            pathname !== "/dashboard" && "sm:pt-4"
-          )}
-        >
+        <main className="min-w-0 flex-1 sm:pt-4">
           {children}
         </main>
       </div>

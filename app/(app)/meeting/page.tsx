@@ -293,7 +293,7 @@ export default function MeetingPage() {
 
   return (
     <div className="page-stack pb-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Live Meeting</p>
         <button
           type="button"
