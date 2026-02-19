@@ -786,6 +786,7 @@ export function AppShell({ children }: PropsWithChildren) {
       />
 
       <div
+        data-main-scroll
         className={cn(
           "min-w-0 flex-1",
           stickyBottomNavOnMobile &&
