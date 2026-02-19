@@ -4,7 +4,13 @@ import { HttpError } from "@/lib/http-error";
 import { currency } from "@/lib/utils";
 
 type AdminClient = SupabaseClient;
-type EmailNotificationType = "action_required" | "weekly_action_reminder" | "proposal_sent_fyi" | "introduction" | "proposal_submitted_confirmation";
+type EmailNotificationType =
+  | "action_required"
+  | "weekly_action_reminder"
+  | "proposal_sent_fyi"
+  | "introduction"
+  | "proposal_submitted_confirmation"
+  | "user_access_notification";
 
 type OutstandingActionType = "vote_required" | "meeting_review_required" | "admin_send_required";
 
@@ -764,6 +770,54 @@ function buildProposalSubmittedConfirmationContent(input: {
 </table>
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">${escapeHtml(otherMembersLine)}</p>
 ${emailButton("Open Workspace", workspaceUrl)}`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
+
+  return {
+    subject,
+    htmlBody,
+    textBody
+  };
+}
+
+function formatLastAccessedAt(isoTimestamp: string): { dateTime: string; iso: string } {
+  const date = new Date(isoTimestamp);
+  if (Number.isNaN(date.getTime())) {
+    return { dateTime: isoTimestamp, iso: isoTimestamp };
+  }
+  const dateTime = date.toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "long",
+    timeZone: "UTC"
+  });
+  return { dateTime, iso: date.toISOString() };
+}
+
+function buildUserAccessNotificationContent(input: {
+  userEmail: string;
+  lastAccessedAt: string;
+}) {
+  const { dateTime, iso } = formatLastAccessedAt(input.lastAccessedAt);
+  const subject = `User access: ${input.userEmail}`;
+  const textBody = [
+    "A foundation member has just accessed the app.",
+    "",
+    "User email: " + input.userEmail,
+    "Last accessed at: " + dateTime,
+    "Timestamp (UTC): " + iso,
+    "",
+    "Brosens Family Foundation"
+  ].join("\n");
+
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">A foundation member has just accessed the app.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
+<tr><td style="padding:16px 20px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:4px;">
+<p style="margin:0 0 4px 0;font-size:15px;color:#111827;"><strong>User email:</strong> ${escapeHtml(input.userEmail)}</p>
+<p style="margin:0 0 4px 0;color:#4b5563;font-size:14px;"><strong>Last accessed at:</strong> ${escapeHtml(dateTime)}</p>
+<p style="margin:0;color:#4b5563;font-size:14px;"><strong>Timestamp (UTC):</strong> ${escapeHtml(iso)}</p>
+</td></tr>
+</table>`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
 
@@ -1562,6 +1616,46 @@ export async function queueAdminSendRequiredActionEmails(
     actionLinkPath: `/admin?proposalId=${input.proposalId}`,
     idempotencyKeyPrefix: `action-required:admin-send:${input.proposalId}`
   });
+}
+
+export async function queueUserAccessNotification(
+  admin: AdminClient,
+  input: {
+    userEmail: string;
+    userId: string;
+    lastAccessedAt: string;
+  }
+) {
+  const oversightUsers = await loadUsersByRoles(admin, ["oversight"]);
+  const oversightIds = oversightUsers.map((u) => u.id).filter(Boolean);
+  if (!oversightIds.length) {
+    return { enqueued: false, reason: "no_oversight_users" as const };
+  }
+
+  const content = buildUserAccessNotificationContent({
+    userEmail: input.userEmail,
+    lastAccessedAt: input.lastAccessedAt
+  });
+
+  const idempotencyKey = `user-access:${input.userId}:${input.lastAccessedAt}`;
+  const result = await queueEmailNotification(admin, {
+    notificationType: "user_access_notification",
+    actorUserId: input.userId,
+    entityId: null,
+    idempotencyKey,
+    subject: content.subject,
+    htmlBody: content.htmlBody,
+    textBody: content.textBody,
+    primaryLinkPath: "/dashboard",
+    primaryLinkLabel: "Open Dashboard",
+    payload: {
+      userEmail: input.userEmail,
+      lastAccessedAt: input.lastAccessedAt
+    },
+    recipientUserIds: oversightIds
+  });
+
+  return result;
 }
 
 export async function processWeeklyActionReminderEmails(
