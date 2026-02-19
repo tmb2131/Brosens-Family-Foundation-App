@@ -6,9 +6,14 @@ export function normalizeOptionalHttpUrl(value: unknown, fieldLabel: string) {
     return null;
   }
 
+  const toParse =
+    trimmed.startsWith("http://") || trimmed.startsWith("https://")
+      ? trimmed
+      : `https://${trimmed}`;
+
   let parsed: URL;
   try {
-    parsed = new URL(trimmed);
+    parsed = new URL(toParse);
   } catch {
     throw new HttpError(400, `${fieldLabel} must be a valid URL.`);
   }

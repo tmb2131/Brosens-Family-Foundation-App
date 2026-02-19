@@ -690,16 +690,16 @@ export default function NewProposalPage() {
             <Label htmlFor="org-website">Organization website link (optional)</Label>
             <Input
               id="org-website"
-              type="url"
+              type="text"
               value={website}
               onChange={(event) => setWebsite(event.target.value)}
               className="rounded-xl"
-              placeholder="https://example.org"
+              placeholder="e.g. prepforprep.org or https://example.org"
               inputMode="url"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Add the organization website for proposal context and to help Brynn complete the
-              donation.
+              donation. You can enter just the domain; we&apos;ll add https:// if needed.
             </p>
           </div>
 
@@ -707,16 +707,17 @@ export default function NewProposalPage() {
             <Label htmlFor="charity-nav-url">Charity Navigator link (optional)</Label>
             <Input
               id="charity-nav-url"
-              type="url"
+              type="text"
               value={charityNavigatorUrl}
               onChange={(event) => setCharityNavigatorUrl(event.target.value)}
               className="rounded-xl"
-              placeholder="https://www.charitynavigator.org/..."
+              placeholder="e.g. charitynavigator.org/... or full URL"
               inputMode="url"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Add the Charity Navigator profile URL. The app auto-populates the score and summary
-              from this link.
+              from this link. You can enter just the domain or a full URL; we&apos;ll add https://
+              if needed.
             </p>
           </div>
 

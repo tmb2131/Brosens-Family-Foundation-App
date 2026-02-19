@@ -2275,24 +2275,30 @@ export default function DashboardClient() {
                   <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Organization website URL
                     <Input
-                      type="url"
+                      type="text"
                       value={detailEditDraft.website}
                       disabled={isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("website", event.target.value)}
                       className="mt-1"
-                      placeholder="https://example.org"
+                      placeholder="e.g. prepforprep.org or https://example.org"
                     />
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      You can enter just the domain; we&apos;ll add https:// if needed.
+                    </span>
                   </label>
                   <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
                     Charity Navigator URL
                     <Input
-                      type="url"
+                      type="text"
                       value={detailEditDraft.charityNavigatorUrl}
                       disabled={isDetailSaving}
                       onChange={(event) => updateDetailEditDraft("charityNavigatorUrl", event.target.value)}
                       className="mt-1"
-                      placeholder="https://www.charitynavigator.org/..."
+                      placeholder="e.g. charitynavigator.org/... or full URL"
                     />
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      You can enter just the domain or full URL; we&apos;ll add https:// if needed.
+                    </span>
                   </label>
                 </div>
                 {detailEditError ? (
