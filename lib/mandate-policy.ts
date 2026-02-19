@@ -31,9 +31,9 @@ export const MANDATE_SECTION_LABELS: Record<MandateSectionKey, string> = {
 
 export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
   missionStatement:
-    "The Brosens Family Foundation supports people and communities that have been left out of economic opportunity. Our practical focus is education, because it creates long-term pathways to equity.",
+    "The Brosens Family Foundation supports people and communities that have been left out of economic opportunity. Our practical focus is education, as a means to create long-term pathways to social equity.",
   structure: [
-    "The foundation operates as a non-operating entity; Brynn (Admin) executes approved donations.",
+    "The foundation operates as a non-operating entity.",
     "Annual giving defaults to a 75% joint pool and 25% discretionary pool, based on that year's budget record.",
     "Unused budget can roll over to future years through yearly rollover settings."
   ].join("\n"),
@@ -67,7 +67,7 @@ export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
   rolesAndResponsibilities: [
     "Brynn (Admin): executes approved donations and marks proposals as Sent.",
     "Tom (Oversight): maintains policy, oversees process, and approves or declines discretionary proposals during meetings.",
-    "Dad (Manager): co-approves meeting decisions and sets foundation-level budget direction."
+    "Dad (Manager): sets foundation-level budget direction."
   ].join("\n"),
   references: [
     "Brosens Family Foundation Master Document",
