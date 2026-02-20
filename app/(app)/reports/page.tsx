@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
-import { ClipboardList, Download, DollarSign, PieChart as PieChartIcon, RefreshCw, Send } from "lucide-react";
+import { ChevronDown, ChevronUp, ClipboardList, Download, DollarSign, PieChart as PieChartIcon, RefreshCw, Send } from "lucide-react";
 
 const ReportsCharts = dynamic(
   () => import("@/components/dashboard/reports-charts").then((mod) => mod.ReportsCharts),
@@ -180,9 +180,11 @@ export default function ReportsPage() {
     setSortDirection("asc");
   };
 
-  const sortMarker = (key: ReportSortKey) => {
-    if (sortKey !== key) return "";
-    return sortDirection === "asc" ? " ^" : " v";
+  const SortIcon = ({ k }: { k: ReportSortKey }) => {
+    if (sortKey !== k) return null;
+    return sortDirection === "asc"
+      ? <ChevronUp className="inline h-3 w-3 ml-0.5" />
+      : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
   };
 
   const statusCounts = useMemo<StatusCountDatum[]>(
@@ -345,7 +347,9 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+        <div className="mt-4 print:hidden">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Status</p>
+          <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((status) => (
             <label
               key={status}
@@ -364,8 +368,11 @@ export default function ReportsPage() {
               {titleCase(status)}
             </label>
           ))}
+          </div>
         </div>
-        <div className="mt-2 flex flex-wrap gap-2 print:hidden">
+        <div className="mt-3 print:hidden">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Category</p>
+          <div className="flex flex-wrap gap-2">
           <label
             className={`inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold ${
               categoryFilter === "all"
@@ -399,6 +406,7 @@ export default function ReportsPage() {
               {DIRECTIONAL_CATEGORY_LABELS[category]}
             </label>
           ))}
+          </div>
         </div>
       </GlassCard>
 
@@ -476,22 +484,22 @@ export default function ReportsPage() {
             <thead>
               <DataTableHeadRow>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("proposal")}>Proposal{sortMarker("proposal")}</DataTableSortButton>
+                  <DataTableSortButton onClick={() => toggleSort("proposal")}>Proposal<SortIcon k="proposal" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("type")}>Type{sortMarker("type")}</DataTableSortButton>
+                  <DataTableSortButton onClick={() => toggleSort("type")}>Type<SortIcon k="type" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("status")}>Status{sortMarker("status")}</DataTableSortButton>
+                  <DataTableSortButton onClick={() => toggleSort("status")}>Status<SortIcon k="status" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("amount")}>Amount{sortMarker("amount")}</DataTableSortButton>
+                  <DataTableSortButton onClick={() => toggleSort("amount")}>Amount<SortIcon k="amount" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("sentAt")}>Sent Date{sortMarker("sentAt")}</DataTableSortButton>
+                  <DataTableSortButton onClick={() => toggleSort("sentAt")}>Sent Date<SortIcon k="sentAt" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("category")}>Category{sortMarker("category")}</DataTableSortButton>
+                  <DataTableSortButton onClick={() => toggleSort("category")}>Category<SortIcon k="category" /></DataTableSortButton>
                 </th>
               </DataTableHeadRow>
             </thead>
@@ -518,7 +526,9 @@ export default function ReportsPage() {
                       {currency(proposal.progress.computedFinalAmount)}
                     </td>
                     <td className="px-2 py-2 text-xs text-muted-foreground">
-                      {proposal.sentAt ?? "—"}
+                      {proposal.sentAt
+                        ? new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                        : "—"}
                     </td>
                     <td className="px-2 py-2 text-xs text-muted-foreground">
                       {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}

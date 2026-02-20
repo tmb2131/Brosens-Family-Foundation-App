@@ -17,7 +17,7 @@ import { GlassCard, CardLabel } from "@/components/ui/card";
 import { ChartLegend } from "@/components/ui/chart-legend";
 import { DirectionalCategory, ProposalStatus } from "@/lib/types";
 import { compactCurrency, currency, formatNumber } from "@/lib/utils";
-import { chartPalette, chartText } from "@/lib/chart-styles";
+import { chartPalette, chartText, chartTooltip } from "@/lib/chart-styles";
 
 interface StatusCountDatum {
   status: ProposalStatus;
@@ -99,14 +99,10 @@ export function ReportsCharts({
               <Tooltip
                 cursor={{ fill: "hsl(var(--muted) / 0.55)" }}
                 separator=""
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid hsl(var(--border))",
-                  backgroundColor: "hsl(var(--card))",
-                  color: "hsl(var(--foreground))"
-                }}
-                labelStyle={{ color: "hsl(var(--foreground) / 0.92)", fontWeight: 600 }}
-                itemStyle={{ color: "hsl(var(--foreground) / 0.84)" }}
+                contentStyle={chartTooltip.contentStyle}
+                labelStyle={chartTooltip.labelStyle}
+                itemStyle={chartTooltip.itemStyle}
+                wrapperStyle={chartTooltip.wrapperStyle}
                 formatter={(value, _name, item) => {
                   const row = item.payload as StatusCountDatum | undefined;
                   if (!row) {
@@ -175,14 +171,10 @@ export function ReportsCharts({
               <Tooltip
                 cursor={{ fill: "hsl(var(--muted) / 0.55)" }}
                 separator=""
-                contentStyle={{
-                  borderRadius: 12,
-                  border: "1px solid hsl(var(--border))",
-                  backgroundColor: "hsl(var(--card))",
-                  color: "hsl(var(--foreground))"
-                }}
-                labelStyle={{ color: "hsl(var(--foreground) / 0.92)", fontWeight: 600 }}
-                itemStyle={{ color: "hsl(var(--foreground) / 0.84)" }}
+                contentStyle={chartTooltip.contentStyle}
+                labelStyle={chartTooltip.labelStyle}
+                itemStyle={chartTooltip.itemStyle}
+                wrapperStyle={chartTooltip.wrapperStyle}
                 formatter={(value, _name, item) => {
                   const row = item.payload as CategoryCountDatum | undefined;
                   if (!row) {
@@ -253,7 +245,13 @@ export function ReportsCharts({
                   style={{ fill: chartText.axis, fontSize: 11, fontWeight: 600 }}
                 />
               </Pie>
-              <Tooltip formatter={(value: number) => currency(value)} />
+              <Tooltip
+                contentStyle={chartTooltip.contentStyle}
+                labelStyle={chartTooltip.labelStyle}
+                itemStyle={chartTooltip.itemStyle}
+                wrapperStyle={chartTooltip.wrapperStyle}
+                formatter={(value: number) => currency(value)}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
