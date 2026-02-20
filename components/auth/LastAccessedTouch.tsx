@@ -13,7 +13,7 @@ export function LastAccessedTouch() {
     fetch("/api/auth/touch", { method: "POST" }).catch(() => {
       // Fire-and-forget; ignore errors (e.g. network)
     });
-  }, [loading, user?.id]);
+  }, [loading, user]);
 
   return null;
 }

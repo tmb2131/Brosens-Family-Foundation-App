@@ -502,7 +502,7 @@ export default function DashboardClient() {
     return primary ?? fallback ?? null;
   }
 
-  function measureAndSetRect(stepIndex: number) {
+  const measureAndSetRect = useCallback((stepIndex: number) => {
     const el = getTargetElementForStep(stepIndex);
     if (el) {
       const r = el.getBoundingClientRect();
@@ -510,7 +510,7 @@ export default function DashboardClient() {
     } else {
       setSpotlightRect(null);
     }
-  }
+  }, []);
 
   useLayoutEffect(() => {
     if (!walkthroughOpen) return;
@@ -527,14 +527,14 @@ export default function DashboardClient() {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [walkthroughOpen, walkthroughStep]);
+  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
   useEffect(() => {
     if (!walkthroughOpen) return;
     const handleResize = () => measureAndSetRect(walkthroughStep);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [walkthroughOpen, walkthroughStep]);
+  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
   const foundationKey = useMemo(() => {
     if (!user) {
@@ -677,7 +677,7 @@ export default function DashboardClient() {
     });
 
     return sorted;
-  }, [data, filters, sortDirection, sortKey]);
+  }, [data, filters, sortDirection, sortKey, user?.role]);
 
   const pendingProposals = useMemo(() => {
     if (!pendingData) {

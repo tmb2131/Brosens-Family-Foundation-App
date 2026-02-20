@@ -103,7 +103,7 @@ export default function WorkspaceClient() {
     return primary ?? fallback ?? null;
   }
 
-  function measureAndSetRect(stepIndex: number) {
+  const measureAndSetRect = useCallback((stepIndex: number) => {
     const el = getTargetElementForStep(stepIndex);
     if (el) {
       const r = el.getBoundingClientRect();
@@ -111,7 +111,7 @@ export default function WorkspaceClient() {
     } else {
       setSpotlightRect(null);
     }
-  }
+  }, []);
 
   useLayoutEffect(() => {
     if (!walkthroughOpen) return;
@@ -128,14 +128,14 @@ export default function WorkspaceClient() {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [walkthroughOpen, walkthroughStep]);
+  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
   useEffect(() => {
     if (!walkthroughOpen) return;
     const handleResize = () => measureAndSetRect(walkthroughStep);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [walkthroughOpen, walkthroughStep]);
+  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
     user ? "/api/workspace" : null,

@@ -10,17 +10,8 @@ const nextConfig = {
       "radix-ui",
       "sonner"
     ],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
   },
   compress: true,
-  swcMinify: true,
   images: {
     formats: ['image/webp', 'image/avif'],
     dangerouslyAllowSVG: true,

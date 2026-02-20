@@ -683,7 +683,7 @@ export default function MeetingPage() {
                             </div>
                             {vote.choice === "flagged" && vote.flagComment ? (
                               <p className="mt-1 text-xs text-muted-foreground italic line-clamp-2">
-                                "{vote.flagComment}"
+                                &ldquo;{vote.flagComment}&rdquo;
                               </p>
                             ) : null}
                           </div>
