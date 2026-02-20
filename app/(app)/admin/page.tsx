@@ -30,7 +30,6 @@ function AdminPageClient() {
   });
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightProposalId, setHighlightProposalId] = useState<string | null>(null);
-  const todayISO = toISODate(new Date());
   const [sentDateByProposalId, setSentDateByProposalId] = useState<Record<string, string>>({});
   const [sentErrorByProposalId, setSentErrorByProposalId] = useState<Record<string, string>>({});
   const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
@@ -208,7 +207,7 @@ function AdminPageClient() {
           </GlassCard>
         ) : (
           data.proposals.map((proposal) => {
-            const sentDate = sentDateByProposalId[proposal.id] ?? todayISO;
+            const sentDate = sentDateByProposalId[proposal.id] ?? "";
             const errorMessage = sentErrorByProposalId[proposal.id];
             const isSaving = savingProposalId === proposal.id;
             const errorId = `sent-error-${proposal.id}`;
