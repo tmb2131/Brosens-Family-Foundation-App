@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { CheckCircle2, ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -117,6 +117,7 @@ interface TableFilters {
   proposal: string;
   proposalType: "all" | "joint" | "discretionary";
   status: "all" | ProposalStatus;
+  myActions: boolean;
 }
 
 interface ProposalExportRow {
@@ -133,7 +134,8 @@ interface ProposalExportRow {
 const DEFAULT_FILTERS: TableFilters = {
   proposal: "",
   proposalType: "all",
-  status: "all"
+  status: "all",
+  myActions: false
 };
 
 const STATUS_RANK: Record<ProposalStatus, number> = {
@@ -633,6 +635,18 @@ export default function DashboardClient() {
         return false;
       }
 
+      if (filters.myActions) {
+        const requiredAction = buildRequiredActionSummary(proposal, user?.role);
+        const viewerMustAct =
+          requiredAction.tone === "attention" &&
+          (requiredAction.openDetail ||
+            (requiredAction.href === "/meeting" && (user?.role === "oversight" || user?.role === "manager")) ||
+            (requiredAction.href === "/admin" && user?.role === "admin"));
+        if (!viewerMustAct) {
+          return false;
+        }
+      }
+
       return true;
     });
 
@@ -847,11 +861,11 @@ export default function DashboardClient() {
     setSortDirection("asc");
   };
 
-  const sortMarker = (key: SortKey) => {
-    if (sortKey !== key) {
-      return "";
-    }
-    return sortDirection === "asc" ? " ^" : " v";
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return null;
+    return sortDirection === "asc"
+      ? <ChevronUp className="inline h-3 w-3 ml-0.5" />
+      : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
   };
 
   const updateDraft = (proposalId: string, patch: Partial<ProposalDraft>) => {
@@ -1853,7 +1867,7 @@ export default function DashboardClient() {
               </div>
             </div>
 
-            <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto] xl:items-end">
+            <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,8rem)_auto] xl:items-end">
               <label className="text-xs font-semibold text-muted-foreground flex flex-col">
                 Search
                 <Input
@@ -1892,6 +1906,18 @@ export default function DashboardClient() {
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="text-xs font-semibold text-muted-foreground flex flex-col">
+                <span className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={filters.myActions}
+                    onChange={(event) => setFilter("myActions", event.target.checked)}
+                    className="h-3.5 w-3.5 accent-[hsl(var(--accent))] rounded border border-border"
+                  />
+                  My Actions
+                </span>
+                <span className="mt-1 text-[10px] normal-case text-muted-foreground">Only proposals requiring my action</span>
               </label>
               <div className="flex items-end">
                 <Button
@@ -1983,7 +2009,11 @@ export default function DashboardClient() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Sent</span>
-                      <p className="font-medium text-foreground">{proposal.sentAt ?? "—"}</p>
+                      <p className="font-medium text-foreground">
+                        {proposal.sentAt
+                          ? new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                          : "—"}
+                      </p>
                     </div>
                   </div>
 
@@ -2165,27 +2195,27 @@ export default function DashboardClient() {
               <DataTableHeadRow>
                 <th className="px-2 py-3">
                   <DataTableSortButton onClick={() => toggleSort("proposal")}>
-                    Proposal{sortMarker("proposal")}
+                    Proposal<SortIcon k="proposal" />
                   </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
                   <DataTableSortButton onClick={() => toggleSort("type")}>
-                    Type{sortMarker("type")}
+                    Type<SortIcon k="type" />
                   </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
                   <DataTableSortButton onClick={() => toggleSort("amount")}>
-                    Amount{sortMarker("amount")}
+                    Amount<SortIcon k="amount" />
                   </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
                   <DataTableSortButton onClick={() => toggleSort("sentAt")}>
-                    Date Sent{sortMarker("sentAt")}
+                    Date Sent<SortIcon k="sentAt" />
                   </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">
                   <DataTableSortButton onClick={() => toggleSort("status")}>
-                    Status{sortMarker("status")}
+                    Status<SortIcon k="status" />
                   </DataTableSortButton>
                 </th>
                 <th className="px-2 py-3">Required Action</th>
@@ -2235,7 +2265,9 @@ export default function DashboardClient() {
                       ? "text-rose-600"
                       : "text-muted-foreground";
                   const statusDisplay = isHistoricalBulkEditEnabled ? draft.status : proposal.status;
-                  const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt ?? "—";
+                  const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt
+                    ? new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                    : "—";
 
                   const viewerMustAct =
                     requiredAction.tone === "attention" &&
@@ -2388,7 +2420,11 @@ export default function DashboardClient() {
               </div>
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
-                <dd className="mt-1.5 font-semibold text-foreground">{detailProposal.sentAt ?? "—"}</dd>
+                <dd className="mt-1.5 font-semibold text-foreground">
+                  {detailProposal.sentAt
+                    ? new Date(detailProposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                    : "—"}
+                </dd>
               </div>
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</dt>
