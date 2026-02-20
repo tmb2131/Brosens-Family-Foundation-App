@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 
 const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
@@ -775,7 +776,19 @@ export default function DashboardClient() {
   const dirtyHistoricalCount = dirtyHistoricalProposalIds.length;
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading foundation dashboard...</p>;
+    return (
+      <div className="page-stack pb-4">
+        <SkeletonCard />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonChart />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (error || !data) {
@@ -1490,6 +1503,27 @@ export default function DashboardClient() {
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
               Budget year runs from February 1, {selectedBudgetYear} to January 31, {selectedBudgetYear + 1}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {(() => {
+                const toReviewCount = data.proposals.filter((p) => p.status === "to_review").length;
+                const sentCount = data.proposals.filter((p) => p.status === "sent").length;
+                return (
+                  <>
+                    {toReviewCount > 0 ? (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                        {formatNumber(toReviewCount)} to review
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                        <CheckCircle2 className="h-3 w-3" />
+                        All reviewed
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">&middot; {formatNumber(sentCount)} sent &middot; {formatNumber(data.proposals.length)} total</span>
+                  </>
+                );
+              })()}
+            </div>
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
             <select
@@ -1593,7 +1627,14 @@ export default function DashboardClient() {
         <GlassCard data-walkthrough="dashboard-history">
           <CardLabel>Historical Impact</CardLabel>
           {historyData ? (
-            <HistoricalImpactChart data={historyData.historyByYear} />
+            historyData.historyByYear.length === 0 ? (
+              <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
+                <p className="text-sm font-medium text-muted-foreground">No historical data yet</p>
+                <p className="text-xs text-muted-foreground">Sent grants will appear here once recorded.</p>
+              </div>
+            ) : (
+              <HistoricalImpactChart data={historyData.historyByYear} />
+            )
           ) : (
             <div className="h-[220px] w-full animate-pulse rounded-2xl bg-muted" />
           )}
@@ -1703,8 +1744,19 @@ export default function DashboardClient() {
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold">{proposal.title}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="text-sm font-semibold">{proposal.title}</p>
+                              <span
+                                className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                  proposal.proposalType === "joint"
+                                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                }`}
+                              >
+                                {proposal.proposalType === "joint" ? "Joint" : "Discretionary"}
+                              </span>
+                            </div>
                             <p className="mt-1 text-xs text-muted-foreground">Budget year {proposal.budgetYear}</p>
                           </div>
                           <StatusPill status={proposal.status} />
@@ -1712,9 +1764,8 @@ export default function DashboardClient() {
                         <p className="mt-2 text-lg font-semibold text-foreground">
                           {masked ? "Blind until voted" : currency(proposal.progress.computedFinalAmount)}
                         </p>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                          <p>Type: {titleCase(proposal.proposalType)}</p>
-                          <p className="col-span-2">{buildPendingActionRequiredLabel(proposal)}</p>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <p>{buildPendingActionRequiredLabel(proposal)}</p>
                         </div>
                       </article>
                     );
@@ -1767,9 +1818,12 @@ export default function DashboardClient() {
         ) : (
           <>
             <div className="mb-3 flex items-start justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                Showing {formatNumber(filteredAndSortedProposals.length)} proposals for {selectedBudgetYearLabel}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {formatNumber(filteredAndSortedProposals.length)} proposal{filteredAndSortedProposals.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-xs text-muted-foreground">for {selectedBudgetYearLabel}</span>
+              </div>
               <div className="hidden md:block">
                 <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
                   <DropdownMenuTrigger asChild>
@@ -1892,8 +1946,19 @@ export default function DashboardClient() {
                     : "border-t-amber-400 dark:border-t-amber-500"
                 }`}>
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{proposal.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="text-sm font-semibold">{proposal.title}</p>
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            proposal.proposalType === "joint"
+                              ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                          }`}
+                        >
+                          {proposal.proposalType === "joint" ? "Joint" : "Discretionary"}
+                        </span>
+                      </div>
                       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{proposal.description}</p>
                     </div>
                     <StatusPill status={proposal.status} />
@@ -2164,8 +2229,17 @@ export default function DashboardClient() {
                   const statusDisplay = isHistoricalBulkEditEnabled ? draft.status : proposal.status;
                   const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt ?? "—";
 
+                  const viewerMustAct =
+                    requiredAction.tone === "attention" &&
+                    (requiredAction.openDetail ||
+                      (requiredAction.href === "/meeting" && (user?.role === "oversight" || user?.role === "manager")) ||
+                      (requiredAction.href === "/admin" && user?.role === "admin"));
+
                   return (
-                    <DataTableRow key={proposal.id}>
+                    <DataTableRow
+                      key={proposal.id}
+                      className={viewerMustAct ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}
+                    >
                       <td className="w-[20rem] max-w-[20rem] px-2 py-3">
                         <p className="block max-w-full truncate font-semibold" title={proposal.title}>
                           {proposal.title}
@@ -2176,6 +2250,9 @@ export default function DashboardClient() {
                         >
                           {proposal.description}
                         </p>
+                        {isAllYearsView ? (
+                          <p className="mt-0.5 text-[10px] text-muted-foreground/70">Budget year {proposal.budgetYear}</p>
+                        ) : null}
                       </td>
                       <td className="px-2 py-3 text-xs text-muted-foreground">{titleCase(proposal.proposalType)}</td>
                       <td className="px-2 py-3 text-xs">
@@ -2265,6 +2342,7 @@ export default function DashboardClient() {
                   }>
                     {titleCase(detailProposal.proposalType)}
                   </Badge>
+                  <StatusPill status={detailProposal.status} />
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{detailProposal.title}</p>
               </div>
