@@ -9,6 +9,17 @@ export const chartPalette = {
   grid: "hsl(210 16% 85%)"
 };
 
+export const chartGradients = {
+  sent: {
+    start: "hsl(199 94% 42%)",
+    end: "hsl(199 94% 34%)"
+  },
+  children: {
+    start: "hsl(38 92% 55%)",
+    end: "hsl(38 92% 45%)"
+  }
+};
+
 export const chartText = {
   axis: "hsl(var(--foreground) / 0.72)",
   label: "hsl(var(--foreground) / 0.92)"

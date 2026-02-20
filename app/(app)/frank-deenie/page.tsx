@@ -91,7 +91,7 @@ function tableDate(value: string) {
   if (Number.isNaN(parsed)) {
     return value;
   }
-  return new Date(parsed).toLocaleDateString("en-US");
+  return new Date(parsed).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function normalized(value: string) {
@@ -229,6 +229,7 @@ export default function FrankDeeniePage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newDraft, setNewDraft] = useState<DonationDraft>(() => initialDraftForYear(null));
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof DonationDraft, string>>>({});
   const [isCreating, setIsCreating] = useState(false);
   const [createMessage, setCreateMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
@@ -501,12 +502,14 @@ export default function FrankDeeniePage() {
   const openAddForm = () => {
     setShowAddForm(true);
     setCreateMessage(null);
+    setFormErrors({});
     setNewDraft(initialDraftForYear(selectedYear));
   };
 
   const closeAddForm = () => {
     setShowAddForm(false);
     setCreateMessage(null);
+    setFormErrors({});
   };
 
   const closeDetailDrawer = () => {
@@ -648,9 +651,51 @@ export default function FrankDeeniePage() {
     }
   };
 
+  const validateForm = (draft: DonationDraft): Partial<Record<keyof DonationDraft, string>> => {
+    const errors: Partial<Record<keyof DonationDraft, string>> = {};
+    
+    if (!draft.name.trim()) {
+      errors.name = "Name is required";
+    }
+    
+    if (!draft.type.trim()) {
+      errors.type = "Type is required";
+    }
+    
+    const parsedAmount = parseNumberInput(draft.amount);
+    if (parsedAmount === null || parsedAmount < 0) {
+      errors.amount = "Amount must be a non-negative number";
+    }
+    
+    if (!draft.date) {
+      errors.date = "Date is required";
+    }
+    
+    return errors;
+  };
+
+  const updateDraft = (field: keyof DonationDraft, value: string) => {
+    setNewDraft(current => {
+      const updated = { ...current, [field]: value };
+      const errors = validateForm(updated);
+      setFormErrors(errors);
+      return updated;
+    });
+  };
   const submitNewDonation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setCreateMessage(null);
+
+    const errors = validateForm(newDraft);
+    setFormErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      setCreateMessage({
+        tone: "error",
+        text: "Please fix the errors below."
+      });
+      return;
+    }
 
     const parsedAmount = parseNumberInput(newDraft.amount);
     if (parsedAmount === null || parsedAmount < 0) {
@@ -688,6 +733,7 @@ export default function FrankDeeniePage() {
         text: "Donation added."
       });
       setNewDraft(initialDraftForYear(selectedYear));
+      setFormErrors({});
       void mutate();
     } catch (createError) {
       setCreateMessage({
@@ -862,20 +908,63 @@ export default function FrankDeeniePage() {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading Frank &amp; Deenie donations...</p>;
+    return (
+      <div className="page-stack pb-6">
+        <GlassCard className="rounded-3xl">
+          <div className="flex items-center gap-3">
+            <div className="h-3 w-3 animate-pulse rounded-full bg-emerald-500" />
+            <CardLabel>Frank &amp; Deenie</CardLabel>
+          </div>
+          <CardValue className="mt-1">Donation Ledger</CardValue>
+          <div className="mt-3 h-4 w-48 animate-pulse rounded-lg bg-muted" />
+        </GlassCard>
+        
+        <GlassCard className="min-h-0">
+          <div className="mb-3 h-6 w-32 animate-pulse rounded-lg bg-muted" />
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        </GlassCard>
+        
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <GlassCard key={i}>
+              <div className="h-4 w-24 animate-pulse rounded-lg bg-muted" />
+              <div className="mt-2 h-8 w-32 animate-pulse rounded-lg bg-muted" />
+            </GlassCard>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error || !data) {
     return (
-      <GlassCard>
-        <CardLabel>Donation Ledger Error</CardLabel>
-        <p className="mt-2 text-sm text-rose-600">
-          Failed to load Frank &amp; Deenie donations{error ? `: ${error.message}` : "."}
-        </p>
-        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
-          <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </Button>
-      </GlassCard>
+      <div className="page-stack pb-6">
+        <GlassCard>
+          <div className="flex items-start gap-3">
+            <div className="mt-1 rounded-full border border-rose-200 bg-rose-50 p-2 dark:border-rose-800 dark:bg-rose-950/20">
+              <RefreshCw className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+            </div>
+            <div className="flex-1">
+              <CardLabel>Donation Ledger Error</CardLabel>
+              <p className="mt-2 text-sm text-rose-600 dark:text-rose-400">
+                Failed to load Frank &amp; Deenie donations{error ? `: ${error.message}` : "."}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Please check your connection and try again. If the problem persists, contact support.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Button variant="outline" size="lg" onClick={() => void mutate()}>
+                  <RefreshCw className="h-3.5 w-3.5" /> Try again
+                </Button>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
     );
   }
 
@@ -894,7 +983,7 @@ export default function FrankDeeniePage() {
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
             <select
               aria-label="Year"
-              className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 rounded-md border px-3 py-2 text-sm outline-none block"
+              className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 rounded-md border px-3 py-2 text-sm outline-none block w-full sm:w-auto"
               value={selectedYear === null ? "all" : String(selectedYear)}
               onChange={(event) =>
                 setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
@@ -907,7 +996,7 @@ export default function FrankDeeniePage() {
                 </option>
               ))}
             </select>
-            <label className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold">
+            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold transition-colors hover:bg-muted/50">
               <input
                 type="checkbox"
                 checked={includeChildren}
@@ -920,6 +1009,7 @@ export default function FrankDeeniePage() {
               type="button"
               variant="prominent"
               onClick={showAddForm ? closeAddForm : openAddForm}
+              className="w-full sm:w-auto min-h-10"
             >
               {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {showAddForm ? "Close" : "Add Donation"}
@@ -939,30 +1029,30 @@ export default function FrankDeeniePage() {
             </div>
             <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="h-10 transition-colors hover:bg-muted">
                   <Download className="h-3.5 w-3.5" />
                   Export
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isExportMenuOpen ? "rotate-180" : ""}`} />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44">
-                <DropdownMenuItem className="text-xs font-semibold" onSelect={exportPdf}>
+              <DropdownMenuContent align="end" className="w-44 animate-in fade-in-0 zoom-in-95">
+                <DropdownMenuItem className="text-xs font-semibold transition-colors hover:bg-muted" onSelect={exportPdf}>
                   Export as PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-xs font-semibold" onSelect={exportCsv}>
+                <DropdownMenuItem className="text-xs font-semibold transition-colors hover:bg-muted" onSelect={exportCsv}>
                   Export as CSV
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-xs font-semibold" onSelect={exportExcel}>
+                <DropdownMenuItem className="text-xs font-semibold transition-colors hover:bg-muted" onSelect={exportExcel}>
                   Export as Excel
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-xs font-semibold" onSelect={() => { void exportGoogleSheet(); }}>
+                <DropdownMenuItem className="text-xs font-semibold transition-colors hover:bg-muted" onSelect={() => { void exportGoogleSheet(); }}>
                   Export to Google Sheet
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          <FilterPanel className="mb-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
+          <FilterPanel className="mb-3 grid gap-2 items-end sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
             <label className="text-xs font-semibold text-muted-foreground">
               Search
               <Input
@@ -971,7 +1061,7 @@ export default function FrankDeeniePage() {
                 onChange={(event) => setFilter("search", event.target.value)}
                 onFocus={() => setExportMessage(null)}
                 placeholder="Name, type, memo, split"
-                className="mt-1 normal-case"
+                className="mt-1 normal-case h-10"
               />
             </label>
             <label className="text-xs font-semibold text-muted-foreground">
@@ -979,7 +1069,7 @@ export default function FrankDeeniePage() {
               <select
                 value={filters.type}
                 onChange={(event) => setFilter("type", event.target.value)}
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1 normal-case"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 w-full rounded-md border px-3 py-2 text-base outline-none md:text-sm mt-1 normal-case"
               >
                 <option value="all">All</option>
                 {typeOptions.map((option) => (
@@ -994,7 +1084,7 @@ export default function FrankDeeniePage() {
               <select
                 value={filters.status}
                 onChange={(event) => setFilter("status", event.target.value)}
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1 normal-case"
+                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 w-full rounded-md border px-3 py-2 text-base outline-none md:text-sm mt-1 normal-case"
               >
                 <option value="all">All</option>
                 {DONATION_STATUSES.map((option) => (
@@ -1004,7 +1094,7 @@ export default function FrankDeeniePage() {
                 ))}
               </select>
             </label>
-            <div className="flex items-end">
+            <div className="flex flex-col justify-end pt-0">
               <Button
                 variant="outline"
                 size="sm"
@@ -1013,7 +1103,7 @@ export default function FrankDeeniePage() {
                   setExportMessage(null);
                   setIsExportMenuOpen(false);
                 }}
-                className="w-full xl:w-auto"
+                className="w-full xl:w-auto h-10"
               >
                 Clear filters
               </Button>
@@ -1033,9 +1123,26 @@ export default function FrankDeeniePage() {
           {/* Mobile card list */}
           <div className="space-y-3 md:hidden">
             {filteredRows.length === 0 ? (
-              <p className="rounded-xl border p-4 text-center text-sm text-muted-foreground">
-                No donations match the selected filters for {selectedYearLabel}.
-              </p>
+              <div className="flex flex-col items-center justify-center rounded-xl border border-border/50 bg-muted/20 p-8 text-center">
+                <div className="mb-4 rounded-full border border-border bg-muted p-3">
+                  <DollarSign className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="mb-2 text-sm font-semibold text-foreground">No donations found</h3>
+                <p className="mb-4 text-xs text-muted-foreground max-w-sm">
+                  No donations match the selected filters for {selectedYearLabel}.
+                  Try adjusting your filters or add a new donation to get started.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFilters(DEFAULT_FILTERS);
+                    setExportMessage(null);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              </div>
             ) : (
               filteredRows.map((row) => {
                 const detailsText = [row.memo.trim(), row.split.trim()].filter(Boolean).join(" | ");
@@ -1044,8 +1151,8 @@ export default function FrankDeeniePage() {
                 return (
                   <article
                     key={row.id}
-                    className={`rounded-xl border p-4 ${
-                      row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                    className={`rounded-xl border p-4 transition-all hover:shadow-md hover:border-border/80 ${
+                      row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/50" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -1053,13 +1160,13 @@ export default function FrankDeeniePage() {
                         <button
                           type="button"
                           onClick={() => setDetailRowId(row.id)}
-                          className="truncate text-left text-sm font-semibold hover:underline"
+                          className="truncate text-left text-sm font-semibold hover:underline hover:text-primary transition-colors"
                           title={row.name}
                         >
                           {row.name}
                         </button>
                         {row.source === "children" ? (
-                          <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                          <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 transition-colors">
                             <Users className="h-3 w-3" />
                             Children
                           </span>
@@ -1067,7 +1174,7 @@ export default function FrankDeeniePage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <span
-                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${
                             row.status === "Planned"
                               ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
                               : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
@@ -1154,7 +1261,7 @@ export default function FrankDeeniePage() {
                   <th className="px-2 py-2">Details</th>
                   <th className="px-2 py-2 text-right">
                     <DataTableSortButton onClick={() => toggleSort("amount")}>
-                      Amount ($){sortMarker("amount")}
+                      Amount (${sortMarker("amount")}
                     </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2">
@@ -1165,11 +1272,29 @@ export default function FrankDeeniePage() {
                   <th className="px-2 py-2" />
                 </DataTableHeadRow>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/50">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td className="px-2 py-6 text-center text-sm text-muted-foreground" colSpan={6}>
-                      No donations match the selected filters for {selectedYearLabel}.
+                    <td className="px-2 py-8 text-center" colSpan={6}>
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <div className="mb-3 rounded-full border border-border bg-muted p-2">
+                          <DollarSign className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <h3 className="mb-1 text-sm font-semibold text-foreground">No donations found</h3>
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          No donations match the selected filters for {selectedYearLabel}.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setFilters(DEFAULT_FILTERS);
+                            setExportMessage(null);
+                          }}
+                        >
+                          Clear filters
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -1180,7 +1305,7 @@ export default function FrankDeeniePage() {
                     return (
                       <Fragment key={row.id}>
                         <DataTableRow
-                          className={`align-middle ${
+                          className={`align-middle transition-colors hover:bg-muted/30 ${
                             row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           }`}
                         >
@@ -1190,7 +1315,7 @@ export default function FrankDeeniePage() {
                               <button
                                 type="button"
                                 onClick={() => setDetailRowId(row.id)}
-                                className="w-full truncate text-left font-semibold hover:underline"
+                                className="w-full truncate text-left font-semibold hover:underline hover:text-primary transition-colors"
                                 title={row.name}
                               >
                                 {row.name}
@@ -1211,12 +1336,12 @@ export default function FrankDeeniePage() {
                               {detailsText || "No memo or split details"}
                             </p>
                           </td>
-                          <td className="px-2 py-3 text-right text-xs text-muted-foreground tabular-nums align-middle">
+                          <td className="px-2 py-3 text-right text-xs text-muted-foreground tabular-nums align-middle font-medium">
                             {formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-2 py-3 align-middle">
                             <span
-                              className={`inline-flex min-w-[5.25rem] justify-center rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                              className={`inline-flex min-w-[5.25rem] justify-center rounded-full border px-3 py-0.5 text-xs font-semibold transition-colors ${
                                 row.status === "Planned"
                                   ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
                                   : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
@@ -1235,12 +1360,13 @@ export default function FrankDeeniePage() {
                                   setOpenActionMenuRowId((current) => (current === row.id ? null : row.id));
                                 }}
                                 aria-label="Open actions"
+                                className="transition-colors hover:bg-muted"
                               >
                                 <MoreHorizontal className="h-3.5 w-3.5" />
                               </Button>
                               {openActionMenuRowId === row.id ? (
                                 <div
-                                  className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-border bg-card p-1 shadow-xl"
+                                  className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-border bg-card p-1 shadow-xl animate-in fade-in-0 zoom-in-95"
                                   onClick={(event) => event.stopPropagation()}
                                 >
                                   <button
@@ -1249,7 +1375,7 @@ export default function FrankDeeniePage() {
                                       setDetailRowId(row.id);
                                       setOpenActionMenuRowId(null);
                                     }}
-                                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted"
+                                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                                   >
                                     View details
                                   </button>
@@ -1261,7 +1387,7 @@ export default function FrankDeeniePage() {
                                         setDetailRowId(row.id);
                                         setOpenActionMenuRowId(null);
                                       }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted"
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                                     >
                                       Edit
                                     </button>
@@ -1273,7 +1399,7 @@ export default function FrankDeeniePage() {
                                         setOpenActionMenuRowId(null);
                                         void deleteRow(row);
                                       }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors"
                                     >
                                       Delete
                                     </button>
@@ -1325,14 +1451,22 @@ export default function FrankDeeniePage() {
               value={currency(data.totals.frankDeenie)}
               icon={DollarSign}
               tone="emerald"
+              className="transition-all hover:shadow-md hover:border-border/80"
             />
             <MetricCard
               title="CHILDREN"
               value={currency(data.totals.children)}
               icon={Users}
               tone="indigo"
+              className="transition-all hover:shadow-md hover:border-border/80"
             />
-            <MetricCard title="VISIBLE TOTAL" value={currency(visibleTotal)} icon={PieChart} tone="amber" />
+            <MetricCard 
+              title="VISIBLE TOTAL" 
+              value={currency(visibleTotal)} 
+              icon={PieChart} 
+              tone="amber" 
+              className="transition-all hover:shadow-md hover:border-border/80"
+            />
           </section>
 
           {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
@@ -1661,20 +1795,26 @@ export default function FrankDeeniePage() {
                   <Input
                     type="date"
                     value={newDraft.date}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, date: event.target.value }))}
-                    className="mt-1 rounded-lg"
+                    onChange={(event) => updateDraft("date", event.target.value)}
+                    className={`mt-1 rounded-lg ${formErrors.date ? "border-rose-300 focus:border-rose-500" : ""}`}
                     required
                   />
+                  {formErrors.date && (
+                    <p className="mt-1 text-xs text-rose-600">{formErrors.date}</p>
+                  )}
                 </label>
                 <label className="text-xs font-semibold text-muted-foreground">
                   Type
                   <Input
                     type="text"
                     value={newDraft.type}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, type: event.target.value }))}
-                    className="mt-1 rounded-lg"
+                    onChange={(event) => updateDraft("type", event.target.value)}
+                    className={`mt-1 rounded-lg ${formErrors.type ? "border-rose-300 focus:border-rose-500" : ""}`}
                     required
                   />
+                  {formErrors.type && (
+                    <p className="mt-1 text-xs text-rose-600">{formErrors.type}</p>
+                  )}
                 </label>
                 <label className="text-xs font-semibold text-muted-foreground">
                   Name
@@ -1682,10 +1822,13 @@ export default function FrankDeeniePage() {
                     ref={addDonationNameInputRef}
                     type="text"
                     value={newDraft.name}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, name: event.target.value }))}
-                    className="mt-1 rounded-lg"
+                    onChange={(event) => updateDraft("name", event.target.value)}
+                    className={`mt-1 rounded-lg ${formErrors.name ? "border-rose-300 focus:border-rose-500" : ""}`}
                     required
                   />
+                  {formErrors.name && (
+                    <p className="mt-1 text-xs text-rose-600">{formErrors.name}</p>
+                  )}
                 </label>
                 <label className="text-xs font-semibold text-muted-foreground">
                   Amount
@@ -1693,17 +1836,20 @@ export default function FrankDeeniePage() {
                     min={0}
                     step="0.01"
                     value={newDraft.amount}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, amount: event.target.value }))}
-                    className="mt-1 rounded-lg"
+                    onChange={(event) => updateDraft("amount", event.target.value)}
+                    className={`mt-1 rounded-lg ${formErrors.amount ? "border-rose-300 focus:border-rose-500" : ""}`}
                     required
                   />
+                  {formErrors.amount && (
+                    <p className="mt-1 text-xs text-rose-600">{formErrors.amount}</p>
+                  )}
                 </label>
                 <label className="text-xs font-semibold text-muted-foreground">
                   Memo / Description
                   <Input
                     type="text"
                     value={newDraft.memo}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, memo: event.target.value }))}
+                    onChange={(event) => updateDraft("memo", event.target.value)}
                     className="mt-1 rounded-lg"
                   />
                 </label>
@@ -1712,7 +1858,7 @@ export default function FrankDeeniePage() {
                   <Input
                     type="text"
                     value={newDraft.split}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, split: event.target.value }))}
+                    onChange={(event) => updateDraft("split", event.target.value)}
                     className="mt-1 rounded-lg"
                   />
                 </label>
@@ -1720,7 +1866,7 @@ export default function FrankDeeniePage() {
                   Status
                   <select
                     value={newDraft.status}
-                    onChange={(event) => setNewDraft((current) => ({ ...current, status: event.target.value }))}
+                    onChange={(event) => updateDraft("status", event.target.value)}
                     className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-lg border px-3 py-1 text-base outline-none md:text-sm mt-1"
                   >
                     {DONATION_STATUSES.map((statusOption) => (
