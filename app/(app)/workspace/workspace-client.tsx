@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
+import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -257,6 +257,11 @@ export default function WorkspaceClient() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
+                {voteDialogItem.description ? (
+                  <DialogDescription className="mt-1 text-left text-sm">
+                    {voteDialogItem.description}
+                  </DialogDescription>
+                ) : null}
               </DialogHeader>
               <VoteForm
                 proposalId={voteDialogItem.proposalId}
@@ -403,10 +408,18 @@ export default function WorkspaceClient() {
                     ? "Track action items, submitted proposals, and voting history. Manager profiles do not have individual budgets."
                     : "Track your joint/discretionary balances, action items, and personal voting history."}
                 </p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span>{formatNumber(workspace.actionItems.length)} action item(s)</span>
-                  <span className="hidden text-border sm:inline">|</span>
-                  <span>{formatNumber(workspace.submittedGifts.length)} submitted proposal(s)</span>
+                <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {workspace.actionItems.length > 0 ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                      {formatNumber(workspace.actionItems.length)} action item{workspace.actionItems.length !== 1 ? "s" : ""} pending
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                      <CheckCircle2 className="h-3 w-3" />
+                      All caught up
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">&middot; {formatNumber(workspace.submittedGifts.length)} submitted proposal{workspace.submittedGifts.length !== 1 ? "s" : ""}</span>
                 </div>
               </div>
               <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
@@ -431,21 +444,21 @@ export default function WorkspaceClient() {
             ) : (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <PersonalBudgetBars
-                  title="Total"
+                  title={`Total${totalIndividualTarget > 0 ? ` · ${Math.round(((totalIndividualAllocated) / totalIndividualTarget) * 100)}% used` : ""}`}
                   allocated={totalIndividualAllocated - pendingJointTotal}
                   total={totalIndividualTarget}
                   pendingAllocation={pendingJointTotal}
                   compact
                 />
                 <PersonalBudgetBars
-                  title="Joint"
+                  title={`Joint${workspace.personalBudget.jointTarget > 0 ? ` · ${Math.round(((workspace.personalBudget.jointAllocated + pendingJointTotal) / workspace.personalBudget.jointTarget) * 100)}% used` : ""}`}
                   allocated={workspace.personalBudget.jointAllocated}
                   total={workspace.personalBudget.jointTarget}
                   pendingAllocation={pendingJointTotal}
                   compact
                 />
                 <PersonalBudgetBars
-                  title="Discretionary"
+                  title={`Discr.${workspace.personalBudget.discretionaryCap > 0 ? ` · ${Math.round((workspace.personalBudget.discretionaryAllocated / workspace.personalBudget.discretionaryCap) * 100)}% used` : ""}`}
                   allocated={workspace.personalBudget.discretionaryAllocated}
                   total={workspace.personalBudget.discretionaryCap}
                   compact
@@ -487,7 +500,11 @@ export default function WorkspaceClient() {
 
             <div className="space-y-4">
               {workspace.actionItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No vote-required items right now.</p>
+                <div className="flex flex-col items-center gap-2 py-4 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                  <p className="text-sm font-medium text-foreground">You&apos;re all caught up!</p>
+                  <p className="text-xs text-muted-foreground">No proposals need your vote right now.</p>
+                </div>
               ) : (
                 workspace.actionItems.map((item) => {
                   if (!user) {
@@ -504,8 +521,19 @@ export default function WorkspaceClient() {
                       }`}
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <h3 className="text-sm font-semibold">{item.title}</h3>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <h3 className="text-sm font-semibold">{item.title}</h3>
+                            <span
+                              className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                item.proposalType === "joint"
+                                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                              }`}
+                            >
+                              {item.proposalType === "joint" ? "Joint" : "Discretionary"}
+                            </span>
+                          </div>
                           <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -543,7 +571,9 @@ export default function WorkspaceClient() {
                 <CardLabel>Personal History</CardLabel>
               </div>
               <div className="mt-3 space-y-2">
-                {workspace.voteHistory.map((vote) => (
+                {workspace.voteHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No votes recorded yet.</p>
+                ) : workspace.voteHistory.map((vote) => (
                   <div
                     key={`${vote.proposalId}-${vote.at}`}
                     className="rounded-xl border border-border p-2 transition-colors hover:bg-muted/60"
@@ -574,12 +604,14 @@ export default function WorkspaceClient() {
                       key={proposal.id}
                       className="rounded-xl border border-border p-2 transition-colors hover:bg-muted/60"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium">{proposal.title}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium leading-snug">{proposal.title}</p>
                         <StatusPill status={proposal.status} />
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">Budget Year: {proposal.budgetYear}</p>
-                      <p className="text-xs text-muted-foreground">Amount: {currency(proposal.proposedAmount)}</p>
+                      <p className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
+                        {currency(proposal.proposedAmount)}
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">· {proposal.budgetYear}</span>
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">{proposal.description}</p>
                     </div>
                   ))
