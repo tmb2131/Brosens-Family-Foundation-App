@@ -55,60 +55,67 @@ function MeetingProposalCard({
 
   return (
     <article
-      className={`flex flex-col gap-1.5 rounded-xl border border-t-2 bg-background p-3 shadow-sm transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
+      className={`group relative flex flex-col gap-3 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-all hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
         proposal.proposalType === "joint"
-          ? "border-t-indigo-400 dark:border-t-indigo-500"
-          : "border-t-amber-400 dark:border-t-amber-500"
+          ? "border-t-indigo-400 dark:border-t-indigo-500 hover:border-t-indigo-500"
+          : "border-t-amber-400 dark:border-t-amber-500 hover:border-t-amber-500"
       }`}
     >
+      {/* Header with title and status */}
       <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <h3 className="min-w-0 truncate text-sm font-semibold">{proposal.title}</h3>
+        <h3 className="min-w-0 truncate text-base font-semibold leading-tight">{proposal.title}</h3>
         <span className="shrink-0">
           <StatusPill status={proposal.status} />
         </span>
       </div>
 
-      <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span>{titleCase(proposal.proposalType)}</span>
-          <span aria-hidden>·</span>
+      {/* Key metrics row */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="shrink-0">
+          <p className="text-lg font-bold tabular-nums text-foreground">
+            {currency(proposal.progress.computedFinalAmount)}
+          </p>
+          <p className="text-[10px] text-muted-foreground">final amount</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 font-medium">
+            {titleCase(proposal.proposalType)}
+          </span>
           <span className="inline-flex items-center gap-1">
             {votesComplete ? (
               <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden />
             ) : null}
-            {formatNumber(proposal.progress.votesSubmitted)}/{formatNumber(proposal.progress.totalRequiredVotes)} votes
+            <span className="font-medium">{formatNumber(proposal.progress.votesSubmitted)}/{formatNumber(proposal.progress.totalRequiredVotes)}</span>
+            <span className="text-muted-foreground">votes</span>
           </span>
           {flagCount > 0 ? (
-            <>
-              <span aria-hidden>·</span>
-              <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-3 w-3" aria-hidden />
-                {flagCount}
-              </span>
-            </>
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/80 px-2 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              <AlertTriangle className="h-3 w-3" aria-hidden />
+              <span className="font-medium">{flagCount}</span>
+              <span className="text-muted-foreground">flagged</span>
+            </span>
           ) : null}
           {cnScore != null ? (
-            <>
-              <span aria-hidden>·</span>
-              <span>CN {cnScore}%</span>
-            </>
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100/80 px-2 py-1 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+              <span className="font-medium">CN {cnScore}%</span>
+            </span>
           ) : null}
-        </span>
-        <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
-          {currency(proposal.progress.computedFinalAmount)}
-        </span>
+        </div>
       </div>
 
-      <Button
-        className="w-full sm:w-auto sm:self-start"
-        size="sm"
-        disabled={saving}
-        onClick={() => onOpenDecisionDialog(proposal.id)}
-        aria-label={`Review and confirm: ${proposal.title}`}
-      >
-        <Eye className="h-3.5 w-3.5" />
-        Review & confirm
-      </Button>
+      {/* Action button */}
+      <div className="pt-1">
+        <Button
+          className="w-full sm:w-auto sm:flex-1 transition-colors group-hover:bg-primary/90"
+          size="sm"
+          disabled={saving}
+          onClick={() => onOpenDecisionDialog(proposal.id)}
+          aria-label={`Review and confirm: ${proposal.title}`}
+        >
+          <Eye className="h-3.5 w-3.5 mr-2" />
+          Review & confirm
+        </Button>
+      </div>
     </article>
   );
 }
@@ -141,17 +148,34 @@ export default function MeetingPage() {
 
   if (error) {
     return (
-      <GlassCard>
-        <CardLabel>Meeting Sync Error</CardLabel>
-        <p className="mt-2 text-sm text-rose-600">{error.message}</p>
-        <Button
-          variant="outline"
-          size="lg"
-          className="mt-3"
-          onClick={() => void mutate()}
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </Button>
+      <GlassCard className="rounded-3xl">
+        <div className="text-center py-8">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 mb-4">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <CardLabel>Meeting Sync Error</CardLabel>
+          <p className="mt-2 text-sm text-rose-600 dark:text-rose-400 max-w-md mx-auto">
+            {error.message}
+          </p>
+          <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-center">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => void mutate()}
+              disabled={saving}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${saving ? 'animate-spin' : ''}`} /> 
+              {saving ? "Retrying..." : "Try Again"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={() => window.location.reload()}
+            >
+              Reload Page
+            </Button>
+          </div>
+        </div>
       </GlassCard>
     );
   }
@@ -159,8 +183,89 @@ export default function MeetingPage() {
   if (isLoading || !data) {
     return (
       <div className="page-stack pb-4">
-        <SkeletonCard />
-        <SkeletonCard />
+        {/* Header skeleton */}
+        <GlassCard className="rounded-3xl">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+              <div className="mt-1 h-7 w-32 bg-muted rounded animate-pulse" />
+              <div className="mt-2 h-4 w-64 bg-muted rounded animate-pulse" />
+            </div>
+            <div className="h-11 w-24 bg-muted rounded-lg animate-pulse" />
+          </div>
+        </GlassCard>
+
+        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
+          <div className="space-y-6">
+            {/* Mobile stats skeleton */}
+            <GlassCard className="p-3 lg:hidden">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 bg-muted rounded-lg animate-pulse" />
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="h-12 bg-muted rounded-xl animate-pulse" />
+                <div className="h-12 bg-muted rounded-xl animate-pulse" />
+              </div>
+            </GlassCard>
+
+            {/* Proposals section skeleton */}
+            <GlassCard className="p-4">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 bg-muted rounded-lg animate-pulse" />
+                  <div>
+                    <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                    <div className="mt-1 h-3 w-40 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-6 w-12 bg-muted rounded-full animate-pulse" />
+              </div>
+
+              {/* Tabs skeleton */}
+              <div className="h-10 bg-muted/50 rounded-lg p-1 mb-3">
+                <div className="flex gap-1">
+                  <div className="h-8 flex-1 bg-muted rounded animate-pulse" />
+                  <div className="h-8 flex-1 bg-muted rounded animate-pulse" />
+                  <div className="h-8 flex-1 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+
+              {/* Proposal card skeletons */}
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="rounded-xl border border-t-2 border-t-muted bg-background p-4">
+                    <div className="flex justify-between gap-3 mb-3">
+                      <div className="h-5 flex-1 bg-muted rounded animate-pulse" />
+                      <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                    </div>
+                    <div className="flex justify-between gap-3 mb-3">
+                      <div className="flex gap-2">
+                        <div className="h-6 w-12 bg-muted rounded-full animate-pulse" />
+                        <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                      </div>
+                      <div className="text-right">
+                        <div className="h-6 w-20 bg-muted rounded animate-pulse ml-auto" />
+                        <div className="h-3 w-16 bg-muted rounded animate-pulse ml-auto mt-1" />
+                      </div>
+                    </div>
+                    <div className="h-9 w-full bg-muted rounded-lg animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </GlassCard>
+          </div>
+
+          {/* Desktop metrics skeleton */}
+          <div className="hidden lg:block">
+            <div className="lg:sticky lg:top-6">
+              <div className="grid gap-3">
+                <div className="h-20 bg-muted rounded-xl border-l-[3px] border-l-muted animate-pulse" />
+                <div className="h-20 bg-muted rounded-xl border-l-[3px] border-l-muted animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -228,17 +333,13 @@ export default function MeetingPage() {
 
   return (
     <div className="page-stack pb-4">
-      {/* Mobile: compact header row (same as before) */}
+      {/* Mobile: compact header row */}
       <div className="flex items-center justify-between gap-2 lg:hidden">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Live Meeting</p>
-        <button
-          type="button"
-          onClick={() => void mutate()}
-          disabled={saving}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors active:bg-muted hover:text-foreground focus:outline-none"
-        >
-          <RefreshCw className="h-3 w-3" /> Refresh
-        </button>
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Live</span>
+        </div>
       </div>
 
       {/* Desktop: page header card (consistent with My Workspace) */}
@@ -252,83 +353,125 @@ export default function MeetingPage() {
               Vote on pending proposals and finalize grant recommendations.
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void mutate()}
-            disabled={saving}
-            className="sm:min-h-11 sm:px-4 sm:text-sm"
-          >
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Live</span>
+            </div>
+          </div>
         </div>
       </GlassCard>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-6">
-          <GlassCard className="p-3 lg:hidden">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+          <GlassCard className="p-4 lg:hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
                 <ClipboardList className="h-4 w-4" />
               </span>
-              <CardLabel>Meeting Stats</CardLabel>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pending</p>
-                <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{formatNumber(data.proposals.length)}</p>
-                <p className="text-[10px] text-muted-foreground">{formatNumber(jointCount)} joint · {formatNumber(discretionaryCount)} disc.</p>
+              <div>
+                <CardLabel>Meeting Stats</CardLabel>
+                <p className="text-xs text-muted-foreground mt-0.5">Overview of all proposals</p>
               </div>
-              <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border/80 bg-gradient-to-r from-muted/30 to-muted/10 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pending</p>
+                <p className="mt-2 text-lg font-bold tabular-nums text-foreground">{formatNumber(data.proposals.length)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{formatNumber(jointCount)} joint · {formatNumber(discretionaryCount)} disc.</p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-gradient-to-r from-muted/30 to-muted/10 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recommended</p>
-                <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(totalRecommendedAmount)}</p>
-                <p className="text-[10px] text-muted-foreground">total across all proposals</p>
+                <p className="mt-2 text-lg font-bold tabular-nums text-foreground">{currency(totalRecommendedAmount)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">total across all proposals</p>
               </div>
             </div>
           </GlassCard>
 
-          <GlassCard className="p-3">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+          <GlassCard className="p-4">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                   <Eye className="h-4 w-4" />
                 </span>
-                <CardLabel>Proposals</CardLabel>
+                <div>
+                  <CardLabel>Proposals</CardLabel>
+                  <p className="text-xs text-muted-foreground mt-0.5">Review and decide on grant proposals</p>
+                </div>
               </div>
-              <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+              <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
                 {data.proposals.length} total
               </span>
             </div>
 
             <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as MeetingSegment)}>
-              <div className="flex justify-end">
-                <TabsList className="h-auto flex-wrap gap-2">
-                  <TabsTrigger value="ready">
-                  Ready ({formatNumber(readyProposals.length)})
+              <TabsList className="h-auto w-full flex-wrap gap-1 bg-muted/50 p-1" role="tablist">
+                <TabsTrigger 
+                  value="ready" 
+                  className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"
+                  role="tab"
+                  aria-label={`Ready proposals (${formatNumber(readyProposals.length)} proposals)`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Ready</span>
+                  <span className="rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] font-bold" aria-label={`${formatNumber(readyProposals.length)} ready proposals`}>
+                    {formatNumber(readyProposals.length)}
+                  </span>
                 </TabsTrigger>
-                <TabsTrigger value="pending">
-                  Pending ({formatNumber(pendingProposals.length)})
+                <TabsTrigger 
+                  value="pending" 
+                  className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"
+                  role="tab"
+                  aria-label={`Pending proposals (${formatNumber(pendingProposals.length)} proposals)`}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Pending</span>
+                  <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 text-[10px] font-bold" aria-label={`${formatNumber(pendingProposals.length)} pending proposals`}>
+                    {formatNumber(pendingProposals.length)}
+                  </span>
                 </TabsTrigger>
-                <TabsTrigger value="needs_discussion">
+                <TabsTrigger 
+                  value="needs_discussion" 
+                  className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"
+                  role="tab"
+                  aria-label={`Proposals needing discussion (${formatNumber(needsDiscussionProposals.length)} proposals)`}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="sm:hidden">Flagged</span>
                   <span className="hidden sm:inline">Needs discussion</span>
-                  {" "}({formatNumber(needsDiscussionProposals.length)})
+                  <span className="rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 px-1.5 py-0.5 text-[10px] font-bold" aria-label={`${formatNumber(needsDiscussionProposals.length)} flagged proposals`}>
+                    {formatNumber(needsDiscussionProposals.length)}
+                  </span>
                 </TabsTrigger>
               </TabsList>
-              </div>
               {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
-                <TabsContent key={segment} value={segment} className="mt-3 space-y-3">
-                  {segmentProposals[segment].length > 0 &&
-                    segmentProposals[segment].map((proposal) => (
-                      <MeetingProposalCard
-                        key={proposal.id}
-                        proposal={proposal}
-                        userRole={user.role}
-                        saving={saving}
-                        onOpenDecisionDialog={setMeetingDialogProposalId}
-                      />
-                    ))
-                  }
+                <TabsContent key={segment} value={segment} className="mt-4 space-y-3" role="tabpanel">
+                  {segmentProposals[segment].length > 0 ? (
+                    <div className="space-y-3">
+                      {segmentProposals[segment].map((proposal) => (
+                        <MeetingProposalCard
+                          key={proposal.id}
+                          proposal={proposal}
+                          userRole={user.role}
+                          saving={saving}
+                          onOpenDecisionDialog={setMeetingDialogProposalId}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted/50 mb-3">
+                        {segment === "ready" && <CheckCircle2 className="h-6 w-6 text-muted-foreground" />}
+                        {segment === "pending" && <ClipboardList className="h-6 w-6 text-muted-foreground" />}
+                        {segment === "needs_discussion" && <AlertTriangle className="h-6 w-6 text-muted-foreground" />}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {segment === "ready" && "No proposals are ready for review"}
+                        {segment === "pending" && "No pending proposals"}
+                        {segment === "needs_discussion" && "No proposals need discussion"}
+                      </p>
+                    </div>
+                  )}
                 </TabsContent>
               ))}
             </Tabs>
@@ -349,151 +492,215 @@ export default function MeetingPage() {
         {meetingDialogProposal ? (
           <ResponsiveModalContent
             aria-labelledby="meeting-decision-dialog-title"
-            dialogClassName="max-w-md rounded-3xl p-5"
+            dialogClassName="max-w-lg rounded-3xl max-h-[90vh] flex flex-col"
             showCloseButton={true}
           >
-            <h2 id="meeting-decision-dialog-title" className="text-base font-semibold">
-              {meetingDialogProposal.title}
-            </h2>
-            <div className="mt-3 rounded-xl border border-border/70 bg-muted/50 px-3 py-2.5">
-              <p className="text-lg font-bold tabular-nums text-foreground">
-                {currency(meetingDialogProposal.progress.computedFinalAmount)}
-              </p>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Final amount
-              </p>
-              {meetingDialogProposal.proposalType === "joint" ? (
-                <p className="mt-1.5 text-sm text-muted-foreground">
-                  Proposed: {currency(meetingDialogProposal.proposedAmount)}
-                </p>
-              ) : null}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {formatNumber(meetingDialogProposal.progress.votesSubmitted)} of{" "}
-              {formatNumber(meetingDialogProposal.progress.totalRequiredVotes)} votes in
-            </p>
-            {meetingDialogProposal.description?.trim() ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                {meetingDialogProposal.description.trim()}
-              </p>
-            ) : null}
-            {meetingDialogProposal.charityNavigatorUrl ? (
-              <div className="mt-4 rounded-xl border border-border/70 bg-muted/60 p-3 text-xs">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Charity Navigator
-                </p>
-                {meetingDialogProposal.charityNavigatorScore != null ? (
-                  <>
-                    <p className="mt-1.5 font-medium text-foreground">
-                      This charity&apos;s score is {Math.round(meetingDialogProposal.charityNavigatorScore)}%, earning it a{" "}
-                      {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).starLabel} rating.
-                    </p>
-                    <p className="mt-1 text-muted-foreground">
-                      {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).meaning}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-1.5 text-muted-foreground">Score not yet available.</p>
-                )}
-                <a
-                  href={meetingDialogProposal.charityNavigatorUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block font-medium text-primary underline underline-offset-2 hover:no-underline"
-                >
-                  View on Charity Navigator
-                </a>
-              </div>
-            ) : null}
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="lg"
-                disabled={saving}
-                onClick={() => {
-                  void updateMeeting({
-                    action: "reveal",
-                    proposalId: meetingDialogProposal.id,
-                    reveal: true
-                  });
-                }}
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Reveal Votes
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                disabled={saving}
-                onClick={() => {
-                  void updateMeeting({
-                    action: "reveal",
-                    proposalId: meetingDialogProposal.id,
-                    reveal: false
-                  });
-                }}
-              >
-                <EyeOff className="h-3.5 w-3.5" />
-                Mask Again
-              </Button>
-              <Button
-                size="lg"
-                className="bg-emerald-600 hover:bg-emerald-600/90"
-                disabled={saving}
-                onClick={() => {
-                  setConfirmAction({
-                    proposalId: meetingDialogProposal.id,
-                    proposalTitle: meetingDialogProposal.title,
-                    status: "approved"
-                  });
-                  setMeetingDialogProposalId(null);
-                }}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Confirm Approved
-              </Button>
-              <Button
-                variant="destructive"
-                size="lg"
-                disabled={saving}
-                onClick={() => {
-                  setConfirmAction({
-                    proposalId: meetingDialogProposal.id,
-                    proposalTitle: meetingDialogProposal.title,
-                    status: "declined"
-                  });
-                  setMeetingDialogProposalId(null);
-                }}
-              >
-                <XCircle className="h-3.5 w-3.5" />
-                Confirm Declined
-              </Button>
-            </div>
-            {meetingDialogProposal.revealVotes ? (
-              <div className="mt-4 rounded-xl border border-border/70 bg-muted/60 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Revealed votes
-                </p>
-                <div className="mt-1.5 space-y-1 text-xs sm:mt-2 sm:text-sm">
-                  {meetingDialogProposal.voteBreakdown.map((vote) => (
-                    <div key={`${meetingDialogProposal.id}-${vote.userId}`}>
-                      <p>
-                        {vote.userId}: {voteChoiceLabel(vote.choice)} ({currency(vote.allocationAmount)})
-                        {vote.choice === "flagged" && vote.flagComment ? (
-                          <span className="block mt-0.5 pl-0 text-muted-foreground">
-                            — {vote.flagComment}
-                          </span>
-                        ) : null}
-                      </p>
-                    </div>
-                  ))}
+            <div className="flex flex-col min-h-0">
+              {/* Header */}
+              <div className="mb-4">
+                <h2 id="meeting-decision-dialog-title" className="text-lg font-semibold leading-tight">
+                  {meetingDialogProposal.title}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                    {titleCase(meetingDialogProposal.proposalType)}
+                  </span>
+                  <StatusPill status={meetingDialogProposal.status} />
                 </div>
               </div>
-            ) : (
-              <p className="mt-4 text-[11px] text-muted-foreground sm:text-xs">
-                Votes remain masked until reveal.
-              </p>
-            )}
+
+              {/* Amount display */}
+              <div className="mb-4 rounded-xl border border-border/70 bg-gradient-to-r from-muted/50 to-muted/30 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xl font-bold tabular-nums text-foreground">
+                      {currency(meetingDialogProposal.progress.computedFinalAmount)}
+                    </p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">
+                      Final amount
+                    </p>
+                    {meetingDialogProposal.proposalType === "joint" ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Proposed: {currency(meetingDialogProposal.proposedAmount)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">
+                      {formatNumber(meetingDialogProposal.progress.votesSubmitted)} /{" "}
+                      {formatNumber(meetingDialogProposal.progress.totalRequiredVotes)} votes
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              {meetingDialogProposal.description?.trim() ? (
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                    {meetingDialogProposal.description.trim()}
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Charity Navigator */}
+              {meetingDialogProposal.charityNavigatorUrl ? (
+                <div className="mb-4 rounded-xl border border-border/70 bg-gradient-to-r from-sky-50/50 to-sky-50/30 dark:from-sky-900/20 dark:to-sky-900/10 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-6 w-6 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 flex items-center justify-center">
+                      <DollarSign className="h-3 w-3" />
+                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Charity Navigator
+                    </p>
+                  </div>
+                  {meetingDialogProposal.charityNavigatorScore != null ? (
+                    <>
+                      <p className="text-sm font-medium text-foreground">
+                        {Math.round(meetingDialogProposal.charityNavigatorScore)}% · {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).starLabel}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                        {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).meaning}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Score not yet available.</p>
+                  )}
+                  <a
+                    href={meetingDialogProposal.charityNavigatorUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2 hover:no-underline"
+                  >
+                    View on Charity Navigator
+                    <span className="text-xs">↗</span>
+                  </a>
+                </div>
+              ) : null}
+
+              {/* Action buttons */}
+              <div className="mb-4 space-y-3">
+                {/* Vote reveal controls */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => {
+                      void updateMeeting({
+                        action: "reveal",
+                        proposalId: meetingDialogProposal.id,
+                        reveal: true
+                      });
+                    }}
+                    className="flex-1"
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Reveal Votes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => {
+                      void updateMeeting({
+                        action: "reveal",
+                        proposalId: meetingDialogProposal.id,
+                        reveal: false
+                      });
+                    }}
+                    className="flex-1"
+                  >
+                    <EyeOff className="h-3 w-3 mr-1" />
+                    Mask Again
+                  </Button>
+                </div>
+
+                {/* Decision controls */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-600/90"
+                    disabled={saving}
+                    onClick={() => {
+                      setConfirmAction({
+                        proposalId: meetingDialogProposal.id,
+                        proposalTitle: meetingDialogProposal.title,
+                        status: "approved"
+                      });
+                      setMeetingDialogProposalId(null);
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={saving}
+                    onClick={() => {
+                      setConfirmAction({
+                        proposalId: meetingDialogProposal.id,
+                        proposalTitle: meetingDialogProposal.title,
+                        status: "declined"
+                      });
+                      setMeetingDialogProposalId(null);
+                    }}
+                  >
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Decline
+                  </Button>
+                </div>
+              </div>
+
+              {/* Vote breakdown - scrollable section */}
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                {meetingDialogProposal.revealVotes ? (
+                  <div className="rounded-xl border border-border/70 bg-muted/50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 sticky top-0 bg-muted/50 pb-2">
+                      Revealed votes ({meetingDialogProposal.voteBreakdown.length})
+                    </p>
+                    <div className="space-y-2 text-xs">
+                      {meetingDialogProposal.voteBreakdown.map((vote) => (
+                        <div key={`${meetingDialogProposal.id}-${vote.userId}`} className="flex items-start justify-between gap-2 pb-2 border-b border-border/20 last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <p className="font-medium text-foreground truncate">
+                                  {vote.userId}
+                                </p>
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
+                                  vote.choice === 'yes' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                                  vote.choice === 'no' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' :
+                                  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                }`}>
+                                  {voteChoiceLabel(vote.choice)}
+                                </span>
+                              </div>
+                              <p className="font-bold text-foreground tabular-nums shrink-0">
+                                {currency(vote.allocationAmount)}
+                              </p>
+                            </div>
+                            {vote.choice === "flagged" && vote.flagComment ? (
+                              <p className="mt-1 text-xs text-muted-foreground italic line-clamp-2">
+                                "{vote.flagComment}"
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border/30 bg-muted/30 p-3 text-center">
+                    <EyeOff className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground">
+                      Votes remain masked until reveal for privacy.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </ResponsiveModalContent>
         ) : null}
       </ResponsiveModal>
@@ -505,20 +712,49 @@ export default function MeetingPage() {
         {confirmAction ? (
           <ResponsiveModalContent
             aria-labelledby="confirm-decision-title"
-            dialogClassName="max-w-md rounded-3xl p-5"
+            dialogClassName="max-w-md rounded-3xl p-6"
             showCloseButton={false}
           >
-            <h2
-              id="confirm-decision-title"
-              className="text-base font-semibold"
-            >
-              {confirmAction.status === "approved" ? "Approve" : "Decline"} Proposal?
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              This will mark <span className="font-medium text-foreground">{confirmAction.proposalTitle}</span> as{" "}
-              <span className="font-medium text-foreground">{confirmAction.status}</span>. This action cannot be undone.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            {/* Warning icon and title */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                confirmAction.status === "approved" 
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+              }`}>
+                {confirmAction.status === "approved" ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : (
+                  <XCircle className="h-5 w-5" />
+                )}
+              </div>
+              <div>
+                <h2
+                  id="confirm-decision-title"
+                  className="text-lg font-semibold"
+                >
+                  {confirmAction.status === "approved" ? "Approve" : "Decline"} Proposal?
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+
+            {/* Proposal details */}
+            <div className="mb-6 p-4 rounded-xl border border-border/70 bg-muted/30">
+              <p className="text-sm font-medium text-foreground mb-1">
+                {confirmAction.proposalTitle}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Will be marked as <span className={`font-semibold ${
+                  confirmAction.status === "approved" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                }`}>{confirmAction.status}</span>
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="outline"
                 size="lg"
@@ -537,7 +773,7 @@ export default function MeetingPage() {
                     setConfirmAction(null);
                   }}
                 >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
                   {saving ? "Saving..." : "Approve"}
                 </Button>
               ) : (
@@ -550,7 +786,7 @@ export default function MeetingPage() {
                     setConfirmAction(null);
                   }}
                 >
-                  <XCircle className="h-3.5 w-3.5" />
+                  <XCircle className="h-4 w-4 mr-2" />
                   {saving ? "Saving..." : "Decline"}
                 </Button>
               )}
