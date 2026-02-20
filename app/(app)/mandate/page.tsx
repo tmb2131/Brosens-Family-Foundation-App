@@ -3,7 +3,7 @@
 import { createPortal } from "react-dom";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { MessageSquarePlus, RefreshCw } from "lucide-react";
+import { CheckCircle, ChevronRight, MessageSquare, MessageSquarePlus, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -450,8 +450,11 @@ function OversightVersionCard({ versionReview }: { versionReview: PolicyVersionW
       ) : (
         <div className="mt-3 space-y-2">
           {versionReview.diffs.map((diff) => (
-            <details key={diff.key} className="rounded-lg border p-2">
-              <summary className="cursor-pointer text-sm font-medium">{diff.label}</summary>
+            <details key={diff.key} className="group rounded-lg border p-2">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium">
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-90" />
+                {diff.label}
+              </summary>
               <div className="mt-2 grid gap-2 lg:grid-cols-2">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -779,19 +782,27 @@ export default function MandatePage() {
           <div>
             <CardLabel>Foundation Mandate</CardLabel>
             <CardValue>{data.policy.title}</CardValue>
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              Version {formatNumber(data.policy.version)} | Last updated {prettyDate(data.policy.updatedAt)}
-              {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
-            </p>
-            {!canEdit ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                You have {formatNumber(data.pendingNotificationsCount)} update(s) waiting for review.
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                v{formatNumber(data.policy.version)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Updated {prettyDate(data.policy.updatedAt)}
+                {data.policy.updatedByName ? ` by ${data.policy.updatedByName}` : ""}
+              </span>
+              {!canEdit && data.pendingNotificationsCount > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                  {formatNumber(data.pendingNotificationsCount)} update{data.pendingNotificationsCount !== 1 ? "s" : ""} to review
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
+              <MessageSquare className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                Highlight any text and click &ldquo;Add comment&rdquo; to leave a note for the group.
               </p>
-            ) : null}
-            <p className="mt-1 text-xs text-muted-foreground">
-              Highlight any text and click &ldquo;Add comment&rdquo; to leave a note for the group.
-            </p>
+            </div>
           </div>
 
           {canEdit ? (
@@ -867,24 +878,55 @@ export default function MandatePage() {
               </div>
             ))}
           </div>
+          <div className="sticky bottom-0 mt-4 flex flex-wrap gap-2 rounded-b-2xl border-t bg-card/95 px-1 py-3 backdrop-blur">
+            <Button
+              size="lg"
+              disabled={saving}
+              onClick={() => void savePolicy()}
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={saving}
+              onClick={() => {
+                setIsEditing(false);
+                setDraft(data.policy.content);
+                setSaveMessage(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
         </GlassCard>
       ) : (
         <section className="space-y-3">
-          {sections.map((section) => {
+          {sections.map((section, sectionIndex) => {
             const sectionComments = data.mandateComments.filter(
               (c) => c.sectionKey === section.key && c.parentId == null
             );
             const sectionText = data.policy.content[section.key];
             const withHighlights = sectionComments.length > 0;
+            const isMission = section.key === "missionStatement";
 
             return (
-              <GlassCard key={section.key}>
-                <CardLabel>{section.label}</CardLabel>
+              <GlassCard key={section.key} className="border-l-2 border-l-accent/30">
+                <div className="flex items-baseline gap-2">
+                  <span className="shrink-0 font-mono text-[10px] font-semibold text-muted-foreground/50">
+                    {String(sectionIndex + 1).padStart(2, "0")}
+                  </span>
+                  <CardLabel>{section.label}</CardLabel>
+                </div>
                 <div
                   data-mandate-section={section.key}
                   className="select-text"
                 >
-                  {withHighlights
+                  {isMission ? (
+                    <p className="mt-2 text-base italic text-muted-foreground">
+                      {sectionText}
+                    </p>
+                  ) : withHighlights
                     ? renderSectionContentWithHighlights(
                         sectionText,
                         section.key,
@@ -904,7 +946,7 @@ export default function MandatePage() {
         pendingComment &&
         createPortal(
           <div
-            className="fixed z-50 -translate-x-1/2 -translate-y-full"
+            className="fixed z-50 -translate-x-1/2 -translate-y-full animate-fade-up"
             style={{
               left: floatingButtonPosition.x,
               top: floatingButtonPosition.y - 8
@@ -936,10 +978,10 @@ export default function MandatePage() {
           <DialogHeader>
             <DialogTitle>Add comment</DialogTitle>
             {pendingComment ? (
-              <p className="text-sm text-muted-foreground">
-                On: &ldquo;{pendingComment.quotedText.slice(0, 120)}
+              <blockquote className="border-l-2 border-amber-400 pl-3 text-xs italic text-muted-foreground">
+                &ldquo;{pendingComment.quotedText.slice(0, 120)}
                 {pendingComment.quotedText.length > 120 ? "…" : ""}&rdquo;
-              </p>
+              </blockquote>
             ) : null}
           </DialogHeader>
           <div className="space-y-2">
@@ -983,10 +1025,10 @@ export default function MandatePage() {
               <DialogHeader>
                 <DialogTitle>Comment thread</DialogTitle>
                 {viewingComment.quotedText ? (
-                  <p className="text-xs text-muted-foreground">
-                    On: &ldquo;{viewingComment.quotedText.slice(0, 100)}
+                  <blockquote className="border-l-2 border-amber-400 pl-3 text-xs italic text-muted-foreground">
+                    &ldquo;{viewingComment.quotedText.slice(0, 100)}
                     {viewingComment.quotedText.length > 100 ? "…" : ""}&rdquo;
-                  </p>
+                  </blockquote>
                 ) : null}
               </DialogHeader>
               <div className="space-y-3">
@@ -1064,7 +1106,11 @@ export default function MandatePage() {
 
           <div className="mt-3 space-y-3">
             {data.notifications.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No policy updates yet.</p>
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <CheckCircle className="h-8 w-8 text-emerald-500" />
+                <p className="text-sm font-medium text-muted-foreground">You&apos;re all caught up</p>
+                <p className="text-xs text-muted-foreground">No policy updates to review.</p>
+              </div>
             ) : (
               data.notifications.map((notification) => (
                 <article key={notification.id} className="rounded-xl border p-3">
@@ -1090,8 +1136,11 @@ export default function MandatePage() {
                   ) : (
                     <div className="mt-3 space-y-2">
                       {notification.diffs.map((diff) => (
-                        <details key={`${notification.id}-${diff.key}`} className="rounded-lg border p-2">
-                          <summary className="cursor-pointer text-sm font-medium">{diff.label}</summary>
+                        <details key={`${notification.id}-${diff.key}`} className="group rounded-lg border p-2">
+                          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium">
+                            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-90" />
+                            {diff.label}
+                          </summary>
                           <div className="mt-2 grid gap-2 lg:grid-cols-2">
                             <div>
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
