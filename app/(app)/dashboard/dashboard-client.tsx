@@ -2281,9 +2281,14 @@ export default function DashboardClient() {
                       className={viewerMustAct ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}
                     >
                       <td className="w-[20rem] max-w-[20rem] px-2 py-3">
-                        <p className="block max-w-full truncate font-semibold" title={proposal.title}>
+                        <button
+                          type="button"
+                          onClick={() => setDetailProposalId(proposal.id)}
+                          className="block max-w-full truncate font-semibold hover:underline hover:text-primary transition-colors text-left"
+                          title={proposal.title}
+                        >
                           {proposal.title}
-                        </p>
+                        </button>
                         <p
                           className="mt-1 block max-w-full truncate text-xs text-muted-foreground"
                           title={proposal.description}
