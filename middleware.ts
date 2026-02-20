@@ -19,11 +19,24 @@ const SECURITY_HEADERS = {
   ].join("; "),
 };
 
+const STATIC_ASSET_HEADERS = {
+  "Cache-Control": "public, max-age=31536000, immutable",
+};
+
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
+  const url = request.nextUrl;
 
+  // Apply security headers to all routes
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);
+  }
+
+  // Apply static asset caching for images, fonts, and static files
+  if (url.pathname.match(/\.(ico|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot)$/)) {
+    for (const [key, value] of Object.entries(STATIC_ASSET_HEADERS)) {
+      response.headers.set(key, value);
+    }
   }
 
   return response;

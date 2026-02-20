@@ -23,7 +23,6 @@ export async function POST() {
           lastAccessedAt: data.last_accessed_at
         }).catch((err) => {
           const message = err instanceof Error ? err.message : String(err);
-          console.error("[touch] Failed to queue user access notification:", message);
         });
       }
     }

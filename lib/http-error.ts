@@ -3,6 +3,21 @@ export const PRIVATE_CACHE_HEADERS = {
   "Cache-Control": "private, max-age=0, stale-while-revalidate=30"
 } as const;
 
+/** Cache-Control for data that changes infrequently (e.g., historical data). */
+export const STALE_CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=300, stale-while-revalidate=600"
+} as const;
+
+/** Cache-Control for static assets and public data. */
+export const STATIC_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=31536000, immutable"
+} as const;
+
+/** Cache-Control for frequently changing data. */
+export const DYNAMIC_CACHE_HEADERS = {
+  "Cache-Control": "private, max-age=0, stale-while-revalidate=5"
+} as const;
+
 export class HttpError extends Error {
   status: number;
 

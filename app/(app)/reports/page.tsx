@@ -24,6 +24,7 @@ import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/component
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
 import { StatusPill } from "@/components/ui/status-pill";
+import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 import {
   DirectionalCategory,
   DIRECTIONAL_CATEGORIES,
@@ -281,7 +282,22 @@ export default function ReportsPage() {
   }
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading annual report...</p>;
+    return (
+      <div className="page-stack pb-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <SkeletonChart />
+          <SkeletonChart />
+          <SkeletonChart />
+        </div>
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (error || !data) {
