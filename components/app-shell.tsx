@@ -65,13 +65,13 @@ const DESKTOP_SIDEBAR_STORAGE_KEY = "bf_desktop_sidebar_open";
 
 /* Sidebar class constants (co-located with the component instead of globals.css) */
 const sidebarLinkClass =
-  "relative flex min-h-9 min-w-0 items-center rounded-[0.625rem] py-2 text-[0.8125rem] font-medium text-[hsl(var(--foreground)/0.65)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-[hsl(var(--muted)/0.7)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
+  "relative flex min-h-9 min-w-0 items-center overflow-hidden rounded-[0.625rem] py-2 text-[0.8125rem] font-medium text-[hsl(var(--foreground)/0.65)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-[hsl(var(--muted)/0.7)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
 const sidebarLinkExpanded = "gap-2.5 px-2.5 motion-safe:hover:translate-x-px";
 const sidebarLinkCollapsed = "justify-center px-0";
 const sidebarLinkActive =
   "bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] font-semibold shadow-[inset_0_0_0_1px_hsl(var(--accent)/0.08)] hover:bg-[hsl(var(--accent)/0.16)] hover:text-[hsl(var(--accent))] motion-safe:hover:translate-x-0";
 const sidebarIndicatorClass =
-  "absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[hsl(var(--accent))] transition-opacity duration-150 ease-in-out";
+  "absolute left-[-2px] top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[hsl(var(--accent))] transition-opacity duration-150 ease-in-out";
 const sidebarControlBtnClass =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/50 transition-[background-color,color] duration-200 hover:bg-[hsl(var(--muted)/0.85)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
 
@@ -194,7 +194,7 @@ function SidebarHeader({ isOpen, onToggle }: SidebarHeaderProps) {
   const shortcutHint = typeof navigator !== "undefined" && !/Mac/.test(navigator.platform) ? "Ctrl+B" : "⌘B";
 
   const brandMark = (
-    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.625rem] bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] transition-[background-color] duration-200 hover:bg-[hsl(var(--accent)/0.18)]">
+    <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.625rem] bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] transition-[background-color] duration-200 hover:bg-[hsl(var(--accent)/0.18)]">
       <Leaf className="h-4 w-4" strokeWidth={2} />
     </span>
   );
@@ -341,7 +341,7 @@ function SidebarUserCard({ isOpen, user, pathname, onSignOut }: SidebarUserCardP
           <Settings className="h-4 w-4" strokeWidth={1.5} />
         </Link>
       </div>
-      <div className="flex items-center gap-0.5 px-1 mt-1">
+      <div className="flex items-center gap-1 px-1 mt-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <ThemeToggle className={sidebarControlBtnClass} />
@@ -356,7 +356,7 @@ function SidebarUserCard({ isOpen, user, pathname, onSignOut }: SidebarUserCardP
               type="button"
               aria-label="Sign out"
             >
-              <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <LogOut className="h-4 w-4" strokeWidth={1.5} />
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" sideOffset={6}>Sign out</TooltipContent>
@@ -438,7 +438,7 @@ function DesktopSidebarNav({ pathname, isOpen, sections, outstandingByHref }: De
             </span>
           )}
           {!isOpen && sectionIndex > 0 && (
-            <div className="mx-auto mb-2 h-px w-4 rounded-full bg-[hsl(var(--border)/0.3)]" aria-hidden />
+            <div className="mx-auto mb-2 h-px w-5 rounded-full bg-[hsl(var(--border)/0.5)]" aria-hidden />
           )}
           <ul className="space-y-1">
             {section.items.map((item) => {
@@ -468,6 +468,7 @@ interface DesktopSidebarProps {
   user: UserProfile | null;
   pathname: string;
   isOpen: boolean;
+  hasLoadedPreference: boolean;
   sections: NavSection[];
   outstandingByHref: NavOutstandingCounts;
   onToggle: () => void;
@@ -478,6 +479,7 @@ function DesktopSidebar({
   user,
   pathname,
   isOpen,
+  hasLoadedPreference,
   sections,
   outstandingByHref,
   onToggle,
@@ -493,8 +495,9 @@ function DesktopSidebar({
   return (
     <aside
       className={cn(
-        "sticky top-6 hidden h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
-        isOpen ? "w-60" : "w-16"
+        "sticky top-6 hidden h-[calc(100vh-1.5rem)] max-h-[calc(100vh-1.5rem)] shrink-0 overflow-hidden print:hidden sm:flex sm:flex-col sm:transition-[width,opacity] sm:duration-300 sm:ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[width]",
+        isOpen ? "w-60" : "w-16",
+        hasLoadedPreference ? "opacity-100" : "opacity-0"
       )}
     >
       <div className="glass-card flex h-full min-h-0 w-full flex-col rounded-3xl p-2.5">
@@ -527,7 +530,7 @@ function DesktopSidebar({
                 className={cn(
                   sidebarLinkClass,
                   sidebarLinkExpanded,
-                  "w-full justify-start"
+                  "w-full justify-start hover:text-foreground/80"
                 )}
                 aria-label="Open walkthrough guide"
               >
@@ -779,6 +782,7 @@ export function AppShell({ children }: PropsWithChildren) {
         user={user}
         pathname={pathname}
         isOpen={isDesktopSidebarOpen}
+        hasLoadedPreference={hasLoadedSidebarPreference}
         sections={desktopNavSections}
         outstandingByHref={outstandingByHref}
         onToggle={toggleSidebar}
