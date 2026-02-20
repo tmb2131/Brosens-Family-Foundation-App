@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertCircle, ClipboardList } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, ExternalLink, Inbox, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
-import { cn, currency, formatNumber } from "@/lib/utils";
+import { cn, currency, formatNumber, toISODate, titleCase } from "@/lib/utils";
 import { AdminQueueProposal } from "@/lib/foundation-data";
 
 interface AdminQueueResponse {
@@ -30,6 +30,7 @@ function AdminPageClient() {
   });
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightProposalId, setHighlightProposalId] = useState<string | null>(null);
+  const todayISO = toISODate(new Date());
   const [sentDateByProposalId, setSentDateByProposalId] = useState<Record<string, string>>({});
   const [sentErrorByProposalId, setSentErrorByProposalId] = useState<Record<string, string>>({});
   const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
@@ -141,6 +142,8 @@ function AdminPageClient() {
     0
   );
 
+  const distinctBudgetYears = new Set(data.proposals.map((p) => p.budgetYear)).size;
+
   return (
     <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
@@ -179,17 +182,33 @@ function AdminPageClient() {
                   {currency(totalQueuedAmount)}
                 </p>
               </div>
+              <div className="col-span-2 rounded-xl border border-border/80 bg-muted/30 p-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Budget Years</p>
+                <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                  {distinctBudgetYears === 0 ? "—" : distinctBudgetYears === 1
+                    ? `${[...new Set(data.proposals.map((p) => p.budgetYear))][0]}`
+                    : `${distinctBudgetYears} years`}
+                </p>
+              </div>
             </div>
           </GlassCard>
 
           <div className="space-y-3">
         {data.proposals.length === 0 ? (
           <GlassCard>
-            <p className="text-sm text-muted-foreground">No approved proposals awaiting execution.</p>
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+                <Inbox className="h-6 w-6" aria-hidden />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Queue is clear</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">No approved proposals awaiting execution.</p>
+              </div>
+            </div>
           </GlassCard>
         ) : (
           data.proposals.map((proposal) => {
-            const sentDate = sentDateByProposalId[proposal.id] ?? "";
+            const sentDate = sentDateByProposalId[proposal.id] ?? todayISO;
             const errorMessage = sentErrorByProposalId[proposal.id];
             const isSaving = savingProposalId === proposal.id;
             const errorId = `sent-error-${proposal.id}`;
@@ -218,7 +237,7 @@ function AdminPageClient() {
                       <h3 className="break-words text-sm font-semibold">{proposal.title}</h3>
                       {proposal.organizationName !== "Unknown Organization" &&
                       proposal.organizationName !== proposal.title ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{proposal.organizationName}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{proposal.organizationName}</p>
                       ) : null}
 
                       <div className="mt-3 rounded-2xl border-2 border-border bg-muted/30 p-4 sm:border-0 sm:bg-transparent sm:p-0">
@@ -278,7 +297,16 @@ function AdminPageClient() {
                         </div>
                       </div>
 
-                      <div className="mt-3 hidden space-y-1 text-xs text-muted-foreground lg:block">
+                      <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Users className="h-3 w-3 shrink-0" aria-hidden />
+                          <span>
+                            {proposal.progress.votesSubmitted} / {proposal.progress.totalRequiredVotes} votes
+                          </span>
+                          {proposal.progress.votesSubmitted >= proposal.progress.totalRequiredVotes ? (
+                            <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
+                          ) : null}
+                        </div>
                         {proposal.proposerDisplay ? (
                           <p>
                             Proposed by{" "}
@@ -286,8 +314,8 @@ function AdminPageClient() {
                           </p>
                         ) : null}
                         {proposal.organizationWebsite ? (
-                          <p className="break-all">
-                            Organization website:{" "}
+                          <p className="flex items-center gap-1 break-all">
+                            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
                             <a
                               href={proposal.organizationWebsite}
                               target="_blank"
@@ -299,15 +327,15 @@ function AdminPageClient() {
                           </p>
                         ) : null}
                         {proposal.charityNavigatorUrl ? (
-                          <p className="break-all">
-                            Charity Navigator:{" "}
+                          <p className="flex items-center gap-1 break-all">
+                            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
                             <a
                               href={proposal.charityNavigatorUrl}
                               target="_blank"
                               rel="noreferrer"
                               className="text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 dark:text-indigo-300 dark:decoration-indigo-500"
                             >
-                              {proposal.charityNavigatorUrl}
+                              Charity Navigator
                             </a>
                           </p>
                         ) : null}
@@ -355,6 +383,14 @@ function AdminPageClient() {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total to Send</p>
                   <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
                     {currency(totalQueuedAmount)}
+                  </p>
+                </div>
+                <div className="col-span-2 rounded-xl border border-border/80 bg-muted/30 p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Budget Years</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
+                    {distinctBudgetYears === 0 ? "—" : distinctBudgetYears === 1
+                      ? `${[...new Set(data.proposals.map((p) => p.budgetYear))][0]}`
+                      : `${distinctBudgetYears} years`}
                   </p>
                 </div>
               </div>
