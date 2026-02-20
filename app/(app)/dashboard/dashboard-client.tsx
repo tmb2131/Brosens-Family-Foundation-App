@@ -821,7 +821,7 @@ export default function DashboardClient() {
       proposal: proposal.title.trim(),
       description: proposal.description.trim(),
       type: titleCase(proposal.proposalType),
-      amount: masked ? "Blind until your vote is submitted" : proposal.progress.computedFinalAmount.toFixed(2),
+      amount: masked && proposal.proposalType !== "joint" ? "Blind until your vote is submitted" : proposal.proposalType === "joint" && proposal.status === "to_review" ? currency(proposal.proposedAmount) : proposal.progress.computedFinalAmount.toFixed(2),
       status: titleCase(proposal.status),
       sentAt: proposal.sentAt ?? "",
       notes: proposal.notes?.trim() ?? "",
@@ -1762,7 +1762,7 @@ export default function DashboardClient() {
                           <StatusPill status={proposal.status} />
                         </div>
                         <p className="mt-2 text-lg font-semibold text-foreground">
-                          {masked ? "Blind until voted" : currency(proposal.progress.computedFinalAmount)}
+                          {masked && proposal.proposalType !== "joint" ? "Blind until voted" : proposal.proposalType === "joint" && proposal.status === "to_review" ? currency(proposal.proposedAmount) : currency(proposal.progress.computedFinalAmount)}
                         </p>
                         <div className="mt-2 text-xs text-muted-foreground">
                           <p>{buildPendingActionRequiredLabel(proposal)}</p>
@@ -1797,8 +1797,10 @@ export default function DashboardClient() {
                             {titleCase(proposal.proposalType)}
                           </td>
                           <td className="px-2 py-3 text-xs text-muted-foreground">
-                            {masked
+                            {masked && proposal.proposalType !== "joint"
                               ? "Blind until your vote is submitted"
+                              : proposal.proposalType === "joint" && proposal.status === "to_review"
+                              ? currency(proposal.proposedAmount)
                               : currency(proposal.progress.computedFinalAmount)}
                           </td>
                           <td className="px-2 py-3">
@@ -1966,8 +1968,10 @@ export default function DashboardClient() {
 
                   {!isRowEditable ? (
                     <p className="mt-2 text-lg font-semibold text-foreground">
-                      {masked
+                      {masked && proposal.proposalType !== "joint"
                         ? "Blind until your vote is submitted"
+                        : proposal.proposalType === "joint" && proposal.status === "to_review"
+                        ? currency(proposal.proposedAmount)
                         : currency(proposal.progress.computedFinalAmount)}
                     </p>
                   ) : null}
@@ -2019,8 +2023,10 @@ export default function DashboardClient() {
                         </>
                       ) : (
                         <p className="text-sm text-foreground">
-                          {masked
+                          {masked && proposal.proposalType !== "joint"
                             ? "Blind until your vote is submitted"
+                            : proposal.proposalType === "joint" && proposal.status === "to_review"
+                            ? currency(proposal.proposedAmount)
                             : currency(proposal.progress.computedFinalAmount)}
                         </p>
                       )}
@@ -2213,8 +2219,10 @@ export default function DashboardClient() {
                     requiredAction.tone === "attention" &&
                     Boolean(requiredAction.openDetail && requiredAction.ctaLabel);
                   const amountDisplay =
-                    masked
+                    masked && proposal.proposalType !== "joint"
                       ? "Blind until your vote is submitted"
+                      : proposal.proposalType === "joint" && proposal.status === "to_review"
+                      ? currency(proposal.proposedAmount)
                       : isHistoricalBulkEditEnabled
                       ? parsedDraftFinalAmount !== null && parsedDraftFinalAmount >= 0
                         ? currency(parsedDraftFinalAmount)
@@ -2371,8 +2379,10 @@ export default function DashboardClient() {
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
                 <dd className="mt-1.5 text-lg font-bold text-foreground">
-                  {detailMasked
+                  {detailMasked && detailProposal?.proposalType !== "joint"
                     ? "Blind until your vote is submitted"
+                    : detailProposal?.proposalType === "joint" && detailProposal.status === "to_review"
+                    ? currency(detailProposal.proposedAmount)
                     : currency(detailProposal.progress.computedFinalAmount)}
                 </dd>
               </div>
