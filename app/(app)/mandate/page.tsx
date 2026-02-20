@@ -40,7 +40,7 @@ const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
     /Brosens Family Foundation/gi,
     /left out of economic opportunity/gi,
     /education/gi,
-    /long-term pathways to social equity\./gi
+    /long-term pathways to social equity/gi
   ],
   structure: [
     /non-operating entity/gi,
@@ -922,11 +922,7 @@ export default function MandatePage() {
                   data-mandate-section={section.key}
                   className="select-text"
                 >
-                  {isMission ? (
-                    <p className="mt-2 text-base italic text-muted-foreground">
-                      {sectionText}
-                    </p>
-                  ) : withHighlights
+                  {withHighlights
                     ? renderSectionContentWithHighlights(
                         sectionText,
                         section.key,
