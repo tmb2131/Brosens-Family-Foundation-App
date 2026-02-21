@@ -125,7 +125,7 @@ export default function MeetingPage() {
   const { data, mutate, isLoading, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000
   });
-  const [activeSegment, setActiveSegment] = useState<MeetingSegment>("pending");
+  const [activeSegment, setActiveSegment] = useState<MeetingSegment>("ready");
   const [meetingDialogProposalId, setMeetingDialogProposalId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     proposalId: string;
