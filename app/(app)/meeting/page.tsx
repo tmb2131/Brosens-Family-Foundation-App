@@ -55,7 +55,7 @@ function MeetingProposalCard({
 
   return (
     <article
-      className={`group relative flex flex-col gap-3 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-all hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
+      className={`group relative flex flex-col gap-2 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-all hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
         proposal.proposalType === "joint"
           ? "border-t-indigo-400 dark:border-t-indigo-500 hover:border-t-indigo-500"
           : "border-t-amber-400 dark:border-t-amber-500 hover:border-t-amber-500"
@@ -104,7 +104,7 @@ function MeetingProposalCard({
       </div>
 
       {/* Action button */}
-      <div className="pt-1">
+      <div>
         <Button
           className="w-full sm:w-auto sm:flex-1 transition-colors group-hover:bg-primary/90"
           size="sm"
@@ -332,15 +332,37 @@ export default function MeetingPage() {
   ];
 
   return (
-    <div className="page-stack pb-4">
-      {/* Mobile: compact header row */}
-      <div className="flex items-center justify-between gap-2 lg:hidden">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Live Meeting</p>
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Live</span>
+    <div className="page-stack gap-3 lg:gap-6 pb-4">
+      {/* Mobile: stats card with integrated live indicator */}
+      <GlassCard className="p-4 lg:hidden">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+              <ClipboardList className="h-4 w-4" />
+            </span>
+            <div>
+              <CardLabel>Meeting Stats</CardLabel>
+              <p className="text-xs text-muted-foreground mt-0.5">Overview of all proposals</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Live</span>
+          </div>
         </div>
-      </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-border/80 bg-gradient-to-r from-muted/30 to-muted/10 p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pending</p>
+            <p className="mt-2 text-lg font-bold tabular-nums text-foreground">{formatNumber(data.proposals.length)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{formatNumber(jointCount)} joint · {formatNumber(discretionaryCount)} disc.</p>
+          </div>
+          <div className="rounded-xl border border-border/80 bg-gradient-to-r from-muted/30 to-muted/10 p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recommended</p>
+            <p className="mt-2 text-lg font-bold tabular-nums text-foreground">{currency(totalRecommendedAmount)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">total across all proposals</p>
+          </div>
+        </div>
+      </GlassCard>
 
       {/* Desktop: page header card (consistent with My Workspace) */}
       <GlassCard className="hidden rounded-3xl lg:block">
@@ -364,32 +386,8 @@ export default function MeetingPage() {
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-6">
-          <GlassCard className="p-4 lg:hidden">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-                <ClipboardList className="h-4 w-4" />
-              </span>
-              <div>
-                <CardLabel>Meeting Stats</CardLabel>
-                <p className="text-xs text-muted-foreground mt-0.5">Overview of all proposals</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border/80 bg-gradient-to-r from-muted/30 to-muted/10 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Pending</p>
-                <p className="mt-2 text-lg font-bold tabular-nums text-foreground">{formatNumber(data.proposals.length)}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">{formatNumber(jointCount)} joint · {formatNumber(discretionaryCount)} disc.</p>
-              </div>
-              <div className="rounded-xl border border-border/80 bg-gradient-to-r from-muted/30 to-muted/10 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Recommended</p>
-                <p className="mt-2 text-lg font-bold tabular-nums text-foreground">{currency(totalRecommendedAmount)}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">total across all proposals</p>
-              </div>
-            </div>
-          </GlassCard>
-
           <GlassCard className="p-4">
-            <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="mb-3 flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                   <Eye className="h-4 w-4" />
@@ -405,7 +403,7 @@ export default function MeetingPage() {
             </div>
 
             <Tabs value={activeSegment} onValueChange={(value) => setActiveSegment(value as MeetingSegment)}>
-              <TabsList className="h-auto w-full flex-wrap gap-1 bg-muted/50 p-1" role="tablist">
+              <TabsList className="h-auto w-full grid grid-cols-3 gap-1 bg-muted/50 p-1" role="tablist">
                 <TabsTrigger 
                   value="ready" 
                   className="flex items-center gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground"
@@ -425,7 +423,8 @@ export default function MeetingPage() {
                   aria-label={`Pending proposals (${formatNumber(pendingProposals.length)} proposals)`}
                 >
                   <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Pending</span>
+                  <span className="hidden sm:inline">Pending</span>
+                  <span className="sm:hidden">Wait</span>
                   <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 text-[10px] font-bold" aria-label={`${formatNumber(pendingProposals.length)} pending proposals`}>
                     {formatNumber(pendingProposals.length)}
                   </span>
@@ -437,7 +436,7 @@ export default function MeetingPage() {
                   aria-label={`Proposals needing discussion (${formatNumber(needsDiscussionProposals.length)} proposals)`}
                 >
                   <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="sm:hidden">Flagged</span>
+                  <span className="sm:hidden">Issues</span>
                   <span className="hidden sm:inline">Needs discussion</span>
                   <span className="rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 px-1.5 py-0.5 text-[10px] font-bold" aria-label={`${formatNumber(needsDiscussionProposals.length)} flagged proposals`}>
                     {formatNumber(needsDiscussionProposals.length)}
@@ -445,7 +444,7 @@ export default function MeetingPage() {
                 </TabsTrigger>
               </TabsList>
               {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
-                <TabsContent key={segment} value={segment} className="mt-4 space-y-3" role="tabpanel">
+                <TabsContent key={segment} value={segment} className="mt-4 space-y-2" role="tabpanel">
                   {segmentProposals[segment].length > 0 ? (
                     <div className="space-y-3">
                       {segmentProposals[segment].map((proposal) => (
@@ -459,7 +458,7 @@ export default function MeetingPage() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
+                    <div className="text-center py-6">
                       <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted/50 mb-3">
                         {segment === "ready" && <CheckCircle2 className="h-6 w-6 text-muted-foreground" />}
                         {segment === "pending" && <ClipboardList className="h-6 w-6 text-muted-foreground" />}
