@@ -220,6 +220,9 @@ export default function WorkspaceClient() {
       (sum, item) => sum + (pendingJointAllocationByProposalId[item.proposalId] ?? 0),
       0
     );
+  const jointRemaining = workspace.personalBudget.jointRemaining;
+  const pendingJointPortion = Math.min(pendingJointTotal, jointRemaining);
+  const pendingDiscretionaryPortion = Math.max(0, pendingJointTotal - jointRemaining);
   const totalIndividualAllocated =
     workspace.personalBudget.jointAllocated +
     workspace.personalBudget.discretionaryAllocated +
@@ -245,12 +248,13 @@ export default function WorkspaceClient() {
             title="Joint Budget"
             allocated={workspace.personalBudget.jointAllocated}
             total={workspace.personalBudget.jointTarget}
-            pendingAllocation={pendingJointTotal}
+            pendingAllocation={pendingJointPortion}
           />
           <PersonalBudgetBars
             title="Discretionary Budget"
             allocated={workspace.personalBudget.discretionaryAllocated}
             total={workspace.personalBudget.discretionaryCap}
+            pendingAllocation={pendingDiscretionaryPortion}
           />
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground" role="img" aria-label="Green is allocated, blue is your current allocation input">
             <span className="flex items-center gap-1.5">
