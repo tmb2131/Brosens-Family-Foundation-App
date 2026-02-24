@@ -1,1 +1,1 @@
-{"crons":[{"path":"/api/notifications/email/reminders","schedule":"45 23 * * *"},{"path":"/api/notifications/email/reminders","schedule":"45 14 * * 2"}]}
+{"crons":[{"path":"/api/notifications/email/reminders","schedule":"30 23 * * *"},{"path":"/api/notifications/email/reminders","schedule":"30 14 * * 2"}]}
