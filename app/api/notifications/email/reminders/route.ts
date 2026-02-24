@@ -46,11 +46,9 @@ async function runReminders(request: NextRequest): Promise<NextResponse> {
     assertRole(context.profile, ["oversight", "admin"]);
   }
 
+  // Manual run: ignore time window so it can run any time; same as cron for "no proposals sent" (do not send digest when none sent)
   const dailyDigestOptions = manual
-    ? {
-        ignoreTimeWindow: true,
-        sendEvenIfNoSentToday: true
-      }
+    ? { ignoreTimeWindow: true }
     : undefined;
 
   const [weeklyUpdate, dailySentDigest] = await Promise.all([
