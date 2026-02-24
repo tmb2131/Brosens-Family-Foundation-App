@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { getClientIsStandalone } from "@/lib/device-detection";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
 import { RouteProgressBar } from "@/components/ui/route-progress-bar";
@@ -570,7 +571,7 @@ interface MobileBottomNavProps {
 function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottomNavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-20 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden [transform:translateZ(0)]"
       aria-label="Mobile primary navigation"
     >
       <ul
@@ -612,8 +613,13 @@ export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [isSmallViewport, setIsSmallViewport] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(true);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [hasLoadedSidebarPreference, setHasLoadedSidebarPreference] = useState(false);
+
+  useEffect(() => {
+    setIsStandalone(getClientIsStandalone());
+  }, []);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 639px)");
@@ -699,6 +705,8 @@ export function AppShell({ children }: PropsWithChildren) {
     (pathname.startsWith("/mobile") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
+  /** In browser (non-PWA), use window scroll to avoid iOS Safari bottom nav hit-test issues. */
+  const useStickyBottomNavLayout = stickyBottomNavOnMobile && isStandalone;
   const hideShellHeader =
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||
@@ -769,7 +777,7 @@ export function AppShell({ children }: PropsWithChildren) {
     <div
       className={cn(
         "page-enter flex min-h-screen w-full flex-col px-3 pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8",
-        stickyBottomNavOnMobile
+        useStickyBottomNavLayout
           ? "h-[100dvh] max-h-[100dvh] overflow-hidden pb-0"
           : "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
       )}
@@ -793,9 +801,14 @@ export function AppShell({ children }: PropsWithChildren) {
         data-main-scroll
         className={cn(
           "min-w-0 flex-1",
-          stickyBottomNavOnMobile &&
-            "min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+          useStickyBottomNavLayout &&
+            "z-0 min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
         )}
+        style={
+          useStickyBottomNavLayout
+            ? { WebkitOverflowScrolling: "touch" as const }
+            : undefined
+        }
       >
         {hideShellHeader ? null : (
           <header className="glass-card mb-4 rounded-3xl p-4 print:hidden sm:hidden">
