@@ -47,17 +47,44 @@ function DialogOverlay({
   )
 }
 
+type OverlayCutoutRect = { left: number; top: number; width: number; height: number }
+
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayClassName,
+  overlayCutoutRect,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Optional class for the overlay (e.g. to limit dim to main area so a sidebar stays clear). */
+  overlayClassName?: string
+  /** When set, overlay is a "hole" at this rect (clear) with dim everywhere else. Only the cutout stays visible. */
+  overlayCutoutRect?: OverlayCutoutRect | null
 }) {
+  const useCutout =
+    overlayCutoutRect != null &&
+    overlayCutoutRect.width > 0 &&
+    overlayCutoutRect.height > 0
+
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      {useCutout ? (
+        <div
+          aria-hidden
+          className="fixed z-50"
+          style={{
+            left: overlayCutoutRect.left,
+            top: overlayCutoutRect.top,
+            width: overlayCutoutRect.width,
+            height: overlayCutoutRect.height,
+            boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)"
+          }}
+        />
+      ) : (
+        <DialogOverlay className={overlayClassName} />
+      )}
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

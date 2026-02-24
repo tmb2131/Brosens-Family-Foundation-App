@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import useSWR from "swr";
@@ -68,6 +68,14 @@ export default function WorkspaceClient() {
     Record<string, number>
   >({});
   const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
+  const budgetSidebarRef = useRef<HTMLDivElement>(null);
+  const budgetCardRef = useRef<HTMLDivElement>(null);
+  const [overlayCutoutRect, setOverlayCutoutRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
   const { registerStartWalkthrough } = useWorkspaceWalkthrough();
@@ -78,6 +86,39 @@ export default function WorkspaceClient() {
       setWalkthroughOpen(true);
     });
   }, [registerStartWalkthrough]);
+
+  useEffect(() => {
+    if (voteDialogProposalId == null) return;
+    if (!budgetSidebarRef.current || !window.matchMedia("(min-width: 1024px)").matches) return;
+    const el = budgetSidebarRef.current;
+    const id = requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [voteDialogProposalId]);
+
+  useLayoutEffect(() => {
+    if (voteDialogProposalId == null || !window.matchMedia("(min-width: 1024px)").matches) {
+      setOverlayCutoutRect(null);
+      return;
+    }
+    const measure = () => {
+      const el = budgetCardRef.current;
+      if (!el) {
+        setOverlayCutoutRect(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) {
+        setOverlayCutoutRect(null);
+        return;
+      }
+      setOverlayCutoutRect({ left: r.left, top: r.top, width: r.width, height: r.height });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [voteDialogProposalId]);
 
   const closeWalkthrough = useCallback(() => {
     setWalkthroughOpen(false);
@@ -252,7 +293,11 @@ export default function WorkspaceClient() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md" showCloseButton={true}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={true}
+          overlayCutoutRect={overlayCutoutRect}
+        >
           {voteDialogItem ? (
             <>
               <DialogHeader>
@@ -428,6 +473,24 @@ export default function WorkspaceClient() {
                 </Link>
               </Button>
             </div>
+            {(() => {
+              const noSubmissionThisYear = !workspace.submittedGifts.some(
+                (g) => g.budgetYear === workspace.currentBudgetYear
+              );
+              const totalBudgetRemaining =
+                workspace.personalBudget.jointRemaining +
+                workspace.personalBudget.discretionaryRemaining;
+              const hasBudgetLeft = !isManager && totalBudgetRemaining > 0;
+              if (!noSubmissionThisYear && !hasBudgetLeft) return null;
+              const parts: string[] = [];
+              if (noSubmissionThisYear) parts.push("You haven't submitted a proposal this year.");
+              if (hasBudgetLeft) {
+                parts.push(`You have ${currency(totalBudgetRemaining)} budget left.`);
+              }
+              return (
+                <p className="mt-2 text-xs text-muted-foreground">{parts.join(" ")}</p>
+              );
+            })()}
           </GlassCard>
 
           <GlassCard className="p-3 lg:hidden" data-walkthrough="budget">
@@ -444,21 +507,21 @@ export default function WorkspaceClient() {
             ) : (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 <PersonalBudgetBars
-                  title={`Total${totalIndividualTarget > 0 ? ` · ${Math.round(((totalIndividualAllocated) / totalIndividualTarget) * 100)}% used` : ""}`}
+                  title={`Total${totalIndividualTarget > 0 ? ` · ${Math.round(((totalIndividualAllocated) / totalIndividualTarget) * 100)}% committed` : ""}`}
                   allocated={totalIndividualAllocated - pendingJointTotal}
                   total={totalIndividualTarget}
                   pendingAllocation={pendingJointTotal}
                   compact
                 />
                 <PersonalBudgetBars
-                  title={`Joint${workspace.personalBudget.jointTarget > 0 ? ` · ${Math.round(((workspace.personalBudget.jointAllocated + pendingJointTotal) / workspace.personalBudget.jointTarget) * 100)}% used` : ""}`}
+                  title={`Joint${workspace.personalBudget.jointTarget > 0 ? ` · ${Math.round(((workspace.personalBudget.jointAllocated + pendingJointTotal) / workspace.personalBudget.jointTarget) * 100)}% committed` : ""}`}
                   allocated={workspace.personalBudget.jointAllocated}
                   total={workspace.personalBudget.jointTarget}
                   pendingAllocation={pendingJointTotal}
                   compact
                 />
                 <PersonalBudgetBars
-                  title={`Discr.${workspace.personalBudget.discretionaryCap > 0 ? ` · ${Math.round((workspace.personalBudget.discretionaryAllocated / workspace.personalBudget.discretionaryCap) * 100)}% used` : ""}`}
+                  title={`Discr.${workspace.personalBudget.discretionaryCap > 0 ? ` · ${Math.round((workspace.personalBudget.discretionaryAllocated / workspace.personalBudget.discretionaryCap) * 100)}% committed` : ""}`}
                   allocated={workspace.personalBudget.discretionaryAllocated}
                   total={workspace.personalBudget.discretionaryCap}
                   compact
@@ -621,8 +684,10 @@ export default function WorkspaceClient() {
           </section>
         </div>
 
-        <div className="hidden lg:block">
-          <div className="lg:sticky lg:top-6">{budgetSidebar}</div>
+        <div ref={budgetSidebarRef} className="hidden lg:block">
+          <div ref={budgetCardRef} className="lg:sticky lg:top-6">
+            {budgetSidebar}
+          </div>
         </div>
       </div>
     </div>

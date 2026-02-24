@@ -974,6 +974,7 @@ export async function getWorkspaceSnapshot(
 
   return {
     user,
+    currentBudgetYear: foundation.budget.year,
     votingMemberCount: votingMemberIds.length,
     personalBudget,
     actionItems,

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ListChecks, LogOut, RefreshCw, Vote, Wallet } from "lucide-react";
+import { ListChecks, LogOut, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
@@ -206,6 +206,27 @@ export default function MobileFocusClient() {
           </div>
         )}
       </GlassCard>
+
+      {(() => {
+        const noSubmissionThisYear = !workspace.submittedGifts.some(
+          (g) => g.budgetYear === workspace.currentBudgetYear
+        );
+        const totalBudgetRemaining =
+          workspace.personalBudget.jointRemaining +
+          workspace.personalBudget.discretionaryRemaining;
+        const hasBudgetLeft = !isManager && totalBudgetRemaining > 0;
+        if (!noSubmissionThisYear && !hasBudgetLeft) return null;
+        const parts: string[] = [];
+        if (noSubmissionThisYear) parts.push("You haven't submitted a proposal this year.");
+        if (hasBudgetLeft) {
+          parts.push(`You have ${currency(totalBudgetRemaining)} budget left.`);
+        }
+        return (
+          <GlassCard className="p-3">
+            <p className="text-xs text-muted-foreground">{parts.join(" ")}</p>
+          </GlassCard>
+        );
+      })()}
 
       <GlassCard className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">

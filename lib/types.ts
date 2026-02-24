@@ -188,6 +188,8 @@ export interface FrankDeenieSnapshot {
 
 export interface WorkspaceSnapshot {
   user: UserProfile;
+  /** Active foundation budget year (e.g. for "submitted this year" nudges). */
+  currentBudgetYear: number;
   /** Number of voting members (for joint implied-share calculation). */
   votingMemberCount: number;
   personalBudget: {

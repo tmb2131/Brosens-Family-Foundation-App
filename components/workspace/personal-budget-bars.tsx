@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2 } from "lucide-react";
 import { currency } from "@/lib/utils";
 
 interface PersonalBudgetBarsProps {
@@ -26,6 +27,17 @@ export function PersonalBudgetBars({
   const pendingRatio =
     total === 0 ? 0 : Math.min(100 - allocatedRatio, Math.round((pendingAllocation / total) * 100));
   const remaining = Math.max(0, total - allocated - pendingAllocation);
+  const committedTotal = allocated + pendingAllocation;
+  const isFullShare = total > 0 && committedTotal >= total;
+  const committedPct =
+    total === 0 ? 0 : Math.min(100, Math.round((committedTotal / total) * 100));
+
+  const subtitle =
+    total === 0
+      ? "No budget"
+      : isFullShare
+        ? "You've committed your full share"
+        : `${committedPct}% committed of your share (${currency(total)})`;
 
   return (
     <div
@@ -44,7 +56,14 @@ export function PersonalBudgetBars({
         {currency(remaining)}
       </p>
       <p className={compact ? "text-[10px] text-muted-foreground" : "text-xs text-muted-foreground"}>
-        <span className="font-semibold">remaining</span> of your budget of {currency(total)}
+        {isFullShare ? (
+          <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {subtitle}
+          </span>
+        ) : (
+          <>{subtitle}</>
+        )}
       </p>
       <div className={compact ? "mt-2 h-1.5 rounded-full bg-muted" : "mt-2 h-2 rounded-full bg-muted"}>
         <div className="flex h-full overflow-hidden rounded-full">
