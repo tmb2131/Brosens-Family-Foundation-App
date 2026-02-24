@@ -11,11 +11,13 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
-  Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import {
+  ResponsiveModal,
+  ResponsiveModalContent,
+} from "@/components/ui/responsive-modal";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
@@ -264,7 +266,7 @@ export default function MobileFocusClient() {
               return (
                 <article
                   key={item.proposalId}
-                  className={`rounded-xl border border-t-2 bg-background p-4 shadow-sm ${
+                  className={`content-auto rounded-xl border border-t-2 bg-background p-4 shadow-sm ${
                     item.proposalType === "joint"
                       ? "border-t-indigo-400 dark:border-t-indigo-500"
                       : "border-t-amber-400 dark:border-t-amber-500"
@@ -307,7 +309,7 @@ export default function MobileFocusClient() {
         </div>
       </GlassCard>
 
-      <Dialog
+      <ResponsiveModal
         open={voteDialogProposalId !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -322,7 +324,7 @@ export default function MobileFocusClient() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md" showCloseButton={true}>
+        <ResponsiveModalContent dialogClassName="sm:max-w-md" showCloseButton={true}>
           {voteDialogItem ? (
             <>
               <DialogHeader>
@@ -406,8 +408,8 @@ export default function MobileFocusClient() {
               </div>
             </>
           ) : null}
-        </DialogContent>
-      </Dialog>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
     </div>
   );
 }

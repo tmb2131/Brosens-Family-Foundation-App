@@ -191,7 +191,8 @@ body {
 @media (hover: none) and (pointer: coarse) {
   input,
   textarea,
-  select {
+  select,
+  [inputmode] {
     font-size: 16px !important;
   }
 }
@@ -221,5 +222,18 @@ button:disabled,
 [data-walkthrough] {
   scroll-margin-top: max(1.5rem, env(safe-area-inset-top));
   scroll-margin-bottom: 1.5rem;
+}
+
+/* Tighter stack gap on very small phones (< 360px, e.g. iPhone SE 1st gen) */
+@media (max-width: 359px) {
+  .page-stack {
+    gap: 1rem;
+  }
+}
+
+/* content-visibility: auto defers off-screen rendering for long lists */
+@utility content-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
