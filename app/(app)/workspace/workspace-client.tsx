@@ -518,16 +518,17 @@ export default function WorkspaceClient() {
                   compact
                 />
                 <PersonalBudgetBars
-                  title={`Joint${workspace.personalBudget.jointTarget > 0 ? ` · ${Math.round(((workspace.personalBudget.jointAllocated + pendingJointTotal) / workspace.personalBudget.jointTarget) * 100)}% committed` : ""}`}
+                  title={`Joint${workspace.personalBudget.jointTarget > 0 ? ` · ${Math.round(((workspace.personalBudget.jointAllocated + pendingJointPortion) / workspace.personalBudget.jointTarget) * 100)}% committed` : ""}`}
                   allocated={workspace.personalBudget.jointAllocated}
                   total={workspace.personalBudget.jointTarget}
-                  pendingAllocation={pendingJointTotal}
+                  pendingAllocation={pendingJointPortion}
                   compact
                 />
                 <PersonalBudgetBars
-                  title={`Discr.${workspace.personalBudget.discretionaryCap > 0 ? ` · ${Math.round((workspace.personalBudget.discretionaryAllocated / workspace.personalBudget.discretionaryCap) * 100)}% committed` : ""}`}
+                  title={`Discr.${workspace.personalBudget.discretionaryCap > 0 ? ` · ${Math.round(((workspace.personalBudget.discretionaryAllocated + pendingDiscretionaryPortion) / workspace.personalBudget.discretionaryCap) * 100)}% committed` : ""}`}
                   allocated={workspace.personalBudget.discretionaryAllocated}
                   total={workspace.personalBudget.discretionaryCap}
+                  pendingAllocation={pendingDiscretionaryPortion}
                   compact
                 />
                 <p

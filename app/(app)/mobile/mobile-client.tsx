@@ -97,6 +97,9 @@ export default function MobileFocusClient() {
       (sum, item) => sum + (pendingJointAllocationByProposalId[item.proposalId] ?? 0),
       0
     );
+  const jointRemaining = workspace.personalBudget.jointRemaining;
+  const pendingJointPortion = Math.min(pendingJointTotal, jointRemaining);
+  const pendingDiscretionaryPortion = Math.max(0, pendingJointTotal - jointRemaining);
   const totalIndividualAllocated =
     workspace.personalBudget.jointAllocated +
     workspace.personalBudget.discretionaryAllocated +
@@ -176,13 +179,14 @@ export default function MobileFocusClient() {
               title="Joint"
               allocated={workspace.personalBudget.jointAllocated}
               total={workspace.personalBudget.jointTarget}
-              pendingAllocation={pendingJointTotal}
+              pendingAllocation={pendingJointPortion}
               compact
             />
             <PersonalBudgetBars
               title="Discretionary"
               allocated={workspace.personalBudget.discretionaryAllocated}
               total={workspace.personalBudget.discretionaryCap}
+              pendingAllocation={pendingDiscretionaryPortion}
               compact
             />
             <p
@@ -337,13 +341,14 @@ export default function MobileFocusClient() {
                     title="Joint"
                     allocated={workspace.personalBudget.jointAllocated}
                     total={workspace.personalBudget.jointTarget}
-                    pendingAllocation={pendingJointTotal}
+                    pendingAllocation={pendingJointPortion}
                     compact
                   />
                   <PersonalBudgetBars
                     title="Discretionary"
                     allocated={workspace.personalBudget.discretionaryAllocated}
                     total={workspace.personalBudget.discretionaryCap}
+                    pendingAllocation={pendingDiscretionaryPortion}
                     compact
                   />
                   <p
