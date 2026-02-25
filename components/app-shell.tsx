@@ -18,8 +18,8 @@ import {
   ShieldCheck,
   Vote
 } from "lucide-react";
-import useSWR, { mutate as globalMutate } from "swr";
-import { ComponentType, PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useSWR, { mutate as globalMutate, SWRConfig } from "swr";
+import { ComponentType, PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
@@ -568,7 +568,7 @@ interface MobileBottomNavProps {
   outstandingByHref: NavOutstandingCounts;
 }
 
-function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottomNavProps) {
+const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottomNavProps) {
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-50 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden [transform:translateZ(0)]"
@@ -607,7 +607,7 @@ function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottom
       </ul>
     </nav>
   );
-}
+});
 
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
@@ -722,7 +722,7 @@ export function AppShell({ children }: PropsWithChildren) {
         : availableFullNav;
   const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
-    { refreshInterval: 30_000 }
+    { refreshInterval: 60_000 }
   );
 
   // Revalidate navigation badges on every client-side route change so the
@@ -774,6 +774,7 @@ export function AppShell({ children }: PropsWithChildren) {
   );
 
   return (
+    <SWRConfig value={{ refreshWhenHidden: false, refreshWhenOffline: false }}>
     <div
       className={cn(
         "page-enter flex min-h-screen w-full flex-col px-3 pt-4 sm:flex-row sm:items-start sm:gap-4 sm:pl-0 sm:pr-6 sm:pb-8",
@@ -847,5 +848,6 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <MobileBottomNav pathname={pathname} navItems={renderedNav} outstandingByHref={outstandingByHref} />
     </div>
+    </SWRConfig>
   );
 }

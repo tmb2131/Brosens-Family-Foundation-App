@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -34,7 +35,7 @@ interface MetricCardProps extends PropsWithChildren {
   subtitle?: ReactNode;
 }
 
-export function MetricCard({
+export const MetricCard = memo(function MetricCard({
   title,
   value,
   icon: Icon,
@@ -59,4 +60,4 @@ export function MetricCard({
       {children}
     </GlassCard>
   );
-}
+});

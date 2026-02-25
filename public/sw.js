@@ -1,3 +1,18 @@
+self.addEventListener("fetch", (event) => {
+  if (event.request.url.includes("/_next/static/")) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          const clone = response.clone();
+          caches.open("static-v1").then((cache) => cache.put(event.request, clone));
+          return response;
+        });
+      })
+    );
+  }
+});
+
 self.addEventListener("push", (event) => {
   let payload = {};
 

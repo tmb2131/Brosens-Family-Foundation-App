@@ -774,8 +774,11 @@ export async function getFoundationSnapshot(
   includeAllYears = false,
   includeHistory = false
 ): Promise<FoundationSnapshot> {
-  const budget = await getBudgetForYearOrDefault(admin, budgetYear);
-  const availableBudgetYears = await loadAvailableBudgetYears(admin, budget?.budget_year ?? budgetYear);
+  const [budget, availableBudgetYears, votingMemberIds] = await Promise.all([
+    getBudgetForYearOrDefault(admin, budgetYear),
+    loadAvailableBudgetYears(admin, budgetYear),
+    getVotingMemberIds(admin)
+  ]);
 
   if (!budget) {
     return emptyFoundationSnapshot(
@@ -783,8 +786,6 @@ export async function getFoundationSnapshot(
       availableBudgetYears
     );
   }
-
-  const votingMemberIds = await getVotingMemberIds(admin);
 
   const proposalRows = includeAllYears
     ? await loadAllProposalRows(admin)
@@ -846,16 +847,18 @@ export async function getWorkspaceSnapshot(
   admin: AdminClient,
   user: UserProfile
 ): Promise<WorkspaceSnapshot> {
-  const foundation = await getFoundationSnapshot(admin, user.id);
-  const votingMemberIds = await getVotingMemberIds(admin);
+  const [foundation, votingMemberIds, userVotesResult] = await Promise.all([
+    getFoundationSnapshot(admin, user.id),
+    getVotingMemberIds(admin),
+    admin
+      .from("votes")
+      .select("id, proposal_id, voter_id, choice, allocation_amount, created_at, flag_comment")
+      .eq("voter_id", user.id)
+      .order("created_at", { ascending: false })
+      .returns<VoteRow[]>()
+  ]);
 
-  const { data: userVoteRows, error: userVoteError } = await admin
-    .from("votes")
-    .select("id, proposal_id, voter_id, choice, allocation_amount, created_at, flag_comment")
-    .eq("voter_id", user.id)
-    .order("created_at", { ascending: false })
-    .returns<VoteRow[]>();
-
+  const { data: userVoteRows, error: userVoteError } = userVotesResult;
   if (userVoteError) {
     throw new HttpError(500, `Could not load user votes: ${userVoteError.message}`);
   }

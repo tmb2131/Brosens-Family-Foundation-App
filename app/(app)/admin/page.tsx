@@ -26,7 +26,7 @@ function AdminPageClient() {
   const proposalIdFromUrl = searchParams.get("proposalId")?.trim() ?? null;
   const adminQueueKey = user?.role === "admin" ? "/api/admin" : null;
   const { data, mutate, isLoading, error } = useSWR<AdminQueueResponse>(adminQueueKey, {
-    refreshInterval: 30_000
+    refreshInterval: 45_000
   });
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightProposalId, setHighlightProposalId] = useState<string | null>(null);
