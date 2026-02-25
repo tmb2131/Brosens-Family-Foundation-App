@@ -7,6 +7,7 @@ import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ListChecks, LogOut, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -43,6 +44,7 @@ export default function MobileFocusClient() {
   }, [searchParams]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
+  const [isVoteSaving, setIsVoteSaving] = useState(false);
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
@@ -357,6 +359,7 @@ export default function MobileFocusClient() {
         open={voteDialogProposalId !== null}
         onOpenChange={(open) => {
           if (!open) {
+            if (isVoteSaving) return;
             setVoteDialogProposalId(null);
             if (voteDialogProposalId) {
               setPendingJointAllocationByProposalId((prev) => {
@@ -368,11 +371,26 @@ export default function MobileFocusClient() {
           }
         }}
       >
-        <ResponsiveModalContent dialogClassName="sm:max-w-md" showCloseButton={true}>
+        <ResponsiveModalContent
+          dialogClassName="sm:max-w-md"
+          showCloseButton={true}
+          onInteractOutside={(e) => { if (isVoteSaving) e.preventDefault(); }}
+        >
           {voteDialogItem ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
+                  <Badge
+                    className={
+                      voteDialogItem.proposalType === "joint"
+                        ? "border-transparent bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                        : "border-transparent bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                    }
+                  >
+                    {titleCase(voteDialogItem.proposalType)}
+                  </Badge>
+                </div>
               </DialogHeader>
               {voteDialogItem.proposalType === "joint" && !isManager ? (
                 <div className="grid grid-cols-3 gap-2">
@@ -419,36 +437,37 @@ export default function MobileFocusClient() {
               ) : null}
               <div className={voteDialogItem.proposalType === "joint" && !isManager ? "mt-3" : undefined}>
                 <VoteForm
-                proposalId={voteDialogItem.proposalId}
-                proposalType={voteDialogItem.proposalType}
-                proposedAmount={voteDialogItem.proposedAmount}
-                totalRequiredVotes={voteDialogItem.totalRequiredVotes}
-                onSuccess={() => {
-                  setPendingJointAllocationByProposalId((prev) => {
-                    const next = { ...prev };
-                    delete next[voteDialogItem.proposalId];
-                    return next;
-                  });
-                  setVoteDialogProposalId(null);
-                  void workspaceQuery.mutate();
-                  mutateAllFoundation();
-                }}
-                onAllocationChange={
-                  voteDialogItem.proposalType === "joint"
-                    ? (amount) =>
-                        setPendingJointAllocationByProposalId((prev) => ({
-                          ...prev,
-                          [voteDialogItem.proposalId]: amount
-                        }))
-                    : undefined
-                }
-                maxJointAllocation={
-                  voteDialogItem.proposalType === "joint" && !isManager
-                    ? workspace.personalBudget.jointRemaining +
-                      workspace.personalBudget.discretionaryRemaining
-                    : undefined
-                }
-              />
+                  proposalId={voteDialogItem.proposalId}
+                  proposalType={voteDialogItem.proposalType}
+                  proposedAmount={voteDialogItem.proposedAmount}
+                  totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                  onSuccess={() => {
+                    setPendingJointAllocationByProposalId((prev) => {
+                      const next = { ...prev };
+                      delete next[voteDialogItem.proposalId];
+                      return next;
+                    });
+                    setVoteDialogProposalId(null);
+                    void workspaceQuery.mutate();
+                    mutateAllFoundation();
+                  }}
+                  onAllocationChange={
+                    voteDialogItem.proposalType === "joint"
+                      ? (amount) =>
+                          setPendingJointAllocationByProposalId((prev) => ({
+                            ...prev,
+                            [voteDialogItem.proposalId]: amount
+                          }))
+                      : undefined
+                  }
+                  maxJointAllocation={
+                    voteDialogItem.proposalType === "joint" && !isManager
+                      ? workspace.personalBudget.jointRemaining +
+                        workspace.personalBudget.discretionaryRemaining
+                      : undefined
+                  }
+                  onSavingChange={setIsVoteSaving}
+                />
               </div>
             </>
           ) : null}

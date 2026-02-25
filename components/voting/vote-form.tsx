@@ -19,6 +19,8 @@ interface VoteFormProps {
   onAllocationChange?: (amount: number) => void;
   /** Max allowed allocation for joint votes (remaining budget + current vote on this proposal). When set, allocation over this is blocked. */
   maxJointAllocation?: number;
+  /** Called whenever the saving state changes. Use to prevent modal dismiss during submission. */
+  onSavingChange?: (isSaving: boolean) => void;
 }
 
 export function VoteForm({
@@ -28,7 +30,8 @@ export function VoteForm({
   totalRequiredVotes,
   onSuccess,
   onAllocationChange,
-  maxJointAllocation
+  maxJointAllocation,
+  onSavingChange
 }: VoteFormProps) {
   const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
   const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
@@ -53,6 +56,12 @@ export function VoteForm({
   useEffect(() => {
     onAllocationChangeRef.current?.(effectiveAllocation);
   }, [effectiveAllocation]);
+
+  const onSavingChangeRef = useRef(onSavingChange);
+  onSavingChangeRef.current = onSavingChange;
+  useEffect(() => {
+    onSavingChangeRef.current?.(saving);
+  }, [saving]);
 
   const submitVote = async () => {
     if (savingRef.current) return;
@@ -153,9 +162,11 @@ export function VoteForm({
     <form onSubmit={handleSubmit} noValidate className="mt-0 border-t pt-4 text-sm">
       {isReviewing ? (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review your blind vote</p>
+          <p className="text-base font-semibold text-foreground">Review your blind vote</p>
           <div className="mt-3 rounded-xl border-2 border-border bg-muted/50 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vote</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proposed amount</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums text-foreground">{currency(proposedAmount)}</p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vote</p>
             <p className="mt-0.5 text-lg font-semibold text-foreground">
               {proposalType === "joint" ? (
                 <>{choice === "yes" ? "Yes" : "No"}</>
@@ -178,6 +189,9 @@ export function VoteForm({
               </>
             ) : null}
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Your vote is blind — individual votes stay hidden until all required votes are submitted.
+          </p>
           {isZeroAllocation ? (
             <div
               role="alert"
