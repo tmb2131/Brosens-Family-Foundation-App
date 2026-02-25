@@ -66,6 +66,8 @@ interface ResponsiveModalContentProps {
   showCloseButton?: boolean
   onInteractOutside?: (e: Event) => void
   "aria-labelledby"?: string
+  /** On mobile, renders pinned to the bottom of the drawer (non-scrolling). On desktop, renders inline after children. */
+  footer?: React.ReactNode
 }
 
 function ResponsiveModalContent({
@@ -76,6 +78,7 @@ function ResponsiveModalContent({
   showCloseButton = true,
   onInteractOutside,
   "aria-labelledby": ariaLabelledby,
+  footer,
 }: ResponsiveModalContentProps) {
   const isMobile = React.useContext(IsMobileContext)
 
@@ -85,9 +88,14 @@ function ResponsiveModalContent({
         className={cn(drawerClassName, className)}
         aria-labelledby={ariaLabelledby}
       >
-        <div className="overflow-y-auto p-4 pb-[env(safe-area-inset-bottom,16px)]">
+        <div className={cn("overflow-y-auto p-4", footer ? "flex-1 min-h-0" : "pb-[env(safe-area-inset-bottom,16px)]")}>
           {children}
         </div>
+        {footer ? (
+          <div className="shrink-0 px-4 pb-[env(safe-area-inset-bottom,16px)]">
+            {footer}
+          </div>
+        ) : null}
       </DrawerContent>
     )
   }
@@ -100,6 +108,7 @@ function ResponsiveModalContent({
       aria-labelledby={ariaLabelledby}
     >
       {children}
+      {footer}
     </DialogContent>
   )
 }

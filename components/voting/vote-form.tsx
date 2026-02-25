@@ -150,11 +150,11 @@ export function VoteForm({
   const isZeroAllocation = proposalType === "joint" && choice === "yes" && confirmedAmount === 0;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="mt-2 border-t pt-2 text-sm">
+    <form onSubmit={handleSubmit} noValidate className="mt-0 border-t pt-4 text-sm">
       {isReviewing ? (
         <>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Review your blind vote</p>
-          <div className="mt-2 rounded-xl border-2 border-border bg-muted/50 p-4">
+          <div className="mt-3 rounded-xl border-2 border-border bg-muted/50 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vote</p>
             <p className="mt-0.5 text-lg font-semibold text-foreground">
               {proposalType === "joint" ? (
@@ -181,7 +181,7 @@ export function VoteForm({
           {isZeroAllocation ? (
             <div
               role="alert"
-              className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+              className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
             >
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
@@ -189,11 +189,11 @@ export function VoteForm({
               </p>
             </div>
           ) : null}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-4 flex gap-3">
             <Button
               type="button"
               variant="outline"
-              size="default"
+              size="lg"
               className="flex-1"
               onClick={() => setIsReviewing(false)}
               disabled={saving}
@@ -202,7 +202,7 @@ export function VoteForm({
             </Button>
             <Button
               type="button"
-              size="default"
+              size="lg"
               className="flex-1"
               onClick={() => void submitVote()}
               disabled={saving}
@@ -214,7 +214,7 @@ export function VoteForm({
       ) : (
         <>
           <p className="text-base font-semibold text-foreground">Cast {proposalType} vote</p>
-          <div className="mt-1.5 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-3">
             <Button
               onClick={() => {
                 setChoice(primaryChoice);
@@ -222,10 +222,7 @@ export function VoteForm({
               }}
               variant={choice === primaryChoice ? "default" : "outline"}
               size="default"
-              className={choice === primaryChoice
-                ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
-                : ""
-              }
+              className={`h-11 ${choice === primaryChoice ? "bg-emerald-600 text-white hover:bg-emerald-600/90" : ""}`}
               type="button"
             >
               {proposalType === "joint" ? "Yes" : "Acknowledged"}
@@ -234,6 +231,7 @@ export function VoteForm({
               onClick={() => setChoice(secondaryChoice)}
               variant={choice === secondaryChoice ? "destructive" : "outline"}
               size="default"
+              className="h-11"
               type="button"
             >
               {proposalType === "joint" ? "No" : "Flag for Discussion"}
@@ -242,10 +240,10 @@ export function VoteForm({
 
           {proposalType === "joint" ? (
             <>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
               </p>
-              <label className="mt-1.5 block">
+              <label className="mt-3 block">
                 <span className="block text-base font-semibold text-foreground">
                   Allocation amount
                 </span>
@@ -277,11 +275,11 @@ export function VoteForm({
             </>
           ) : (
             <>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Amount is proposer-set. Acknowledge or flag for discussion.
               </p>
               {choice === "flagged" ? (
-                <label className="mt-1.5 block text-xs font-medium">
+                <label className="mt-3 block text-xs font-medium">
                   Comment (optional)
                   <Input
                     className="mt-1 rounded-lg placeholder:italic"
@@ -296,8 +294,8 @@ export function VoteForm({
           )}
 
           <Button
-            size="default"
-            className="mt-2 w-full"
+            size="lg"
+            className="mt-4 w-full"
             type="submit"
             disabled={
               saving ||
@@ -316,7 +314,7 @@ export function VoteForm({
       )}
 
       {error ? (
-        <div role="alert" className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+        <div role="alert" className="mt-3 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>{error}</span>
         </div>

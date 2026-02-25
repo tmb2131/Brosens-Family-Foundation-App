@@ -2374,6 +2374,31 @@ export default function DashboardClient() {
           aria-labelledby="proposal-details-title"
           dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto"
           showCloseButton={false}
+          footer={
+            user &&
+            canVote &&
+            detailProposal.status === "to_review" &&
+            !detailProposal.progress.hasCurrentUserVoted ? (
+              <VoteForm
+                proposalId={detailProposal.id}
+                proposalType={detailProposal.proposalType}
+                proposedAmount={detailProposal.proposedAmount}
+                totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
+                onSuccess={() => {
+                  void mutate();
+                  if (isOversight) {
+                    void mutatePending();
+                  }
+                }}
+                maxJointAllocation={
+                  detailProposal.proposalType === "joint" && workspace
+                    ? workspace.personalBudget.jointRemaining +
+                      workspace.personalBudget.discretionaryRemaining
+                    : undefined
+                }
+              />
+            ) : null
+          }
         >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -2736,31 +2761,6 @@ export default function DashboardClient() {
               ) : null}
             </div>
 
-            {user &&
-            canVote &&
-            detailProposal.status === "to_review" &&
-            !detailProposal.progress.hasCurrentUserVoted ? (
-              <div className="mt-4">
-                <VoteForm
-                  proposalId={detailProposal.id}
-                  proposalType={detailProposal.proposalType}
-                  proposedAmount={detailProposal.proposedAmount}
-                  totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                  onSuccess={() => {
-                    void mutate();
-                    if (isOversight) {
-                      void mutatePending();
-                    }
-                  }}
-                  maxJointAllocation={
-                    detailProposal.proposalType === "joint" && workspace
-                      ? workspace.personalBudget.jointRemaining +
-                        workspace.personalBudget.discretionaryRemaining
-                      : undefined
-                  }
-                />
-              </div>
-            ) : null}
 
             {detailRowState ? (
               <p
