@@ -821,7 +821,7 @@ export function AppShell({ children }: PropsWithChildren) {
         className={cn(
           "min-w-0 flex-1",
           useStickyBottomNavLayout &&
-            "z-0 min-h-0 overflow-y-auto overflow-x-hidden pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+            "z-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-none pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
         )}
         style={
           useStickyBottomNavLayout

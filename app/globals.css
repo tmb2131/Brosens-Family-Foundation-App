@@ -100,6 +100,10 @@
   border-color: hsl(var(--border));
 }
 
+html {
+  background-color: hsl(var(--surface));
+}
+
 body {
   color: hsl(var(--foreground));
   background:
