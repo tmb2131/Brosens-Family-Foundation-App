@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
@@ -53,6 +53,40 @@ export default function MobileFocusClient() {
       setTimeout(() => setIsRefreshing(false), 600);
     });
   }, [workspaceQuery]);
+
+  const PULL_THRESHOLD = 60;
+  const touchStartYRef = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
+  const [pullVisualDistance, setPullVisualDistance] = useState(0);
+
+  const handlePullTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollEl = document.querySelector<HTMLElement>("[data-main-scroll]");
+    const scrollTop = scrollEl ? scrollEl.scrollTop : window.scrollY;
+    if (scrollTop === 0) {
+      touchStartYRef.current = e.touches[0].clientY;
+    }
+  }, []);
+
+  const handlePullTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartYRef.current === null) return;
+    const dy = e.touches[0].clientY - touchStartYRef.current;
+    if (dy > 0) {
+      pullDistanceRef.current = dy;
+      setPullVisualDistance(Math.min(dy, PULL_THRESHOLD * 1.5));
+    } else {
+      touchStartYRef.current = null;
+      pullDistanceRef.current = 0;
+      setPullVisualDistance(0);
+    }
+  }, []);
+
+  const handlePullTouchEnd = useCallback(() => {
+    const shouldRefresh = pullDistanceRef.current >= PULL_THRESHOLD && !isRefreshing;
+    touchStartYRef.current = null;
+    pullDistanceRef.current = 0;
+    setPullVisualDistance(0);
+    if (shouldRefresh) handleRefresh();
+  }, [isRefreshing, handleRefresh]);
 
   if (workspaceQuery.isLoading) {
     return (
@@ -113,35 +147,43 @@ export default function MobileFocusClient() {
       : null;
 
   return (
-    <div className="page-stack pb-4">
+    <div
+      className="page-stack pb-4"
+      onTouchStart={handlePullTouchStart}
+      onTouchMove={handlePullTouchMove}
+      onTouchEnd={handlePullTouchEnd}
+    >
+      {(pullVisualDistance > 0 || isRefreshing) && (
+        <div
+          aria-hidden
+          className="flex items-center justify-center overflow-hidden"
+          style={{ height: `${pullVisualDistance > 0 ? Math.min(pullVisualDistance, PULL_THRESHOLD) : PULL_THRESHOLD}px` }}
+        >
+          <RefreshCw
+            className={`h-5 w-5 ${isRefreshing ? "animate-spin text-accent" : pullVisualDistance >= PULL_THRESHOLD ? "text-accent" : "text-muted-foreground"}`}
+            style={isRefreshing ? undefined : {
+              transform: `rotate(${Math.min((pullVisualDistance / PULL_THRESHOLD) * 180, 180)}deg)`,
+              transition: "none"
+            }}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Today&apos;s Focus</p>
         <div className="flex items-center gap-1.5">
           {mounted && (
             <>
-              <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
+              <ThemeToggle className="h-10 w-10 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
               <button
                 type="button"
                 onClick={() => void signOut()}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-card hover:bg-muted focus:outline-none sm:h-9 sm:w-9"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-card hover:bg-muted focus:outline-none sm:h-9 sm:w-9"
                 aria-label="Sign out"
               >
-                <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <LogOut className="h-4 w-4" strokeWidth={1.5} />
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.currentTarget.blur();
-              handleRefresh();
-            }}
-            disabled={isRefreshing}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition-colors active:bg-muted hover:text-foreground focus:outline-none"
-            aria-label="Refresh data"
-          >
-            <RefreshCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} /> Refresh
-          </button>
         </div>
       </div>
 
@@ -249,9 +291,11 @@ export default function MobileFocusClient() {
                 : `${workspace.actionItems.length} item${workspace.actionItems.length === 1 ? "" : "s"} waiting for your response.`}
             </p>
           </div>
-          <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-            {workspace.actionItems.length} open
-          </span>
+          {workspace.actionItems.length > 0 && (
+            <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+              {workspace.actionItems.length} open
+            </span>
+          )}
         </div>
 
         <div className="space-y-4">

@@ -602,7 +602,7 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
                 data-nav-href={item.href}
               >
                 <span className={cn("relative inline-flex", showNewProposalCta && "h-6 w-6 items-center justify-center rounded-full bg-[rgb(var(--proposal-cta))] text-[rgb(var(--proposal-cta-foreground))] shadow-[0_6px_12px_-8px_rgb(var(--proposal-cta)/1)] motion-safe:animate-[sidebar-cta-pulse_900ms_ease-out_1]")}>
-                  <item.icon className="h-4 w-4" strokeWidth={1.5} />
+                  <item.icon className="h-5 w-5" strokeWidth={1.5} />
                   <OutstandingBadge count={outstandingCount} />
                 </span>
                 <span className="max-w-[4.25rem] truncate text-[10px] leading-tight">{item.label}</span>

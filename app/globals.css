@@ -237,3 +237,10 @@ button:disabled,
   contain-intrinsic-size: auto 200px;
 }
 
+/* Mobile: lift toasts above the fixed bottom nav (~72px + safe area) */
+@media (max-width: 639px) {
+  [data-sonner-toaster][data-position="bottom-center"] {
+    bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+

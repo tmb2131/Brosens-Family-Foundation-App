@@ -82,6 +82,7 @@ export function VoteForm({
         throw new Error(payload.error || "Could not save vote");
       }
 
+      navigator.vibrate?.(10);
       setIsReviewing(false);
       onSuccess();
       void mutate("/api/navigation/summary");
