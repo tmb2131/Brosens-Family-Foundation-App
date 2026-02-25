@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertCircle, ChevronDown, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, ChevronDown, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -625,6 +625,12 @@ export default function NewProposalClient() {
             <p className="mt-1 text-[11px] text-muted-foreground">
               Amount preview: {parsedProposedAmount !== null ? currency(parsedProposedAmount) : "—"}
             </p>
+            {proposalType !== "" && (parsedProposedAmount ?? 0) === 0 ? (
+              <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3 shrink-0" />
+                Proposed amount is $0.
+              </p>
+            ) : null}
           </div>
 
           {proposalType === "joint" && isVotingMember ? (
@@ -681,6 +687,12 @@ export default function NewProposalClient() {
                   Total budget remaining: {currency(jointRemainingPreview + discretionaryRemainingPreview)}{" "}
                   (joint: {currency(jointRemainingPreview)}, discretionary:{" "}
                   {currency(discretionaryRemainingPreview)})
+                </p>
+              ) : null}
+              {(parsedProposerAllocation ?? 0) === 0 ? (
+                <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  Your allocation is $0.
                 </p>
               ) : null}
             </div>
@@ -809,7 +821,10 @@ export default function NewProposalClient() {
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Amount
                 </dt>
-                <dd className="text-right text-base font-bold">
+                <dd className="flex items-center justify-end gap-1.5 text-right text-base font-bold">
+                  {(parsedProposedAmount ?? Number(proposedAmount || 0)) === 0 && (
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                  )}
                   {currency(parsedProposedAmount ?? Number(proposedAmount || 0))}
                 </dd>
               </div>
@@ -824,7 +839,10 @@ export default function NewProposalClient() {
                   <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Your allocation
                   </dt>
-                  <dd className="text-right font-medium">
+                  <dd className="flex items-center justify-end gap-1.5 text-right font-medium">
+                    {((parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount)) ?? 0) === 0 && (
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                    )}
                     {currency(
                       (parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount)) ?? 0
                     )}

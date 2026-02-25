@@ -22,7 +22,7 @@ import {
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { VoteForm, VoteFormFooterButton, VoteFormProvider } from "@/components/voting/vote-form";
+import { VoteForm, VoteFormFooterButton, VoteFormHeaderAmount, VoteFormProvider } from "@/components/voting/vote-form";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, titleCase } from "@/lib/utils";
 
@@ -368,9 +368,7 @@ export default function MobileFocusClient() {
                     {titleCase(voteDialogItem.proposalType)}
                   </Badge>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-                  Proposed: {currency(voteDialogItem.proposedAmount)}
-                </p>
+                <VoteFormHeaderAmount proposedAmount={voteDialogItem.proposedAmount} />
               </DialogHeader>
               {voteDialogItem.proposalType === "joint" && !isManager ? (
                 <div className="mt-2">

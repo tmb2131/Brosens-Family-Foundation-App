@@ -57,6 +57,9 @@ type VoteFormContextValue = {
   saving: boolean;
   primaryChoice: VoteChoice;
   secondaryChoice: VoteChoice;
+  isReviewing: boolean;
+  setIsReviewing: (v: boolean) => void;
+  submitVote: () => void;
 };
 
 const VoteFormContext = createContext<VoteFormContextValue | null>(null);
@@ -218,7 +221,7 @@ function useVoteFormState(
 }
 
 export function VoteFormProvider({ variant, children, ...props }: VoteFormProviderProps) {
-  const state = useVoteFormState(props, { skipReviewStep: true });
+  const state = useVoteFormState(props, { skipReviewStep: false });
   const value: VoteFormContextValue = {
     variant: "mobile",
     proposalType: state.proposalType,
@@ -240,6 +243,9 @@ export function VoteFormProvider({ variant, children, ...props }: VoteFormProvid
     saving: state.saving,
     primaryChoice: state.primaryChoice,
     secondaryChoice: state.secondaryChoice,
+    isReviewing: state.isReviewing,
+    setIsReviewing: state.setIsReviewing,
+    submitVote: state.submitVote,
   };
   return (
     <VoteFormContext.Provider value={value}>
@@ -248,10 +254,46 @@ export function VoteFormProvider({ variant, children, ...props }: VoteFormProvid
   );
 }
 
+/** Renders the "Proposed: $X" header subtitle. Hides itself on the review/confirmation screen. */
+export function VoteFormHeaderAmount({ proposedAmount }: { proposedAmount: number }) {
+  const isReviewing = useContext(VoteFormContext)?.isReviewing ?? false;
+  if (isReviewing) return null;
+  return (
+    <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+      Proposed: {currency(proposedAmount)}
+    </p>
+  );
+}
+
 export function VoteFormFooterButton() {
   const ctx = useContext(VoteFormContext);
   if (!ctx) return null;
-  const { trySubmit, disabled, label, saving } = ctx;
+  const { trySubmit, disabled, label, saving, isReviewing, setIsReviewing, submitVote } = ctx;
+
+  if (isReviewing) {
+    return (
+      <div className="grid w-full grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          size="lg"
+          type="button"
+          disabled={saving}
+          onClick={() => setIsReviewing(false)}
+        >
+          Go Back
+        </Button>
+        <Button
+          size="lg"
+          type="button"
+          disabled={saving}
+          onClick={() => submitVote()}
+        >
+          {saving ? "Saving..." : "Confirm"}
+        </Button>
+      </div>
+    );
+  }
+
   const handlePointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || saving) return;
     e.preventDefault();
@@ -286,7 +328,6 @@ function VoteFormContent() {
   const ctx = useContext(VoteFormContext);
   if (!ctx) return null;
   const {
-    variant,
     proposalType,
     choice,
     setChoice,
@@ -298,13 +339,80 @@ function VoteFormContent() {
     impliedJointAllocation,
     parsedAllocationAmount,
     maxJointAllocation,
+    proposedAmount,
     error,
     primaryChoice,
     secondaryChoice,
+    isReviewing,
   } = ctx;
 
   const showAllocation = proposalType === "joint" && choice === "yes";
   const showFlagComment = proposalType !== "joint" && choice === "flagged";
+
+  if (isReviewing) {
+    const isZeroAllocation = proposalType === "joint" && choice === "yes" && (parsedAllocationAmount ?? 0) === 0;
+    return (
+      <div className="mt-0 border-t border-transparent pt-4 text-sm">
+        <p className="text-base font-semibold">Review your blind vote</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Confirm the details below before submitting.
+        </p>
+
+        <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Proposed amount
+            </dt>
+            <dd className="text-right text-base font-bold tabular-nums">{currency(proposedAmount)}</dd>
+          </div>
+
+          <div className="flex items-start justify-between gap-3">
+            <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vote</dt>
+            <dd className={`text-right font-semibold ${choice === primaryChoice ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+              {choice === "yes" ? "Yes" : choice === "no" ? "No" : choice === "acknowledged" ? "Acknowledged" : "Flag for Discussion"}
+            </dd>
+          </div>
+
+          {proposalType === "joint" && choice === "yes" && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Your allocation
+              </dt>
+              <dd className="flex items-center justify-end gap-1.5 text-right font-medium tabular-nums">
+                {(parsedAllocationAmount ?? 0) === 0 && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
+                {currency(parsedAllocationAmount ?? 0)}
+              </dd>
+            </div>
+          )}
+
+          {choice === "flagged" && flagComment.trim() && (
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Comment</dt>
+              <dd className="text-right">{flagComment.trim()}</dd>
+            </div>
+          )}
+        </dl>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          Your vote is blind — individual votes stay hidden until all required votes are submitted.
+        </p>
+
+        {isZeroAllocation && (
+          <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>You&apos;re about to submit your allocation of {currency(0)}. This will count as a yes vote with no amount.</p>
+          </div>
+        )}
+
+        {error && (
+          <div role="alert" className="mt-3 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400">
+            <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <form
@@ -365,6 +473,12 @@ function VoteFormContent() {
           {maxJointAllocation != null && (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
             <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
               Exceeds your remaining budget ({currency(maxJointAllocation)}).
+            </p>
+          ) : null}
+          {(parsedAllocationAmount ?? 0) === 0 ? (
+            <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              Your allocation is $0.
             </p>
           ) : null}
         </label>
@@ -547,7 +661,8 @@ function VoteFormStandalone({
             {proposalType === "joint" && choice === "yes" ? (
               <>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your allocation</p>
-                <p className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">
+                <p className="mt-0.5 flex items-center gap-1.5 text-xl font-semibold tabular-nums text-foreground">
+                  {confirmedAmount === 0 && <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />}
                   {currency(confirmedAmount)}
                 </p>
               </>
@@ -653,6 +768,12 @@ function VoteFormStandalone({
                 (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
                   <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
                     Your allocation exceeds your total budget remaining ({currency(maxJointAllocation)}).
+                  </p>
+                ) : null}
+                {choice === "yes" && (parsedAllocationAmount ?? 0) === 0 ? (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Your allocation is $0.
                   </p>
                 ) : null}
               </label>
