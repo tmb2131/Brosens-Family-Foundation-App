@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
@@ -42,54 +42,12 @@ export default function MobileFocusClient() {
     }
     return value;
   }, [searchParams]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
   const [isVoteSaving, setIsVoteSaving] = useState(false);
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
   const [voteModalBudgetExpanded, setVoteModalBudgetExpanded] = useState(false);
-
-  const handleRefresh = useCallback(() => {
-    setIsRefreshing(true);
-    void workspaceQuery.mutate().finally(() => {
-      setTimeout(() => setIsRefreshing(false), 600);
-    });
-  }, [workspaceQuery]);
-
-  const PULL_THRESHOLD = 60;
-  const touchStartYRef = useRef<number | null>(null);
-  const pullDistanceRef = useRef(0);
-  const [pullVisualDistance, setPullVisualDistance] = useState(0);
-
-  const handlePullTouchStart = useCallback((e: React.TouchEvent) => {
-    const scrollEl = document.querySelector<HTMLElement>("[data-main-scroll]");
-    const scrollTop = scrollEl ? scrollEl.scrollTop : window.scrollY;
-    if (scrollTop === 0) {
-      touchStartYRef.current = e.touches[0].clientY;
-    }
-  }, []);
-
-  const handlePullTouchMove = useCallback((e: React.TouchEvent) => {
-    if (touchStartYRef.current === null) return;
-    const dy = e.touches[0].clientY - touchStartYRef.current;
-    if (dy > 0) {
-      pullDistanceRef.current = dy;
-      setPullVisualDistance(Math.min(dy, PULL_THRESHOLD * 1.5));
-    } else {
-      touchStartYRef.current = null;
-      pullDistanceRef.current = 0;
-      setPullVisualDistance(0);
-    }
-  }, []);
-
-  const handlePullTouchEnd = useCallback(() => {
-    const shouldRefresh = pullDistanceRef.current >= PULL_THRESHOLD && !isRefreshing;
-    touchStartYRef.current = null;
-    pullDistanceRef.current = 0;
-    setPullVisualDistance(0);
-    if (shouldRefresh) handleRefresh();
-  }, [isRefreshing, handleRefresh]);
 
   if (workspaceQuery.isLoading) {
     return (
@@ -152,27 +110,7 @@ export default function MobileFocusClient() {
       : null;
 
   return (
-    <div
-      className="page-stack pb-4"
-      onTouchStart={handlePullTouchStart}
-      onTouchMove={handlePullTouchMove}
-      onTouchEnd={handlePullTouchEnd}
-    >
-      {(pullVisualDistance > 0 || isRefreshing) && (
-        <div
-          aria-hidden
-          className="flex items-center justify-center overflow-hidden"
-          style={{ height: `${pullVisualDistance > 0 ? Math.min(pullVisualDistance, PULL_THRESHOLD) : PULL_THRESHOLD}px` }}
-        >
-          <RefreshCw
-            className={`h-5 w-5 ${isRefreshing ? "animate-spin text-accent" : pullVisualDistance >= PULL_THRESHOLD ? "text-accent" : "text-muted-foreground"}`}
-            style={isRefreshing ? undefined : {
-              transform: `rotate(${Math.min((pullVisualDistance / PULL_THRESHOLD) * 180, 180)}deg)`,
-              transition: "none"
-            }}
-          />
-        </div>
-      )}
+    <div className="page-stack pb-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Today&apos;s Focus</p>
         <div className="flex items-center gap-1.5">
