@@ -212,7 +212,7 @@ function buildRequiredActionSummary(
       const memberLabel = remainingVotes === 1 ? "member" : "members";
       const voteDetail =
         proposal.proposalType === "joint"
-          ? `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit allocations.`
+          ? `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit their allocations.`
           : `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit acknowledgement/flag votes.`;
       const viewerCanVote = viewerRole === "member" || viewerRole === "oversight";
       const viewerNeedsToVote = viewerCanVote && !proposal.progress.hasCurrentUserVoted;

@@ -235,7 +235,7 @@ export default function NewProposalClient() {
     if (proposalType === "joint" && isVotingMember) {
       const allocation = parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount);
       if (allocation === null || !Number.isFinite(allocation) || allocation < 0) {
-        setError("Enter your allocation amount for this joint proposal.");
+        setError("Enter your allocation for this joint proposal.");
         return;
       }
       const maxAllocation = workspaceQuery.data
@@ -288,7 +288,7 @@ export default function NewProposalClient() {
           <p
             className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
             role="img"
-            aria-label="Green is allocated, blue is your current allocation input"
+            aria-label="Green is allocated, blue is your allocation"
           >
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
@@ -389,7 +389,7 @@ export default function NewProposalClient() {
             <p
               className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
               role="img"
-              aria-label="Green is allocated, blue is your current allocation input"
+              aria-label="Green is allocated, blue is your allocation"
             >
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
@@ -632,7 +632,7 @@ export default function NewProposalClient() {
               <Label htmlFor="proposer-allocation">Your allocation</Label>
               {workspaceQuery.data && workspaceQuery.data.votingMemberCount > 0 ? (
                 <p className="text-[11px] italic text-muted-foreground">
-                  Implied share:{" "}
+                  Your implied share:{" "}
                   {parsedProposedAmount != null && Number.isFinite(parsedProposedAmount)
                     ? currency(
                         Math.round(

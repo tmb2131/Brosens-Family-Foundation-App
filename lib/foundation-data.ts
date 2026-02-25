@@ -1321,7 +1321,7 @@ export async function submitProposal(
       title: "New Proposal Submitted",
       body:
         input.proposalType === "joint"
-          ? "Submit your vote and allocation."
+          ? "Submit your vote and your allocation."
           : `${input.proposer.name} submitted "${normalizedOrganizationName}".`,
       linkPath: "/workspace",
       payload: {
@@ -1426,7 +1426,7 @@ export async function submitVote(
       if (normalizedAmount > maxAllowed) {
         throw new HttpError(
           400,
-          `Allocation cannot exceed your total budget remaining (${currency(totalBudgetRemaining)}).`
+          `Your allocation cannot exceed your total budget remaining (${currency(totalBudgetRemaining)}).`
         );
       }
     }

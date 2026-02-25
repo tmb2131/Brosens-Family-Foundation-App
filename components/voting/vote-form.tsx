@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
@@ -23,7 +30,381 @@ interface VoteFormProps {
   onSavingChange?: (isSaving: boolean) => void;
 }
 
-export function VoteForm({
+/** When true, trySubmit validates and submits directly (no review step). Used for mobile drawer. */
+interface VoteFormProviderProps extends VoteFormProps {
+  variant: "mobile";
+  children: React.ReactNode;
+}
+
+type VoteFormContextValue = {
+  variant: "mobile";
+  proposalType: ProposalType;
+  choice: VoteChoice;
+  setChoice: (c: VoteChoice) => void;
+  flagComment: string;
+  setFlagComment: (s: string) => void;
+  allocationAmount: string;
+  setAllocationAmount: (s: string) => void;
+  allocationAmountRef: React.MutableRefObject<string>;
+  impliedJointAllocation: number;
+  parsedAllocationAmount: number | null;
+  maxJointAllocation: number | undefined;
+  proposedAmount: number;
+  error: string | null;
+  trySubmit: () => void;
+  disabled: boolean;
+  label: string;
+  saving: boolean;
+  primaryChoice: VoteChoice;
+  secondaryChoice: VoteChoice;
+};
+
+const VoteFormContext = createContext<VoteFormContextValue | null>(null);
+
+function useVoteFormState(
+  props: VoteFormProps,
+  options: { skipReviewStep?: boolean }
+) {
+  const {
+    proposalId,
+    proposalType,
+    proposedAmount,
+    totalRequiredVotes,
+    onSuccess,
+    onAllocationChange,
+    maxJointAllocation,
+    onSavingChange,
+  } = props;
+  const { skipReviewStep = false } = options;
+
+  const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
+  const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
+  const [choice, setChoice] = useState<VoteChoice>(primaryChoice);
+  const [flagComment, setFlagComment] = useState("");
+  const impliedJointAllocation =
+    totalRequiredVotes > 0 ? Math.round(proposedAmount / totalRequiredVotes) : Math.round(proposedAmount);
+  const [allocationAmount, setAllocationAmount] = useState("");
+  const allocationAmountRef = useRef(allocationAmount);
+  allocationAmountRef.current = allocationAmount;
+  const parsedAllocationAmount = parseNumberInput(allocationAmount);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isReviewing, setIsReviewing] = useState(false);
+
+  const effectiveAllocation =
+    proposalType === "joint" && choice === "yes" ? (parsedAllocationAmount ?? 0) : 0;
+
+  const onAllocationChangeRef = useRef(onAllocationChange);
+  onAllocationChangeRef.current = onAllocationChange;
+  useEffect(() => {
+    onAllocationChangeRef.current?.(effectiveAllocation);
+  }, [effectiveAllocation]);
+
+  const onSavingChangeRef = useRef(onSavingChange);
+  onSavingChangeRef.current = onSavingChange;
+  useEffect(() => {
+    onSavingChangeRef.current?.(saving);
+  }, [saving]);
+
+  const submitVote = useCallback(async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setError(null);
+    setSaving(true);
+
+    const amountToSend =
+      proposalType === "joint" && choice === "yes"
+        ? (parseNumberInput(allocationAmountRef.current) ?? 0)
+        : 0;
+
+    try {
+      const response = await fetch("/api/votes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          proposalId,
+          choice,
+          allocationAmount: amountToSend,
+          ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: "Could not save vote" }));
+        throw new Error(payload.error || "Could not save vote");
+      }
+
+      navigator.vibrate?.(10);
+      setIsReviewing(false);
+      onSuccess();
+      void mutate("/api/navigation/summary");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save vote");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }, [
+    proposalId,
+    proposalType,
+    choice,
+    flagComment,
+    onSuccess,
+  ]);
+
+  const trySubmit = useCallback(() => {
+    setError(null);
+    const amount = parseNumberInput(allocationAmountRef.current) ?? 0;
+    if (
+      proposalType === "joint" &&
+      choice === "yes" &&
+      maxJointAllocation != null &&
+      amount > maxJointAllocation
+    ) {
+      setError(
+        `Your allocation cannot exceed your total budget remaining (${currency(maxJointAllocation)}).`
+      );
+      return;
+    }
+    if (skipReviewStep) {
+      void submitVote();
+    } else {
+      setIsReviewing(true);
+    }
+  }, [
+    proposalType,
+    choice,
+    maxJointAllocation,
+    skipReviewStep,
+    submitVote,
+  ]);
+
+  const disabled =
+    saving ||
+    (proposalType === "joint" &&
+      choice === "yes" &&
+      maxJointAllocation != null &&
+      (parsedAllocationAmount ?? 0) > maxJointAllocation);
+
+  const label = saving ? "Saving..." : "Submit blind vote";
+
+  return {
+    primaryChoice,
+    secondaryChoice,
+    choice,
+    setChoice,
+    flagComment,
+    setFlagComment,
+    allocationAmount,
+    setAllocationAmount,
+    allocationAmountRef,
+    impliedJointAllocation,
+    parsedAllocationAmount,
+    maxJointAllocation,
+    proposedAmount,
+    totalRequiredVotes,
+    error,
+    trySubmit,
+    submitVote,
+    disabled,
+    label,
+    saving,
+    savingRef,
+    isReviewing,
+    setIsReviewing,
+    proposalType,
+  };
+}
+
+export function VoteFormProvider({ variant, children, ...props }: VoteFormProviderProps) {
+  const state = useVoteFormState(props, { skipReviewStep: true });
+  const value: VoteFormContextValue = {
+    variant: "mobile",
+    proposalType: state.proposalType,
+    choice: state.choice,
+    setChoice: state.setChoice,
+    flagComment: state.flagComment,
+    setFlagComment: state.setFlagComment,
+    allocationAmount: state.allocationAmount,
+    setAllocationAmount: state.setAllocationAmount,
+    allocationAmountRef: state.allocationAmountRef,
+    impliedJointAllocation: state.impliedJointAllocation,
+    parsedAllocationAmount: state.parsedAllocationAmount,
+    maxJointAllocation: state.maxJointAllocation,
+    proposedAmount: state.proposedAmount,
+    error: state.error,
+    trySubmit: state.trySubmit,
+    disabled: state.disabled,
+    label: state.label,
+    saving: state.saving,
+    primaryChoice: state.primaryChoice,
+    secondaryChoice: state.secondaryChoice,
+  };
+  return (
+    <VoteFormContext.Provider value={value}>
+      {children}
+    </VoteFormContext.Provider>
+  );
+}
+
+export function VoteFormFooterButton() {
+  const ctx = useContext(VoteFormContext);
+  if (!ctx) return null;
+  const { trySubmit, disabled, label, saving } = ctx;
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || saving) return;
+    e.preventDefault();
+    e.stopPropagation();
+    trySubmit();
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!saving) {
+      e.preventDefault();
+      trySubmit();
+    }
+  };
+  return (
+    <Button
+      size="lg"
+      className="w-full"
+      type="button"
+      disabled={disabled}
+      onPointerDownCapture={handlePointerDown}
+      onClick={(e) => {
+        e.preventDefault();
+        if (!saving) trySubmit();
+      }}
+      onTouchEnd={handleTouchEnd}
+    >
+      {label}
+    </Button>
+  );
+}
+
+function VoteFormContent() {
+  const ctx = useContext(VoteFormContext);
+  if (!ctx) return null;
+  const {
+    variant,
+    proposalType,
+    choice,
+    setChoice,
+    flagComment,
+    setFlagComment,
+    allocationAmount,
+    setAllocationAmount,
+    allocationAmountRef,
+    impliedJointAllocation,
+    parsedAllocationAmount,
+    maxJointAllocation,
+    error,
+    primaryChoice,
+    secondaryChoice,
+  } = ctx;
+
+  const showAllocation = proposalType === "joint" && choice === "yes";
+  const showFlagComment = proposalType !== "joint" && choice === "flagged";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        ctx.trySubmit();
+      }}
+      noValidate
+      className="mt-0 border-t border-transparent pt-4 text-sm"
+    >
+      <p className="text-base font-semibold text-foreground">Your vote?</p>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <Button
+          onClick={() => {
+            setChoice(primaryChoice);
+            setFlagComment("");
+          }}
+          variant={choice === primaryChoice ? "default" : "outline"}
+          size="default"
+          className={`h-11 ${choice === primaryChoice ? "bg-emerald-600 text-white hover:bg-emerald-600/90" : ""}`}
+          type="button"
+        >
+          {proposalType === "joint" ? "Yes" : "Acknowledged"}
+        </Button>
+        <Button
+          onClick={() => setChoice(secondaryChoice)}
+          variant={choice === secondaryChoice ? "destructive" : "outline"}
+          size="default"
+          className="h-11"
+          type="button"
+        >
+          {proposalType === "joint" ? "No" : "Flag for Discussion"}
+        </Button>
+      </div>
+
+      {showAllocation ? (
+        <label className="mt-4 block">
+          <span className="block text-base font-semibold text-foreground">Your amount</span>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Suggested: {currency(impliedJointAllocation)}
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <AmountInput
+              min={0}
+              className="flex-1 rounded-lg placeholder:italic"
+              placeholder={currency(impliedJointAllocation)}
+              value={allocationAmount}
+              onChange={(event) => {
+                const v = event.target.value;
+                setAllocationAmount(v);
+                allocationAmountRef.current = v;
+              }}
+            />
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {parsedAllocationAmount !== null ? currency(parsedAllocationAmount) : "—"}
+            </span>
+          </div>
+          {maxJointAllocation != null && (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
+            <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+              Exceeds your remaining budget ({currency(maxJointAllocation)}).
+            </p>
+          ) : null}
+        </label>
+      ) : null}
+
+      {showFlagComment ? (
+        <label className="mt-4 block text-xs font-medium">
+          Comment (optional)
+          <Input
+            className="mt-1 rounded-lg placeholder:italic"
+            placeholder="e.g. Would like to discuss amount or scope"
+            value={flagComment}
+            onChange={(e) => setFlagComment(e.target.value)}
+            maxLength={500}
+          />
+        </label>
+      ) : null}
+
+      {error ? (
+        <div
+          role="alert"
+          className="mt-3 flex items-start gap-1.5 rounded-lg bg-rose-50 p-2 text-xs text-rose-600 dark:bg-rose-900/20 dark:text-rose-400"
+        >
+          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
+export function VoteForm(props: VoteFormProps) {
+  const context = useContext(VoteFormContext);
+  if (context) {
+    return <VoteFormContent />;
+  }
+  return <VoteFormStandalone {...props} />;
+}
+
+function VoteFormStandalone({
   proposalId,
   proposalType,
   proposedAmount,
@@ -31,7 +412,7 @@ export function VoteForm({
   onSuccess,
   onAllocationChange,
   maxJointAllocation,
-  onSavingChange
+  onSavingChange,
 }: VoteFormProps) {
   const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
   const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
@@ -82,8 +463,8 @@ export function VoteForm({
           proposalId,
           choice,
           allocationAmount: amountToSend,
-          ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {})
-        })
+          ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -113,7 +494,7 @@ export function VoteForm({
       amount > maxJointAllocation
     ) {
       setError(
-        `Allocation cannot exceed your total budget remaining (${currency(maxJointAllocation)}).`
+        `Your allocation cannot exceed your total budget remaining (${currency(maxJointAllocation)}).`
       );
       return;
     }
@@ -125,30 +506,19 @@ export function VoteForm({
     trySubmit();
   };
 
-  // Submit on button click (desktop). We don't rely on form submit for clicks
-  // because when the allocation input has focus, blur/focus handling (e.g. in
-  // Radix Dialog) can prevent the form submit event from firing on first click.
   const handleSubmitClick = (event: React.MouseEvent) => {
     event.preventDefault();
     if (!saving) trySubmit();
   };
 
-  // Fire submit on pointerdown (capture) so we run before blur/focus handling.
-  // This fixes the first-click failure when the allocation input has focus inside
-  // a Radix Dialog or other focus-trapping container.
   const handleSubmitPointerDown = (event: React.PointerEvent) => {
-    if (event.button !== 0 || saving) return; // primary button only
+    if (event.button !== 0 || saving) return;
     event.preventDefault();
     event.stopPropagation();
     trySubmit();
   };
 
   const handleTouchEnd = (event: React.TouchEvent) => {
-    // On mobile, tapping this button while the allocation input has focus
-    // dismisses the virtual keyboard, causing a layout shift that moves the
-    // button away from the original touch coordinates. The browser then
-    // decides the click didn't land on the button, so the form never submits.
-    // Handling touchend directly captures the submit intent before the shift.
     if (!saving) {
       event.preventDefault();
       trySubmit();
@@ -176,7 +546,7 @@ export function VoteForm({
             </p>
             {proposalType === "joint" && choice === "yes" ? (
               <>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Allocation</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your allocation</p>
                 <p className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">
                   {currency(confirmedAmount)}
                 </p>
@@ -199,7 +569,7 @@ export function VoteForm({
             >
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                You&apos;re about to submit an allocation of {currency(0)}. This will count as a yes vote with no amount allocated.
+                You&apos;re about to submit your allocation of {currency(0)}. This will count as a yes vote with no amount in your allocation.
               </p>
             </div>
           ) : null}
@@ -255,18 +625,18 @@ export function VoteForm({
           {proposalType === "joint" ? (
             <>
               <p className="mt-2 text-xs text-muted-foreground">
-                Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
+                Proposed donation: {currency(proposedAmount)}. Your implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
               </p>
               <label className="mt-3 block">
                 <span className="block text-base font-semibold text-foreground">
-                  Allocation amount
+                  Your allocation
                 </span>
                 <div className="mt-1 flex items-center gap-2">
                   <AmountInput
                     min={0}
                     disabled={choice !== "yes"}
                     className="flex-1 rounded-lg placeholder:italic"
-                    placeholder={`Implied share: ${currency(impliedJointAllocation)}`}
+                    placeholder={`Your implied share: ${currency(impliedJointAllocation)}`}
                     value={allocationAmount}
                     onChange={(event) => {
                       const v = event.target.value;
@@ -282,7 +652,7 @@ export function VoteForm({
                 choice === "yes" &&
                 (parsedAllocationAmount ?? 0) > maxJointAllocation ? (
                   <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                    Exceeds your total budget remaining ({currency(maxJointAllocation)}).
+                    Your allocation exceeds your total budget remaining ({currency(maxJointAllocation)}).
                   </p>
                 ) : null}
               </label>

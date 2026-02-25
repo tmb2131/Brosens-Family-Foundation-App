@@ -738,7 +738,7 @@ function buildProposalSubmittedConfirmationContent(input: {
 
   const otherMembersLine = input.otherMembersNotified
     ? input.proposalType === "joint"
-      ? "We've sent action-required emails to the other members asking them to submit their votes and allocations."
+      ? "We've sent action-required emails to the other members asking them to submit their votes and their allocations."
       : "We've sent action-required emails to the other members asking them to acknowledge or flag the proposal."
     : "You're the only voting member, so no other notifications were sent.";
 
@@ -1072,7 +1072,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
         title,
         description:
           proposal.proposal_type === "joint"
-            ? "Submit your vote and allocation."
+            ? "Submit your vote and your allocation."
             : "Mark this proposal as acknowledged or flagged.",
         linkPath: `/workspace?proposalId=${proposal.id}`,
         createdAt: proposal.created_at

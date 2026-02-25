@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ListChecks, LogOut, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
+import { ChevronDown, ListChecks, LogOut, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import {
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { VoteForm } from "@/components/voting/vote-form";
+import { VoteForm, VoteFormFooterButton, VoteFormProvider } from "@/components/voting/vote-form";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, titleCase } from "@/lib/utils";
 
@@ -48,6 +48,7 @@ export default function MobileFocusClient() {
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
+  const [voteModalBudgetExpanded, setVoteModalBudgetExpanded] = useState(false);
 
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -143,6 +144,8 @@ export default function MobileFocusClient() {
     workspace.personalBudget.discretionaryAllocated +
     pendingJointTotal;
   const totalIndividualTarget = workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap;
+  const totalBudgetRemaining =
+    workspace.personalBudget.jointRemaining + workspace.personalBudget.discretionaryRemaining;
   const voteDialogItem =
     voteDialogProposalId != null
       ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId)
@@ -238,7 +241,7 @@ export default function MobileFocusClient() {
             <p
               className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
               role="img"
-              aria-label="Green is allocated, blue is your current allocation input"
+              aria-label="Green is allocated, blue is your allocation"
             >
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
@@ -361,6 +364,7 @@ export default function MobileFocusClient() {
           if (!open) {
             if (isVoteSaving) return;
             setVoteDialogProposalId(null);
+            setVoteModalBudgetExpanded(false);
             if (voteDialogProposalId) {
               setPendingJointAllocationByProposalId((prev) => {
                 const next = { ...prev };
@@ -371,16 +375,51 @@ export default function MobileFocusClient() {
           }
         }}
       >
-        <ResponsiveModalContent
-          dialogClassName="sm:max-w-md"
-          showCloseButton={true}
-          onInteractOutside={(e) => { if (isVoteSaving) e.preventDefault(); }}
-        >
-          {voteDialogItem ? (
-            <>
+        {voteDialogItem ? (
+          <VoteFormProvider
+            variant="mobile"
+            proposalId={voteDialogItem.proposalId}
+            proposalType={voteDialogItem.proposalType}
+            proposedAmount={voteDialogItem.proposedAmount}
+            totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+            onSuccess={() => {
+              setPendingJointAllocationByProposalId((prev) => {
+                const next = { ...prev };
+                delete next[voteDialogItem.proposalId];
+                return next;
+              });
+              setVoteDialogProposalId(null);
+              void workspaceQuery.mutate();
+              mutateAllFoundation();
+            }}
+            onAllocationChange={
+              voteDialogItem.proposalType === "joint"
+                ? (amount) =>
+                    setPendingJointAllocationByProposalId((prev) => ({
+                      ...prev,
+                      [voteDialogItem.proposalId]: amount,
+                    }))
+                : undefined
+            }
+            maxJointAllocation={
+              voteDialogItem.proposalType === "joint" && !isManager
+                ? workspace.personalBudget.jointRemaining +
+                  workspace.personalBudget.discretionaryRemaining
+                : undefined
+            }
+            onSavingChange={setIsVoteSaving}
+          >
+            <ResponsiveModalContent
+              dialogClassName="sm:max-w-md"
+              showCloseButton={true}
+              onInteractOutside={(e) => {
+                if (isVoteSaving) e.preventDefault();
+              }}
+              footer={<VoteFormFooterButton />}
+            >
               <DialogHeader>
                 <div className="flex flex-wrap items-center gap-2">
-                  <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
+                  <DialogTitle className="text-lg font-bold">{voteDialogItem.title}</DialogTitle>
                   <Badge
                     className={
                       voteDialogItem.proposalType === "joint"
@@ -391,48 +430,70 @@ export default function MobileFocusClient() {
                     {titleCase(voteDialogItem.proposalType)}
                   </Badge>
                 </div>
+                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+                  Proposed: {currency(voteDialogItem.proposedAmount)}
+                </p>
               </DialogHeader>
               {voteDialogItem.proposalType === "joint" && !isManager ? (
-                <div className="grid grid-cols-3 gap-2">
-                  <PersonalBudgetBars
-                    title="Total"
-                    allocated={totalIndividualAllocated - pendingJointTotal}
-                    total={totalIndividualTarget}
-                    pendingAllocation={pendingJointTotal}
-                    compact
-                  />
-                  <PersonalBudgetBars
-                    title="Joint"
-                    allocated={workspace.personalBudget.jointAllocated}
-                    total={workspace.personalBudget.jointTarget}
-                    pendingAllocation={pendingJointPortion}
-                    compact
-                  />
-                  <PersonalBudgetBars
-                    title="Discretionary"
-                    allocated={workspace.personalBudget.discretionaryAllocated}
-                    total={workspace.personalBudget.discretionaryCap}
-                    pendingAllocation={pendingDiscretionaryPortion}
-                    compact
-                  />
-                  <p
-                    className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
-                    role="img"
-                    aria-label="Green is allocated, blue is your current allocation input"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
-                      Allocated
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="h-2.5 w-4 shrink-0 rounded-full"
-                        style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
-                        aria-hidden
-                      />
-                      Your input
-                    </span>
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-foreground">
+                    You have {currency(totalBudgetRemaining)} remaining (joint + discretionary).
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => setVoteModalBudgetExpanded((prev) => !prev)}
+                    className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    aria-expanded={voteModalBudgetExpanded}
+                  >
+                    Your budget
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform ${voteModalBudgetExpanded ? "rotate-180" : ""}`}
+                      aria-hidden
+                    />
+                  </button>
+                  {voteModalBudgetExpanded ? (
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <PersonalBudgetBars
+                        title="Total"
+                        allocated={totalIndividualAllocated - pendingJointTotal}
+                        total={totalIndividualTarget}
+                        pendingAllocation={pendingJointTotal}
+                        compact
+                      />
+                      <PersonalBudgetBars
+                        title="Joint"
+                        allocated={workspace.personalBudget.jointAllocated}
+                        total={workspace.personalBudget.jointTarget}
+                        pendingAllocation={pendingJointPortion}
+                        compact
+                      />
+                      <PersonalBudgetBars
+                        title="Discretionary"
+                        allocated={workspace.personalBudget.discretionaryAllocated}
+                        total={workspace.personalBudget.discretionaryCap}
+                        pendingAllocation={pendingDiscretionaryPortion}
+                        compact
+                      />
+                      <p
+                        className="col-span-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+                        role="img"
+                        aria-label="Green is allocated, blue is your allocation"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
+                          Allocated
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-4 shrink-0 rounded-full"
+                            style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
+                            aria-hidden
+                          />
+                          Your input
+                        </span>
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               <div className={voteDialogItem.proposalType === "joint" && !isManager ? "mt-3" : undefined}>
@@ -441,37 +502,25 @@ export default function MobileFocusClient() {
                   proposalType={voteDialogItem.proposalType}
                   proposedAmount={voteDialogItem.proposedAmount}
                   totalRequiredVotes={voteDialogItem.totalRequiredVotes}
-                  onSuccess={() => {
-                    setPendingJointAllocationByProposalId((prev) => {
-                      const next = { ...prev };
-                      delete next[voteDialogItem.proposalId];
-                      return next;
-                    });
-                    setVoteDialogProposalId(null);
-                    void workspaceQuery.mutate();
-                    mutateAllFoundation();
-                  }}
-                  onAllocationChange={
-                    voteDialogItem.proposalType === "joint"
-                      ? (amount) =>
-                          setPendingJointAllocationByProposalId((prev) => ({
-                            ...prev,
-                            [voteDialogItem.proposalId]: amount
-                          }))
-                      : undefined
-                  }
-                  maxJointAllocation={
-                    voteDialogItem.proposalType === "joint" && !isManager
-                      ? workspace.personalBudget.jointRemaining +
-                        workspace.personalBudget.discretionaryRemaining
-                      : undefined
-                  }
-                  onSavingChange={setIsVoteSaving}
+                  onSuccess={() => {}}
+                  onAllocationChange={undefined}
+                  maxJointAllocation={undefined}
+                  onSavingChange={() => {}}
                 />
               </div>
-            </>
-          ) : null}
-        </ResponsiveModalContent>
+            </ResponsiveModalContent>
+          </VoteFormProvider>
+        ) : (
+          <ResponsiveModalContent
+            dialogClassName="sm:max-w-md"
+            showCloseButton={true}
+            onInteractOutside={(e) => {
+              if (isVoteSaving) e.preventDefault();
+            }}
+          >
+            {null}
+          </ResponsiveModalContent>
+        )}
       </ResponsiveModal>
     </div>
   );

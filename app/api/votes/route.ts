@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const choice = rawChoice as VoteChoice;
 
     if (Number.isNaN(allocationAmount) || allocationAmount < 0) {
-      throw new HttpError(400, "Allocation must be a non-negative number.");
+      throw new HttpError(400, "Your allocation must be a non-negative number.");
     }
 
     await submitVote(admin, {
