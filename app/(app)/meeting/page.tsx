@@ -55,7 +55,7 @@ function MeetingProposalCard({
 
   return (
     <article
-      className={`group relative flex flex-col gap-2 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-all hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
+      className={`content-auto group relative flex flex-col gap-2 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-all hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
         proposal.proposalType === "joint"
           ? "border-t-indigo-400 dark:border-t-indigo-500 hover:border-t-indigo-500"
           : "border-t-amber-400 dark:border-t-amber-500 hover:border-t-amber-500"

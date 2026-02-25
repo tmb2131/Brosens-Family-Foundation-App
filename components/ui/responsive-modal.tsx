@@ -26,6 +26,10 @@ function useIsMobile() {
   return isMobile
 }
 
+// Shared context so ResponsiveModalContent/Close reuse the parent's media query
+// result instead of each creating their own listener.
+const IsMobileContext = React.createContext<boolean>(false)
+
 interface ResponsiveModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -37,16 +41,20 @@ function ResponsiveModal({ open, onOpenChange, children }: ResponsiveModalProps)
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        {children}
-      </Drawer>
+      <IsMobileContext.Provider value={true}>
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          {children}
+        </Drawer>
+      </IsMobileContext.Provider>
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {children}
-    </Dialog>
+    <IsMobileContext.Provider value={false}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {children}
+      </Dialog>
+    </IsMobileContext.Provider>
   )
 }
 
@@ -69,7 +77,7 @@ function ResponsiveModalContent({
   onInteractOutside,
   "aria-labelledby": ariaLabelledby,
 }: ResponsiveModalContentProps) {
-  const isMobile = useIsMobile()
+  const isMobile = React.useContext(IsMobileContext)
 
   if (isMobile) {
     return (
@@ -97,7 +105,7 @@ function ResponsiveModalContent({
 }
 
 function ResponsiveModalClose(props: React.ComponentProps<"button">) {
-  const isMobile = useIsMobile()
+  const isMobile = React.useContext(IsMobileContext)
 
   if (isMobile) {
     return <DrawerClose {...props} />

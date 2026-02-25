@@ -32,6 +32,10 @@ import { RouteProgressBar } from "@/components/ui/route-progress-bar";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 
+function formatBadgeCount(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0) return "?";
@@ -178,8 +182,8 @@ function OutstandingBadge({ count }: { count: number }) {
   }
 
   return (
-    <span className="absolute -right-2 -top-2 inline-flex min-w-[1.125rem] h-[1.125rem] items-center justify-center rounded-full border-[1.5px] border-card bg-danger px-1 text-white text-[0.625rem] font-bold leading-none">
-      {count > 99 ? "99+" : count}
+    <span aria-hidden="true" className="absolute -right-2 -top-2 inline-flex min-w-[1.125rem] h-[1.125rem] items-center justify-center rounded-full border-[1.5px] border-card bg-danger px-1 text-white text-[0.625rem] font-bold leading-none">
+      {formatBadgeCount(count)}
     </span>
   );
 }
@@ -401,7 +405,7 @@ function DesktopNavLink({ item, isOpen, active, outstandingCount }: DesktopNavLi
       <span className={cn("truncate transition-opacity duration-200 delay-100", isOpen ? "opacity-100" : "opacity-0 sr-only")}>{item.label}</span>
       {isOpen && outstandingCount > 0 && (
         <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-danger/15 px-1.5 text-[10px] font-bold text-danger">
-          {outstandingCount > 99 ? "99+" : outstandingCount}
+          {formatBadgeCount(outstandingCount)}
         </span>
       )}
     </Link>
@@ -593,6 +597,8 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
                   showNewProposalCta && "border border-[rgb(var(--proposal-cta-border)/0.56)] bg-[rgb(var(--proposal-cta)/0.12)] text-[rgb(var(--proposal-cta-hover))] shadow-[0_10px_20px_-16px_rgb(var(--proposal-cta)/0.95)] dark:border-[rgb(var(--proposal-cta-border)/0.62)] dark:bg-[rgb(var(--proposal-cta)/0.2)] dark:text-[rgb(var(--proposal-cta-foreground))] dark:shadow-[0_12px_22px_-16px_rgb(var(--proposal-cta)/1)]"
                 )}
                 aria-current={active ? "page" : undefined}
+                aria-label={outstandingCount > 0 ? `${item.label} (${outstandingCount})` : item.label}
+                onClick={showNewProposalCta ? () => { navigator.vibrate?.(10) } : undefined}
                 data-nav-href={item.href}
               >
                 <span className={cn("relative inline-flex", showNewProposalCta && "h-6 w-6 items-center justify-center rounded-full bg-[rgb(var(--proposal-cta))] text-[rgb(var(--proposal-cta-foreground))] shadow-[0_6px_12px_-8px_rgb(var(--proposal-cta)/1)] motion-safe:animate-[sidebar-cta-pulse_900ms_ease-out_1]")}>
@@ -616,9 +622,21 @@ export function AppShell({ children }: PropsWithChildren) {
   const [isStandalone, setIsStandalone] = useState(true);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [hasLoadedSidebarPreference, setHasLoadedSidebarPreference] = useState(false);
+  // Adaptive poll interval: disable on save-data / metered connections.
+  const [navPollInterval, setNavPollInterval] = useState(60_000);
 
   useEffect(() => {
     setIsStandalone(getClientIsStandalone());
+  }, []);
+
+  useEffect(() => {
+    type NetworkConnection = { saveData?: boolean; addEventListener?: (e: string, h: () => void) => void; removeEventListener?: (e: string, h: () => void) => void };
+    const connection = (navigator as unknown as { connection?: NetworkConnection }).connection;
+    if (!connection) return;
+    const update = () => setNavPollInterval(connection.saveData ? 0 : 60_000);
+    update();
+    connection.addEventListener?.("change", update);
+    return () => connection.removeEventListener?.("change", update);
   }, []);
 
   useEffect(() => {
@@ -722,7 +740,7 @@ export function AppShell({ children }: PropsWithChildren) {
         : availableFullNav;
   const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
-    { refreshInterval: 60_000 }
+    { refreshInterval: navPollInterval, refreshWhenHidden: false }
   );
 
   // Revalidate navigation badges on every client-side route change so the
@@ -783,7 +801,7 @@ export function AppShell({ children }: PropsWithChildren) {
           : "pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
       )}
       style={{
-        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : "1.5rem"
+        paddingTop: isSmallViewport ? "max(1rem, env(safe-area-inset-top))" : "max(1.5rem, env(safe-area-inset-top))"
       }}
     >
       <RouteProgressBar />
