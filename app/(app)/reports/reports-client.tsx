@@ -440,6 +440,7 @@ export default function ReportsClient() {
           value={currency(approvedAmount)}
           icon={PieChartIcon}
           tone="indigo"
+          subtitle="Approved, not yet sent"
         />
       </section>
 
