@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -29,7 +29,10 @@ function friendlyPasswordUpdateError(error: unknown): string {
 
 export default function ResetPasswordClient() {
   const router = useRouter();
-  const { configured, loading: authLoading, user, updatePassword, signOut } = useAuth();
+  const params = useSearchParams();
+  const callbackError = params.get("error");
+  const hasInvalidOrExpiredLink = callbackError === "expired_or_invalid";
+  const { configured, loading: authLoading, session, updatePassword, signOut } = useAuth();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -84,11 +87,17 @@ export default function ResetPasswordClient() {
           <p className="mt-3 text-sm text-muted-foreground">Validating your reset link...</p>
         ) : null}
 
-        {!authLoading && configured && !user ? (
+        {!authLoading && configured && !session ? (
           <>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Open this page using the secure link from your reset email.
-            </p>
+            {hasInvalidOrExpiredLink ? (
+              <p className="mt-3 text-sm text-rose-600">
+                This reset link is invalid or expired. Request a new reset email to continue.
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Open this page using the secure link from your reset email.
+              </p>
+            )}
             <Link
               href="/forgot-password"
               className="mt-3 inline-flex text-sm font-medium text-foreground underline-offset-2 hover:underline"
@@ -98,7 +107,7 @@ export default function ResetPasswordClient() {
           </>
         ) : null}
 
-        {!authLoading && configured && user ? (
+        {!authLoading && configured && session ? (
           <form className="mt-4 space-y-3" onSubmit={submitPasswordUpdate} aria-busy={submitting}>
             <div className="space-y-1.5">
               <Label htmlFor="new-password">New password</Label>

@@ -102,7 +102,6 @@ function parseLoginError(error: unknown): { message: string; allowRecovery: bool
 export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const recoveryMode = params.get("mode") === "recovery";
   const resetSuccess = params.get("reset") === "success";
   const redirect = params.get("redirect") || "/dashboard";
   const safeRedirect = sanitizeRedirect(redirect);
@@ -116,15 +115,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (recoveryMode) {
-      router.replace("/reset-password");
-      return;
-    }
-
     if (user) {
       router.replace(resolvePostLoginRedirect(user.role, safeRedirect, isMobile));
     }
-  }, [router, safeRedirect, user, recoveryMode, isMobile]);
+  }, [router, safeRedirect, user, isMobile]);
 
   const forgotPasswordHref = useMemo(() => {
     const trimmedEmail = email.trim();
@@ -153,26 +147,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  if (recoveryMode) {
-    return (
-      <div className="page-enter mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">
-        <GlassCard className="w-full rounded-3xl p-5">
-          <CardLabel>Redirecting</CardLabel>
-          <CardValue>Password Reset</CardValue>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Redirecting to the password reset page...
-          </p>
-          <Link
-            href="/reset-password"
-            className="mt-3 inline-flex text-sm font-medium text-foreground underline-offset-2 hover:underline"
-          >
-            Continue manually
-          </Link>
-        </GlassCard>
-      </div>
-    );
-  }
 
   return (
     <div className="page-enter mx-auto grid min-h-screen w-full max-w-md place-items-center px-4">

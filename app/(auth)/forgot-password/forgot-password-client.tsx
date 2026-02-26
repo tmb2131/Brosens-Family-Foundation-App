@@ -28,6 +28,7 @@ function friendlyResetRequestError(error: unknown): string {
 export default function ForgotPasswordClient() {
   const params = useSearchParams();
   const initialEmail = useMemo(() => params.get("email")?.trim() ?? "", [params]);
+  const callbackError = useMemo(() => params.get("error"), [params]);
   const { sendPasswordReset, configured } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -115,6 +116,11 @@ export default function ForgotPasswordClient() {
         {error ? (
           <p className="mt-3 text-xs text-rose-600" role="alert" aria-live="polite">
             {error}
+          </p>
+        ) : null}
+        {!error && callbackError === "expired_or_invalid" ? (
+          <p className="mt-3 text-xs text-rose-600" role="status" aria-live="polite">
+            Your previous reset link expired or is invalid. Request a new one below.
           </p>
         ) : null}
       </GlassCard>
