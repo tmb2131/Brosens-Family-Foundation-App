@@ -72,7 +72,6 @@ interface CategoryCountDatum {
   countAndAmountLabel: string;
 }
 
-
 function sumAmount(rows: FoundationSnapshot["proposals"]) {
   return rows.reduce((sum, row) => sum + row.progress.computedFinalAmount, 0);
 }
@@ -272,7 +271,7 @@ export default function ReportsClient() {
     const statusLabel = activeStatuses.map((status) => titleCase(status)).join(", ");
     document.title = `Foundation Report ${selectedYearLabel} - ${statusLabel || "No Statuses"}`;
     window.print();
-    setTimeout(() => {
+    window.setTimeout(() => {
       document.title = previousTitle;
     }, 200);
   };
@@ -315,7 +314,7 @@ export default function ReportsClient() {
   }
 
   return (
-    <div className="page-stack pb-6">
+    <div className="page-stack pb-6" data-report-print>
       <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <div>
@@ -353,6 +352,9 @@ export default function ReportsClient() {
               Print / PDF
             </Button>
           </div>
+          <p className="w-full text-[10px] text-muted-foreground sm:text-right">
+            For cleaner PDFs, disable browser print option: Headers and footers.
+          </p>
         </div>
 
         <div className="hidden print:block">
@@ -426,7 +428,7 @@ export default function ReportsClient() {
         </div>
       </GlassCard>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-report-print-summary>
         <MetricCard
           title="PROPOSALS"
           value={formatNumber(filteredProposals.length)}
@@ -444,14 +446,16 @@ export default function ReportsClient() {
         />
       </section>
 
-      <ReportsCharts
-        statusCounts={statusCounts}
-        categoryCounts={categoryCounts}
-        typeSplit={typeSplit}
-        totalAmount={totalAmount}
-      />
+      <div data-report-print-charts>
+        <ReportsCharts
+          statusCounts={statusCounts}
+          categoryCounts={categoryCounts}
+          typeSplit={typeSplit}
+          totalAmount={totalAmount}
+        />
+      </div>
 
-      <GlassCard>
+      <GlassCard data-report-print-table-section>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div>
             <CardLabel>Year Proposals</CardLabel>
@@ -464,7 +468,7 @@ export default function ReportsClient() {
           </p>
         </div>
 
-        <div className="space-y-2 md:hidden">
+        <div className="space-y-2 md:hidden print:hidden">
           {filteredProposals.length === 0 ? (
             <p className="rounded-xl border p-4 text-sm text-muted-foreground">
               No proposals match the selected status filters.
@@ -496,8 +500,8 @@ export default function ReportsClient() {
           )}
         </div>
 
-        <div className="hidden overflow-x-auto md:block">
-          <table className="min-w-[860px] table-auto text-left text-sm">
+        <div className="hidden overflow-x-auto md:block print:block">
+          <table className="min-w-[860px] table-auto text-left text-sm" data-report-print-table>
             <thead>
               <DataTableHeadRow>
                 <th className="px-2 py-2">
