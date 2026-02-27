@@ -44,6 +44,11 @@ export interface UserProfile {
   role: AppRole;
 }
 
+/** Response shape for GET /api/auth/users (login email autocomplete). */
+export interface AuthUsersResponse {
+  users: Array<{ email: string; name: string }>;
+}
+
 export interface Organization {
   id: string;
   name: string;

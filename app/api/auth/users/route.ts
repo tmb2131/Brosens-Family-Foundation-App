@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toErrorResponse, STALE_CACHE_HEADERS } from "@/lib/http-error";
-
-export interface AuthUsersResponse {
-  users: Array<{ email: string; name: string }>;
-}
+import type { AuthUsersResponse } from "@/lib/types";
 
 export async function GET() {
   try {

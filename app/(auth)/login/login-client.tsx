@@ -11,8 +11,7 @@ import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { getClientIsMobile } from "@/lib/device-detection";
-import { UserProfile } from "@/lib/types";
-import type { AuthUsersResponse } from "@/app/api/auth/users/route";
+import { UserProfile, type AuthUsersResponse } from "@/lib/types";
 
 const allowedRedirects = [
   "/mobile",
