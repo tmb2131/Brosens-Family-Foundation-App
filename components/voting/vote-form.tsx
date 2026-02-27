@@ -742,7 +742,7 @@ function VoteFormStandalone({
           {proposalType === "joint" ? (
             <>
               <p className="mt-2 text-xs text-muted-foreground">
-                Proposed donation: $15,000. Implied share: $5,000 each. You may enter a different amount.
+                Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
               </p>
               <label className="mt-3 block">
                 <span className="block text-base font-semibold text-foreground">
@@ -753,7 +753,7 @@ function VoteFormStandalone({
                     min={0}
                     disabled={choice !== "yes"}
                     className="flex-1 rounded-lg placeholder:italic"
-                    placeholder={`Your implied share: ${currency(impliedJointAllocation)}`}
+                    placeholder={`Implied share: ${currency(impliedJointAllocation)}`}
                     value={allocationAmount}
                     onChange={(event) => {
                       const v = event.target.value;
