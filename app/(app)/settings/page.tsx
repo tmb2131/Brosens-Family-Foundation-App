@@ -7,8 +7,8 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { AmountInput } from "@/components/ui/amount-input";
-import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -449,9 +449,8 @@ export default function SettingsPage() {
         </p>
       </GlassCard>
 
-      <GlassCard>
-        <CardLabel>Change Password</CardLabel>
-        <p className="mt-1 text-sm text-muted-foreground">Update your sign-in password. You must enter your current password to confirm.</p>
+      <CollapsibleSection title="Change Password" defaultOpen={false}>
+        <p className="text-sm text-muted-foreground">Update your sign-in password. You must enter your current password to confirm.</p>
         <form className="mt-3 space-y-3" onSubmit={handleChangePassword} aria-busy={changingPassword}>
           <div className="space-y-1.5">
             <Label htmlFor="current-password">Current password</Label>
@@ -504,14 +503,15 @@ export default function SettingsPage() {
             </p>
           ) : null}
         </form>
-      </GlassCard>
+      </CollapsibleSection>
 
-      <PushSettingsCard />
+      <CollapsibleSection title="Mobile Push Notifications" defaultOpen={false}>
+        <PushSettingsCard />
+      </CollapsibleSection>
 
       {user.role === "oversight" ? (
-        <GlassCard>
-          <CardLabel>Historical Proposals CSV Import</CardLabel>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <CollapsibleSection title="Historical Proposals CSV Import" defaultOpen={false}>
+          <p className="text-sm text-muted-foreground">
             Upload historical proposal records. Required headers:{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
               organization, budget_year, final_amount
@@ -553,13 +553,12 @@ export default function SettingsPage() {
               {historicalImportMessage.text}
             </p>
           ) : null}
-        </GlassCard>
+        </CollapsibleSection>
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <GlassCard>
-          <CardLabel>Organization Category Worker</CardLabel>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <CollapsibleSection title="Organization Category Worker" defaultOpen={false}>
+          <p className="text-sm text-muted-foreground">
             Trigger organization categorization now without waiting for scheduled worker runs.
           </p>
           <Button
@@ -581,13 +580,12 @@ export default function SettingsPage() {
               {categoryWorkerMessage.text}
             </p>
           ) : null}
-        </GlassCard>
+        </CollapsibleSection>
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <GlassCard>
-          <CardLabel>Email Notification Worker</CardLabel>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <CollapsibleSection title="Email Notification Worker" defaultOpen={false}>
+          <p className="text-sm text-muted-foreground">
             Manually trigger the email worker to process weekly reminders and daily sent digests now.
           </p>
           <Button
@@ -609,12 +607,11 @@ export default function SettingsPage() {
               {emailWorkerMessage.text}
             </p>
           ) : null}
-        </GlassCard>
+        </CollapsibleSection>
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <GlassCard>
-          <CardLabel>Organization Category Overrides</CardLabel>
+        <CollapsibleSection title="Organization Category Overrides" defaultOpen={false}>
           {organizationCategoriesQuery.isLoading ? (
             <p className="mt-2 text-sm text-muted-foreground">Loading organizations...</p>
           ) : organizationCategoriesQuery.error ? (
@@ -720,12 +717,12 @@ export default function SettingsPage() {
               ) : null}
             </form>
           )}
-        </GlassCard>
+        </CollapsibleSection>
       ) : null}
 
       {canManageBudget ? (
         <>
-          <GlassCard>
+          <CollapsibleSection title="Budget Management" defaultOpen={true}>
             {error ? (
               <>
                 <CardLabel>Settings Error</CardLabel>
@@ -829,12 +826,11 @@ export default function SettingsPage() {
                 {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
               </form>
             )}
-          </GlassCard>
+          </CollapsibleSection>
 
           {data ? (
-            <GlassCard>
-              <CardLabel>Current Budget Snapshot</CardLabel>
-              <section className="mt-3 grid gap-3 sm:grid-cols-2">
+            <CollapsibleSection title="Current Budget Snapshot" defaultOpen={true}>
+              <section className="grid gap-3 sm:grid-cols-2">
                 <MetricCard
                   title="FOUNDATION TOTAL BUDGET"
                   value={currency(data.budget.total)}
@@ -887,16 +883,15 @@ export default function SettingsPage() {
                   </p>
                 </MetricCard>
               </section>
-            </GlassCard>
+            </CollapsibleSection>
           ) : null}
         </>
       ) : (
-        <GlassCard>
-          <CardLabel>Budget Controls</CardLabel>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <CollapsibleSection title="Budget Controls" defaultOpen={false}>
+          <p className="text-sm text-muted-foreground">
             Budget management is available only for Tom (oversight) and Dad (manager).
           </p>
-        </GlassCard>
+        </CollapsibleSection>
       )}
     </div>
   );
