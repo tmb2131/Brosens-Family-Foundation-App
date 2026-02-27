@@ -263,6 +263,7 @@ export default function LoginPage() {
             <Label htmlFor="login-password">Password</Label>
             <PasswordInput
               id="login-password"
+              name="password"
               className="rounded-xl"
               value={password}
               onChange={setPassword}
