@@ -4,14 +4,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { UserProfile } from "@/lib/types";
+import type { AuthUsersResponse } from "@/app/api/auth/users/route";
 
 const allowedRedirects = [
   "/mobile",
@@ -114,12 +115,21 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<AuthUsersResponse["users"]>([]);
+  const [isEmailDropdownOpen, setIsEmailDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
       router.replace(resolvePostLoginRedirect(user.role, safeRedirect, isMobile));
     }
   }, [router, safeRedirect, user, isMobile]);
+
+  useEffect(() => {
+    fetch("/api/auth/users")
+      .then((res) => res.json())
+      .then((data: AuthUsersResponse) => setAllUsers(data.users ?? []))
+      .catch(() => {});
+  }, []);
 
   const forgotPasswordHref = useMemo(() => {
     const trimmedEmail = email.trim();
@@ -129,6 +139,23 @@ export default function LoginPage() {
 
     return `/forgot-password?email=${encodeURIComponent(trimmedEmail)}`;
   }, [email]);
+
+  const matchingUsers = useMemo(() => {
+    const q = email.trim().toLowerCase();
+    if (!q) return allUsers;
+    const startsWith = allUsers.filter(
+      (u) => u.email.toLowerCase().startsWith(q) || u.name.toLowerCase().startsWith(q)
+    );
+    const contains = allUsers.filter(
+      (u) =>
+        !u.email.toLowerCase().startsWith(q) &&
+        !u.name.toLowerCase().startsWith(q) &&
+        (u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q))
+    );
+    return [...startsWith, ...contains];
+  }, [email, allUsers]);
+
+  const showEmailDropdown = isEmailDropdownOpen && matchingUsers.length > 0;
 
   const submitLogin = async (event: FormEvent) => {
     event.preventDefault();
@@ -167,18 +194,70 @@ export default function LoginPage() {
         <form className="mt-4 space-y-3" onSubmit={submitLogin} aria-busy={loading}>
           <div className="space-y-1.5">
             <Label htmlFor="login-email">Email</Label>
-            <Input
-              id="login-email"
-              className="rounded-xl"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              type="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              inputMode="email"
-            />
+            <div
+              className="relative flex rounded-xl border border-input shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)]"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setIsEmailDropdownOpen(false);
+                }
+              }}
+            >
+              <input
+                id="login-email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setIsEmailDropdownOpen(true);
+                }}
+                onFocus={() => setIsEmailDropdownOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setIsEmailDropdownOpen(false);
+                }}
+                required
+                type="email"
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                inputMode="email"
+                className="min-w-0 flex-1 rounded-l-xl border-none bg-transparent px-3 py-2 text-sm text-foreground shadow-none outline-none"
+              />
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setIsEmailDropdownOpen((open) => !open)}
+                className="flex w-10 shrink-0 items-center justify-center rounded-r-xl border-l border-input bg-muted text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
+                aria-label="Show member email suggestions"
+                aria-expanded={showEmailDropdown}
+                aria-controls="login-email-suggestions"
+              >
+                <ChevronDown aria-hidden="true" size={16} />
+              </button>
+              {showEmailDropdown ? (
+                <div
+                  id="login-email-suggestions"
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
+                >
+                  {matchingUsers.map((u) => (
+                    <button
+                      key={u.email}
+                      type="button"
+                      role="option"
+                      aria-selected={email === u.email}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setEmail(u.email);
+                        setIsEmailDropdownOpen(false);
+                      }}
+                      className="block w-full rounded-lg px-2 py-2.5 text-left text-sm hover:bg-muted"
+                    >
+                      <span className="font-medium text-foreground">{u.name}</span>
+                      <span className="ml-2 text-muted-foreground">{u.email}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="login-password">Password</Label>
