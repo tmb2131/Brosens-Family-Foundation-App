@@ -741,14 +741,14 @@ function VoteFormStandalone({
 
           {proposalType === "joint" ? (
             <>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
-              </p>
               <label className="mt-3 block">
                 <span className="block text-base font-semibold text-foreground">
                   Your allocation
                 </span>
-                <div className="mt-1 flex items-center gap-2">
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
                   <AmountInput
                     min={0}
                     disabled={choice !== "yes"}
