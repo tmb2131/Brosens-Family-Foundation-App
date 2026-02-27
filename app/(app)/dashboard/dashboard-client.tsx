@@ -23,10 +23,10 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
-import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
+import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { charityNavigatorRating, currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
+import { cn, charityNavigatorRating, currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -472,6 +472,7 @@ export default function DashboardClient() {
     height: number;
   } | null>(null);
   const { registerStartWalkthrough } = useDashboardWalkthrough();
+  const isSmallScreen = useIsMobile();
 
   useEffect(() => {
     return registerStartWalkthrough(() => {
@@ -1357,6 +1358,11 @@ export default function DashboardClient() {
       ? "text-emerald-700 dark:text-emerald-300"
       : "text-foreground"
     : "";
+  const detailShowVoteForm =
+    !!user &&
+    canVote &&
+    detailProposal?.status === "to_review" &&
+    !detailProposal?.progress.hasCurrentUserVoted;
   const detailCanOversightEditProposal = Boolean(isOversight && detailProposal);
   const detailIsOwnProposal = Boolean(user && detailProposal && detailProposal.proposerId === user.id);
   const detailIsVoteLocked = Boolean(
@@ -2372,13 +2378,13 @@ export default function DashboardClient() {
         {detailProposal && detailDraft && detailRequiredAction ? (
         <ResponsiveModalContent
           aria-labelledby="proposal-details-title"
-          dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto"
+          dialogClassName={cn(
+            "rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden",
+            !isSmallScreen && detailShowVoteForm ? "sm:max-w-5xl" : "sm:max-w-3xl"
+          )}
           showCloseButton={false}
           footer={
-            user &&
-            canVote &&
-            detailProposal.status === "to_review" &&
-            !detailProposal.progress.hasCurrentUserVoted ? (
+            isSmallScreen && detailShowVoteForm ? (
               <VoteForm
                 proposalId={detailProposal.id}
                 proposalType={detailProposal.proposalType}
@@ -2400,6 +2406,8 @@ export default function DashboardClient() {
             ) : null
           }
         >
+            <div className={cn(!isSmallScreen && detailShowVoteForm && "flex items-start gap-6")}>
+            <div className={cn(!isSmallScreen && detailShowVoteForm && "flex-1 min-w-0")}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -2773,6 +2781,31 @@ export default function DashboardClient() {
                 {detailRowState.text}
               </p>
             ) : null}
+            </div>
+            {!isSmallScreen && detailShowVoteForm ? (
+              <div className="w-80 shrink-0 border-l pl-6 pt-1">
+                <VoteForm
+                  proposalId={detailProposal.id}
+                  proposalType={detailProposal.proposalType}
+                  proposedAmount={detailProposal.proposedAmount}
+                  totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
+                  onSuccess={() => {
+                    void mutate();
+                    if (isOversight) {
+                      void mutatePending();
+                    }
+                  }}
+                  maxJointAllocation={
+                    detailProposal.proposalType === "joint" && workspace
+                      ? workspace.personalBudget.jointRemaining +
+                        workspace.personalBudget.discretionaryRemaining
+                      : undefined
+                  }
+                  className="border-t-0 pt-0"
+                />
+              </div>
+            ) : null}
+            </div>
         </ResponsiveModalContent>
         ) : null}
       </ResponsiveModal>

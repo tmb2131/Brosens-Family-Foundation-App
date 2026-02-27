@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { ProposalType, type VoteChoice } from "@/lib/types";
-import { currency, parseNumberInput } from "@/lib/utils";
+import { cn, currency, parseNumberInput } from "@/lib/utils";
 
 interface VoteFormProps {
   proposalId: string;
@@ -28,6 +28,7 @@ interface VoteFormProps {
   maxJointAllocation?: number;
   /** Called whenever the saving state changes. Use to prevent modal dismiss during submission. */
   onSavingChange?: (isSaving: boolean) => void;
+  className?: string;
 }
 
 /** When true, trySubmit validates and submits directly (no review step). Used for mobile drawer. */
@@ -527,6 +528,7 @@ function VoteFormStandalone({
   onAllocationChange,
   maxJointAllocation,
   onSavingChange,
+  className,
 }: VoteFormProps) {
   const primaryChoice: VoteChoice = proposalType === "joint" ? "yes" : "acknowledged";
   const secondaryChoice: VoteChoice = proposalType === "joint" ? "no" : "flagged";
@@ -643,7 +645,7 @@ function VoteFormStandalone({
   const isZeroAllocation = proposalType === "joint" && choice === "yes" && confirmedAmount === 0;
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="mt-0 border-t pt-4 text-sm">
+    <form onSubmit={handleSubmit} noValidate className={cn("mt-0 border-t pt-4 text-sm", className)}>
       {isReviewing ? (
         <>
           <p className="text-base font-semibold text-foreground">Review your blind vote</p>
