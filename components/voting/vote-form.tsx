@@ -327,6 +327,7 @@ export function VoteFormFooterButton() {
 }
 
 function VoteFormContent() {
+  const [allocationTouched, setAllocationTouched] = useState(false);
   const ctx = useContext(VoteFormContext);
   if (!ctx) return null;
   const {
@@ -350,7 +351,6 @@ function VoteFormContent() {
 
   const showAllocation = proposalType === "joint" && choice === "yes";
   const showFlagComment = proposalType !== "joint" && choice === "flagged";
-  const [allocationTouched, setAllocationTouched] = useState(false);
 
   if (isReviewing) {
     const isZeroAllocation = proposalType === "joint" && choice === "yes" && (parsedAllocationAmount ?? 0) === 0;
