@@ -214,7 +214,8 @@ export default function LoginPage() {
                 }}
                 required
                 type="email"
-                autoComplete="off"
+                name="email"
+                autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
                 inputMode="email"
