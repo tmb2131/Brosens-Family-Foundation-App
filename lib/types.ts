@@ -214,6 +214,12 @@ export interface WorkspaceSnapshot {
     proposedAmount: number;
     totalRequiredVotes: number;
     voteProgressLabel: string;
+    sentAt?: string | null;
+    organizationWebsite?: string | null;
+    charityNavigatorUrl?: string | null;
+    charityNavigatorScore?: number | null;
+    notes?: string | null;
+    progress: { masked: boolean; computedFinalAmount: number };
   }>;
   voteHistory: Array<{
     proposalId: string;

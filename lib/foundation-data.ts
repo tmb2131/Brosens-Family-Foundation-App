@@ -918,7 +918,16 @@ export async function getWorkspaceSnapshot(
           status: proposal.status,
           proposedAmount: proposal.proposedAmount,
           totalRequiredVotes: proposal.progress.totalRequiredVotes,
-          voteProgressLabel: `${proposal.progress.votesSubmitted} of ${proposal.progress.totalRequiredVotes} votes in`
+          voteProgressLabel: `${proposal.progress.votesSubmitted} of ${proposal.progress.totalRequiredVotes} votes in`,
+          sentAt: proposal.sentAt,
+          organizationWebsite: proposal.organizationWebsite,
+          charityNavigatorUrl: proposal.charityNavigatorUrl,
+          charityNavigatorScore: proposal.charityNavigatorScore,
+          notes: proposal.notes,
+          progress: {
+            masked: proposal.progress.masked,
+            computedFinalAmount: proposal.progress.computedFinalAmount
+          }
         }))
     : [];
 

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet } from "lucide-react";
+import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,11 +16,14 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
+import { cn } from "@/lib/utils";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { Card, GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { currency, formatNumber, voteChoiceLabel } from "@/lib/utils";
+import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
@@ -79,6 +82,7 @@ export default function WorkspaceClient() {
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
   const { registerStartWalkthrough } = useWorkspaceWalkthrough();
+  const isSmallScreen = useIsMobile();
 
   useEffect(() => {
     return registerStartWalkthrough(() => {
@@ -282,7 +286,7 @@ export default function WorkspaceClient() {
 
   return (
     <div className="page-stack pb-4">
-      <Dialog
+      <ResponsiveModal
         open={voteDialogProposalId !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -297,56 +301,212 @@ export default function WorkspaceClient() {
           }
         }}
       >
-        <DialogContent
-          className="sm:max-w-md"
-          showCloseButton={true}
-          overlayCutoutRect={overlayCutoutRect}
-        >
-          {voteDialogItem ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold">{voteDialogItem.title}</DialogTitle>
-                {voteDialogItem.description ? (
-                  <DialogDescription className="mt-1 text-left text-sm">
-                    {voteDialogItem.description}
-                  </DialogDescription>
-                ) : null}
-              </DialogHeader>
-              <VoteForm
-                proposalId={voteDialogItem.proposalId}
-                proposalType={voteDialogItem.proposalType}
-                proposedAmount={voteDialogItem.proposedAmount}
-                totalRequiredVotes={voteDialogItem.totalRequiredVotes}
-                onSuccess={() => {
-                  setPendingJointAllocationByProposalId((prev) => {
-                    const next = { ...prev };
-                    delete next[voteDialogItem.proposalId];
-                    return next;
-                  });
-                  setVoteDialogProposalId(null);
-                  void workspaceQuery.mutate();
-                  mutateAllFoundation();
-                }}
-                onAllocationChange={
-                  voteDialogItem.proposalType === "joint"
-                    ? (amount) =>
-                        setPendingJointAllocationByProposalId((prev) => ({
-                          ...prev,
-                          [voteDialogItem.proposalId]: amount
-                        }))
-                    : undefined
-                }
-                maxJointAllocation={
-                  voteDialogItem.proposalType === "joint" && !isManager
-                    ? workspace.personalBudget.jointRemaining +
-                      workspace.personalBudget.discretionaryRemaining
-                    : undefined
-                }
-              />
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+        {voteDialogItem ? (
+          <ResponsiveModalContent
+            aria-labelledby="vote-dialog-title"
+            dialogClassName={cn(
+              "rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden",
+              !isSmallScreen ? "sm:max-w-4xl sm:-ml-[100px]" : "sm:max-w-md"
+            )}
+            showCloseButton={false}
+            overlayCutoutRect={overlayCutoutRect}
+            footer={
+              isSmallScreen ? (
+                <VoteForm
+                  proposalId={voteDialogItem.proposalId}
+                  proposalType={voteDialogItem.proposalType}
+                  proposedAmount={voteDialogItem.proposedAmount}
+                  totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                  onSuccess={() => {
+                    setPendingJointAllocationByProposalId((prev) => {
+                      const next = { ...prev };
+                      delete next[voteDialogItem.proposalId];
+                      return next;
+                    });
+                    setVoteDialogProposalId(null);
+                    void workspaceQuery.mutate();
+                    mutateAllFoundation();
+                  }}
+                  onAllocationChange={
+                    voteDialogItem.proposalType === "joint"
+                      ? (amount) =>
+                          setPendingJointAllocationByProposalId((prev) => ({
+                            ...prev,
+                            [voteDialogItem.proposalId]: amount
+                          }))
+                      : undefined
+                  }
+                  maxJointAllocation={
+                    voteDialogItem.proposalType === "joint" && !isManager
+                      ? workspace.personalBudget.jointRemaining +
+                        workspace.personalBudget.discretionaryRemaining
+                      : undefined
+                  }
+                />
+              ) : null
+            }
+          >
+            <div className={cn(!isSmallScreen && "flex items-start gap-6")}>
+              <div className={cn(!isSmallScreen && "flex-1 min-w-0")}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <DialogTitle id="vote-dialog-title" className="text-lg font-bold">
+                        {voteDialogItem.title}
+                      </DialogTitle>
+                      <Badge className={voteDialogItem.proposalType === "joint"
+                        ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
+                        : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
+                      }>
+                        {titleCase(voteDialogItem.proposalType)}
+                      </Badge>
+                      <StatusPill status={voteDialogItem.status} />
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setVoteDialogProposalId(null);
+                      if (voteDialogProposalId) {
+                        setPendingJointAllocationByProposalId((prev) => {
+                          const next = { ...prev };
+                          delete next[voteDialogProposalId];
+                          return next;
+                        });
+                      }
+                    }}
+                    aria-label="Close proposal details"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
+                    <dd className="mt-1.5 text-lg font-bold text-foreground">
+                      {voteDialogItem.progress.masked && voteDialogItem.proposalType !== "joint"
+                        ? "Blind until your vote is submitted"
+                        : voteDialogItem.proposalType === "joint" && voteDialogItem.status === "to_review"
+                        ? currency(voteDialogItem.proposedAmount)
+                        : currency(voteDialogItem.progress.computedFinalAmount)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
+                    <dd className="mt-1.5 font-semibold text-foreground">
+                      {voteDialogItem.sentAt
+                        ? new Date(voteDialogItem.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                        : "—"}
+                    </dd>
+                  </div>
+                  <div className="md:col-span-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Description</dt>
+                    <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">
+                      {voteDialogItem.description?.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div className="md:col-span-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Organization Website</dt>
+                    <dd className="mt-1.5 text-foreground">
+                      {voteDialogItem.organizationWebsite ? (
+                        <a
+                          href={voteDialogItem.organizationWebsite}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
+                        >
+                          {voteDialogItem.organizationWebsite}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
+                  </div>
+                  <div className="md:col-span-2">
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator URL</dt>
+                    <dd className="mt-1.5 text-foreground">
+                      {voteDialogItem.charityNavigatorUrl ? (
+                        <>
+                          <a
+                            href={voteDialogItem.charityNavigatorUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
+                          >
+                            {voteDialogItem.charityNavigatorUrl}
+                          </a>
+                          {voteDialogItem.charityNavigatorScore != null ? (
+                            <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
+                              <p className="font-medium text-foreground">
+                                This charity&apos;s score is {Math.round(voteDialogItem.charityNavigatorScore)}%, earning it a{" "}
+                                {charityNavigatorRating(voteDialogItem.charityNavigatorScore).starLabel} rating.
+                              </p>
+                              <p className="mt-1 text-muted-foreground">
+                                {charityNavigatorRating(voteDialogItem.charityNavigatorScore).meaning}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="mt-1.5 text-xs text-muted-foreground">Score not yet available.</p>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Add the Charity Navigator URL to autopopulate the charity&apos;s score.
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  {voteDialogItem.notes?.trim() ? (
+                    <div className="md:col-span-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</dt>
+                      <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">{voteDialogItem.notes.trim()}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
+
+              {!isSmallScreen ? (
+                <div className="w-80 shrink-0 border-l pl-6 pt-1">
+                  <VoteForm
+                    proposalId={voteDialogItem.proposalId}
+                    proposalType={voteDialogItem.proposalType}
+                    proposedAmount={voteDialogItem.proposedAmount}
+                    totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                    onSuccess={() => {
+                      setPendingJointAllocationByProposalId((prev) => {
+                        const next = { ...prev };
+                        delete next[voteDialogItem.proposalId];
+                        return next;
+                      });
+                      setVoteDialogProposalId(null);
+                      void workspaceQuery.mutate();
+                      mutateAllFoundation();
+                    }}
+                    onAllocationChange={
+                      voteDialogItem.proposalType === "joint"
+                        ? (amount) =>
+                            setPendingJointAllocationByProposalId((prev) => ({
+                              ...prev,
+                              [voteDialogItem.proposalId]: amount
+                            }))
+                        : undefined
+                    }
+                    maxJointAllocation={
+                      voteDialogItem.proposalType === "joint" && !isManager
+                        ? workspace.personalBudget.jointRemaining +
+                          workspace.personalBudget.discretionaryRemaining
+                        : undefined
+                    }
+                    className="border-t-0 pt-0"
+                  />
+                </div>
+              ) : null}
+            </div>
+          </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
 
       {walkthroughOpen &&
         spotlightRect &&

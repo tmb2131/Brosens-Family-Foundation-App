@@ -58,6 +58,8 @@ function ResponsiveModal({ open, onOpenChange, children }: ResponsiveModalProps)
   )
 }
 
+type OverlayCutoutRect = { left: number; top: number; width: number; height: number }
+
 interface ResponsiveModalContentProps {
   children: React.ReactNode
   className?: string
@@ -68,6 +70,8 @@ interface ResponsiveModalContentProps {
   "aria-labelledby"?: string
   /** On mobile, renders pinned to the bottom of the drawer (non-scrolling). On desktop, renders inline after children. */
   footer?: React.ReactNode
+  /** Desktop only: when set, dims the overlay everywhere except this rect (e.g. to keep a budget sidebar visible). */
+  overlayCutoutRect?: OverlayCutoutRect | null
 }
 
 function ResponsiveModalContent({
@@ -79,6 +83,7 @@ function ResponsiveModalContent({
   onInteractOutside,
   "aria-labelledby": ariaLabelledby,
   footer,
+  overlayCutoutRect,
 }: ResponsiveModalContentProps) {
   const isMobile = React.useContext(IsMobileContext)
 
@@ -106,6 +111,7 @@ function ResponsiveModalContent({
       showCloseButton={showCloseButton}
       onInteractOutside={onInteractOutside}
       aria-labelledby={ariaLabelledby}
+      overlayCutoutRect={overlayCutoutRect}
     >
       {children}
       {footer}

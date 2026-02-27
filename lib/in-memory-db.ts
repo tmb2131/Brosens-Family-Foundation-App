@@ -525,7 +525,9 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
     .filter((proposal) => proposal.status === "to_review" && VOTING_MEMBER_IDS.includes(userId))
     .filter((proposal) => !withProgress(proposal, userId).progress.hasCurrentUserVoted)
     .map((proposal) => {
-      const progress = withProgress(proposal, userId).progress;
+      const extended = withProgress(proposal, userId);
+      const progress = extended.progress;
+      const org = db().organizations.find((item) => item.id === proposal.organizationId);
 
       return {
         proposalId: proposal.id,
@@ -535,7 +537,16 @@ export function getWorkspaceSnapshot(userId: string): WorkspaceSnapshot | null {
         status: proposal.status,
         proposedAmount: proposal.proposedAmount,
         totalRequiredVotes: progress.totalRequiredVotes,
-        voteProgressLabel: `${progress.votesSubmitted} of ${progress.totalRequiredVotes} votes in`
+        voteProgressLabel: `${progress.votesSubmitted} of ${progress.totalRequiredVotes} votes in`,
+        sentAt: proposal.sentAt,
+        organizationWebsite: extended.organizationWebsite ?? org?.website ?? null,
+        charityNavigatorUrl: extended.charityNavigatorUrl ?? org?.charityNavigatorUrl ?? null,
+        charityNavigatorScore: org?.charityNavigatorScore ?? null,
+        notes: proposal.notes,
+        progress: {
+          masked: progress.masked,
+          computedFinalAmount: progress.computedFinalAmount
+        }
       };
     });
 

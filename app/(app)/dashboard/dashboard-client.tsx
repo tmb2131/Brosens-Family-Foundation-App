@@ -1351,13 +1351,6 @@ export default function DashboardClient() {
   const detailRequiredAction = detailProposal
     ? buildRequiredActionSummary(detailProposal, user?.role)
     : null;
-  const detailRequiredActionToneClass = detailRequiredAction
-    ? detailRequiredAction.tone === "attention"
-      ? "text-amber-700 dark:text-amber-300"
-      : detailRequiredAction.tone === "complete"
-      ? "text-emerald-700 dark:text-emerald-300"
-      : "text-foreground"
-    : "";
   const detailShowVoteForm =
     !!user &&
     canVote &&
@@ -2412,7 +2405,7 @@ export default function DashboardClient() {
               <div>
                 <div className="flex items-center gap-2">
                   <DialogTitle id="proposal-details-title" className="text-lg font-bold">
-                    Proposal Details
+                    {detailProposal.title}
                   </DialogTitle>
                   <Badge className={detailProposal.proposalType === "joint"
                     ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
@@ -2422,7 +2415,6 @@ export default function DashboardClient() {
                   </Badge>
                   <StatusPill status={detailProposal.status} />
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{detailProposal.title}</p>
               </div>
               <Button
                 variant="outline"
@@ -2435,17 +2427,6 @@ export default function DashboardClient() {
             </div>
 
             <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
-              <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Proposal</dt>
-                <dd className="mt-1.5 font-semibold text-foreground">{detailProposal.title}</dd>
-                <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                  {detailProposal.description || "—"}
-                </p>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Type</dt>
-                <dd className="mt-1.5 font-semibold text-foreground">{titleCase(detailProposal.proposalType)}</dd>
-              </div>
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
                 <dd className="mt-1.5 text-lg font-bold text-foreground">
@@ -2464,15 +2445,10 @@ export default function DashboardClient() {
                     : "—"}
                 </dd>
               </div>
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Status</dt>
-                <dd className="mt-1.5 font-semibold text-foreground">{titleCase(detailProposal.status)}</dd>
-              </div>
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Required Action</dt>
-                <dd className={`mt-1.5 ${detailRequiredActionToneClass}`}>
-                  <span className="font-semibold">{detailRequiredAction.owner}:</span>{" "}
-                  {detailRequiredAction.detail}
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Description</dt>
+                <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">
+                  {detailProposal.description?.trim() || "—"}
                 </dd>
               </div>
               <div className="md:col-span-2">
@@ -2526,10 +2502,12 @@ export default function DashboardClient() {
                   )}
                 </dd>
               </div>
-              <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</dt>
-                <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">{detailProposal.notes?.trim() || "—"}</dd>
-              </div>
+              {detailProposal.notes?.trim() ? (
+                <div className="md:col-span-2">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</dt>
+                  <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">{detailProposal.notes.trim()}</dd>
+                </div>
+              ) : null}
             </dl>
 
             {detailIsRowEditable || detailCanEditSentDate ? (
