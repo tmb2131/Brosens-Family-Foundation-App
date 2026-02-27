@@ -186,12 +186,13 @@ function useVoteFormState(
 
   const disabled =
     saving ||
+    (proposalType === "joint" && choice === "yes" && parsedAllocationAmount === null) ||
     (proposalType === "joint" &&
       choice === "yes" &&
       maxJointAllocation != null &&
       (parsedAllocationAmount ?? 0) > maxJointAllocation);
 
-  const label = saving ? "Saving..." : "Submit blind vote";
+  const label = saving ? "Saving..." : "Submit Vote";
 
   return {
     primaryChoice,
@@ -349,6 +350,7 @@ function VoteFormContent() {
 
   const showAllocation = proposalType === "joint" && choice === "yes";
   const showFlagComment = proposalType !== "joint" && choice === "flagged";
+  const [allocationTouched, setAllocationTouched] = useState(false);
 
   if (isReviewing) {
     const isZeroAllocation = proposalType === "joint" && choice === "yes" && (parsedAllocationAmount ?? 0) === 0;
@@ -436,18 +438,18 @@ function VoteFormContent() {
           className={`h-11 ${choice === primaryChoice ? "bg-emerald-600 text-white hover:bg-emerald-600/90" : ""}`}
           type="button"
         >
-          {proposalType === "joint" ? "Yes" : "Acknowledged"}
-        </Button>
-        <Button
-          onClick={() => setChoice(secondaryChoice)}
-          variant={choice === secondaryChoice ? "destructive" : "outline"}
-          size="default"
-          className="h-11"
-          type="button"
-        >
-          {proposalType === "joint" ? "No" : "Flag for Discussion"}
-        </Button>
-      </div>
+          {proposalType === "joint" ? "Yes" : "Acknowledge"}
+          </Button>
+          <Button
+            onClick={() => setChoice(secondaryChoice)}
+            variant={choice === secondaryChoice ? "destructive" : "outline"}
+            size="default"
+            className="h-11"
+            type="button"
+          >
+            {proposalType === "joint" ? "No" : "Flag for Discussion"}
+          </Button>
+        </div>
 
       {showAllocation ? (
         <label className="mt-4 block">
@@ -465,6 +467,7 @@ function VoteFormContent() {
                 const v = event.target.value;
                 setAllocationAmount(v);
                 allocationAmountRef.current = v;
+                setAllocationTouched(true);
               }}
             />
             <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -476,7 +479,7 @@ function VoteFormContent() {
               Exceeds your remaining budget ({currency(maxJointAllocation)}).
             </p>
           ) : null}
-          {(parsedAllocationAmount ?? 0) === 0 ? (
+          {allocationTouched && (parsedAllocationAmount ?? 0) === 0 ? (
             <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3 shrink-0" />
               Your allocation is $0.
@@ -559,6 +562,8 @@ function VoteFormStandalone({
   useEffect(() => {
     onSavingChangeRef.current?.(saving);
   }, [saving]);
+
+  const [allocationTouched, setAllocationTouched] = useState(false);
 
   const submitVote = async () => {
     if (savingRef.current) return;
@@ -726,7 +731,7 @@ function VoteFormStandalone({
               className={`h-11 ${choice === primaryChoice ? "bg-emerald-600 text-white hover:bg-emerald-600/90" : ""}`}
               type="button"
             >
-              {proposalType === "joint" ? "Yes" : "Acknowledged"}
+              {proposalType === "joint" ? "Yes" : "Acknowledge"}
             </Button>
             <Button
               onClick={() => setChoice(secondaryChoice)}
@@ -746,19 +751,20 @@ function VoteFormStandalone({
                   Your allocation
                 </span>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Proposed donation: {currency(proposedAmount)}. Implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
+                  Proposed donation: {currency(proposedAmount)}. If split equally among voting members, that&apos;s {currency(impliedJointAllocation)} each. You may enter a different amount.
                 </p>
                 <div className="mt-1.5 flex items-center gap-2">
                   <AmountInput
                     min={0}
                     disabled={choice !== "yes"}
                     className="flex-1 rounded-lg placeholder:italic"
-                    placeholder={`Implied share: ${currency(impliedJointAllocation)}`}
+                    placeholder={`Equal share: ${currency(impliedJointAllocation)}`}
                     value={allocationAmount}
                     onChange={(event) => {
                       const v = event.target.value;
                       setAllocationAmount(v);
                       allocationAmountRef.current = v;
+                      setAllocationTouched(true);
                     }}
                   />
                   <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -772,7 +778,7 @@ function VoteFormStandalone({
                     Your allocation exceeds your total budget remaining ({currency(maxJointAllocation)}).
                   </p>
                 ) : null}
-                {choice === "yes" && (parsedAllocationAmount ?? 0) === 0 ? (
+                {allocationTouched && choice === "yes" && (parsedAllocationAmount ?? 0) === 0 ? (
                   <p className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3 shrink-0" />
                     Your allocation is $0.
@@ -783,7 +789,7 @@ function VoteFormStandalone({
           ) : (
             <>
               <p className="mt-2 text-xs text-muted-foreground">
-                Amount is proposer-set. Acknowledge or flag for discussion.
+                The donation amount is set by the proposer. Acknowledge the discretionary proposal or flag it for discussion.
               </p>
               {choice === "flagged" ? (
                 <label className="mt-3 block text-xs font-medium">
@@ -806,6 +812,7 @@ function VoteFormStandalone({
             type="submit"
             disabled={
               saving ||
+              (proposalType === "joint" && choice === "yes" && parsedAllocationAmount === null) ||
               (proposalType === "joint" &&
                 choice === "yes" &&
                 maxJointAllocation != null &&
@@ -815,7 +822,7 @@ function VoteFormStandalone({
             onClick={handleSubmitClick}
             onTouchEnd={handleTouchEnd}
           >
-            Submit Blind Vote
+            Submit Vote
           </Button>
         </>
       )}
