@@ -781,7 +781,7 @@ export default function WorkspaceClient() {
                         className="mt-3 w-full sm:w-auto"
                         onClick={() => setVoteDialogProposalId(item.proposalId)}
                       >
-                        <Vote className="h-4 w-4" /> Enter vote & amount
+                        <Vote className="h-4 w-4" /> {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
                       </Button>
                     </article>
                   );

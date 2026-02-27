@@ -222,7 +222,7 @@ function buildRequiredActionSummary(
           owner: "You",
           detail: `Submit your vote. ${voteDetail}`,
           tone: "attention",
-          ctaLabel: "Submit your vote",
+          ctaLabel: proposal.proposalType === "joint" ? "Enter vote & amount" : "Enter vote",
           openDetail: true
         };
       }
