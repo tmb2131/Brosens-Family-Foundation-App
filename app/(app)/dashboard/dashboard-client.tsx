@@ -836,7 +836,7 @@ export default function DashboardClient() {
       proposal: proposal.title.trim(),
       description: proposal.description.trim(),
       type: titleCase(proposal.proposalType),
-      amount: masked && proposal.proposalType !== "joint" ? "Blind until your vote is submitted" : proposal.proposalType === "joint" && proposal.status === "to_review" ? currency(proposal.proposedAmount) : proposal.progress.computedFinalAmount.toFixed(2),
+      amount: masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary" ? "Blind until your vote is submitted" : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review" ? currency(proposal.proposedAmount) : proposal.progress.computedFinalAmount.toFixed(2),
       status: titleCase(proposal.status),
       sentAt: proposal.sentAt ?? "",
       notes: proposal.notes?.trim() ?? "",
@@ -1775,7 +1775,7 @@ export default function DashboardClient() {
                           <StatusPill status={proposal.status} />
                         </div>
                         <p className="mt-2 text-lg font-semibold text-foreground">
-                          {masked && proposal.proposalType !== "joint" ? "Blind until voted" : proposal.proposalType === "joint" && proposal.status === "to_review" ? currency(proposal.proposedAmount) : currency(proposal.progress.computedFinalAmount)}
+                          {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary" ? "Blind until voted" : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review" ? currency(proposal.proposedAmount) : currency(proposal.progress.computedFinalAmount)}
                         </p>
                         <div className="mt-2 text-xs text-muted-foreground">
                           <p>{buildPendingActionRequiredLabel(proposal)}</p>
@@ -1810,9 +1810,9 @@ export default function DashboardClient() {
                             {titleCase(proposal.proposalType)}
                           </td>
                           <td className="px-2 py-3 text-xs text-muted-foreground">
-                            {masked && proposal.proposalType !== "joint"
+                            {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
                               ? "Blind until your vote is submitted"
-                              : proposal.proposalType === "joint" && proposal.status === "to_review"
+                              : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
                               ? currency(proposal.proposedAmount)
                               : currency(proposal.progress.computedFinalAmount)}
                           </td>
@@ -1993,9 +1993,9 @@ export default function DashboardClient() {
 
                   {!isRowEditable ? (
                     <p className="mt-2 text-lg font-semibold text-foreground">
-                      {masked && proposal.proposalType !== "joint"
+                      {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
                         ? "Blind until your vote is submitted"
-                        : proposal.proposalType === "joint" && proposal.status === "to_review"
+                        : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
                         ? currency(proposal.proposedAmount)
                         : currency(proposal.progress.computedFinalAmount)}
                     </p>
@@ -2052,9 +2052,9 @@ export default function DashboardClient() {
                         </>
                       ) : (
                         <p className="text-sm text-foreground">
-                          {masked && proposal.proposalType !== "joint"
+                          {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
                             ? "Blind until your vote is submitted"
-                            : proposal.proposalType === "joint" && proposal.status === "to_review"
+                            : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
                             ? currency(proposal.proposedAmount)
                             : currency(proposal.progress.computedFinalAmount)}
                         </p>
@@ -2248,9 +2248,9 @@ export default function DashboardClient() {
                     requiredAction.tone === "attention" &&
                     Boolean(requiredAction.openDetail && requiredAction.ctaLabel);
                   const amountDisplay =
-                    masked && proposal.proposalType !== "joint"
+                    masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
                       ? "Blind until your vote is submitted"
-                      : proposal.proposalType === "joint" && proposal.status === "to_review"
+                      : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
                       ? currency(proposal.proposedAmount)
                       : isHistoricalBulkEditEnabled
                       ? parsedDraftFinalAmount !== null && parsedDraftFinalAmount >= 0
@@ -2430,9 +2430,9 @@ export default function DashboardClient() {
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
                 <dd className="mt-1.5 text-lg font-bold text-foreground">
-                  {detailMasked && detailProposal?.proposalType !== "joint"
+                  {detailMasked && detailProposal?.proposalType !== "joint" && detailProposal?.proposalType !== "discretionary"
                     ? "Blind until your vote is submitted"
-                    : detailProposal?.proposalType === "joint" && detailProposal.status === "to_review"
+                    : (detailProposal?.proposalType === "joint" || detailProposal?.proposalType === "discretionary") && detailProposal?.status === "to_review"
                     ? currency(detailProposal.proposedAmount)
                     : currency(detailProposal.progress.computedFinalAmount)}
                 </dd>

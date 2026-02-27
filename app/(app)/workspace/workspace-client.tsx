@@ -386,9 +386,9 @@ export default function WorkspaceClient() {
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
                     <dd className="mt-1.5 text-lg font-bold text-foreground">
-                      {voteDialogItem.progress.masked && voteDialogItem.proposalType !== "joint"
+                      {voteDialogItem.progress.masked && voteDialogItem.proposalType !== "joint" && voteDialogItem.proposalType !== "discretionary"
                         ? "Blind until your vote is submitted"
-                        : voteDialogItem.proposalType === "joint" && voteDialogItem.status === "to_review"
+                        : (voteDialogItem.proposalType === "joint" || voteDialogItem.proposalType === "discretionary") && voteDialogItem.status === "to_review"
                         ? currency(voteDialogItem.proposedAmount)
                         : currency(voteDialogItem.progress.computedFinalAmount)}
                     </dd>
