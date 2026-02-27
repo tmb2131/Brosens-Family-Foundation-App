@@ -472,7 +472,7 @@ export default function WorkspaceClient() {
                 </div>
               </div>
               <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
-                <Link href="/proposals/new">
+                <Link href="/proposals/new" title="New Proposal (⇧N)">
                   <Plus className="h-4 w-4" /> New Proposal
                 </Link>
               </Button>

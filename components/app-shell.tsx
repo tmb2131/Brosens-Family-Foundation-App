@@ -618,6 +618,7 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
 
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, signOut } = useAuth();
   const [isSmallViewport, setIsSmallViewport] = useState(false);
   const [isStandalone, setIsStandalone] = useState(true);
@@ -699,12 +700,25 @@ export function AppShell({ children }: PropsWithChildren) {
         if (inInput) return;
         e.preventDefault();
         setTheme(resolvedTheme === "dark" ? "light" : "dark");
+        return;
+      }
+
+      if (e.shiftKey && (e.key === "N" || e.key === "n") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (inInput) return;
+        const canNewProposal =
+          user &&
+          focusNavItems.some(
+            (item) => item.href === "/proposals/new" && (!item.roles || item.roles.includes(user.role))
+          );
+        if (!canNewProposal) return;
+        e.preventDefault();
+        router.push("/proposals/new");
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar, resolvedTheme, setTheme]);
+  }, [toggleSidebar, resolvedTheme, setTheme, router, user]);
 
   const availableFullNav = useMemo(() => {
     if (!user) {
@@ -766,7 +780,6 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [pathname]);
 
   // Prefetch nav routes when the browser is idle so navigations feel instant.
-  const router = useRouter();
   useEffect(() => {
     if (!user) return;
     const hrefs = [
