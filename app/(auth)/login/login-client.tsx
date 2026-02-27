@@ -182,7 +182,7 @@ export default function LoginPage() {
         <CardValue>Foundation Login</CardValue>
         <p className="mt-1 text-sm text-muted-foreground">Sign in with your email and password.</p>
         <p className="mt-2 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          New users: the default password is <strong className="font-medium text-foreground">password</strong>. Change it
+          The default password is <strong className="font-medium text-foreground">password</strong>. Change it
           in{" "}
           <Link href="/settings" className="font-medium text-foreground underline-offset-2 hover:underline">
             Settings
