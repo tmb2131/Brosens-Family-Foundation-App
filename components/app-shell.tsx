@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import useSWR, { mutate as globalMutate, SWRConfig } from "swr";
 import { ComponentType, PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
 import { RolePill } from "@/components/ui/role-pill";
@@ -303,7 +304,7 @@ function SidebarUserCard({ isOpen, user, pathname, onSignOut }: SidebarUserCardP
           <TooltipTrigger asChild>
             <ThemeToggle className={sidebarControlBtnClass} />
           </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={8}>Toggle light / dark mode</TooltipContent>
+          <TooltipContent side="right" sideOffset={8}>Toggle light / dark mode (⇧D)</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -351,7 +352,7 @@ function SidebarUserCard({ isOpen, user, pathname, onSignOut }: SidebarUserCardP
           <TooltipTrigger asChild>
             <ThemeToggle className={sidebarControlBtnClass} />
           </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={6}>Toggle light / dark mode</TooltipContent>
+          <TooltipContent side="top" sideOffset={6}>Toggle light / dark mode (⇧D)</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -680,19 +681,30 @@ export function AppShell({ children }: PropsWithChildren) {
     setIsDesktopSidebarOpen((current) => !current);
   }, []);
 
+  const { resolvedTheme, setTheme } = useTheme();
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+
       if ((e.metaKey || e.ctrlKey) && e.key === "b" && !e.shiftKey && !e.altKey) {
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+        if (inInput) return;
         e.preventDefault();
         toggleSidebar();
+        return;
+      }
+
+      if (e.shiftKey && (e.key === "D" || e.key === "d") && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (inInput) return;
+        e.preventDefault();
+        setTheme(resolvedTheme === "dark" ? "light" : "dark");
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
+  }, [toggleSidebar, resolvedTheme, setTheme]);
 
   const availableFullNav = useMemo(() => {
     if (!user) {
