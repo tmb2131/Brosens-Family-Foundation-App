@@ -24,6 +24,7 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -209,6 +210,35 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [supabase]
   );
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!supabase) {
+        throw new Error(
+          "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+        );
+      }
+
+      const { data: { user: authUser }, error: getUserError } = await supabase.auth.getUser();
+      if (getUserError || !authUser?.email) {
+        throw new Error("Unable to verify your account. Please sign in again.");
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: authUser.email,
+        password: currentPassword
+      });
+      if (signInError) {
+        throw signInError;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        throw updateError;
+      }
+    },
+    [supabase]
+  );
+
   const value = useMemo(
     () => ({
       session,
@@ -219,9 +249,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signOut,
       refreshProfile,
       sendPasswordReset,
-      updatePassword
+      updatePassword,
+      changePassword
     }),
-    [session, user, loading, supabase, signIn, signOut, refreshProfile, sendPasswordReset, updatePassword]
+    [session, user, loading, supabase, signIn, signOut, refreshProfile, sendPasswordReset, updatePassword, changePassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

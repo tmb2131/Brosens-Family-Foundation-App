@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Progress } from "@/components/ui/progress";
@@ -56,7 +57,7 @@ interface OrganizationCategoryProcessResponse {
 }
 
 export default function SettingsPage() {
-  const { user, sendPasswordReset } = useAuth();
+  const { user, changePassword } = useAuth();
   const canManageBudget = Boolean(user && ["oversight", "manager"].includes(user.role));
   const canManageOrganizationCategories = user?.role === "oversight";
   const { data, mutate, isLoading, error } = useSWR<BudgetResponse>(canManageBudget ? "/api/budgets" : null);
@@ -71,8 +72,14 @@ export default function SettingsPage() {
   const [discretionaryRatio, setDiscretionaryRatio] = useState("0.25");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [sendingReset, setSendingReset] = useState(false);
-  const [resetMessage, setResetMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const [historicalCsvFile, setHistoricalCsvFile] = useState<File | null>(null);
   const [historicalImporting, setHistoricalImporting] = useState(false);
   const [historicalImportInputKey, setHistoricalImportInputKey] = useState(0);
@@ -183,27 +190,39 @@ export default function SettingsPage() {
     }
   };
 
-  const sendResetEmail = async () => {
-    if (!user) {
+  const handleChangePassword = async (event: FormEvent) => {
+    event.preventDefault();
+    setPasswordChangeMessage(null);
+
+    if (newPassword.length < 12) {
+      setPasswordChangeMessage({ tone: "error", text: "New password must be at least 12 characters." });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeMessage({ tone: "error", text: "Passwords do not match." });
       return;
     }
 
-    setSendingReset(true);
-    setResetMessage(null);
-
+    setChangingPassword(true);
     try {
-      await sendPasswordReset(user.email);
-      setResetMessage({
-        tone: "success",
-        text: `Password reset email sent to ${user.email}.`
-      });
+      await changePassword(currentPassword, newPassword);
+      setPasswordChangeMessage({ tone: "success", text: "Password updated." });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err) {
-      setResetMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Failed to send password reset email."
-      });
+      const msg = err instanceof Error ? err.message : "Failed to update password.";
+      const friendly =
+        msg.toLowerCase().includes("invalid login") || msg.toLowerCase().includes("invalid credentials")
+          ? "Current password is incorrect."
+          : msg.toLowerCase().includes("same password")
+            ? "Use a different password than your current one."
+            : msg.toLowerCase().includes("password")
+              ? "Your new password does not meet requirements. Use at least 12 characters."
+              : msg;
+      setPasswordChangeMessage({ tone: "error", text: friendly });
     } finally {
-      setSendingReset(false);
+      setChangingPassword(false);
     }
   };
 
@@ -426,27 +445,65 @@ export default function SettingsPage() {
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
           {canManageBudget
             ? "February 1 reset is enforced by setting the yearly budget record; unused funds roll back after Dec 31."
-            : "Use password reset to securely change your sign-in credentials."}
+            : "Change your password below."}
         </p>
       </GlassCard>
 
       <GlassCard>
-        <CardLabel>Password Reset</CardLabel>
-        <p className="mt-1 text-sm text-muted-foreground">Send a secure password reset link to {user.email}.</p>
-        <Button
-          variant="outline"
-          size="lg"
-          className="mt-3 w-full sm:w-auto"
-          onClick={() => void sendResetEmail()}
-          disabled={sendingReset}
-        >
-          {sendingReset ? "Sending..." : "Send Password Reset Email"}
-        </Button>
-        {resetMessage ? (
-          <p className={`mt-2 text-xs ${resetMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
-            {resetMessage.text}
-          </p>
-        ) : null}
+        <CardLabel>Change Password</CardLabel>
+        <p className="mt-1 text-sm text-muted-foreground">Update your sign-in password. You must enter your current password to confirm.</p>
+        <form className="mt-3 space-y-3" onSubmit={handleChangePassword} aria-busy={changingPassword}>
+          <div className="space-y-1.5">
+            <Label htmlFor="current-password">Current password</Label>
+            <PasswordInput
+              id="current-password"
+              className="rounded-xl"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-password">New password</Label>
+            <PasswordInput
+              id="new-password"
+              className="rounded-xl"
+              value={newPassword}
+              onChange={setNewPassword}
+              autoComplete="new-password"
+              minLength={12}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-password">Confirm new password</Label>
+            <PasswordInput
+              id="confirm-password"
+              className="rounded-xl"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              autoComplete="new-password"
+              minLength={12}
+              required
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Use at least 12 characters.</p>
+          <Button
+            type="submit"
+            variant="outline"
+            size="lg"
+            className="w-full sm:w-auto"
+            disabled={changingPassword}
+          >
+            {changingPassword ? "Updating…" : "Change password"}
+          </Button>
+          {passwordChangeMessage ? (
+            <p className={`text-xs ${passwordChangeMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
+              {passwordChangeMessage.text}
+            </p>
+          ) : null}
+        </form>
       </GlassCard>
 
       <PushSettingsCard />

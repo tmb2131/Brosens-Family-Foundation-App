@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { UserProfile } from "@/lib/types";
@@ -173,13 +174,12 @@ export default function LoginPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="login-password">Password</Label>
-            <Input
+            <PasswordInput
               id="login-password"
               className="rounded-xl"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={setPassword}
               required
-              type="password"
               autoComplete="current-password"
             />
           </div>
