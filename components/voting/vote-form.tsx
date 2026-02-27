@@ -740,7 +740,7 @@ function VoteFormStandalone({
           {proposalType === "joint" ? (
             <>
               <p className="mt-2 text-xs text-muted-foreground">
-                Proposed donation: {currency(proposedAmount)}. Your implied share: {currency(impliedJointAllocation)} each. You may enter a different amount.
+                Proposed donation: $15,000. Implied share: $5,000 each. You may enter a different amount.
               </p>
               <label className="mt-3 block">
                 <span className="block text-base font-semibold text-foreground">
