@@ -19,7 +19,7 @@ import {
   Vote
 } from "lucide-react";
 import useSWR, { mutate as globalMutate, SWRConfig } from "swr";
-import { ComponentType, PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ComponentType, PropsWithChildren, memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/auth/auth-provider";
 import { cn } from "@/lib/utils";
@@ -574,6 +574,31 @@ interface MobileBottomNavProps {
 }
 
 const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottomNavProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  const handleNavClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, item: NavItem) => {
+      e.preventDefault();
+      if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
+        return;
+      }
+      setPendingHref(item.href);
+      if (item.href === "/proposals/new") {
+        navigator.vibrate?.(10);
+      }
+      startTransition(() => {
+        router.push(item.href);
+      });
+    },
+    [pathname, router, startTransition]
+  );
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-50 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden [transform:translateZ(0)]"
@@ -584,14 +609,15 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
         style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length, 1)}, minmax(0, 1fr))` }}
       >
         {navItems.map((item) => {
-          const active = isRouteActive(pathname, item.href);
+          const active = isRouteActive(pathname, item.href) || pendingHref === item.href;
           const outstandingCount = outstandingByHref[item.href] ?? 0;
           const isNewProposalShortcut = item.href === "/proposals/new";
           const showNewProposalCta = isNewProposalShortcut && !active;
           return (
             <li key={item.href} className="min-w-0">
-              <Link
+              <a
                 href={item.href}
+                onClick={(e) => handleNavClick(e, item)}
                 className={cn(
                   "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl p-2 text-[0.6875rem] font-semibold text-[hsl(var(--foreground)/0.72)] transition-[background-color,border-color,color,box-shadow,transform] duration-[180ms] ease-in-out hover:bg-[hsl(var(--muted)/0.8)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2 motion-safe:active:scale-95",
                   active && "bg-accent text-white shadow-[0_10px_20px_-14px_hsl(var(--accent)/1)] hover:bg-accent hover:text-white",
@@ -599,7 +625,6 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
                 )}
                 aria-current={active ? "page" : undefined}
                 aria-label={outstandingCount > 0 ? `${item.label} (${outstandingCount})` : item.label}
-                onClick={showNewProposalCta ? () => { navigator.vibrate?.(10) } : undefined}
                 data-nav-href={item.href}
               >
                 <span className={cn("relative inline-flex", showNewProposalCta && "h-6 w-6 items-center justify-center rounded-full bg-[rgb(var(--proposal-cta))] text-[rgb(var(--proposal-cta-foreground))] shadow-[0_6px_12px_-8px_rgb(var(--proposal-cta)/1)] motion-safe:animate-[sidebar-cta-pulse_900ms_ease-out_1]")}>
@@ -607,7 +632,7 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
                   <OutstandingBadge count={outstandingCount} />
                 </span>
                 <span className="max-w-[4.25rem] truncate text-[10px] leading-tight">{item.label}</span>
-              </Link>
+              </a>
             </li>
           );
         })}
