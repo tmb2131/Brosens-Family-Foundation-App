@@ -3,13 +3,13 @@
  * encompass score (0-100) via their GraphQL API for auto-populating
  * organizations.charity_navigator_score.
  *
- * API: https://data.charitynavigator.org (Stellate-Api-Token required).
+ * API: https://api.charitynavigator.org/graphql.
  * Profile URL format: https://www.charitynavigator.org/ein/<9-digit EIN>
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const CHARITY_NAVIGATOR_API_URL = "https://data.charitynavigator.org";
+const CHARITY_NAVIGATOR_API_URL = "https://api.charitynavigator.org/graphql";
 const EIN_FROM_URL_REGEX = /charitynavigator\.org\/ein\/(\d{9})\b/i;
 
 /**
@@ -64,6 +64,7 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
         "Stellate-Api-Token": apiKey
       },
       body: JSON.stringify({ query, variables: { term: ein } })
