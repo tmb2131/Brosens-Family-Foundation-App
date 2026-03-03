@@ -37,16 +37,43 @@ interface PublicSearchFacetedResponse {
   errors?: Array<{ message?: string }>;
 }
 
-/**
- * Fetch Charity Navigator encompass score (0-100) by EIN via GraphQL API.
- * Uses env var CHARITY_NAVIGATOR_API_KEY (Stellate-Api-Token). If unset, returns null.
- * On API/network errors or missing score, returns null and logs; does not throw.
- */
-export async function fetchScoreByEin(ein: string): Promise<number | null> {
+type FetchScoreReason =
+  | "ok"
+  | "missing_api_key"
+  | "http_error"
+  | "graphql_error"
+  | "no_results"
+  | "missing_score"
+  | "invalid_score"
+  | "exception";
+
+interface FetchScoreByEinDebug {
+  reason: FetchScoreReason;
+  resultCount: number | null;
+  firstResultEin: string | null;
+  firstResultScore: number | string | null;
+  httpStatus: number | null;
+}
+
+interface FetchScoreByEinResult {
+  score: number | null;
+  debug: FetchScoreByEinDebug;
+}
+
+async function fetchScoreByEinWithDebug(ein: string): Promise<FetchScoreByEinResult> {
+  const emptyDebug = {
+    resultCount: null,
+    firstResultEin: null,
+    firstResultScore: null,
+    httpStatus: null
+  } satisfies Omit<FetchScoreByEinDebug, "reason">;
+
   const apiKey = process.env.CHARITY_NAVIGATOR_API_KEY?.trim();
   if (!apiKey) {
-    console.warn("[charity-navigator] missing CHARITY_NAVIGATOR_API_KEY");
-    return null;
+    return {
+      score: null,
+      debug: { reason: "missing_api_key", ...emptyDebug }
+    };
   }
 
   const query = `
@@ -72,28 +99,37 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
     });
 
     if (!res.ok) {
-      console.error("[charity-navigator] API HTTP error:", res.status, res.statusText);
-      return null;
+      return {
+        score: null,
+        debug: { reason: "http_error", ...emptyDebug, httpStatus: res.status }
+      };
     }
 
     const json = (await res.json()) as PublicSearchFacetedResponse;
-    const results = json.data?.publicSearchFaceted?.results;
-    console.info("[charity-navigator] response summary:", {
-      ein,
-      resultCount: Array.isArray(results) ? results.length : null,
-      firstResultEin: Array.isArray(results) && results.length > 0 ? results[0]?.ein ?? null : null,
-      firstResultScore:
-        Array.isArray(results) && results.length > 0 ? results[0]?.encompass_score ?? null : null
-    });
-
     if (json.errors?.length) {
-      console.error("[charity-navigator] GraphQL errors:", json.errors);
-      return null;
+      return {
+        score: null,
+        debug: { reason: "graphql_error", ...emptyDebug }
+      };
     }
 
+    const results = json.data?.publicSearchFaceted?.results;
+    const resultCount = Array.isArray(results) ? results.length : null;
+    const firstResultEin = Array.isArray(results) && results.length > 0 ? results[0]?.ein ?? null : null;
+    const firstResultScore =
+      Array.isArray(results) && results.length > 0 ? results[0]?.encompass_score ?? null : null;
+
     if (!Array.isArray(results) || results.length === 0) {
-      console.warn("[charity-navigator] no results for EIN:", ein);
-      return null;
+      return {
+        score: null,
+        debug: {
+          reason: "no_results",
+          resultCount,
+          firstResultEin,
+          firstResultScore,
+          httpStatus: null
+        }
+      };
     }
 
     const normalizedEin = ein.replace(/^0+/, "") || ein;
@@ -101,20 +137,59 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
       (r) => r?.ein != null && (r.ein === ein || r.ein.replace(/^0+/, "") === normalizedEin)
     );
     const candidate = match ?? results[0];
-    if (candidate?.encompass_score != null) {
-      const score = Number(candidate.encompass_score);
-      return Number.isFinite(score) && score >= 0 && score <= 100 ? score : null;
+    if (candidate?.encompass_score == null) {
+      return {
+        score: null,
+        debug: {
+          reason: "missing_score",
+          resultCount,
+          firstResultEin,
+          firstResultScore,
+          httpStatus: null
+        }
+      };
     }
-    console.warn("[charity-navigator] result missing encompass_score for EIN:", {
-      ein,
-      candidateEin: candidate?.ein ?? null
-    });
-    return null;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[charity-navigator] fetch error:", message);
-    return null;
+
+    const score = Number(candidate.encompass_score);
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+      return {
+        score: null,
+        debug: {
+          reason: "invalid_score",
+          resultCount,
+          firstResultEin,
+          firstResultScore,
+          httpStatus: null
+        }
+      };
+    }
+
+    return {
+      score,
+      debug: {
+        reason: "ok",
+        resultCount,
+        firstResultEin,
+        firstResultScore,
+        httpStatus: null
+      }
+    };
+  } catch {
+    return {
+      score: null,
+      debug: { reason: "exception", ...emptyDebug }
+    };
   }
+}
+
+/**
+ * Fetch Charity Navigator encompass score (0-100) by EIN via GraphQL API.
+ * Uses env var CHARITY_NAVIGATOR_API_KEY (Stellate-Api-Token). If unset, returns null.
+ * On API/network errors or missing score, returns null and logs; does not throw.
+ */
+export async function fetchScoreByEin(ein: string): Promise<number | null> {
+  const result = await fetchScoreByEinWithDebug(ein);
+  return result.score;
 }
 
 export interface CharityNavigatorScoreBackfillResult {
@@ -122,6 +197,25 @@ export interface CharityNavigatorScoreBackfillResult {
   skipped: number;
   failed: number;
   configMissing: boolean;
+  debug: {
+    processed: number;
+    scored: number;
+    noResults: number;
+    missingScore: number;
+    invalidScore: number;
+    httpErrors: number;
+    graphqlErrors: number;
+    exceptions: number;
+    missingApiKey: number;
+    samples: Array<{
+      ein: string;
+      reason: FetchScoreReason;
+      resultCount: number | null;
+      firstResultEin: string | null;
+      firstResultScore: number | string | null;
+      httpStatus: number | null;
+    }>;
+  };
 }
 
 type ProposalRow = { organization_id: string | null; proposal_charity_navigator_url: string | null };
@@ -139,7 +233,19 @@ export async function runCharityNavigatorScoreBackfill(
     updated: 0,
     skipped: 0,
     failed: 0,
-    configMissing: false
+    configMissing: false,
+    debug: {
+      processed: 0,
+      scored: 0,
+      noResults: 0,
+      missingScore: 0,
+      invalidScore: 0,
+      httpErrors: 0,
+      graphqlErrors: 0,
+      exceptions: 0,
+      missingApiKey: 0,
+      samples: []
+    }
   };
 
   if (!process.env.CHARITY_NAVIGATOR_API_KEY?.trim()) {
@@ -189,17 +295,40 @@ export async function runCharityNavigatorScoreBackfill(
   }
 
   for (const [organizationId, charityNavigatorUrl] of toProcess) {
+    result.debug.processed++;
     const ein = parseEinFromCharityNavigatorUrl(charityNavigatorUrl);
     if (!ein) {
       result.skipped++;
       continue;
     }
 
-    const score = await fetchScoreByEin(ein);
+    const scoreResult = await fetchScoreByEinWithDebug(ein);
+    const score = scoreResult.score;
+
+    if (scoreResult.debug.reason !== "ok" && result.debug.samples.length < 12) {
+      result.debug.samples.push({
+        ein,
+        reason: scoreResult.debug.reason,
+        resultCount: scoreResult.debug.resultCount,
+        firstResultEin: scoreResult.debug.firstResultEin,
+        firstResultScore: scoreResult.debug.firstResultScore,
+        httpStatus: scoreResult.debug.httpStatus
+      });
+    }
+
+    if (scoreResult.debug.reason === "missing_api_key") result.debug.missingApiKey++;
+    if (scoreResult.debug.reason === "http_error") result.debug.httpErrors++;
+    if (scoreResult.debug.reason === "graphql_error") result.debug.graphqlErrors++;
+    if (scoreResult.debug.reason === "no_results") result.debug.noResults++;
+    if (scoreResult.debug.reason === "missing_score") result.debug.missingScore++;
+    if (scoreResult.debug.reason === "invalid_score") result.debug.invalidScore++;
+    if (scoreResult.debug.reason === "exception") result.debug.exceptions++;
+
     if (score === null) {
       result.skipped++;
       continue;
     }
+    result.debug.scored++;
 
     const updates: { charity_navigator_score: number; charity_navigator_url?: string } = {
       charity_navigator_score: score
