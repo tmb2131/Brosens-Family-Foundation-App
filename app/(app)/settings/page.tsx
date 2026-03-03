@@ -448,25 +448,6 @@ export default function SettingsPage() {
         skipped?: number;
         failed?: number;
         error?: string;
-        debug?: {
-          processed?: number;
-          scored?: number;
-          noResults?: number;
-          missingScore?: number;
-          invalidScore?: number;
-          httpErrors?: number;
-          graphqlErrors?: number;
-          exceptions?: number;
-          missingApiKey?: number;
-          samples?: Array<{
-            ein?: string;
-            reason?: string;
-            resultCount?: number | null;
-            firstResultEin?: string | null;
-            firstResultScore?: number | string | null;
-            httpStatus?: number | null;
-          }>;
-        };
       };
 
       if (!response.ok) {
@@ -476,21 +457,9 @@ export default function SettingsPage() {
       const updated = Number(payload.updated ?? 0);
       const skipped = Number(payload.skipped ?? 0);
       const failed = Number(payload.failed ?? 0);
-      const debug = payload.debug;
-      const debugText = debug
-        ? ` Debug: processed ${formatNumber(Number(debug.processed ?? 0))}, scored ${formatNumber(
-            Number(debug.scored ?? 0)
-          )}, no results ${formatNumber(Number(debug.noResults ?? 0))}, missing score ${formatNumber(
-            Number(debug.missingScore ?? 0)
-          )}, invalid score ${formatNumber(Number(debug.invalidScore ?? 0))}, HTTP errors ${formatNumber(
-            Number(debug.httpErrors ?? 0)
-          )}, GraphQL errors ${formatNumber(Number(debug.graphqlErrors ?? 0))}, exceptions ${formatNumber(
-            Number(debug.exceptions ?? 0)
-          )}, missing key ${formatNumber(Number(debug.missingApiKey ?? 0))}.`
-        : "";
       setCharityNavigatorScoresMessage({
         tone: "success",
-        text: `Done. Updated ${formatNumber(updated)}, skipped ${formatNumber(skipped)}, failed ${formatNumber(failed)}.${debugText}`
+        text: `Done. Updated ${formatNumber(updated)}, skipped ${formatNumber(skipped)}, failed ${formatNumber(failed)}.`
       });
       void globalMutate("/api/foundation");
     } catch (error) {
