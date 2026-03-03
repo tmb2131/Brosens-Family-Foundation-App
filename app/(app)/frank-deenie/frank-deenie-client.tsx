@@ -1305,21 +1305,30 @@ export default function FrankDeenieClient() {
                     return (
                       <Fragment key={row.id}>
                         <DataTableRow
-                          className={`align-middle transition-colors hover:bg-muted/30 ${
+                          className={`group cursor-pointer align-middle transition-colors hover:bg-muted/30 ${
                             row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           }`}
+                          onClick={(event) => {
+                            const target = event.target;
+                            if (
+                              target instanceof HTMLElement &&
+                              target.closest("a,button,input,select,textarea,[role='button'],[data-row-open-ignore='true']")
+                            ) {
+                              return;
+                            }
+
+                            setDetailRowId(row.id);
+                          }}
                         >
                           <td className="px-2 py-3 text-xs text-muted-foreground align-middle">{tableDate(row.date)}</td>
                           <td className="px-2 py-3 align-middle">
                             <div className="min-w-0">
-                              <button
-                                type="button"
-                                onClick={() => setDetailRowId(row.id)}
-                                className="w-full truncate text-left font-semibold hover:underline hover:text-primary transition-colors"
+                              <p
+                                className="w-full truncate text-left font-semibold transition-colors group-hover:text-primary group-hover:underline"
                                 title={row.name}
                               >
                                 {row.name}
-                              </button>
+                              </p>
                               {row.source === "children" ? (
                                 <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                                   <Users className="h-3 w-3" />
