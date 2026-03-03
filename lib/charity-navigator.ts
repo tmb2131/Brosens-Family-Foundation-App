@@ -7,6 +7,8 @@
  * Profile URL format: https://www.charitynavigator.org/ein/<9-digit EIN>
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 const CHARITY_NAVIGATOR_API_URL = "https://data.charitynavigator.org";
 const EIN_FROM_URL_REGEX = /charitynavigator\.org\/ein\/(\d{9})\b/i;
 
@@ -99,4 +101,111 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
     console.error("[charity-navigator] fetch error:", message);
     return null;
   }
+}
+
+export interface CharityNavigatorScoreBackfillResult {
+  updated: number;
+  skipped: number;
+  failed: number;
+  configMissing: boolean;
+}
+
+type ProposalRow = { organization_id: string | null; proposal_charity_navigator_url: string | null };
+type OrgRow = { id: string; charity_navigator_url: string | null };
+
+/**
+ * Fetch Charity Navigator scores for all organizations that have a Charity Navigator URL
+ * (from proposals or organization record) and update organizations.charity_navigator_score.
+ * Uses env CHARITY_NAVIGATOR_API_KEY; if unset, no API calls are made.
+ */
+export async function runCharityNavigatorScoreBackfill(
+  admin: SupabaseClient
+): Promise<CharityNavigatorScoreBackfillResult> {
+  const result: CharityNavigatorScoreBackfillResult = {
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+    configMissing: false
+  };
+
+  if (!process.env.CHARITY_NAVIGATOR_API_KEY?.trim()) {
+    result.configMissing = true;
+    return result;
+  }
+
+  const { data: proposals, error: proposalsError } = await admin
+    .from("grant_proposals")
+    .select("organization_id, proposal_charity_navigator_url")
+    .not("organization_id", "is", null)
+    .returns<ProposalRow[]>();
+
+  if (proposalsError) {
+    result.failed++;
+  }
+
+  const { data: orgs, error: orgsError } = await admin
+    .from("organizations")
+    .select("id, charity_navigator_url")
+    .returns<OrgRow[]>();
+
+  if (orgsError) {
+    result.failed++;
+    return result;
+  }
+
+  const orgById = new Map((orgs ?? []).map((o) => [o.id, o]));
+  const toProcess = new Map<string, string>();
+
+  for (const p of proposals ?? []) {
+    const orgId = p.organization_id;
+    if (!orgId) continue;
+    const url =
+      (p.proposal_charity_navigator_url?.trim() || null) ??
+      (orgById.get(orgId)?.charity_navigator_url?.trim() || null);
+    if (url && parseEinFromCharityNavigatorUrl(url)) {
+      toProcess.set(orgId, url);
+    }
+  }
+
+  for (const o of orgs ?? []) {
+    const url = o.charity_navigator_url?.trim() || null;
+    if (url && parseEinFromCharityNavigatorUrl(url)) {
+      toProcess.set(o.id, url);
+    }
+  }
+
+  for (const [organizationId, charityNavigatorUrl] of toProcess) {
+    const ein = parseEinFromCharityNavigatorUrl(charityNavigatorUrl);
+    if (!ein) {
+      result.skipped++;
+      continue;
+    }
+
+    const score = await fetchScoreByEin(ein);
+    if (score === null) {
+      result.skipped++;
+      continue;
+    }
+
+    const updates: { charity_navigator_score: number; charity_navigator_url?: string } = {
+      charity_navigator_score: score
+    };
+    if (!orgById.get(organizationId)?.charity_navigator_url?.trim()) {
+      updates.charity_navigator_url = charityNavigatorUrl.trim();
+    }
+
+    const { error: updateError } = await admin
+      .from("organizations")
+      .update(updates)
+      .eq("id", organizationId);
+
+    if (updateError) {
+      result.failed++;
+      continue;
+    }
+
+    result.updated++;
+  }
+
+  return result;
 }

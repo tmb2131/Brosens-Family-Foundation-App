@@ -105,6 +105,11 @@ export default function SettingsPage() {
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const [runningCharityNavigatorScores, setRunningCharityNavigatorScores] = useState(false);
+  const [charityNavigatorScoresMessage, setCharityNavigatorScoresMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const parsedTotalAmount = parseNumberInput(totalAmount);
   const parsedRollover = parseNumberInput(rollover);
   const parsedJointRatio = parseNumberInput(jointRatio);
@@ -432,6 +437,41 @@ export default function SettingsPage() {
     }
   };
 
+  const runCharityNavigatorScores = async () => {
+    setRunningCharityNavigatorScores(true);
+    setCharityNavigatorScoresMessage(null);
+
+    try {
+      const response = await fetch("/api/settings/charity-navigator-scores", { method: "POST" });
+      const payload = (await response.json().catch(() => ({}))) as {
+        updated?: number;
+        skipped?: number;
+        failed?: number;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to fetch Charity Navigator scores."));
+      }
+
+      const updated = Number(payload.updated ?? 0);
+      const skipped = Number(payload.skipped ?? 0);
+      const failed = Number(payload.failed ?? 0);
+      setCharityNavigatorScoresMessage({
+        tone: "success",
+        text: `Done. Updated ${formatNumber(updated)}, skipped ${formatNumber(skipped)}, failed ${formatNumber(failed)}.`
+      });
+      void globalMutate("/api/foundation");
+    } catch (error) {
+      setCharityNavigatorScoresMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Failed to fetch Charity Navigator scores."
+      });
+    } finally {
+      setRunningCharityNavigatorScores(false);
+    }
+  };
+
   const selectedOrganization = (organizationCategoriesQuery.data?.organizations ?? []).find(
     (organization) => organization.id === selectedOrganizationId
   );
@@ -605,6 +645,36 @@ export default function SettingsPage() {
               }`}
             >
               {emailWorkerMessage.text}
+            </p>
+          ) : null}
+        </CollapsibleSection>
+      ) : null}
+
+      {user.role === "oversight" ? (
+        <CollapsibleSection title="Charity Navigator Scores" defaultOpen={false}>
+          <p className="text-sm text-muted-foreground">
+            Fetch Charity Navigator encompass scores for all organizations that have a Charity Navigator
+            URL (from proposals or organization record) and update organization scores. Requires{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">CHARITY_NAVIGATOR_API_KEY</code> in
+            environment.
+          </p>
+          <Button
+            size="lg"
+            className="mt-3 w-full sm:w-auto"
+            onClick={() => void runCharityNavigatorScores()}
+            disabled={runningCharityNavigatorScores}
+          >
+            {runningCharityNavigatorScores ? "Fetching…" : "Fetch Charity Navigator Scores"}
+          </Button>
+          {charityNavigatorScoresMessage ? (
+            <p
+              className={`mt-2 text-xs ${
+                charityNavigatorScoresMessage.tone === "error"
+                  ? "text-rose-600"
+                  : "text-emerald-700 dark:text-emerald-300"
+              }`}
+            >
+              {charityNavigatorScoresMessage.text}
             </p>
           ) : null}
         </CollapsibleSection>
