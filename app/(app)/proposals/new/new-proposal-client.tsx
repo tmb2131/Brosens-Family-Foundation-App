@@ -23,6 +23,22 @@ interface ProposalTitleSuggestionsResponse {
   titles: string[];
 }
 
+type CharityNavigatorPreviewState =
+  | "preview_available"
+  | "missing_ein"
+  | "no_score"
+  | "config_missing"
+  | "upstream_error";
+
+interface CharityNavigatorPreviewResponse {
+  state: CharityNavigatorPreviewState;
+  normalizedUrl: string | null;
+  ein: string | null;
+  score: number | null;
+  organizationName: string | null;
+  message?: string;
+}
+
 type ProposalTypeOption = "" | "joint" | "discretionary";
 
 export default function NewProposalClient() {
@@ -43,6 +59,9 @@ export default function NewProposalClient() {
   const [proposalType, setProposalType] = useState<ProposalTypeOption>("");
   const [proposedAmount, setProposedAmount] = useState("0");
   const [proposerAllocationAmount, setProposerAllocationAmount] = useState("");
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewResult, setPreviewResult] = useState<CharityNavigatorPreviewResponse | null>(null);
   const [isTitleSuggestionsOpen, setIsTitleSuggestionsOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const parsedProposedAmount = parseNumberInput(proposedAmount);
@@ -146,6 +165,35 @@ export default function NewProposalClient() {
       setProposalType("joint");
     }
   }, [isManager, proposalType]);
+
+  const previewCharityNavigator = async () => {
+    if (!charityNavigatorUrl.trim() || isPreviewLoading) {
+      return;
+    }
+
+    setPreviewError(null);
+    setPreviewResult(null);
+    setIsPreviewLoading(true);
+
+    try {
+      const response = await fetch("/api/charity-navigator/preview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ charityNavigatorUrl })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ error: "Failed to preview link" }));
+        throw new Error(payload.error || "Failed to preview link");
+      }
+
+      const payload = (await response.json()) as CharityNavigatorPreviewResponse;
+      setPreviewResult(payload);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Failed to preview link");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
 
   if (!user) {
     return null;
@@ -717,19 +765,51 @@ export default function NewProposalClient() {
 
           <div className="space-y-1.5">
             <Label htmlFor="charity-nav-url">Charity Navigator link (optional)</Label>
-            <Input
-              id="charity-nav-url"
-              type="text"
-              value={charityNavigatorUrl}
-              onChange={(event) => setCharityNavigatorUrl(event.target.value)}
-              className="rounded-xl"
-              placeholder="e.g. charitynavigator.org/... or full URL"
-              inputMode="url"
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id="charity-nav-url"
+                type="text"
+                value={charityNavigatorUrl}
+                onChange={(event) => {
+                  setCharityNavigatorUrl(event.target.value);
+                  setPreviewError(null);
+                  setPreviewResult(null);
+                }}
+                className="rounded-xl"
+                placeholder="e.g. charitynavigator.org/ein/#########"
+                inputMode="url"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 rounded-xl"
+                disabled={isPreviewLoading || !charityNavigatorUrl.trim()}
+                onClick={() => void previewCharityNavigator()}
+              >
+                {isPreviewLoading ? "Previewing..." : "Preview"}
+              </Button>
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Add the Charity Navigator profile URL. The app auto-populates the score and summary
-              from this link.
+              Add the Charity Navigator profile URL. The app auto-populates the score from this
+              link when you submit.
             </p>
+            {previewError ? (
+              <p className="mt-1 text-xs text-rose-600">{previewError}</p>
+            ) : null}
+            {previewResult?.state === "preview_available" ? (
+              <div className="mt-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+                {previewResult.organizationName?.trim()
+                  ? `${previewResult.organizationName.trim()}'s score preview: `
+                  : "This charity's score preview: "}
+                {previewResult.score ?? "—"} / 100
+                {previewResult.ein ? ` (EIN ${previewResult.ein})` : ""}
+              </div>
+            ) : null}
+            {previewResult && previewResult.state !== "preview_available" ? (
+              <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                {previewResult.message ?? "Preview unavailable for this link."}
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">

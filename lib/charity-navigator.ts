@@ -28,6 +28,11 @@ interface PublicSearchResult {
   encompass_score?: number | null;
 }
 
+interface PublicSearchNameResult {
+  ein?: string | null;
+  organization_name?: string | null;
+}
+
 interface PublicSearchFacetedResponse {
   data?: {
     publicSearchFaceted?: {
@@ -43,9 +48,37 @@ interface PublicSearchFacetedResponse {
  * On API/network errors or missing score, returns null and logs; does not throw.
  */
 export async function fetchScoreByEin(ein: string): Promise<number | null> {
+  const scoreDetails = await fetchScoreDetailsByEin(ein);
+  return scoreDetails.score;
+}
+
+export interface CharityNavigatorPreviewResult {
+  ein: string;
+  score: number | null;
+  matchedEin: string | null;
+  organizationName: string | null;
+  configMissing: boolean;
+  upstreamError: boolean;
+}
+
+interface CharityNavigatorScoreDetails {
+  ein: string;
+  score: number | null;
+  matchedEin: string | null;
+  configMissing: boolean;
+  upstreamError: boolean;
+}
+
+async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScoreDetails> {
   const apiKey = process.env.CHARITY_NAVIGATOR_API_KEY?.trim();
   if (!apiKey) {
-    return null;
+    return {
+      ein,
+      score: null,
+      matchedEin: null,
+      configMissing: true,
+      upstreamError: false
+    };
   }
 
   const query = `
@@ -71,12 +104,102 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
 
     if (!res.ok) {
       console.error("[charity-navigator] API HTTP error:", res.status, res.statusText);
-      return null;
+      return {
+        ein,
+        score: null,
+        matchedEin: null,
+        configMissing: false,
+        upstreamError: true
+      };
     }
 
     const json = (await res.json()) as PublicSearchFacetedResponse;
     if (json.errors?.length) {
       console.error("[charity-navigator] GraphQL errors:", json.errors);
+      return {
+        ein,
+        score: null,
+        matchedEin: null,
+        configMissing: false,
+        upstreamError: true
+      };
+    }
+
+    const results = json.data?.publicSearchFaceted?.results;
+    if (!Array.isArray(results) || results.length === 0) {
+      return {
+        ein,
+        score: null,
+        matchedEin: null,
+        configMissing: false,
+        upstreamError: false
+      };
+    }
+
+    const normalizedEin = ein.replace(/^0+/, "") || ein;
+    const match = results.find(
+      (r) => r?.ein != null && (r.ein === ein || r.ein.replace(/^0+/, "") === normalizedEin)
+    );
+    const candidate = match ?? results[0];
+    const rawScore = candidate?.encompass_score;
+    const score = rawScore != null ? Number(rawScore) : null;
+
+    return {
+      ein,
+      score: Number.isFinite(score) && score != null && score >= 0 && score <= 100 ? score : null,
+      matchedEin: candidate?.ein ?? null,
+      configMissing: false,
+      upstreamError: false
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[charity-navigator] fetch error:", message);
+    return {
+      ein,
+      score: null,
+      matchedEin: null,
+      configMissing: false,
+      upstreamError: true
+    };
+  }
+}
+
+async function fetchOrganizationNameByEin(ein: string): Promise<string | null> {
+  const apiKey = process.env.CHARITY_NAVIGATOR_API_KEY?.trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  const query = `
+    query PublicSearchFaceted($term: String!) {
+      publicSearchFaceted(term: $term) {
+        results {
+          ein
+          organization_name
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch(CHARITY_NAVIGATOR_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: apiKey
+      },
+      body: JSON.stringify({ query, variables: { term: ein } })
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const json = (await res.json()) as {
+      data?: { publicSearchFaceted?: { results?: PublicSearchNameResult[] | null } | null } | null;
+      errors?: Array<{ message?: string }>;
+    };
+    if (json.errors?.length) {
       return null;
     }
 
@@ -90,17 +213,24 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
       (r) => r?.ein != null && (r.ein === ein || r.ein.replace(/^0+/, "") === normalizedEin)
     );
     const candidate = match ?? results[0];
-    if (candidate?.encompass_score != null) {
-      const score = Number(candidate.encompass_score);
-      return Number.isFinite(score) && score >= 0 && score <= 100 ? score : null;
-    }
-
-    return null;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[charity-navigator] fetch error:", message);
+    const name = candidate?.organization_name?.trim();
+    return name ? name : null;
+  } catch {
     return null;
   }
+}
+
+export async function fetchPreviewByEin(ein: string): Promise<CharityNavigatorPreviewResult> {
+  const scoreDetails = await fetchScoreDetailsByEin(ein);
+  const organizationName =
+    !scoreDetails.configMissing && !scoreDetails.upstreamError
+      ? await fetchOrganizationNameByEin(ein)
+      : null;
+
+  return {
+    ...scoreDetails,
+    organizationName
+  };
 }
 
 export interface CharityNavigatorScoreBackfillResult {

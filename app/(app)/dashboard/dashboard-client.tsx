@@ -84,6 +84,22 @@ interface PendingResponse {
   proposals: FoundationSnapshot["proposals"];
 }
 
+type CharityNavigatorPreviewState =
+  | "preview_available"
+  | "missing_ein"
+  | "no_score"
+  | "config_missing"
+  | "upstream_error";
+
+interface CharityNavigatorPreviewResponse {
+  state: CharityNavigatorPreviewState;
+  normalizedUrl: string | null;
+  ein: string | null;
+  score: number | null;
+  organizationName: string | null;
+  message?: string;
+}
+
 interface ProposalDraft {
   status: ProposalStatus;
   finalAmount: string;
@@ -455,6 +471,8 @@ export default function DashboardClient() {
   const [detailEditDraft, setDetailEditDraft] = useState<ProposalDetailEditDraft | null>(null);
   const [isDetailSaving, setIsDetailSaving] = useState(false);
   const [detailEditError, setDetailEditError] = useState<string | null>(null);
+  const [detailCharityNavigatorPreview, setDetailCharityNavigatorPreview] =
+    useState<CharityNavigatorPreviewResponse | null>(null);
   const [bulkMessage, setBulkMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
@@ -754,6 +772,50 @@ export default function DashboardClient() {
     setIsDetailSaving(false);
     setDetailEditError(null);
   }, [detailProposalId]);
+
+  useEffect(() => {
+    if (!detailProposalId) {
+      setDetailCharityNavigatorPreview(null);
+      return;
+    }
+
+    const currentProposal = data?.proposals.find((proposal) => proposal.id === detailProposalId);
+    const charityNavigatorUrl = currentProposal?.charityNavigatorUrl?.trim() ?? "";
+    if (!charityNavigatorUrl) {
+      setDetailCharityNavigatorPreview(null);
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/charity-navigator/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ charityNavigatorUrl })
+        });
+        if (!response.ok) {
+          if (active) {
+            setDetailCharityNavigatorPreview(null);
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
+        if (active) {
+          setDetailCharityNavigatorPreview(payload);
+        }
+      } catch {
+        if (active) {
+          setDetailCharityNavigatorPreview(null);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [data, detailProposalId]);
 
   useEffect(() => {
     if (!detailProposalId) {
@@ -1380,6 +1442,7 @@ export default function DashboardClient() {
     ? parseNumberInput(detailEditDraft.proposedAmount)
     : null;
   const detailRowState = detailProposal ? rowMessage[detailProposal.id] : null;
+  const detailApiOrganizationName = detailCharityNavigatorPreview?.organizationName?.trim() || null;
 
   return (
     <div className="page-stack pb-4">
@@ -2484,7 +2547,10 @@ export default function DashboardClient() {
                       {detailProposal.charityNavigatorScore != null ? (
                         <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
                           <p className="font-medium text-foreground">
-                            This charity&apos;s score is {Math.round(detailProposal.charityNavigatorScore)}%, earning it a{" "}
+                            {detailApiOrganizationName
+                              ? `${detailApiOrganizationName}'s score is `
+                              : "This charity's score is "}
+                            {Math.round(detailProposal.charityNavigatorScore)}%, earning it a{" "}
                             {charityNavigatorRating(detailProposal.charityNavigatorScore).starLabel} rating.
                           </p>
                           <p className="mt-1 text-muted-foreground">

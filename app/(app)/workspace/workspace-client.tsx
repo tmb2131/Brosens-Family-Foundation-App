@@ -65,6 +65,22 @@ const WALKTHROUGH_STEPS: Array<{
   }
 ];
 
+type CharityNavigatorPreviewState =
+  | "preview_available"
+  | "missing_ein"
+  | "no_score"
+  | "config_missing"
+  | "upstream_error";
+
+interface CharityNavigatorPreviewResponse {
+  state: CharityNavigatorPreviewState;
+  normalizedUrl: string | null;
+  ein: string | null;
+  score: number | null;
+  organizationName: string | null;
+  message?: string;
+}
+
 export default function WorkspaceClient() {
   const { user } = useAuth();
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
@@ -81,6 +97,8 @@ export default function WorkspaceClient() {
   } | null>(null);
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
+  const [voteDialogCharityNavigatorPreview, setVoteDialogCharityNavigatorPreview] =
+    useState<CharityNavigatorPreviewResponse | null>(null);
   const { registerStartWalkthrough } = useWorkspaceWalkthrough();
   const isSmallScreen = useIsMobile();
 
@@ -187,6 +205,52 @@ export default function WorkspaceClient() {
     { refreshInterval: 30_000 }
   );
 
+  useEffect(() => {
+    if (!voteDialogProposalId || !workspaceQuery.data) {
+      setVoteDialogCharityNavigatorPreview(null);
+      return;
+    }
+
+    const item = workspaceQuery.data.actionItems.find(
+      (entry) => entry.proposalId === voteDialogProposalId
+    );
+    const charityNavigatorUrl = item?.charityNavigatorUrl?.trim() ?? "";
+    if (!charityNavigatorUrl) {
+      setVoteDialogCharityNavigatorPreview(null);
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/charity-navigator/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ charityNavigatorUrl })
+        });
+        if (!response.ok) {
+          if (active) {
+            setVoteDialogCharityNavigatorPreview(null);
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
+        if (active) {
+          setVoteDialogCharityNavigatorPreview(payload);
+        }
+      } catch {
+        if (active) {
+          setVoteDialogCharityNavigatorPreview(null);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [voteDialogProposalId, workspaceQuery.data]);
+
   if (workspaceQuery.isLoading) {
     return (
       <div className="page-stack pb-4">
@@ -283,6 +347,8 @@ export default function WorkspaceClient() {
     voteDialogProposalId != null
       ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId)
       : null;
+  const voteDialogApiOrganizationName =
+    voteDialogCharityNavigatorPreview?.organizationName?.trim() || null;
 
   return (
     <div className="page-stack pb-4">
@@ -440,7 +506,10 @@ export default function WorkspaceClient() {
                           {voteDialogItem.charityNavigatorScore != null ? (
                             <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
                               <p className="font-medium text-foreground">
-                                This charity&apos;s score is {Math.round(voteDialogItem.charityNavigatorScore)}%, earning it a{" "}
+                                {voteDialogApiOrganizationName
+                                  ? `${voteDialogApiOrganizationName}'s score is `
+                                  : "This charity's score is "}
+                                {Math.round(voteDialogItem.charityNavigatorScore)}%, earning it a{" "}
                                 {charityNavigatorRating(voteDialogItem.charityNavigatorScore).starLabel} rating.
                               </p>
                               <p className="mt-1 text-muted-foreground">
