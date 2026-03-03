@@ -92,8 +92,7 @@ async function fetchScoreByEinWithDebug(ein: string): Promise<FetchScoreByEinRes
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-        "Stellate-Api-Token": apiKey
+        Authorization: apiKey
       },
       body: JSON.stringify({ query, variables: { term: ein } })
     });
@@ -184,7 +183,7 @@ async function fetchScoreByEinWithDebug(ein: string): Promise<FetchScoreByEinRes
 
 /**
  * Fetch Charity Navigator encompass score (0-100) by EIN via GraphQL API.
- * Uses env var CHARITY_NAVIGATOR_API_KEY (Stellate-Api-Token). If unset, returns null.
+ * Uses env var CHARITY_NAVIGATOR_API_KEY in Authorization header. If unset, returns null.
  * On API/network errors or missing score, returns null and logs; does not throw.
  */
 export async function fetchScoreByEin(ein: string): Promise<number | null> {
