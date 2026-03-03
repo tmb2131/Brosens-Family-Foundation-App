@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ChevronDown, ChevronUp, CheckCircle2, DollarSign, Download, MoreHorizontal, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -2340,17 +2340,29 @@ export default function DashboardClient() {
                   return (
                     <DataTableRow
                       key={proposal.id}
-                      className={viewerMustAct ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""}
+                      className={cn(
+                        "group cursor-pointer",
+                        viewerMustAct ? "border-l-2 border-l-amber-400 dark:border-l-amber-500" : ""
+                      )}
+                      onClick={(event) => {
+                        const target = event.target;
+                        if (
+                          target instanceof HTMLElement &&
+                          target.closest("a,button,input,select,textarea,[role='button'],[data-row-open-ignore='true']")
+                        ) {
+                          return;
+                        }
+
+                        setDetailProposalId(proposal.id);
+                      }}
                     >
                       <td className="w-[20rem] max-w-[20rem] px-2 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setDetailProposalId(proposal.id)}
-                          className="block max-w-full truncate font-semibold hover:underline hover:text-primary transition-colors text-left"
+                        <p
+                          className="block max-w-full truncate font-semibold transition-colors group-hover:text-primary group-hover:underline"
                           title={proposal.title}
                         >
                           {proposal.title}
-                        </button>
+                        </p>
                         <p
                           className="mt-1 block max-w-full truncate text-xs text-muted-foreground"
                           title={proposal.description}
@@ -2409,9 +2421,10 @@ export default function DashboardClient() {
                           variant="outline"
                           size="icon-sm"
                           onClick={() => setDetailProposalId(proposal.id)}
+                          className="text-muted-foreground hover:text-foreground"
                           aria-label={`View details for ${proposal.title}`}
                         >
-                          <MoreHorizontal className="h-4 w-4" />
+                          <ChevronRight className="h-4 w-4" />
                         </Button>
                       </td>
                     </DataTableRow>

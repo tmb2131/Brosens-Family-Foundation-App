@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, PropsWithChildren } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes, PropsWithChildren } from "react";
 import { cn } from "@/lib/utils";
 
 export function DataTableHeadRow({
@@ -10,9 +10,14 @@ export function DataTableHeadRow({
 
 export function DataTableRow({
   children,
-  className
-}: PropsWithChildren<{ className?: string }>) {
-  return <tr className={cn("border-b align-top transition-colors hover:bg-muted/60", className)}>{children}</tr>;
+  className,
+  ...props
+}: PropsWithChildren<HTMLAttributes<HTMLTableRowElement>>) {
+  return (
+    <tr className={cn("border-b align-top transition-colors hover:bg-muted/60", className)} {...props}>
+      {children}
+    </tr>
+  );
 }
 
 export function DataTableSortButton({
