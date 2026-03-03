@@ -26,11 +26,7 @@ export function parseEinFromCharityNavigatorUrl(url: string): string | null {
 interface PublicSearchResult {
   ein?: string | null;
   encompass_score?: number | null;
-}
-
-interface PublicSearchNameResult {
-  ein?: string | null;
-  organization_name?: string | null;
+  name?: string | null;
 }
 
 interface PublicSearchFacetedResponse {
@@ -65,6 +61,7 @@ interface CharityNavigatorScoreDetails {
   ein: string;
   score: number | null;
   matchedEin: string | null;
+  organizationName: string | null;
   configMissing: boolean;
   upstreamError: boolean;
 }
@@ -76,6 +73,7 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
       ein,
       score: null,
       matchedEin: null,
+      organizationName: null,
       configMissing: true,
       upstreamError: false
     };
@@ -87,6 +85,7 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
         results {
           ein
           encompass_score
+          name
         }
       }
     }
@@ -108,6 +107,7 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
         ein,
         score: null,
         matchedEin: null,
+        organizationName: null,
         configMissing: false,
         upstreamError: true
       };
@@ -120,6 +120,7 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
         ein,
         score: null,
         matchedEin: null,
+        organizationName: null,
         configMissing: false,
         upstreamError: true
       };
@@ -131,6 +132,7 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
         ein,
         score: null,
         matchedEin: null,
+        organizationName: null,
         configMissing: false,
         upstreamError: false
       };
@@ -148,6 +150,7 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
       ein,
       score: Number.isFinite(score) && score != null && score >= 0 && score <= 100 ? score : null,
       matchedEin: candidate?.ein ?? null,
+      organizationName: candidate?.name?.trim() || null,
       configMissing: false,
       upstreamError: false
     };
@@ -158,78 +161,19 @@ async function fetchScoreDetailsByEin(ein: string): Promise<CharityNavigatorScor
       ein,
       score: null,
       matchedEin: null,
+      organizationName: null,
       configMissing: false,
       upstreamError: true
     };
   }
 }
 
-async function fetchOrganizationNameByEin(ein: string): Promise<string | null> {
-  const apiKey = process.env.CHARITY_NAVIGATOR_API_KEY?.trim();
-  if (!apiKey) {
-    return null;
-  }
-
-  const query = `
-    query PublicSearchFaceted($term: String!) {
-      publicSearchFaceted(term: $term) {
-        results {
-          ein
-          organization_name
-        }
-      }
-    }
-  `;
-
-  try {
-    const res = await fetch(CHARITY_NAVIGATOR_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: apiKey
-      },
-      body: JSON.stringify({ query, variables: { term: ein } })
-    });
-
-    if (!res.ok) {
-      return null;
-    }
-
-    const json = (await res.json()) as {
-      data?: { publicSearchFaceted?: { results?: PublicSearchNameResult[] | null } | null } | null;
-      errors?: Array<{ message?: string }>;
-    };
-    if (json.errors?.length) {
-      return null;
-    }
-
-    const results = json.data?.publicSearchFaceted?.results;
-    if (!Array.isArray(results) || results.length === 0) {
-      return null;
-    }
-
-    const normalizedEin = ein.replace(/^0+/, "") || ein;
-    const match = results.find(
-      (r) => r?.ein != null && (r.ein === ein || r.ein.replace(/^0+/, "") === normalizedEin)
-    );
-    const candidate = match ?? results[0];
-    const name = candidate?.organization_name?.trim();
-    return name ? name : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function fetchPreviewByEin(ein: string): Promise<CharityNavigatorPreviewResult> {
   const scoreDetails = await fetchScoreDetailsByEin(ein);
-  const organizationName =
-    !scoreDetails.configMissing && !scoreDetails.upstreamError
-      ? await fetchOrganizationNameByEin(ein)
-      : null;
 
   return {
     ...scoreDetails,
-    organizationName
+    organizationName: scoreDetails.organizationName
   };
 }
 
