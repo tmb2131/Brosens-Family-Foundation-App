@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { AlertTriangle, Check, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
@@ -29,6 +29,22 @@ function getMeetingSegment(proposal: MeetingProposal): MeetingSegment {
 
 interface MeetingResponse {
   proposals: FoundationSnapshot["proposals"];
+}
+
+type CharityNavigatorPreviewState =
+  | "preview_available"
+  | "missing_ein"
+  | "no_score"
+  | "config_missing"
+  | "upstream_error";
+
+interface CharityNavigatorPreviewResponse {
+  state: CharityNavigatorPreviewState;
+  normalizedUrl: string | null;
+  ein: string | null;
+  score: number | null;
+  organizationName: string | null;
+  message?: string;
 }
 
 function MeetingProposalCard({
@@ -132,8 +148,55 @@ export default function MeetingPage() {
     proposalTitle: string;
     status: "approved" | "declined";
   } | null>(null);
+  const [meetingDialogCharityNavigatorPreview, setMeetingDialogCharityNavigatorPreview] =
+    useState<CharityNavigatorPreviewResponse | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+
+  const meetingDialogProposal =
+    meetingDialogProposalId != null
+      ? data?.proposals.find((p) => p.id === meetingDialogProposalId) ?? null
+      : null;
+
+  const meetingDialogApiOrganizationName =
+    meetingDialogCharityNavigatorPreview?.organizationName?.trim() || null;
+
+  useEffect(() => {
+    if (!meetingDialogProposal?.charityNavigatorUrl) {
+      setMeetingDialogCharityNavigatorPreview(null);
+      return;
+    }
+
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/charity-navigator/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ charityNavigatorUrl: meetingDialogProposal.charityNavigatorUrl })
+        });
+        if (!response.ok) {
+          if (active) {
+            setMeetingDialogCharityNavigatorPreview(null);
+          }
+          return;
+        }
+
+        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
+        if (active) {
+          setMeetingDialogCharityNavigatorPreview(payload);
+        }
+      } catch {
+        if (active) {
+          setMeetingDialogCharityNavigatorPreview(null);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [meetingDialogProposal?.charityNavigatorUrl]);
 
   if (!user || !["oversight", "manager"].includes(user.role)) {
     return (
@@ -308,11 +371,6 @@ export default function MeetingPage() {
     pending: pendingProposals,
     needs_discussion: needsDiscussionProposals
   };
-
-  const meetingDialogProposal =
-    meetingDialogProposalId != null
-      ? data.proposals.find((p) => p.id === meetingDialogProposalId)
-      : null;
 
   const metricsCards = [
     <MetricCard
@@ -556,7 +614,11 @@ export default function MeetingPage() {
                   {meetingDialogProposal.charityNavigatorScore != null ? (
                     <>
                       <p className="text-sm font-medium text-foreground">
-                        {Math.round(meetingDialogProposal.charityNavigatorScore)}% · {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).starLabel}
+                        {meetingDialogApiOrganizationName
+                          ? `${meetingDialogApiOrganizationName}'s score is `
+                          : "This charity's score is "}
+                        {Math.round(meetingDialogProposal.charityNavigatorScore)}%, earning it a{" "}
+                        {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).starLabel} rating.
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
                         {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).meaning}
