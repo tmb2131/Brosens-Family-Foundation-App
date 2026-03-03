@@ -45,6 +45,7 @@ interface PublicSearchFacetedResponse {
 export async function fetchScoreByEin(ein: string): Promise<number | null> {
   const apiKey = process.env.CHARITY_NAVIGATOR_API_KEY?.trim();
   if (!apiKey) {
+    console.warn("[charity-navigator] missing CHARITY_NAVIGATOR_API_KEY");
     return null;
   }
 
@@ -76,14 +77,22 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
     }
 
     const json = (await res.json()) as PublicSearchFacetedResponse;
+    const results = json.data?.publicSearchFaceted?.results;
+    console.info("[charity-navigator] response summary:", {
+      ein,
+      resultCount: Array.isArray(results) ? results.length : null,
+      firstResultEin: Array.isArray(results) && results.length > 0 ? results[0]?.ein ?? null : null,
+      firstResultScore:
+        Array.isArray(results) && results.length > 0 ? results[0]?.encompass_score ?? null : null
+    });
 
     if (json.errors?.length) {
       console.error("[charity-navigator] GraphQL errors:", json.errors);
       return null;
     }
 
-    const results = json.data?.publicSearchFaceted?.results;
     if (!Array.isArray(results) || results.length === 0) {
+      console.warn("[charity-navigator] no results for EIN:", ein);
       return null;
     }
 
@@ -96,6 +105,10 @@ export async function fetchScoreByEin(ein: string): Promise<number | null> {
       const score = Number(candidate.encompass_score);
       return Number.isFinite(score) && score >= 0 && score <= 100 ? score : null;
     }
+    console.warn("[charity-navigator] result missing encompass_score for EIN:", {
+      ein,
+      candidateEin: candidate?.ein ?? null
+    });
     return null;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
