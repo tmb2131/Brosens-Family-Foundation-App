@@ -1297,7 +1297,16 @@ export default function FrankDeenieClient() {
               setIsExportMenuOpen(false);
             }}
           >
-            <table className="min-w-[860px] table-auto text-left text-xs">
+            <table className="w-full table-fixed text-left text-xs">
+              <colgroup>
+                <col className="w-[7%]" />
+                <col className="w-[22%]" />
+                <col />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[7%]" />
+                <col className="w-[4%]" />
+              </colgroup>
               <thead className="sticky top-0 z-10 bg-card">
                 <DataTableHeadRow>
                   <th className="px-2 py-2">
