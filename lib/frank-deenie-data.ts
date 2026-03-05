@@ -14,12 +14,14 @@ interface FrankDeenieDonationDbRow {
   amount: number | string;
   status: string;
   created_at: string;
+  created_by: string | null;
 }
 
 interface ChildrenProposalRow {
   id: string;
   grant_master_id: string;
   organization_id: string | null;
+  proposer_id: string;
   final_amount: number | string;
   status: string;
   notes: string | null;
@@ -77,7 +79,7 @@ export interface FrankDeenieImportRow {
 }
 
 const DONATION_SELECT =
-  "id, donation_date, donation_type, recipient_name, memo, split, amount, status, created_at";
+  "id, donation_date, donation_type, recipient_name, memo, split, amount, status, created_at, created_by";
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 
 function currentYear() {
@@ -165,7 +167,29 @@ function toYearWindow(year: number) {
   };
 }
 
-function mapFrankDeenieDonationRow(row: FrankDeenieDonationDbRow): FrankDeenieDonationRow {
+async function fetchProfileEmailsById(admin: AdminClient, userIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (userIds.length === 0) return map;
+
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("id, email")
+    .in("id", userIds)
+    .returns<Array<{ id: string; email: string }>>();
+
+  if (error) return map;
+
+  for (const row of data ?? []) {
+    map.set(row.id, row.email);
+  }
+
+  return map;
+}
+
+function mapFrankDeenieDonationRow(
+  row: FrankDeenieDonationDbRow,
+  profileEmailById: Map<string, string>
+): FrankDeenieDonationRow {
   return {
     id: row.id,
     source: "frank_deenie",
@@ -176,7 +200,8 @@ function mapFrankDeenieDonationRow(row: FrankDeenieDonationDbRow): FrankDeenieDo
     split: row.split ?? "",
     amount: toNumber(row.amount),
     status: row.status,
-    editable: true
+    editable: true,
+    proposedBy: row.created_by ? profileEmailById.get(row.created_by) ?? "" : ""
   };
 }
 
@@ -184,7 +209,8 @@ function mapChildrenDonationRow(
   row: ChildrenProposalRow,
   organizationNamesById: Map<string, string>,
   grantMasterTitlesById: Map<string, string>,
-  grantMasterDescriptionsById: Map<string, string>
+  grantMasterDescriptionsById: Map<string, string>,
+  profileEmailById: Map<string, string>
 ): FrankDeenieDonationRow {
   const normalizedStatus = row.status.trim().toLowerCase();
   const isSent = normalizedStatus === "sent";
@@ -204,7 +230,8 @@ function mapChildrenDonationRow(
     split: "",
     amount: toNumber(row.final_amount),
     status: isSent ? "Gave" : "Planned",
-    editable: false
+    editable: false,
+    proposedBy: profileEmailById.get(row.proposer_id) ?? ""
   };
 }
 
@@ -237,13 +264,17 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
     throw new HttpError(500, `Could not load Frank & Deenie donations: ${error.message}`);
   }
 
-  return (data ?? []).map(mapFrankDeenieDonationRow);
+  const rows = data ?? [];
+  const creatorIds = [...new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id))];
+  const profileEmailById = await fetchProfileEmailsById(admin, creatorIds);
+
+  return rows.map((row) => mapFrankDeenieDonationRow(row, profileEmailById));
 }
 
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
   const query = admin
     .from("grant_proposals")
-    .select("id, grant_master_id, organization_id, final_amount, status, notes, sent_at, created_at")
+    .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, created_at")
     .in("status", ["sent", "approved"])
     .order("created_at", { ascending: false });
 
@@ -255,9 +286,12 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
 
   const organizationIds = [...new Set((proposals ?? []).map((row) => row.organization_id).filter(Boolean))];
   const grantMasterIds = [...new Set((proposals ?? []).map((row) => row.grant_master_id).filter(Boolean))];
+  const proposerIds = [...new Set((proposals ?? []).map((row) => row.proposer_id).filter(Boolean))];
   const organizationNamesById = new Map<string, string>();
   const grantMasterTitlesById = new Map<string, string>();
   const grantMasterDescriptionsById = new Map<string, string>();
+
+  const profileEmailByIdPromise = fetchProfileEmailsById(admin, proposerIds);
 
   if (organizationIds.length > 0 || grantMasterIds.length > 0) {
     const [organizationsResult, grantMasterResult] = await Promise.all([
@@ -291,12 +325,15 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
     }
   }
 
+  const profileEmailById = await profileEmailByIdPromise;
+
   const mappedRows = (proposals ?? []).map((row) =>
     mapChildrenDonationRow(
       row,
       organizationNamesById,
       grantMasterTitlesById,
-      grantMasterDescriptionsById
+      grantMasterDescriptionsById,
+      profileEmailById
     )
   );
 
@@ -428,7 +465,8 @@ export async function createFrankDeenieDonation(
     throw new HttpError(500, `Could not create Frank & Deenie donation: ${error?.message ?? "missing row"}`);
   }
 
-  return mapFrankDeenieDonationRow(data);
+  const profileEmailById = await fetchProfileEmailsById(admin, [input.requesterId]);
+  return mapFrankDeenieDonationRow(data, profileEmailById);
 }
 
 export async function updateFrankDeenieDonation(
@@ -490,7 +528,9 @@ export async function updateFrankDeenieDonation(
     throw new HttpError(404, "Frank & Deenie donation not found.");
   }
 
-  return mapFrankDeenieDonationRow(data);
+  const creatorIds = [data.created_by].filter((id): id is string => !!id);
+  const profileEmailById = await fetchProfileEmailsById(admin, creatorIds);
+  return mapFrankDeenieDonationRow(data, profileEmailById);
 }
 
 export async function deleteFrankDeenieDonation(admin: AdminClient, donationId: string) {

@@ -55,6 +55,7 @@ interface DonationExportRow {
   amount: number;
   status: string;
   source: string;
+  proposedBy: string;
 }
 
 const DEFAULT_FILTERS: DonationFilters = {
@@ -65,7 +66,21 @@ const DEFAULT_FILTERS: DonationFilters = {
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = true;
-const EXPORT_HEADERS = ["Date", "Name", "Type", "Memo", "Split", "Amount", "Status", "Source"] as const;
+const EXPORT_HEADERS = ["Date", "Name", "Type", "Memo", "Split", "Amount", "Status", "Source", "Proposed by"] as const;
+
+const PROPOSER_DISPLAY_NAMES: Record<string, string> = {
+  "cbrosens2010@gmail.com": "Charlie",
+  "thomas.brosens@gmail.com": "Tom",
+  "jbrosens92@gmail.com": "John",
+  "pbb2102@gmail.com": "Peter",
+  "fbrosens@taconiccap.com": "Frank",
+  "bcarosella@taconiccap.com": "Brynn",
+  "deeniebrosens@hotmail.com": "Deenie",
+};
+
+function proposerName(email: string) {
+  return PROPOSER_DISPLAY_NAMES[email] || email || "—";
+}
 
 function initialDraftForYear(year: number | null): DonationDraft {
   return {
@@ -96,7 +111,7 @@ function tableDate(value: string) {
   if (Number.isNaN(parsed)) {
     return value;
   }
-  return new Date(parsed).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return new Date(parsed).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
 }
 
 function normalized(value: string) {
@@ -126,7 +141,8 @@ function rowToExportValues(row: DonationExportRow) {
     row.split,
     row.amount.toFixed(2),
     row.status,
-    row.source
+    row.source,
+    row.proposedBy
   ];
 }
 
@@ -228,7 +244,7 @@ export default function FrankDeenieClient() {
   const canAccess = user ? ["oversight", "admin", "manager"].includes(user.role) : false;
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [includeChildren, setIncludeChildren] = useState(false);
+  const [includeChildren, setIncludeChildren] = useState(true);
   const [filters, setFilters] = useState<DonationFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -474,7 +490,8 @@ export default function FrankDeenieClient() {
         split: row.split.trim(),
         amount: row.amount,
         status: row.status.trim(),
-        source: row.source === "children" ? "Children" : "Frank & Deenie"
+        source: row.source === "children" ? "Children" : "Frank & Deenie",
+        proposedBy: proposerName(row.proposedBy)
       })),
     [filteredRows]
   );
@@ -1066,7 +1083,7 @@ export default function FrankDeenieClient() {
             <div>
               <CardLabel>Donations</CardLabel>
               <p className="text-xs text-muted-foreground">
-                Showing {formatNumber(filteredRows.length)} rows | Snapshot total {currency(data.totals.overall)}
+                Showing {formatNumber(filteredRows.length)} rows | Total {currency(visibleTotal)}
               </p>
             </div>
             <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
@@ -1258,6 +1275,7 @@ export default function FrankDeenieClient() {
                     <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-muted-foreground">
                       <p>{tableDate(row.date)}</p>
                       <p className="truncate font-semibold uppercase tracking-wide">{row.type}</p>
+                      {row.proposedBy ? <p>By {proposerName(row.proposedBy)}</p> : null}
                       {detailsText ? <p className="col-span-2 truncate">{detailsText}</p> : null}
                     </div>
                     {rowMessage ? (
@@ -1279,20 +1297,12 @@ export default function FrankDeenieClient() {
               setIsExportMenuOpen(false);
             }}
           >
-            <table className="w-full table-fixed text-left text-sm">
-              <colgroup>
-                <col className="w-[6.75rem]" />
-                <col className="w-[14rem]" />
-                <col />
-                <col className="w-[7.5rem]" />
-                <col className="w-[7rem]" />
-                <col className="w-[3.5rem]" />
-              </colgroup>
+            <table className="min-w-[860px] table-auto text-left text-xs">
               <thead className="sticky top-0 z-10 bg-card">
                 <DataTableHeadRow>
                   <th className="px-2 py-2">
                     <DataTableSortButton onClick={() => toggleSort("date")}>
-                      Date{sortMarker("date")}
+                      Sent Date{sortMarker("date")}
                     </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2">
@@ -1303,7 +1313,7 @@ export default function FrankDeenieClient() {
                   <th className="px-2 py-2">Details</th>
                   <th className="px-2 py-2 text-right">
                     <DataTableSortButton onClick={() => toggleSort("amount")}>
-                      Amount (${sortMarker("amount")}
+                      Amount ($){sortMarker("amount")}
                     </DataTableSortButton>
                   </th>
                   <th className="px-2 py-2">
@@ -1311,19 +1321,20 @@ export default function FrankDeenieClient() {
                       Status{sortMarker("status")}
                     </DataTableSortButton>
                   </th>
+                  <th className="px-2 py-2">By</th>
                   <th className="px-2 py-2" />
                 </DataTableHeadRow>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td className="px-2 py-8 text-center" colSpan={6}>
-                      <div className="flex flex-col items-center justify-center py-4">
-                        <div className="mb-3 rounded-full border border-border bg-muted p-2">
-                          <DollarSign className="h-5 w-5 text-muted-foreground" />
+                    <td className="px-2 py-6 text-center" colSpan={7}>
+                      <div className="flex flex-col items-center justify-center py-2">
+                        <div className="mb-2 rounded-full border border-border bg-muted p-2">
+                          <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <h3 className="mb-1 text-sm font-semibold text-foreground">No donations found</h3>
-                        <p className="mb-3 text-xs text-muted-foreground">
+                        <h3 className="mb-1 text-xs font-semibold text-foreground">No donations found</h3>
+                        <p className="mb-2 text-xs text-muted-foreground">
                           No donations match the selected filters for {selectedYearLabel}.
                         </p>
                         <Button
@@ -1362,37 +1373,35 @@ export default function FrankDeenieClient() {
                             setDetailRowId(row.id);
                           }}
                         >
-                          <td className="px-2 py-3 text-xs text-muted-foreground align-middle">{tableDate(row.date)}</td>
-                          <td className="px-2 py-3 align-middle">
-                            <div className="min-w-0">
+                          <td className="px-2 py-2 text-muted-foreground align-middle">{tableDate(row.date)}</td>
+                          <td className="px-2 py-2 align-middle">
+                            <div className="flex min-w-0 items-center gap-1.5">
                               <p
-                                className="w-full truncate text-left font-semibold transition-colors group-hover:text-primary group-hover:underline"
+                                className="truncate text-left font-semibold transition-colors group-hover:text-primary group-hover:underline"
                                 title={row.name}
                               >
                                 {row.name}
                               </p>
                               {row.source === "children" ? (
-                                <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                                  <Users className="h-3 w-3" />
+                                <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                                  <Users className="h-2.5 w-2.5" />
                                   Children
                                 </span>
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 py-3 align-middle">
-                            <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground" title={row.type}>
-                              {row.type}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground" title={detailsText || "No memo or split details"}>
-                              {detailsText || "No memo or split details"}
+                          <td className="px-2 py-2 align-middle">
+                            <p className="truncate text-muted-foreground" title={`${row.type}${detailsText ? ` · ${detailsText}` : ""}`}>
+                              <span className="font-semibold uppercase tracking-wide">{row.type}</span>
+                              {detailsText ? <span className="text-muted-foreground/70"> · {detailsText}</span> : null}
                             </p>
                           </td>
-                          <td className="px-2 py-3 text-right text-xs text-muted-foreground tabular-nums align-middle font-medium">
+                          <td className="px-2 py-2 text-right text-muted-foreground tabular-nums align-middle font-medium">
                             {formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                           </td>
-                          <td className="px-2 py-3 align-middle">
+                          <td className="px-2 py-2 align-middle">
                             <span
-                              className={`inline-flex min-w-[5.25rem] justify-center rounded-full border px-3 py-0.5 text-xs font-semibold transition-colors ${
+                              className={`inline-flex justify-center rounded-full border px-2 py-px text-[11px] font-semibold transition-colors ${
                                 row.status === "Planned"
                                   ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
                                   : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
@@ -1401,7 +1410,10 @@ export default function FrankDeenieClient() {
                               {row.status}
                             </span>
                           </td>
-                          <td className="px-2 py-3 align-middle">
+                          <td className="px-2 py-2 align-middle text-muted-foreground truncate" title={row.proposedBy}>
+                            {row.proposedBy ? proposerName(row.proposedBy) : "—"}
+                          </td>
+                          <td className="px-2 py-2 align-middle">
                             <div className="relative flex justify-end">
                               <Button
                                 variant="outline"
@@ -1772,6 +1784,12 @@ export default function FrankDeenieClient() {
                   <dd className="mt-1 font-medium">
                     {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
                   </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+                    Proposed by
+                  </dt>
+                  <dd className="mt-1 font-medium">{detailRow.proposedBy ? proposerName(detailRow.proposedBy) : "—"}</dd>
                 </div>
                 <div className="md:col-span-2">
                   <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">

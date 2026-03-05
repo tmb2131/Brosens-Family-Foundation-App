@@ -177,6 +177,7 @@ export interface FrankDeenieDonationRow {
   amount: number;
   status: string;
   editable: boolean;
+  proposedBy: string;
 }
 
 export interface FrankDeenieSnapshot {

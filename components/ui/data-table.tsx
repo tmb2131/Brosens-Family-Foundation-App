@@ -14,7 +14,7 @@ export function DataTableRow({
   ...props
 }: PropsWithChildren<HTMLAttributes<HTMLTableRowElement>>) {
   return (
-    <tr className={cn("border-b align-top transition-colors hover:bg-muted/60", className)} {...props}>
+    <tr className={cn("border-b align-middle transition-colors hover:bg-muted/60", className)} {...props}>
       {children}
     </tr>
   );
