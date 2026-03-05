@@ -65,8 +65,8 @@ export function CharityGivingHistory({
           ...e,
           childrenAmount: 0,
           totalAmount: e.frankDeenieAmount,
-          percentOfYear: e.yearOverallTotal > 0
-            ? Math.round((e.frankDeenieAmount / e.yearOverallTotal) * 10000) / 100
+          percentOfYear: e.yearFrankDeenieTotal > 0
+            ? Math.round((e.frankDeenieAmount / e.yearFrankDeenieTotal) * 10000) / 100
             : 0
         }))
         .filter((e) => e.totalAmount > 0);
@@ -218,7 +218,9 @@ export function CharityGivingHistory({
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               <th className="px-3 py-2.5">Year</th>
               <th className="px-3 py-2.5 text-right">Amount</th>
-              <th className="px-3 py-2.5 text-right">% of Year</th>
+              <th className="px-3 py-2.5 text-right">
+                % of {includeChildren ? "All" : "F&D"} Giving
+              </th>
               {hasBothSources ? (
                 <th className="hidden px-3 py-2.5 text-right sm:table-cell">Source</th>
               ) : null}

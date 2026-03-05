@@ -102,7 +102,12 @@ async function loadFrankDeenieDonationsByYear(
   return map;
 }
 
-async function loadYearlyOverallTotals(admin: AdminClient): Promise<Map<number, number>> {
+interface YearlyTotals {
+  overall: Map<number, number>;
+  frankDeenieOnly: Map<number, number>;
+}
+
+async function loadYearlyTotals(admin: AdminClient): Promise<YearlyTotals> {
   const [proposalResult, fdResult] = await Promise.all([
     admin
       .from("grant_proposals")
@@ -122,20 +127,23 @@ async function loadYearlyOverallTotals(admin: AdminClient): Promise<Map<number, 
     throw new HttpError(500, `Failed to load yearly totals: ${fdResult.error.message}`);
   }
 
-  const map = new Map<number, number>();
+  const overall = new Map<number, number>();
+  const frankDeenieOnly = new Map<number, number>();
 
   for (const row of proposalResult.data ?? []) {
     const year = row.budget_year;
-    map.set(year, round2((map.get(year) ?? 0) + toNumber(row.final_amount)));
+    overall.set(year, round2((overall.get(year) ?? 0) + toNumber(row.final_amount)));
   }
 
   for (const row of fdResult.data ?? []) {
     const year = yearFromDate(row.donation_date);
     if (!Number.isFinite(year) || year < 1900) continue;
-    map.set(year, round2((map.get(year) ?? 0) + toNumber(row.amount)));
+    const amount = toNumber(row.amount);
+    overall.set(year, round2((overall.get(year) ?? 0) + amount));
+    frankDeenieOnly.set(year, round2((frankDeenieOnly.get(year) ?? 0) + amount));
   }
 
-  return map;
+  return { overall, frankDeenieOnly };
 }
 
 export async function getOrganizationGivingHistory(
@@ -150,7 +158,7 @@ export async function getOrganizationGivingHistory(
   const [childrenByYear, fdByYear, yearlyTotals] = await Promise.all([
     loadChildrenAmountsByYear(admin, name, input.organizationId),
     loadFrankDeenieDonationsByYear(admin, name),
-    loadYearlyOverallTotals(admin)
+    loadYearlyTotals(admin)
   ]);
 
   const allYears = new Set<number>([...childrenByYear.keys(), ...fdByYear.keys()]);
@@ -164,14 +172,15 @@ export async function getOrganizationGivingHistory(
     const childrenAmount = round2(childrenByYear.get(year) ?? 0);
     const frankDeenieAmount = round2(fdByYear.get(year) ?? 0);
     const totalAmount = round2(childrenAmount + frankDeenieAmount);
-    const yearOverallTotal = round2(yearlyTotals.get(year) ?? 0);
+    const yearOverallTotal = round2(yearlyTotals.overall.get(year) ?? 0);
+    const yearFrankDeenieTotal = round2(yearlyTotals.frankDeenieOnly.get(year) ?? 0);
     const percentOfYear = yearOverallTotal > 0 ? round2((totalAmount / yearOverallTotal) * 100) : 0;
 
     grandTotal += totalAmount;
     childrenGrandTotal += childrenAmount;
     frankDeenieGrandTotal += frankDeenieAmount;
 
-    return { year, childrenAmount, frankDeenieAmount, totalAmount, yearOverallTotal, percentOfYear };
+    return { year, childrenAmount, frankDeenieAmount, totalAmount, yearOverallTotal, yearFrankDeenieTotal, percentOfYear };
   });
 
   return {

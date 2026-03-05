@@ -372,6 +372,7 @@ export interface GivingHistoryEntry {
   frankDeenieAmount: number;
   totalAmount: number;
   yearOverallTotal: number;
+  yearFrankDeenieTotal: number;
   percentOfYear: number;
 }
 
