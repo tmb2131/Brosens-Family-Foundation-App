@@ -3,6 +3,7 @@
 import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
@@ -83,6 +84,14 @@ interface CharityNavigatorPreviewResponse {
 
 export default function WorkspaceClient() {
   const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role === "manager") {
+      router.replace("/dashboard");
+    }
+  }, [user?.role, router]);
+
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
@@ -201,7 +210,7 @@ export default function WorkspaceClient() {
   }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>(
-    user ? "/api/workspace" : null,
+    user && user.role !== "manager" ? "/api/workspace" : null,
     { refreshInterval: 30_000 }
   );
 
@@ -250,6 +259,10 @@ export default function WorkspaceClient() {
       active = false;
     };
   }, [voteDialogProposalId, workspaceQuery.data]);
+
+  if (user?.role === "manager") {
+    return null;
+  }
 
   if (workspaceQuery.isLoading) {
     return (

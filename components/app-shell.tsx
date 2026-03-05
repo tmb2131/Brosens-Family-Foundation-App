@@ -93,7 +93,7 @@ const fullNavItems: NavItem[] = [
     href: "/workspace",
     label: "My Workspace",
     icon: ListChecks,
-    roles: ["member", "oversight", "manager"]
+    roles: ["member", "oversight"]
   },
   {
     href: "/meeting",
