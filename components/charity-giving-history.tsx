@@ -9,14 +9,13 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Cell,
   LabelList
 } from "recharts";
 import { Building2, ChevronLeft, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartLegend } from "@/components/ui/chart-legend";
-import { chartPalette, chartText, chartTooltip } from "@/lib/chart-styles";
+import { chartPalette, chartGradients, chartText, chartTooltip } from "@/lib/chart-styles";
 import { currency, compactCurrency } from "@/lib/utils";
 import type { OrganizationGivingHistory } from "@/lib/types";
 
@@ -42,6 +41,7 @@ export function CharityGivingHistory({
   );
 
   const [showChart, setShowChart] = useState(true);
+  const [includeChildren, setIncludeChildren] = useState(false);
 
   if (isLoading) {
     return <GivingHistorySkeleton name={charityName} onBack={onBack} />;
@@ -50,7 +50,7 @@ export function CharityGivingHistory({
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <Header name={charityName} onBack={onBack} />
+        <Header name={charityName} onBack={onBack} includeChildren={includeChildren} onToggleChildren={setIncludeChildren} />
         <p className="text-sm text-muted-foreground">
           Could not load giving history. Please try again.
         </p>
@@ -58,10 +58,26 @@ export function CharityGivingHistory({
     );
   }
 
-  if (data.entries.length === 0) {
+  const visibleEntries = includeChildren
+    ? data.entries
+    : data.entries
+        .map((e) => ({
+          ...e,
+          childrenAmount: 0,
+          totalAmount: e.frankDeenieAmount,
+          percentOfYear: e.yearOverallTotal > 0
+            ? Math.round((e.frankDeenieAmount / e.yearOverallTotal) * 10000) / 100
+            : 0
+        }))
+        .filter((e) => e.totalAmount > 0);
+
+  const visibleGrandTotal = includeChildren ? data.grandTotal : data.frankDeenieGrandTotal;
+  const visibleChildrenGrandTotal = includeChildren ? data.childrenGrandTotal : 0;
+
+  if (visibleEntries.length === 0) {
     return (
       <div className="space-y-4">
-        <Header name={charityName} onBack={onBack} />
+        <Header name={charityName} onBack={onBack} includeChildren={includeChildren} onToggleChildren={setIncludeChildren} />
         <div className="flex flex-col items-center justify-center rounded-xl border border-border/50 bg-muted/20 p-8 text-center">
           <div className="mb-3 rounded-full border border-border bg-muted p-3">
             <Building2 className="h-5 w-5 text-muted-foreground" />
@@ -75,12 +91,12 @@ export function CharityGivingHistory({
     );
   }
 
-  const hasBothSources = data.proposalGrandTotal > 0 && data.frankDeenieGrandTotal > 0;
-  const chartEntries = [...data.entries].reverse();
+  const hasBothSources = includeChildren && data.childrenGrandTotal > 0 && data.frankDeenieGrandTotal > 0;
+  const chartEntries = [...visibleEntries].reverse();
 
   return (
     <div className="space-y-4">
-      <Header name={data.charityName} onBack={onBack} />
+      <Header name={data.charityName} onBack={onBack} includeChildren={includeChildren} onToggleChildren={setIncludeChildren} />
 
       {/* Grand total */}
       <div className="rounded-xl border border-border bg-muted/40 p-4">
@@ -88,18 +104,18 @@ export function CharityGivingHistory({
           Lifetime giving
         </p>
         <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
-          {currency(data.grandTotal)}
+          {currency(visibleGrandTotal)}
         </p>
         {hasBothSources ? (
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>Proposals: {currency(data.proposalGrandTotal)}</span>
+            <span>Children: {currency(visibleChildrenGrandTotal)}</span>
             <span>Frank &amp; Deenie: {currency(data.frankDeenieGrandTotal)}</span>
           </div>
         ) : null}
       </div>
 
       {/* Chart toggle */}
-      {data.entries.length > 1 ? (
+      {visibleEntries.length > 1 ? (
         <div>
           <button
             type="button"
@@ -111,20 +127,28 @@ export function CharityGivingHistory({
           </button>
           {showChart ? (
             <div className="rounded-xl border border-border bg-card p-3">
-              {hasBothSources ? (
-                <ChartLegend
-                  items={[
-                    { label: "Proposals", color: chartPalette.sent },
-                    { label: "Frank & Deenie", color: chartPalette.children }
-                  ]}
-                />
-              ) : null}
+              <ChartLegend
+                items={[
+                  { label: "Frank & Deenie", color: chartPalette.sent },
+                  { label: "Children", color: chartPalette.children }
+                ]}
+              />
               <div className="h-[180px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartEntries}
                     margin={{ top: 20, right: 4, left: 0, bottom: 0 }}
                   >
+                    <defs>
+                      <linearGradient id="ghFrankDeenieGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chartGradients.sent.start} stopOpacity={1} />
+                        <stop offset="100%" stopColor={chartGradients.sent.end} stopOpacity={1} />
+                      </linearGradient>
+                      <linearGradient id="ghChildrenGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chartGradients.children.start} stopOpacity={1} />
+                        <stop offset="100%" stopColor={chartGradients.children.end} stopOpacity={1} />
+                      </linearGradient>
+                    </defs>
                     <XAxis
                       dataKey="year"
                       tick={{ fill: chartText.axis, fontSize: 11 }}
@@ -153,66 +177,32 @@ export function CharityGivingHistory({
                       offset={chartTooltip.offset}
                       allowEscapeViewBox={chartTooltip.allowEscapeViewBox}
                     />
-                    {hasBothSources ? (
-                      <>
-                        <Bar
-                          stackId="amount"
-                          dataKey="proposalAmount"
-                          name="Proposals"
-                          fill={chartPalette.sent}
-                          radius={[0, 0, 0, 0]}
-                          animationDuration={600}
-                        />
-                        <Bar
-                          stackId="amount"
-                          dataKey="frankDeenieAmount"
-                          name="Frank & Deenie"
-                          fill={chartPalette.children}
-                          radius={[4, 4, 0, 0]}
-                          animationDuration={600}
-                          animationBegin={150}
-                        >
-                          <LabelList
-                            position="top"
-                            fill={chartText.axis}
-                            fontSize={10}
-                            fontWeight={600}
-                            dataKey="totalAmount"
-                            formatter={(v: number) => compactCurrency(Number(v))}
-                          />
-                        </Bar>
-                      </>
-                    ) : (
-                      <Bar
+                    <Bar
+                      stackId="amount"
+                      dataKey="frankDeenieAmount"
+                      name="Frank & Deenie"
+                      fill="url(#ghFrankDeenieGradient)"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={600}
+                    />
+                    <Bar
+                      stackId="amount"
+                      dataKey="childrenAmount"
+                      name="Children"
+                      fill="url(#ghChildrenGradient)"
+                      radius={[6, 6, 0, 0]}
+                      animationDuration={600}
+                      animationBegin={150}
+                    >
+                      <LabelList
+                        position="top"
+                        fill={chartText.axis}
+                        fontSize={10}
+                        fontWeight={600}
                         dataKey="totalAmount"
-                        name="Amount"
-                        fill={
-                          data.proposalGrandTotal > 0
-                            ? chartPalette.sent
-                            : chartPalette.children
-                        }
-                        radius={[4, 4, 0, 0]}
-                        animationDuration={600}
-                      >
-                        <LabelList
-                          position="top"
-                          fill={chartText.axis}
-                          fontSize={10}
-                          fontWeight={600}
-                          formatter={(v: number) => compactCurrency(Number(v))}
-                        />
-                        {chartEntries.map((entry) => (
-                          <Cell
-                            key={entry.year}
-                            fill={
-                              data.proposalGrandTotal > 0
-                                ? chartPalette.sent
-                                : chartPalette.children
-                            }
-                          />
-                        ))}
-                      </Bar>
-                    )}
+                        formatter={(v: number) => compactCurrency(Number(v))}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -235,7 +225,7 @@ export function CharityGivingHistory({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {data.entries.map((entry) => (
+            {visibleEntries.map((entry) => (
               <tr key={entry.year} className="hover:bg-muted/30 transition-colors">
                 <td className="px-3 py-2.5 font-semibold tabular-nums">{entry.year}</td>
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
@@ -247,8 +237,8 @@ export function CharityGivingHistory({
                 {hasBothSources ? (
                   <td className="hidden px-3 py-2.5 text-right text-xs text-muted-foreground sm:table-cell">
                     <div className="flex flex-col gap-0.5">
-                      {entry.proposalAmount > 0 ? (
-                        <span>Proposals: {currency(entry.proposalAmount)}</span>
+                      {entry.childrenAmount > 0 ? (
+                        <span>Children: {currency(entry.childrenAmount)}</span>
                       ) : null}
                       {entry.frankDeenieAmount > 0 ? (
                         <span>F&amp;D: {currency(entry.frankDeenieAmount)}</span>
@@ -262,7 +252,7 @@ export function CharityGivingHistory({
           <tfoot className="bg-muted/40">
             <tr className="font-bold">
               <td className="px-3 py-2.5">Total</td>
-              <td className="px-3 py-2.5 text-right tabular-nums">{currency(data.grandTotal)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{currency(visibleGrandTotal)}</td>
               <td className="px-3 py-2.5" />
               {hasBothSources ? <td className="hidden sm:table-cell" /> : null}
             </tr>
@@ -275,10 +265,14 @@ export function CharityGivingHistory({
 
 function Header({
   name,
-  onBack
+  onBack,
+  includeChildren,
+  onToggleChildren
 }: {
   name: string;
   onBack?: () => void;
+  includeChildren?: boolean;
+  onToggleChildren?: (value: boolean) => void;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -292,12 +286,23 @@ function Header({
           <ChevronLeft className="h-4 w-4" />
         </Button>
       ) : null}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Giving History
         </p>
         <h3 className="truncate text-base font-bold text-foreground">{name}</h3>
       </div>
+      {onToggleChildren ? (
+        <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/50">
+          <input
+            type="checkbox"
+            checked={includeChildren ?? false}
+            onChange={(event) => onToggleChildren(event.target.checked)}
+            className="h-3.5 w-3.5 accent-[hsl(var(--accent))]"
+          />
+          Include Children
+        </label>
+      ) : null}
     </div>
   );
 }

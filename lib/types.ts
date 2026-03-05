@@ -368,7 +368,7 @@ export interface NotificationPreferences {
 
 export interface GivingHistoryEntry {
   year: number;
-  proposalAmount: number;
+  childrenAmount: number;
   frankDeenieAmount: number;
   totalAmount: number;
   yearOverallTotal: number;
@@ -379,6 +379,6 @@ export interface OrganizationGivingHistory {
   charityName: string;
   entries: GivingHistoryEntry[];
   grandTotal: number;
-  proposalGrandTotal: number;
+  childrenGrandTotal: number;
   frankDeenieGrandTotal: number;
 }

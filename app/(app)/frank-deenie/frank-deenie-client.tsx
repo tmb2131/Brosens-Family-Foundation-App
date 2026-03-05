@@ -252,7 +252,7 @@ export default function FrankDeenieClient() {
   const canAccess = user ? ["oversight", "admin", "manager"].includes(user.role) : false;
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [includeChildren, setIncludeChildren] = useState(true);
+  const [includeChildren, setIncludeChildren] = useState(false);
   const [filters, setFilters] = useState<DonationFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");

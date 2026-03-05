@@ -19,6 +19,10 @@ interface FrankDeenieDonationRow {
   amount: number | string;
 }
 
+interface OrgIdRow {
+  id: string;
+}
+
 function toNumber(value: unknown): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -32,19 +36,39 @@ function yearFromDate(dateStr: string): number {
   return new Date(dateStr).getFullYear();
 }
 
-async function loadProposalAmountsByYear(
+async function loadChildrenAmountsByYear(
   admin: AdminClient,
-  organizationId: string
+  name: string,
+  extraOrganizationId?: string | null
 ): Promise<Map<number, number>> {
+  const { data: orgRows, error: orgError } = await admin
+    .from("organizations")
+    .select("id")
+    .ilike("name", name.trim())
+    .returns<OrgIdRow[]>();
+
+  if (orgError) {
+    throw new HttpError(500, `Failed to look up organizations: ${orgError.message}`);
+  }
+
+  const orgIds = new Set((orgRows ?? []).map((r) => r.id));
+  if (extraOrganizationId) {
+    orgIds.add(extraOrganizationId);
+  }
+
+  if (orgIds.size === 0) {
+    return new Map<number, number>();
+  }
+
   const { data, error } = await admin
     .from("grant_proposals")
     .select("budget_year, final_amount")
-    .eq("organization_id", organizationId)
+    .in("organization_id", [...orgIds])
     .eq("status", "sent")
     .returns<SentProposalRow[]>();
 
   if (error) {
-    throw new HttpError(500, `Failed to load proposal giving history: ${error.message}`);
+    throw new HttpError(500, `Failed to load children giving history: ${error.message}`);
   }
 
   const map = new Map<number, number>();
@@ -123,40 +147,38 @@ export async function getOrganizationGivingHistory(
     throw new HttpError(400, "name is required.");
   }
 
-  const [proposalsByYear, fdByYear, yearlyTotals] = await Promise.all([
-    input.organizationId
-      ? loadProposalAmountsByYear(admin, input.organizationId)
-      : Promise.resolve(new Map<number, number>()),
+  const [childrenByYear, fdByYear, yearlyTotals] = await Promise.all([
+    loadChildrenAmountsByYear(admin, name, input.organizationId),
     loadFrankDeenieDonationsByYear(admin, name),
     loadYearlyOverallTotals(admin)
   ]);
 
-  const allYears = new Set<number>([...proposalsByYear.keys(), ...fdByYear.keys()]);
+  const allYears = new Set<number>([...childrenByYear.keys(), ...fdByYear.keys()]);
   const sortedYears = [...allYears].sort((a, b) => b - a);
 
   let grandTotal = 0;
-  let proposalGrandTotal = 0;
+  let childrenGrandTotal = 0;
   let frankDeenieGrandTotal = 0;
 
   const entries: GivingHistoryEntry[] = sortedYears.map((year) => {
-    const proposalAmount = round2(proposalsByYear.get(year) ?? 0);
+    const childrenAmount = round2(childrenByYear.get(year) ?? 0);
     const frankDeenieAmount = round2(fdByYear.get(year) ?? 0);
-    const totalAmount = round2(proposalAmount + frankDeenieAmount);
+    const totalAmount = round2(childrenAmount + frankDeenieAmount);
     const yearOverallTotal = round2(yearlyTotals.get(year) ?? 0);
     const percentOfYear = yearOverallTotal > 0 ? round2((totalAmount / yearOverallTotal) * 100) : 0;
 
     grandTotal += totalAmount;
-    proposalGrandTotal += proposalAmount;
+    childrenGrandTotal += childrenAmount;
     frankDeenieGrandTotal += frankDeenieAmount;
 
-    return { year, proposalAmount, frankDeenieAmount, totalAmount, yearOverallTotal, percentOfYear };
+    return { year, childrenAmount, frankDeenieAmount, totalAmount, yearOverallTotal, percentOfYear };
   });
 
   return {
     charityName: name,
     entries,
     grandTotal: round2(grandTotal),
-    proposalGrandTotal: round2(proposalGrandTotal),
+    childrenGrandTotal: round2(childrenGrandTotal),
     frankDeenieGrandTotal: round2(frankDeenieGrandTotal)
   };
 }
