@@ -2919,6 +2919,7 @@ export default function DashboardClient() {
             <CharityGivingHistory
               charityName={givingHistoryCharity.name}
               organizationId={givingHistoryCharity.organizationId}
+              primarySource="children"
               onBack={() => setGivingHistoryCharity(null)}
             />
           </ResponsiveModalContent>

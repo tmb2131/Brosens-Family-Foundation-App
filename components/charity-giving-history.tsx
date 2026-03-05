@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import {
   Bar,
@@ -17,19 +17,60 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChartLegend } from "@/components/ui/chart-legend";
 import { chartPalette, chartGradients, chartText, chartTooltip } from "@/lib/chart-styles";
 import { currency, compactCurrency } from "@/lib/utils";
-import type { OrganizationGivingHistory } from "@/lib/types";
+import type { GivingHistoryEntry, OrganizationGivingHistory } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+type PrimarySource = "frank_deenie" | "children";
 
 interface CharityGivingHistoryProps {
   charityName: string;
   organizationId?: string | null;
+  /** Which source to show by default. The toggle adds the other source. */
+  primarySource?: PrimarySource;
   onBack?: () => void;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function computeVisibleEntries(
+  entries: GivingHistoryEntry[],
+  includeSecondary: boolean,
+  primary: PrimarySource
+): GivingHistoryEntry[] {
+  if (includeSecondary) return entries;
+
+  return entries
+    .map((e) => {
+      if (primary === "frank_deenie") {
+        return {
+          ...e,
+          childrenAmount: 0,
+          totalAmount: e.frankDeenieAmount,
+          percentOfYear: e.yearFrankDeenieTotal > 0
+            ? round2((e.frankDeenieAmount / e.yearFrankDeenieTotal) * 100)
+            : 0
+        };
+      }
+      const yearChildrenTotal = e.yearOverallTotal - (e.yearFrankDeenieTotal || 0);
+      return {
+        ...e,
+        frankDeenieAmount: 0,
+        totalAmount: e.childrenAmount,
+        percentOfYear: yearChildrenTotal > 0
+          ? round2((e.childrenAmount / yearChildrenTotal) * 100)
+          : 0
+      };
+    })
+    .filter((e) => e.totalAmount > 0);
 }
 
 export function CharityGivingHistory({
   charityName,
   organizationId,
+  primarySource = "frank_deenie",
   onBack
 }: CharityGivingHistoryProps) {
   const params = new URLSearchParams({ name: charityName });
@@ -41,7 +82,22 @@ export function CharityGivingHistory({
   );
 
   const [showChart, setShowChart] = useState(true);
-  const [includeChildren, setIncludeChildren] = useState(false);
+  const [includeSecondary, setIncludeSecondary] = useState(false);
+
+  const toggleLabel = primarySource === "frank_deenie"
+    ? "Include Children"
+    : "Include F&D Donations";
+
+  const percentColumnLabel = includeSecondary
+    ? "% of All Giving"
+    : primarySource === "frank_deenie"
+      ? "% of F&D Giving"
+      : "% of Children Giving";
+
+  const visibleEntries = useMemo(
+    () => data ? computeVisibleEntries(data.entries, includeSecondary, primarySource) : [],
+    [data, includeSecondary, primarySource]
+  );
 
   if (isLoading) {
     return <GivingHistorySkeleton name={charityName} onBack={onBack} />;
@@ -50,7 +106,7 @@ export function CharityGivingHistory({
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <Header name={charityName} onBack={onBack} includeChildren={includeChildren} onToggleChildren={setIncludeChildren} />
+        <Header name={charityName} onBack={onBack} toggleLabel={toggleLabel} toggleChecked={includeSecondary} onToggle={setIncludeSecondary} />
         <p className="text-sm text-muted-foreground">
           Could not load giving history. Please try again.
         </p>
@@ -58,26 +114,10 @@ export function CharityGivingHistory({
     );
   }
 
-  const visibleEntries = includeChildren
-    ? data.entries
-    : data.entries
-        .map((e) => ({
-          ...e,
-          childrenAmount: 0,
-          totalAmount: e.frankDeenieAmount,
-          percentOfYear: e.yearFrankDeenieTotal > 0
-            ? Math.round((e.frankDeenieAmount / e.yearFrankDeenieTotal) * 10000) / 100
-            : 0
-        }))
-        .filter((e) => e.totalAmount > 0);
-
-  const visibleGrandTotal = includeChildren ? data.grandTotal : data.frankDeenieGrandTotal;
-  const visibleChildrenGrandTotal = includeChildren ? data.childrenGrandTotal : 0;
-
   if (visibleEntries.length === 0) {
     return (
       <div className="space-y-4">
-        <Header name={charityName} onBack={onBack} includeChildren={includeChildren} onToggleChildren={setIncludeChildren} />
+        <Header name={charityName} onBack={onBack} toggleLabel={toggleLabel} toggleChecked={includeSecondary} onToggle={setIncludeSecondary} />
         <div className="flex flex-col items-center justify-center rounded-xl border border-border/50 bg-muted/20 p-8 text-center">
           <div className="mb-3 rounded-full border border-border bg-muted p-3">
             <Building2 className="h-5 w-5 text-muted-foreground" />
@@ -91,12 +131,18 @@ export function CharityGivingHistory({
     );
   }
 
-  const hasBothSources = includeChildren && data.childrenGrandTotal > 0 && data.frankDeenieGrandTotal > 0;
+  const visibleGrandTotal = includeSecondary
+    ? data.grandTotal
+    : primarySource === "frank_deenie"
+      ? data.frankDeenieGrandTotal
+      : data.childrenGrandTotal;
+
+  const hasBothSources = includeSecondary && data.childrenGrandTotal > 0 && data.frankDeenieGrandTotal > 0;
   const chartEntries = [...visibleEntries].reverse();
 
   return (
     <div className="space-y-4">
-      <Header name={data.charityName} onBack={onBack} includeChildren={includeChildren} onToggleChildren={setIncludeChildren} />
+      <Header name={data.charityName} onBack={onBack} toggleLabel={toggleLabel} toggleChecked={includeSecondary} onToggle={setIncludeSecondary} />
 
       {/* Grand total */}
       <div className="rounded-xl border border-border bg-muted/40 p-4">
@@ -108,7 +154,7 @@ export function CharityGivingHistory({
         </p>
         {hasBothSources ? (
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>Children: {currency(visibleChildrenGrandTotal)}</span>
+            <span>Children: {currency(data.childrenGrandTotal)}</span>
             <span>Frank &amp; Deenie: {currency(data.frankDeenieGrandTotal)}</span>
           </div>
         ) : null}
@@ -219,7 +265,7 @@ export function CharityGivingHistory({
               <th className="px-3 py-2.5">Year</th>
               <th className="px-3 py-2.5 text-right">Amount</th>
               <th className="px-3 py-2.5 text-right">
-                % of {includeChildren ? "All" : "F&D"} Giving
+                {percentColumnLabel}
               </th>
               {hasBothSources ? (
                 <th className="hidden px-3 py-2.5 text-right sm:table-cell">Source</th>
@@ -268,13 +314,15 @@ export function CharityGivingHistory({
 function Header({
   name,
   onBack,
-  includeChildren,
-  onToggleChildren
+  toggleLabel,
+  toggleChecked,
+  onToggle
 }: {
   name: string;
   onBack?: () => void;
-  includeChildren?: boolean;
-  onToggleChildren?: (value: boolean) => void;
+  toggleLabel?: string;
+  toggleChecked?: boolean;
+  onToggle?: (value: boolean) => void;
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -294,15 +342,15 @@ function Header({
         </p>
         <h3 className="truncate text-base font-bold text-foreground">{name}</h3>
       </div>
-      {onToggleChildren ? (
+      {onToggle && toggleLabel ? (
         <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold transition-colors hover:bg-muted/50">
           <input
             type="checkbox"
-            checked={includeChildren ?? false}
-            onChange={(event) => onToggleChildren(event.target.checked)}
+            checked={toggleChecked ?? false}
+            onChange={(event) => onToggle(event.target.checked)}
             className="h-3.5 w-3.5 accent-[hsl(var(--accent))]"
           />
-          Include Children
+          {toggleLabel}
         </label>
       ) : null}
     </div>
