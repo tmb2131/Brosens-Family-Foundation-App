@@ -73,9 +73,9 @@ const PROPOSER_DISPLAY_NAMES: Record<string, string> = {
   "thomas.brosens@gmail.com": "Tom",
   "jbrosens92@gmail.com": "John",
   "pbb2102@gmail.com": "Peter",
-  "fbrosens@taconiccap.com": "Frank",
-  "bcarosella@taconiccap.com": "Brynn",
-  "deeniebrosens@hotmail.com": "Deenie",
+  "fbrosens@taconiccap.com": "F&D",
+  "bcarosella@taconiccap.com": "F&D",
+  "deeniebrosens@hotmail.com": "F&D",
 };
 
 function proposerName(email: string) {
