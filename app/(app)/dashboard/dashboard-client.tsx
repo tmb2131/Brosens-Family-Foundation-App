@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, History, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -33,6 +33,10 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 
+const CharityGivingHistory = dynamic(
+  () => import("@/components/charity-giving-history").then((mod) => mod.CharityGivingHistory),
+  { ssr: false, loading: () => <div className="space-y-3 p-2"><div className="h-4 w-32 animate-pulse rounded bg-muted" /><div className="h-24 w-full animate-pulse rounded bg-muted" /></div> }
+);
 const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
   { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-muted" /></div> }
@@ -480,6 +484,10 @@ export default function DashboardClient() {
     null
   );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [givingHistoryCharity, setGivingHistoryCharity] = useState<{
+    name: string;
+    organizationId?: string;
+  } | null>(null);
 
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
@@ -2502,6 +2510,37 @@ export default function DashboardClient() {
               </Button>
             </div>
 
+            {detailProposal.organizationName && detailProposal.organizationName !== "Unknown Organization" && detailProposal.organizationName !== detailProposal.title ? (
+              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium">{detailProposal.organizationName}</span>
+                <button
+                  type="button"
+                  onClick={() => setGivingHistoryCharity({
+                    name: detailProposal.organizationName,
+                    organizationId: detailProposal.organizationId
+                  })}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <History className="h-3 w-3" />
+                  Giving history
+                </button>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setGivingHistoryCharity({
+                    name: detailProposal.organizationName || detailProposal.title,
+                    organizationId: detailProposal.organizationId
+                  })}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <History className="h-3 w-3" />
+                  Giving history
+                </button>
+              </div>
+            )}
+
             <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
@@ -2864,6 +2903,25 @@ export default function DashboardClient() {
             ) : null}
             </div>
         </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        open={!!givingHistoryCharity}
+        onOpenChange={(open) => { if (!open) setGivingHistoryCharity(null); }}
+      >
+        {givingHistoryCharity ? (
+          <ResponsiveModalContent
+            aria-labelledby="giving-history-title"
+            dialogClassName="rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden sm:max-w-2xl"
+            showCloseButton={false}
+          >
+            <CharityGivingHistory
+              charityName={givingHistoryCharity.name}
+              organizationId={givingHistoryCharity.organizationId}
+              onBack={() => setGivingHistoryCharity(null)}
+            />
+          </ResponsiveModalContent>
         ) : null}
       </ResponsiveModal>
     </div>

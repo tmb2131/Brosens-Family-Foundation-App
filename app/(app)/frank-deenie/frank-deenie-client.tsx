@@ -3,12 +3,16 @@
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
-import { ChevronDown, DollarSign, Download, MoreHorizontal, PieChart, Plus, RefreshCw, Users, X } from "lucide-react";
+import { ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
   () => import("@/components/frank-deenie/year-split-chart").then((mod) => mod.FrankDeenieYearSplitChart),
   { ssr: false, loading: () => <div className="h-[180px] w-full animate-pulse rounded-2xl bg-muted" /> }
+);
+const CharityGivingHistory = dynamic(
+  () => import("@/components/charity-giving-history").then((mod) => mod.CharityGivingHistory),
+  { ssr: false, loading: () => <div className="space-y-3 p-2"><div className="h-4 w-32 animate-pulse rounded bg-muted" /><div className="h-24 w-full animate-pulse rounded bg-muted" /></div> }
 );
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -18,6 +22,7 @@ import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
@@ -254,6 +259,7 @@ export default function FrankDeenieClient() {
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
+  const [givingHistoryName, setGivingHistoryName] = useState<string | null>(null);
   const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
@@ -1595,6 +1601,14 @@ export default function FrankDeenieClient() {
                   >
                     {detailRow.status}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setGivingHistoryName(detailRow.name)}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <History className="h-3 w-3" />
+                    Giving history
+                  </button>
                 </div>
               </div>
               <Button
@@ -2017,6 +2031,24 @@ export default function FrankDeenieClient() {
             </form>
         </DialogContent>
       </Dialog>
+
+      <ResponsiveModal
+        open={!!givingHistoryName}
+        onOpenChange={(open) => { if (!open) setGivingHistoryName(null); }}
+      >
+        {givingHistoryName ? (
+          <ResponsiveModalContent
+            aria-labelledby="giving-history-title"
+            dialogClassName="rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden sm:max-w-2xl"
+            showCloseButton={false}
+          >
+            <CharityGivingHistory
+              charityName={givingHistoryName}
+              onBack={() => setGivingHistoryName(null)}
+            />
+          </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
     </div>
   );
 }

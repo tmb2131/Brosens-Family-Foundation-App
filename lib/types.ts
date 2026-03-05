@@ -364,3 +364,20 @@ export interface NotificationPreferences {
   policyUpdatePublished: boolean;
   proposalApprovedForAdmin: boolean;
 }
+
+export interface GivingHistoryEntry {
+  year: number;
+  proposalAmount: number;
+  frankDeenieAmount: number;
+  totalAmount: number;
+  yearOverallTotal: number;
+  percentOfYear: number;
+}
+
+export interface OrganizationGivingHistory {
+  charityName: string;
+  entries: GivingHistoryEntry[];
+  grandTotal: number;
+  proposalGrandTotal: number;
+  frankDeenieGrandTotal: number;
+}
