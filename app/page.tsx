@@ -13,17 +13,20 @@ export default async function HomePage() {
     clientHintMobile
   });
 
-  if (!isMobile) {
-    redirect("/dashboard");
-  }
-
   try {
     const { profile } = await requireAuthContext();
     if (profile.role === "admin") {
       redirect("/admin");
     }
+    if (profile.role === "manager") {
+      redirect("/frank-deenie");
+    }
   } catch {
-    // Not authenticated or error — send to mobile; Guard will redirect to login if needed.
+    // Not authenticated — continue to default redirect
+  }
+
+  if (!isMobile) {
+    redirect("/dashboard");
   }
 
   redirect("/mobile");

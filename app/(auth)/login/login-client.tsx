@@ -20,7 +20,8 @@ const allowedRedirects = [
   "/meeting",
   "/admin",
   "/settings",
-  "/proposals/new"
+  "/proposals/new",
+  "/frank-deenie"
 ] as const;
 
 function sanitizeRedirect(target: string): Route {
@@ -41,6 +42,10 @@ function resolvePostLoginRedirect(
 
   if (role === "member") {
     return isMobile ? "/mobile" : "/workspace";
+  }
+
+  if (role === "manager") {
+    return "/frank-deenie";
   }
 
   return fallback;
