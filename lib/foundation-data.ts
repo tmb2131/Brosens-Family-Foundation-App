@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
+import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
   queueAdminSendRequiredActionEmails,
@@ -297,13 +298,6 @@ async function getProfileById(admin: AdminClient, userId: string): Promise<UserP
     email: data.email,
     role: data.role
   };
-}
-
-/** Returns local part of email (e.g. thomas.brosens@gmail.com → thomas.brosens), or null if no email. */
-function proposerDisplayFromEmail(email: string | null | undefined): string | null {
-  if (!email?.trim()) return null;
-  const at = email.indexOf("@");
-  return at > 0 ? email.slice(0, at).trim() : email.trim();
 }
 
 async function loadProposerEmailsById(
@@ -1952,7 +1946,9 @@ export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
 
   const proposals = views.map((p) => ({
     ...p,
-    proposerDisplay: proposerDisplayFromEmail(proposerEmailById.get(p.proposerId)) ?? null
+    proposerDisplay: proposerEmailById.has(p.proposerId)
+      ? getProposerDisplayName(proposerEmailById.get(p.proposerId))
+      : null
   }));
 
   return { proposals };

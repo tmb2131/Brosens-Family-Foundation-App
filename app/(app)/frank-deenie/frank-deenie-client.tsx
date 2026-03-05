@@ -24,6 +24,7 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 
@@ -68,18 +69,8 @@ const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = true;
 const EXPORT_HEADERS = ["Date", "Name", "Type", "Memo", "Split", "Amount", "Status", "Source", "Proposed by"] as const;
 
-const PROPOSER_DISPLAY_NAMES: Record<string, string> = {
-  "cbrosens2010@gmail.com": "Charlie",
-  "thomas.brosens@gmail.com": "Tom",
-  "jbrosens92@gmail.com": "John",
-  "pbb2102@gmail.com": "Peter",
-  "fbrosens@taconiccap.com": "F&D",
-  "bcarosella@taconiccap.com": "F&D",
-  "deeniebrosens@hotmail.com": "F&D",
-};
-
 function proposerName(email: string) {
-  return PROPOSER_DISPLAY_NAMES[email] || email || "—";
+  return getProposerDisplayName(email);
 }
 
 /** Display value for the "By" column: F&D for non-children donations, otherwise the proposer name. */
