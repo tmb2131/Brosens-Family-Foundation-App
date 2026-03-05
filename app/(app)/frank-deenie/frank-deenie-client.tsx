@@ -59,7 +59,7 @@ const DEFAULT_FILTERS: DonationFilters = {
 };
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
-const SHOW_FRANK_DEENIE_IMPORT = false;
+const SHOW_FRANK_DEENIE_IMPORT = true;
 const EXPORT_HEADERS = ["Date", "Name", "Type", "Memo", "Split", "Amount", "Status", "Source"] as const;
 
 function initialDraftForYear(year: number | null): DonationDraft {
