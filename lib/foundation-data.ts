@@ -1889,6 +1889,16 @@ export async function updateProposalRecord(
   }
 
   if (proposal.organization_id) {
+    if (hasTitle) {
+      const normalizedTitle = String(input.title).trim();
+      if (normalizedTitle) {
+        await admin
+          .from("organizations")
+          .update({ name: normalizedTitle })
+          .eq("id", proposal.organization_id);
+      }
+    }
+
     if (hasCharityNavigatorUrl && input.charityNavigatorUrl != null) {
       const normalizedUrl = String(input.charityNavigatorUrl).trim() || null;
       if (normalizedUrl) {
