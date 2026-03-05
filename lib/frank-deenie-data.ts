@@ -530,6 +530,58 @@ function dedupeKeyFromInsertRow(row: {
   ].join("::");
 }
 
+export async function listDonationNameSuggestions(admin: AdminClient, limit = 50) {
+  const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));
+
+  const [donationsResult, organizationsResult] = await Promise.all([
+    admin
+      .from("frank_deenie_donations")
+      .select("recipient_name")
+      .order("created_at", { ascending: false })
+      .limit(safeLimit * 5)
+      .returns<Array<{ recipient_name: string }>>(),
+    admin
+      .from("organizations")
+      .select("name")
+      .order("created_at", { ascending: false })
+      .limit(safeLimit * 3)
+      .returns<Array<{ name: string }>>()
+  ]);
+
+  if (donationsResult.error) {
+    throw new HttpError(500, `Could not load donation name suggestions: ${donationsResult.error.message}`);
+  }
+
+  if (organizationsResult.error) {
+    throw new HttpError(500, `Could not load organization name suggestions: ${organizationsResult.error.message}`);
+  }
+
+  const seen = new Set<string>();
+  const suggestions: string[] = [];
+
+  for (const row of donationsResult.data ?? []) {
+    const name = (row.recipient_name ?? "").trim();
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    suggestions.push(name);
+  }
+
+  for (const row of organizationsResult.data ?? []) {
+    const name = (row.name ?? "").trim();
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    suggestions.push(name);
+  }
+
+  return suggestions.slice(0, safeLimit);
+}
+
 export async function importFrankDeenieDonations(
   admin: AdminClient,
   input: {
