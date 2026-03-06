@@ -61,7 +61,6 @@ export function HistoricalImpactChart({
               dataKey="discretionarySent"
               name="Discretionary sent"
               fill={chartPalette.discretionary}
-              minPointSize={2}
               radius={[6, 6, 0, 0]}
             >
               <LabelList
