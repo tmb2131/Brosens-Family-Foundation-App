@@ -1,7 +1,7 @@
 import webpush from "web-push";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { AppRole, NotificationPreferences, PushNotificationEventType } from "@/lib/types";
-import { HttpError } from "@/lib/http-error";
+import { HttpError, isUniqueConstraintError } from "@/lib/http-error";
 
 type AdminClient = SupabaseClient;
 
@@ -129,9 +129,6 @@ function mapPreferencePatchToDatabase(patch: NotificationPreferencesPatch) {
   return updates;
 }
 
-function isUniqueConstraintError(error: { code?: string; message?: string } | null) {
-  return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate key") || false;
-}
 
 function sanitizeLinkPath(value: string) {
   const trimmed = value.trim();

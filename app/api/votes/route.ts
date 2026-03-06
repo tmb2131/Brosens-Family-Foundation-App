@@ -11,7 +11,10 @@ export async function POST(request: NextRequest) {
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, ["member", "oversight"]);
 
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      throw new HttpError(400, "Request body must be a JSON object.");
+    }
     const proposalId = String(body.proposalId ?? "").trim();
     const rawChoice = String(body.choice ?? "").trim();
     const allocationAmount = Number(body.allocationAmount ?? 0);

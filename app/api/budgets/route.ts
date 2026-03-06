@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, ["oversight", "manager"]);
 
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      throw new HttpError(400, "Request body must be a JSON object.");
+    }
     const year = Number(body.year);
     const totalAmount = Number(body.totalAmount);
     const rolloverFromPreviousYear = Number(body.rolloverFromPreviousYear ?? 0);

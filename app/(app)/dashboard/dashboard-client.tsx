@@ -878,7 +878,7 @@ export default function DashboardClient() {
 
   if (error || !data) {
     return (
-      <GlassCard>
+      <GlassCard role="alert">
         <CardLabel>Dashboard Error</CardLabel>
         <p className="mt-2 text-sm text-rose-600">
           Failed to load dashboard{error ? `: ${error.message}` : "."}

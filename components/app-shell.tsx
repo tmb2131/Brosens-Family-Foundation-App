@@ -71,7 +71,7 @@ const DESKTOP_SIDEBAR_STORAGE_KEY = "bf_desktop_sidebar_open";
 
 /* Sidebar class constants (co-located with the component instead of globals.css) */
 const sidebarLinkClass =
-  "relative flex min-h-9 min-w-0 items-center overflow-hidden rounded-[0.625rem] py-2 text-[0.8125rem] font-medium text-[hsl(var(--foreground)/0.65)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-[hsl(var(--muted)/0.7)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
+  "relative flex min-h-9 min-w-0 items-center overflow-hidden rounded-[0.625rem] py-2 text-[0.8125rem] font-medium text-[hsl(var(--foreground)/0.75)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-[hsl(var(--muted)/0.7)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
 const sidebarLinkExpanded = "gap-2.5 px-2.5 motion-safe:hover:translate-x-px";
 const sidebarLinkCollapsed = "justify-center px-0";
 const sidebarLinkActive =
@@ -79,7 +79,7 @@ const sidebarLinkActive =
 const sidebarIndicatorClass =
   "absolute left-[-2px] top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[hsl(var(--accent))] transition-opacity duration-150 ease-in-out";
 const sidebarControlBtnClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/50 transition-[background-color,color] duration-200 hover:bg-[hsl(var(--muted)/0.85)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-foreground/60 transition-[background-color,color] duration-200 hover:bg-[hsl(var(--muted)/0.85)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2";
 
 const fullNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Home },

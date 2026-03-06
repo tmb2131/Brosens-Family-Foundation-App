@@ -13,7 +13,10 @@ export async function PATCH(
   try {
     const { proposalId } = await context.params;
     const { admin, profile } = await requireAuthContext();
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      throw new HttpError(400, "Request body must be a JSON object.");
+    }
     const immutableKeys = [
       "id",
       "proposalId",

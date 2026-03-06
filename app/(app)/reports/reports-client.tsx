@@ -183,8 +183,8 @@ export default function ReportsClient() {
   const SortIcon = ({ k }: { k: ReportSortKey }) => {
     if (sortKey !== k) return null;
     return sortDirection === "asc"
-      ? <ChevronUp className="inline h-3 w-3 ml-0.5" />
-      : <ChevronDown className="inline h-3 w-3 ml-0.5" />;
+      ? <ChevronUp className="inline h-3 w-3 ml-0.5" aria-hidden="true" />
+      : <ChevronDown className="inline h-3 w-3 ml-0.5" aria-hidden="true" />;
   };
 
   const statusCounts = useMemo<StatusCountDatum[]>(
@@ -301,13 +301,13 @@ export default function ReportsClient() {
 
   if (error || !data) {
     return (
-      <GlassCard>
+      <GlassCard role="alert">
         <CardLabel>Report Error</CardLabel>
         <p className="mt-2 text-sm text-rose-600">
           Failed to load annual report{error ? `: ${error.message}` : "."}
         </p>
-        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
-          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()} aria-label="Retry loading report">
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Try again
         </Button>
       </GlassCard>
     );
@@ -505,22 +505,22 @@ export default function ReportsClient() {
             <thead>
               <DataTableHeadRow>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("proposal")}>Proposal<SortIcon k="proposal" /></DataTableSortButton>
+                  <DataTableSortButton aria-label="Sort by proposal name" onClick={() => toggleSort("proposal")}>Proposal<SortIcon k="proposal" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("type")}>Type<SortIcon k="type" /></DataTableSortButton>
+                  <DataTableSortButton aria-label="Sort by type" onClick={() => toggleSort("type")}>Type<SortIcon k="type" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("status")}>Status<SortIcon k="status" /></DataTableSortButton>
+                  <DataTableSortButton aria-label="Sort by status" onClick={() => toggleSort("status")}>Status<SortIcon k="status" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("amount")}>Amount<SortIcon k="amount" /></DataTableSortButton>
+                  <DataTableSortButton aria-label="Sort by amount" onClick={() => toggleSort("amount")}>Amount<SortIcon k="amount" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("sentAt")}>Sent Date<SortIcon k="sentAt" /></DataTableSortButton>
+                  <DataTableSortButton aria-label="Sort by sent date" onClick={() => toggleSort("sentAt")}>Sent Date<SortIcon k="sentAt" /></DataTableSortButton>
                 </th>
                 <th className="px-2 py-2">
-                  <DataTableSortButton onClick={() => toggleSort("category")}>Category<SortIcon k="category" /></DataTableSortButton>
+                  <DataTableSortButton aria-label="Sort by category" onClick={() => toggleSort("category")}>Category<SortIcon k="category" /></DataTableSortButton>
                 </th>
               </DataTableHeadRow>
             </thead>
