@@ -6,7 +6,7 @@ import { chartPalette, chartGradients, chartText, chartTooltip } from "@/lib/cha
 import { compactCurrency, currency } from "@/lib/utils";
 
 export interface FrankDeenieYearSplitPoint {
-  status: "Gave" | "Planned";
+  year: number;
   frankDeenie: number;
   children: number;
 }
@@ -43,7 +43,7 @@ export function FrankDeenieYearSplitChart({
               </linearGradient>
             </defs>
             <XAxis 
-              dataKey="status" 
+              dataKey="year" 
               tick={{ fill: chartText.axis, fontSize: 12 }}
               axisLine={{ stroke: chartText.axis, opacity: 0.3 }}
             />
@@ -63,7 +63,7 @@ export function FrankDeenieYearSplitChart({
               allowEscapeViewBox={chartTooltip.allowEscapeViewBox}
             />
             <Bar 
-              stackId="status" 
+              stackId="year" 
               dataKey="frankDeenie" 
               name="Frank & Deenie" 
               fill="url(#frankDeenieGradient)"
@@ -72,7 +72,7 @@ export function FrankDeenieYearSplitChart({
               animationBegin={0}
             />
             <Bar
-              stackId="status"
+              stackId="year"
               dataKey="children"
               name="Children"
               fill="url(#childrenGradient)"

@@ -517,34 +517,29 @@ export default function FrankDeenieClient() {
     selectedYear === null ? "All years" : `Year ${selectedYear}`
   } | ${includeChildren ? "Includes Children" : "Frank & Deenie only"} | ${formatNumber(exportRows.length)} rows`;
   const yearSplitChartData = useMemo(() => {
-    if (!data) {
+    if (!filteredRows.length) {
       return [];
     }
 
-    const totals = {
-      Gave: {
-        frankDeenie: 0,
-        children: 0
-      },
-      Planned: {
-        frankDeenie: 0,
-        children: 0
-      }
-    };
+    const byYear = new Map<number, { frankDeenie: number; children: number }>();
 
-    for (const row of data.rows) {
-      const normalizedStatus = row.status.trim().toLowerCase();
-      const statusBucket = normalizedStatus === "planned" ? "Planned" : "Gave";
-      const sourceBucket = row.source === "children" ? "children" : "frankDeenie";
-      totals[statusBucket][sourceBucket] += row.amount;
+    for (const row of filteredRows) {
+      const year = new Date(row.date).getFullYear();
+      if (!byYear.has(year)) {
+        byYear.set(year, { frankDeenie: 0, children: 0 });
+      }
+      const bucket = byYear.get(year)!;
+      if (row.source === "children") {
+        bucket.children += row.amount;
+      } else {
+        bucket.frankDeenie += row.amount;
+      }
     }
 
-    return (["Gave", "Planned"] as const).map((status) => ({
-      status,
-      frankDeenie: totals[status].frankDeenie,
-      children: totals[status].children
-    }));
-  }, [data]);
+    return Array.from(byYear.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([year, totals]) => ({ year, ...totals }));
+  }, [filteredRows]);
 
   const toggleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {
@@ -1585,9 +1580,12 @@ export default function FrankDeenieClient() {
           <GlassCard>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <CardLabel>Year Split</CardLabel>
+                <CardLabel>Year Split for Filtered View</CardLabel>
                 <p className="text-xs text-muted-foreground">
                   Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Organization filter: {filters.search.trim() || "All"}
                 </p>
               </div>
             </div>
