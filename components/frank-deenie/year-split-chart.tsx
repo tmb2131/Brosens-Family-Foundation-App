@@ -12,9 +12,11 @@ export interface FrankDeenieYearSplitPoint {
 }
 
 export function FrankDeenieYearSplitChart({
-  data
+  data,
+  onYearClick
 }: {
   data: FrankDeenieYearSplitPoint[];
+  onYearClick?: (year: number) => void;
 }) {
   const chartData = data.map((entry) => ({
     ...entry,
@@ -29,9 +31,21 @@ export function FrankDeenieYearSplitChart({
           { label: "Children", color: chartPalette.children }
         ]}
       />
+      {onYearClick && (
+        <p className="mb-1 text-center text-[10px] text-muted-foreground">Tap a bar to see donations</p>
+      )}
       <div className="h-[176px] w-full sm:h-[188px]">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 22, right: 8, left: 0, bottom: 0 }}>
+          <BarChart
+            data={chartData}
+            margin={{ top: 22, right: 8, left: 0, bottom: 0 }}
+            onClick={onYearClick ? (state) => {
+              if (state?.activePayload?.[0]?.payload?.year) {
+                onYearClick(state.activePayload[0].payload.year);
+              }
+            } : undefined}
+            style={onYearClick ? { cursor: "pointer" } : undefined}
+          >
             <defs>
               <linearGradient id="frankDeenieGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={chartGradients.sent.start} stopOpacity={1} />

@@ -269,6 +269,7 @@ export default function FrankDeenieClient() {
   >({});
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
+  const [chartDrilldownYear, setChartDrilldownYear] = useState<number | null>(null);
   const [givingHistoryName, setGivingHistoryName] = useState<string | null>(null);
   const [givingHistoryFuzzy, setGivingHistoryFuzzy] = useState(false);
   const [givingHistoryNames, setGivingHistoryNames] = useState<string[] | null>(null);
@@ -565,6 +566,13 @@ export default function FrankDeenieClient() {
       .sort(([a], [b]) => a - b)
       .map(([year, totals]) => ({ year, ...totals }));
   }, [filteredRows]);
+
+  const chartDrilldownRows = useMemo(() => {
+    if (chartDrilldownYear === null) return [];
+    return filteredRows
+      .filter((row) => new Date(row.date).getFullYear() === chartDrilldownYear)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredRows, chartDrilldownYear]);
 
   const toggleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {
@@ -1659,7 +1667,7 @@ export default function FrankDeenieClient() {
                 </p>
               </div>
             </div>
-            <FrankDeenieYearSplitChart data={yearSplitChartData} />
+            <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={setChartDrilldownYear} />
           </GlassCard>
 
           <section className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
@@ -2190,6 +2198,62 @@ export default function FrankDeenieClient() {
             />
           </ResponsiveModalContent>
         ) : null}
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        open={chartDrilldownYear !== null}
+        onOpenChange={(open) => { if (!open) setChartDrilldownYear(null); }}
+      >
+        <ResponsiveModalContent
+          aria-labelledby="chart-drilldown-title"
+          dialogClassName="rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden sm:max-w-lg"
+          showCloseButton={false}
+        >
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 id="chart-drilldown-title" className="text-base font-bold text-foreground">
+                {chartDrilldownYear} Donations
+              </h3>
+              <button
+                type="button"
+                onClick={() => setChartDrilldownYear(null)}
+                className="rounded-full p-1 text-muted-foreground hover:bg-muted transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formatNumber(chartDrilldownRows.length)} donation{chartDrilldownRows.length !== 1 ? "s" : ""} &middot; {currency(chartDrilldownRows.reduce((s, r) => s + r.amount, 0))} total
+            </p>
+            {chartDrilldownRows.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No donations for this year.</p>
+            ) : (
+              <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-border">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-card text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-2 py-1.5">Date</th>
+                      <th className="px-2 py-1.5">Name</th>
+                      <th className="px-2 py-1.5 text-right">Amount</th>
+                      <th className="px-2 py-1.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {chartDrilldownRows.map((row) => (
+                      <tr key={row.id} className="hover:bg-muted/40 transition-colors">
+                        <td className="whitespace-nowrap px-2 py-1.5 tabular-nums">{tableDate(row.date)}</td>
+                        <td className="px-2 py-1.5">{row.name}</td>
+                        <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{currency(row.amount)}</td>
+                        <td className="px-2 py-1.5">{row.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </ResponsiveModalContent>
       </ResponsiveModal>
     </div>
   );
