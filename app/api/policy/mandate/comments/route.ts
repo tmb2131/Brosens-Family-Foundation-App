@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth-server";
-import { toErrorResponse } from "@/lib/http-error";
+import { HttpError, toErrorResponse } from "@/lib/http-error";
 import { createMandateComment, getMandatePolicyDocumentId } from "@/lib/policy-data";
 import { MandateSectionKey } from "@/lib/types";
 
@@ -22,7 +22,10 @@ function isMandateSectionKey(value: unknown): value is MandateSectionKey {
 export async function POST(request: NextRequest) {
   try {
     const { admin, profile } = await requireAuthContext();
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      throw new HttpError(400, "Request body must be a JSON object.");
+    }
 
     const parentId = body.parentId;
     const sectionKey = body.sectionKey;

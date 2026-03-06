@@ -27,6 +27,11 @@ export class HttpError extends Error {
   }
 }
 
+/** Detect Postgres unique constraint violations (code 23505). */
+export function isUniqueConstraintError(error: { code?: string; message?: string } | null) {
+  return error?.code === "23505" || error?.message?.toLowerCase().includes("duplicate key") || false;
+}
+
 export function toErrorResponse(error: unknown) {
   if (error instanceof HttpError) {
     // For 500 errors, never expose internal details (e.g. Supabase/Postgres messages) to clients

@@ -276,7 +276,7 @@ export default function WorkspaceClient() {
 
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
-      <GlassCard className="p-4">
+      <GlassCard className="p-4" role="alert">
         <p className="text-sm text-rose-600">
           Failed to load workspace data
           {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}

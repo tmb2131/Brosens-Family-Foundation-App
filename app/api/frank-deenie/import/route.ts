@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
+import { normalizeHeader, parseCsvRows, findHeaderIndex } from "@/lib/csv";
 import { FrankDeenieImportRow, importFrankDeenieDonations } from "@/lib/frank-deenie-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
 
@@ -12,75 +13,6 @@ const HEADER_ALIASES = {
   amount: ["amount", "donation_amount", "amount_usd"],
   status: ["status"]
 } as const;
-
-function normalizeHeader(value: string) {
-  return value.trim().toLowerCase().replace(/[\s-]+/g, "_");
-}
-
-function parseCsvRows(csvText: string) {
-  const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentCell = "";
-  let insideQuotes = false;
-
-  for (let index = 0; index < csvText.length; index += 1) {
-    const char = csvText[index];
-
-    if (insideQuotes) {
-      if (char === "\"") {
-        if (csvText[index + 1] === "\"") {
-          currentCell += "\"";
-          index += 1;
-        } else {
-          insideQuotes = false;
-        }
-      } else {
-        currentCell += char;
-      }
-      continue;
-    }
-
-    if (char === "\"") {
-      insideQuotes = true;
-      continue;
-    }
-
-    if (char === ",") {
-      currentRow.push(currentCell);
-      currentCell = "";
-      continue;
-    }
-
-    if (char === "\n") {
-      currentRow.push(currentCell);
-      rows.push(currentRow);
-      currentRow = [];
-      currentCell = "";
-      continue;
-    }
-
-    if (char === "\r") {
-      continue;
-    }
-
-    currentCell += char;
-  }
-
-  if (insideQuotes) {
-    throw new HttpError(400, "Malformed CSV: missing closing quote.");
-  }
-
-  if (currentCell.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentCell);
-    rows.push(currentRow);
-  }
-
-  return rows.filter((row) => row.some((cell) => cell.trim().length > 0));
-}
-
-function findHeaderIndex(headers: string[], aliases: readonly string[]) {
-  return aliases.map((alias) => headers.indexOf(alias)).find((index) => index >= 0) ?? -1;
-}
 
 function parseCsvImportRows(csvText: string): FrankDeenieImportRow[] {
   const rows = parseCsvRows(csvText);

@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { AppRole, ProposalType } from "@/lib/types";
-import { HttpError } from "@/lib/http-error";
+import { HttpError, isUniqueConstraintError } from "@/lib/http-error";
 import { currency } from "@/lib/utils";
 
 type AdminClient = SupabaseClient;
@@ -1235,7 +1235,7 @@ export async function queueEmailNotification(admin: AdminClient, input: QueueEma
     .single<{ id: string }>();
 
   if (insertError) {
-    const isDuplicate = insertError.code === "23505" || insertError.message.toLowerCase().includes("duplicate");
+    const isDuplicate = isUniqueConstraintError(insertError);
     if (isDuplicate) {
       return {
         enqueued: false,
@@ -1772,7 +1772,7 @@ export async function processWeeklyActionReminderEmails(
         week_key: candidate.weekKey
       });
 
-      if (insertError && insertError.code !== "23505") {
+      if (insertError && !isUniqueConstraintError(insertError)) {
         throw new HttpError(500, `Could not save weekly reminder audit row: ${insertError.message}`);
       }
 

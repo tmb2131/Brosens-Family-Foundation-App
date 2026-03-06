@@ -61,7 +61,7 @@ export default function MobileFocusClient() {
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
       <div className="page-stack pb-4">
-        <GlassCard className="p-3">
+        <GlassCard className="p-3" role="alert">
           <p className="text-sm text-rose-600">
             Could not load the focus view
             {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}

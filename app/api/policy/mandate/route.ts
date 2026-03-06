@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth-server";
-import { PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
+import { HttpError, PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 import { getMandatePolicyPageData, updateMandatePolicy } from "@/lib/policy-data";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -18,7 +18,10 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const { admin, profile } = await requireAuthContext();
-    const body = await request.json();
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object") {
+      throw new HttpError(400, "Request body must be a JSON object.");
+    }
 
     const result = await updateMandatePolicy(admin, {
       editorId: profile.id,

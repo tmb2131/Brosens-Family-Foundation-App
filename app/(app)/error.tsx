@@ -10,7 +10,7 @@ export default function AppError({
   reset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 p-8">
+    <div role="alert" className="flex flex-col items-center justify-center gap-4 p-8">
       <h2 className="text-lg font-semibold text-rose-600">Something went wrong</h2>
       <p className="text-sm text-muted-foreground">
         {error.message || "An unexpected error occurred."}
