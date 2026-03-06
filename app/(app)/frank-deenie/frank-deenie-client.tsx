@@ -1602,7 +1602,7 @@ export default function FrankDeenieClient() {
             />
             <MetricCard
               title="CHILDREN"
-              value={currency(data.totals.children)}
+              value={includeChildren ? currency(data.totals.children) : "Not included"}
               icon={Users}
               tone="indigo"
               className="transition-all hover:shadow-md hover:border-border/80"
