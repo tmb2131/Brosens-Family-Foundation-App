@@ -270,6 +270,8 @@ export default function FrankDeenieClient() {
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [chartDrilldownYear, setChartDrilldownYear] = useState<number | null>(null);
+  const [drilldownSortKey, setDrilldownSortKey] = useState<"date" | "name" | "amount" | "status">("date");
+  const [drilldownSortDir, setDrilldownSortDir] = useState<"asc" | "desc">("desc");
   const [givingHistoryName, setGivingHistoryName] = useState<string | null>(null);
   const [givingHistoryFuzzy, setGivingHistoryFuzzy] = useState(false);
   const [givingHistoryNames, setGivingHistoryNames] = useState<string[] | null>(null);
@@ -569,10 +571,17 @@ export default function FrankDeenieClient() {
 
   const chartDrilldownRows = useMemo(() => {
     if (chartDrilldownYear === null) return [];
-    return filteredRows
-      .filter((row) => new Date(row.date).getFullYear() === chartDrilldownYear)
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [filteredRows, chartDrilldownYear]);
+    const rows = filteredRows.filter((row) => new Date(row.date).getFullYear() === chartDrilldownYear);
+    return [...rows].sort((a, b) => {
+      let cmp = 0;
+      if (drilldownSortKey === "date") cmp = a.date.localeCompare(b.date);
+      else if (drilldownSortKey === "name") cmp = a.name.localeCompare(b.name);
+      else if (drilldownSortKey === "amount") cmp = a.amount - b.amount;
+      else if (drilldownSortKey === "status") cmp = a.status.localeCompare(b.status);
+      if (cmp === 0) cmp = b.date.localeCompare(a.date);
+      return drilldownSortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filteredRows, chartDrilldownYear, drilldownSortKey, drilldownSortDir]);
 
   const toggleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {
@@ -1667,7 +1676,11 @@ export default function FrankDeenieClient() {
                 </p>
               </div>
             </div>
-            <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={setChartDrilldownYear} />
+            <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={(year) => {
+              setChartDrilldownYear(year);
+              setDrilldownSortKey("date");
+              setDrilldownSortDir("desc");
+            }} />
           </GlassCard>
 
           <section className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
@@ -2233,10 +2246,22 @@ export default function FrankDeenieClient() {
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-card text-left text-[10px] uppercase tracking-wider text-muted-foreground">
                     <tr>
-                      <th className="px-2 py-1.5">Date</th>
-                      <th className="px-2 py-1.5">Name</th>
-                      <th className="px-2 py-1.5 text-right">Amount</th>
-                      <th className="px-2 py-1.5">Status</th>
+                      {([["date", "Date", ""], ["name", "Name", ""], ["amount", "Amount", " text-right"], ["status", "Status", ""]] as const).map(([key, label, extra]) => (
+                        <th
+                          key={key}
+                          className={`cursor-pointer select-none px-2 py-1.5 hover:text-foreground transition-colors${extra}`}
+                          onClick={() => {
+                            if (drilldownSortKey === key) {
+                              setDrilldownSortDir((d) => d === "asc" ? "desc" : "asc");
+                            } else {
+                              setDrilldownSortKey(key);
+                              setDrilldownSortDir(key === "date" ? "desc" : "asc");
+                            }
+                          }}
+                        >
+                          {label}{drilldownSortKey === key ? (drilldownSortDir === "asc" ? " ^" : " v") : ""}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
