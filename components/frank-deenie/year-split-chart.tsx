@@ -76,11 +76,16 @@ export function FrankDeenieYearSplitChart({
               dataKey="children"
               name="Children"
               fill="url(#childrenGradient)"
-              minPointSize={2}
               radius={[6, 6, 0, 0]}
               animationDuration={800}
               animationBegin={200}
             >
+              {chartData.map((entry) => (
+                <Cell
+                  key={entry.year}
+                  fill={entry.children > 0 ? "url(#childrenGradient)" : "transparent"}
+                />
+              ))}
               <LabelList
                 position="top"
                 fill={chartText.axis}
