@@ -3,7 +3,7 @@
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
-import { ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Users, X } from "lucide-react";
+import { Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -28,7 +28,7 @@ import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 
-type SortKey = "date" | "type" | "name" | "memo" | "split" | "amount" | "status";
+type SortKey = "date" | "name" | "memo" | "amount" | "status";
 type SortDirection = "asc" | "desc";
 
 interface DonationDraft {
@@ -43,16 +43,13 @@ interface DonationDraft {
 
 interface DonationFilters {
   search: string;
-  type: string;
   status: string;
 }
 
 interface DonationExportRow {
   date: string;
   name: string;
-  type: string;
   memo: string;
-  split: string;
   amount: number;
   status: string;
   source: string;
@@ -61,13 +58,12 @@ interface DonationExportRow {
 
 const DEFAULT_FILTERS: DonationFilters = {
   search: "",
-  type: "all",
   status: "all"
 };
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = true;
-const EXPORT_HEADERS = ["Date", "Name", "Type", "Memo", "Split", "Amount", "Status", "Source", "Proposed by"] as const;
+const EXPORT_HEADERS = ["Date", "Name", "Notes", "Amount", "Status", "Source", "Proposed by"] as const;
 
 function proposerName(email: string) {
   return getProposerDisplayName(email);
@@ -110,7 +106,7 @@ function tableDate(value: string) {
   if (Number.isNaN(parsed)) {
     return value;
   }
-  return new Date(parsed).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
+  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function normalized(value: string) {
@@ -135,9 +131,7 @@ function rowToExportValues(row: DonationExportRow) {
   return [
     row.date,
     row.name,
-    row.type,
     row.memo,
-    row.split,
     row.amount.toFixed(2),
     row.status,
     row.source,
@@ -274,11 +268,15 @@ export default function FrankDeenieClient() {
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
+  const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [givingHistoryName, setGivingHistoryName] = useState<string | null>(null);
   const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
+  const addDonationDateInputRef = useRef<HTMLInputElement | null>(null);
+  const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
+  const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
-    canAccess && showAddForm ? "/api/frank-deenie/name-suggestions" : null
+    canAccess ? "/api/frank-deenie/name-suggestions" : null
   );
   const allNameSuggestions = useMemo(
     () => nameSuggestionsQuery.data?.names ?? [],
@@ -309,6 +307,29 @@ export default function FrankDeenieClient() {
   const showCreateNameOption =
     normalizedDraftName.length > 0 &&
     !allNameSuggestions.some((s) => s.trim().toLowerCase() === normalizedDraftName);
+
+  const normalizedFilterSearch = useMemo(() => filters.search.trim().toLowerCase(), [filters.search]);
+  const filterNameSuggestions = useMemo(() => {
+    if (!allNameSuggestions.length) return [];
+    if (!normalizedFilterSearch) return allNameSuggestions.slice(0, 16);
+
+    const startsWithMatches: string[] = [];
+    const containsMatches: string[] = [];
+
+    for (const name of allNameSuggestions) {
+      const norm = name.trim().toLowerCase();
+      if (!norm.includes(normalizedFilterSearch)) continue;
+      if (norm.startsWith(normalizedFilterSearch)) {
+        startsWithMatches.push(name);
+      } else {
+        containsMatches.push(name);
+      }
+    }
+
+    return [...startsWithMatches, ...containsMatches].slice(0, 16);
+  }, [allNameSuggestions, normalizedFilterSearch]);
+  const showFilterNamePanel =
+    isFilterNameOpen && (filterNameSuggestions.length > 0 || normalizedFilterSearch.length > 0);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -404,16 +425,6 @@ export default function FrankDeenieClient() {
   }, [detailRowId, editingId, isCreating, showAddForm]);
 
 
-  const typeOptions = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-
-    return [...new Set(data.rows.map((row) => row.type.trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b)
-    );
-  }, [data]);
-
   const filteredRows = useMemo(() => {
     if (!data) {
       return [];
@@ -422,17 +433,12 @@ export default function FrankDeenieClient() {
     const search = normalized(filters.search);
 
     const scopedRows = data.rows.filter((row) => {
-      if (filters.type !== "all" && row.type !== filters.type) {
-        return false;
-      }
-
       if (filters.status !== "all" && row.status !== filters.status) {
         return false;
       }
 
       if (search) {
-        const haystack = `${row.name} ${row.memo} ${row.split} ${row.status} ${row.type}`.toLowerCase();
-        if (!haystack.includes(search)) {
+        if (!row.name.toLowerCase().includes(search)) {
           return false;
         }
       }
@@ -445,14 +451,10 @@ export default function FrankDeenieClient() {
 
       if (sortKey === "date") {
         comparison = a.date.localeCompare(b.date);
-      } else if (sortKey === "type") {
-        comparison = a.type.localeCompare(b.type);
       } else if (sortKey === "name") {
         comparison = a.name.localeCompare(b.name);
       } else if (sortKey === "memo") {
         comparison = a.memo.localeCompare(b.memo);
-      } else if (sortKey === "split") {
-        comparison = a.split.localeCompare(b.split);
       } else if (sortKey === "amount") {
         comparison = a.amount - b.amount;
       } else if (sortKey === "status") {
@@ -484,9 +486,7 @@ export default function FrankDeenieClient() {
       filteredRows.map((row) => ({
         date: row.date,
         name: row.name.trim(),
-        type: row.type.trim(),
         memo: row.memo.trim(),
-        split: row.split.trim(),
         amount: row.amount,
         status: row.status.trim(),
         source: row.source === "children" ? "Children" : "Frank & Deenie",
@@ -714,10 +714,6 @@ export default function FrankDeenieClient() {
     
     if (!draft.name.trim()) {
       errors.name = "Name is required";
-    }
-    
-    if (!draft.type.trim()) {
-      errors.type = "Type is required";
     }
     
     const parsedAmount = parseNumberInput(draft.amount);
@@ -1110,33 +1106,105 @@ export default function FrankDeenieClient() {
             </DropdownMenu>
           </div>
 
-          <FilterPanel className="mb-3 grid gap-2 items-end sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_auto]">
-            <label className="text-xs font-semibold text-muted-foreground">
-              Search
-              <Input
-                type="text"
-                value={filters.search}
-                onChange={(event) => setFilter("search", event.target.value)}
-                onFocus={() => setExportMessage(null)}
-                placeholder="Name, type, memo, split"
-                className="mt-1 normal-case h-10"
-              />
-            </label>
-            <label className="text-xs font-semibold text-muted-foreground">
-              Type
-              <select
-                value={filters.type}
-                onChange={(event) => setFilter("type", event.target.value)}
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 w-full rounded-md border px-3 py-2 text-base outline-none md:text-sm mt-1 normal-case"
+          <FilterPanel className="mb-3 grid gap-2 items-end sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_auto]">
+            <div className="text-xs font-semibold text-muted-foreground">
+              Organization
+              <div
+                className="relative mt-1 flex rounded-md border border-input shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)]"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setIsFilterNameOpen(false);
+                  }
+                }}
               >
-                <option value="all">All</option>
-                {typeOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <input
+                  ref={filterNameInputRef}
+                  value={filters.search}
+                  onChange={(event) => {
+                    setFilter("search", event.target.value);
+                    setIsFilterNameOpen(true);
+                  }}
+                  onFocus={() => {
+                    setExportMessage(null);
+                    setIsFilterNameOpen(true);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setIsFilterNameOpen(false);
+                  }}
+                  autoComplete="off"
+                  placeholder="Search by name"
+                  className="min-w-0 flex-1 rounded-l-md border-none bg-transparent px-2 py-2 text-sm text-foreground shadow-none outline-none normal-case h-10"
+                />
+                {filters.search ? (
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setFilter("search", "");
+                      setIsFilterNameOpen(false);
+                      filterNameInputRef.current?.focus();
+                    }}
+                    className="flex w-8 shrink-0 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X aria-hidden="true" size={14} />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setIsFilterNameOpen((open) => !open)}
+                  className="flex w-10 shrink-0 items-center justify-center rounded-r-md border-l border-input bg-muted text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
+                  aria-label="Toggle name suggestions"
+                  aria-expanded={showFilterNamePanel}
+                >
+                  <ChevronDown aria-hidden="true" size={16} />
+                </button>
+                {showFilterNamePanel ? (
+                  <div
+                    role="listbox"
+                    className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
+                  >
+                    {normalizedFilterSearch ? (
+                      <button
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setFilter("search", "");
+                          setIsFilterNameOpen(false);
+                        }}
+                        className="mb-1 block w-full rounded-lg px-2 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                      >
+                        Show all organizations
+                      </button>
+                    ) : null}
+                    {filterNameSuggestions.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setFilter("search", name);
+                          setIsFilterNameOpen(false);
+                        }}
+                        className={`block w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted ${
+                          filters.search.trim().toLowerCase() === name.trim().toLowerCase()
+                            ? "bg-muted font-semibold text-foreground"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                    {normalizedFilterSearch.length > 0 && filterNameSuggestions.length === 0 ? (
+                      <p className="px-2 py-2 text-sm text-muted-foreground">
+                        No matching organizations
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
             <label className="text-xs font-semibold text-muted-foreground">
               Status
               <select
@@ -1160,6 +1228,7 @@ export default function FrankDeenieClient() {
                   setFilters(DEFAULT_FILTERS);
                   setExportMessage(null);
                   setIsExportMenuOpen(false);
+                  setIsFilterNameOpen(false);
                 }}
                 className="w-full xl:w-auto h-10"
               >
@@ -1203,7 +1272,7 @@ export default function FrankDeenieClient() {
               </div>
             ) : (
               filteredRows.map((row) => {
-                const detailsText = [row.memo.trim(), row.split.trim()].filter(Boolean).join(" | ");
+                const notesText = row.memo.trim();
                 const rowMessage = rowMessageById[row.id];
 
                 return (
@@ -1273,9 +1342,8 @@ export default function FrankDeenieClient() {
                     </p>
                     <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-muted-foreground">
                       <p>{tableDate(row.date)}</p>
-                      <p className="truncate font-semibold uppercase tracking-wide">{row.type}</p>
                       <p>By {byDisplay(row)}</p>
-                      {detailsText ? <p className="col-span-2 truncate">{detailsText}</p> : null}
+                      {notesText ? <p className="col-span-2 truncate">{notesText}</p> : null}
                     </div>
                     {rowMessage ? (
                       <p className={`mt-2 text-xs ${rowMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
@@ -1298,13 +1366,12 @@ export default function FrankDeenieClient() {
           >
             <table className="w-full table-fixed text-left text-xs">
               <colgroup>
-                <col className="w-[7%]" />
+                <col className="w-[10%]" />
                 <col className="w-[22%]" />
                 <col />
                 <col className="w-[10%]" />
                 <col className="w-[8%]" />
                 <col className="w-[7%]" />
-                <col className="w-[4%]" />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-card">
                 <DataTableHeadRow>
@@ -1318,7 +1385,11 @@ export default function FrankDeenieClient() {
                       Name{sortMarker("name")}
                     </DataTableSortButton>
                   </th>
-                  <th className="px-2 py-2">Details</th>
+                  <th className="px-2 py-2">
+                    <DataTableSortButton onClick={() => toggleSort("memo")}>
+                      Notes{sortMarker("memo")}
+                    </DataTableSortButton>
+                  </th>
                   <th className="px-2 py-2 text-right">
                     <DataTableSortButton onClick={() => toggleSort("amount")}>
                       Amount ($){sortMarker("amount")}
@@ -1329,14 +1400,13 @@ export default function FrankDeenieClient() {
                       Status{sortMarker("status")}
                     </DataTableSortButton>
                   </th>
-                  <th className="px-2 py-2">By</th>
                   <th className="px-2 py-2" />
                 </DataTableHeadRow>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td className="px-2 py-6 text-center" colSpan={7}>
+                    <td className="px-2 py-6 text-center" colSpan={6}>
                       <div className="flex flex-col items-center justify-center py-2">
                         <div className="mb-2 rounded-full border border-border bg-muted p-2">
                           <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1361,7 +1431,6 @@ export default function FrankDeenieClient() {
                 ) : (
                   filteredRows.map((row) => {
                     const rowMessage = rowMessageById[row.id];
-                    const detailsText = [row.memo.trim(), row.split.trim()].filter(Boolean).join(" | ");
 
                     return (
                       <Fragment key={row.id}>
@@ -1399,9 +1468,8 @@ export default function FrankDeenieClient() {
                             </div>
                           </td>
                           <td className="px-2 py-2 align-middle">
-                            <p className="truncate text-muted-foreground" title={`${row.type}${detailsText ? ` · ${detailsText}` : ""}`}>
-                              <span className="font-semibold uppercase tracking-wide">{row.type}</span>
-                              {detailsText ? <span className="text-muted-foreground/70"> · {detailsText}</span> : null}
+                            <p className="truncate text-muted-foreground" title={row.memo.trim() || undefined}>
+                              {row.memo.trim() || "—"}
                             </p>
                           </td>
                           <td className="px-2 py-2 text-right text-muted-foreground tabular-nums align-middle font-medium">
@@ -1417,9 +1485,6 @@ export default function FrankDeenieClient() {
                             >
                               {row.status}
                             </span>
-                          </td>
-                          <td className="px-2 py-2 align-middle text-muted-foreground truncate" title={byDisplay(row)}>
-                            {byDisplay(row)}
                           </td>
                           <td className="px-2 py-2 align-middle">
                             <div className="relative flex justify-end">
@@ -1548,7 +1613,7 @@ export default function FrankDeenieClient() {
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">
                   date,name,amount
                 </code>
-                . Optional: type, memo, split, status.
+                . Optional: memo, status.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
@@ -1650,28 +1715,29 @@ export default function FrankDeenieClient() {
                 </div>
                 <form className="mt-3 grid gap-3" onSubmit={(event) => event.preventDefault()}>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <label className="text-xs font-semibold text-muted-foreground">
+                  <div className="text-xs font-semibold text-muted-foreground">
                     Date
-                    <Input
+                    <button
+                      type="button"
+                      onClick={() => editDonationDateInputRef.current?.showPicker()}
+                      className="mt-1 flex h-9 w-full cursor-pointer items-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
+                    >
+                      <span className={`flex-1 text-left ${editDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
+                        {editDraft.date ? tableDate(editDraft.date) : "Select date"}
+                      </span>
+                      <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </button>
+                    <input
+                      ref={editDonationDateInputRef}
                       type="date"
                       value={editDraft.date}
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, date: event.target.value } : current))
                       }
-                      className="mt-1"
+                      tabIndex={-1}
+                      className="sr-only"
                     />
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Type
-                    <Input
-                      type="text"
-                      value={editDraft.type}
-                      onChange={(event) =>
-                        setEditDraft((current) => (current ? { ...current, type: event.target.value } : current))
-                      }
-                      className="mt-1"
-                    />
-                  </label>
+                  </div>
                   <label className="text-xs font-semibold text-muted-foreground">
                     Name
                     <Input
@@ -1711,20 +1777,9 @@ export default function FrankDeenieClient() {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Split
-                    <Input
-                      type="text"
-                      value={editDraft.split}
-                      onChange={(event) =>
-                        setEditDraft((current) => (current ? { ...current, split: event.target.value } : current))
-                      }
-                      className="mt-1"
-                    />
-                  </label>
                 </div>
                 <label className="text-xs font-semibold text-muted-foreground">
-                  Memo / Description
+                  Notes / Description
                   <Input
                     type="text"
                     value={editDraft.memo}
@@ -1763,12 +1818,6 @@ export default function FrankDeenieClient() {
                 </div>
                 <div>
                   <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Type
-                  </dt>
-                  <dd className="mt-1 font-medium">{detailRow.type}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Amount
                   </dt>
                   <dd className="mt-1 text-lg font-bold">{currency(detailRow.amount)}</dd>
@@ -1778,12 +1827,6 @@ export default function FrankDeenieClient() {
                     Status
                   </dt>
                   <dd className="mt-1 font-medium">{detailRow.status}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Split
-                  </dt>
-                  <dd className="mt-1 font-medium">{detailRow.split || "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
@@ -1801,7 +1844,7 @@ export default function FrankDeenieClient() {
                 </div>
                 <div className="md:col-span-2">
                   <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Memo / Description
+                    Notes / Description
                   </dt>
                   <dd className="mt-1 whitespace-pre-wrap font-medium">{detailRow.memo || "—"}</dd>
                 </div>
@@ -1874,33 +1917,32 @@ export default function FrankDeenieClient() {
             </div>
 
             <form className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <label className="text-xs font-semibold text-muted-foreground">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="text-xs font-semibold text-muted-foreground">
                   Date
-                  <Input
+                  <button
+                    type="button"
+                    onClick={() => addDonationDateInputRef.current?.showPicker()}
+                    className={`mt-1 flex h-9 w-full cursor-pointer items-center rounded-lg border bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40 ${formErrors.date ? "border-rose-300" : "border-input"}`}
+                  >
+                    <span className={`flex-1 text-left ${newDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
+                      {newDraft.date ? tableDate(newDraft.date) : "Select date"}
+                    </span>
+                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                  <input
+                    ref={addDonationDateInputRef}
                     type="date"
                     value={newDraft.date}
                     onChange={(event) => updateDraft("date", event.target.value)}
-                    className={`mt-1 rounded-lg ${formErrors.date ? "border-rose-300 focus:border-rose-500" : ""}`}
                     required
+                    tabIndex={-1}
+                    className="sr-only"
                   />
                   {formErrors.date && (
                     <p className="mt-1 text-xs text-rose-600">{formErrors.date}</p>
                   )}
-                </label>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Type
-                  <Input
-                    type="text"
-                    value={newDraft.type}
-                    onChange={(event) => updateDraft("type", event.target.value)}
-                    className={`mt-1 rounded-lg ${formErrors.type ? "border-rose-300 focus:border-rose-500" : ""}`}
-                    required
-                  />
-                  {formErrors.type && (
-                    <p className="mt-1 text-xs text-rose-600">{formErrors.type}</p>
-                  )}
-                </label>
+                </div>
                 <div className="text-xs font-semibold text-muted-foreground">
                   Name
                   <div
@@ -1992,20 +2034,11 @@ export default function FrankDeenieClient() {
                   )}
                 </label>
                 <label className="text-xs font-semibold text-muted-foreground">
-                  Memo / Description
+                  Notes / Description
                   <Input
                     type="text"
                     value={newDraft.memo}
                     onChange={(event) => updateDraft("memo", event.target.value)}
-                    className="mt-1 rounded-lg"
-                  />
-                </label>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Split
-                  <Input
-                    type="text"
-                    value={newDraft.split}
-                    onChange={(event) => updateDraft("split", event.target.value)}
                     className="mt-1 rounded-lg"
                   />
                 </label>
