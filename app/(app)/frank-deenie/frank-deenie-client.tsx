@@ -1442,9 +1442,10 @@ export default function FrankDeenieClient() {
             <table className="w-full table-fixed text-left text-xs">
               <colgroup>
                 <col className="w-[10%]" />
-                <col className="w-[22%]" />
+                <col className="w-[20%]" />
                 <col />
                 <col className="w-[10%]" />
+                <col className="w-[8%]" />
                 <col className="w-[8%]" />
                 <col className="w-[7%]" />
               </colgroup>
@@ -1475,13 +1476,14 @@ export default function FrankDeenieClient() {
                       Status{sortMarker("status")}
                     </DataTableSortButton>
                   </th>
+                  <th className="px-2 py-2">By</th>
                   <th className="px-2 py-2" />
                 </DataTableHeadRow>
               </thead>
               <tbody className="divide-y divide-border/50">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td className="px-2 py-6 text-center" colSpan={6}>
+                    <td className="px-2 py-6 text-center" colSpan={7}>
                       <div className="flex flex-col items-center justify-center py-2">
                         <div className="mb-2 rounded-full border border-border bg-muted p-2">
                           <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1561,6 +1563,7 @@ export default function FrankDeenieClient() {
                               {row.status}
                             </span>
                           </td>
+                          <td className="px-2 py-2 text-muted-foreground align-middle">{byDisplay(row)}</td>
                           <td className="px-2 py-2 align-middle">
                             <div className="relative flex justify-end">
                               <Button
@@ -1623,7 +1626,7 @@ export default function FrankDeenieClient() {
                         {rowMessage ? (
                           <tr className="border-b">
                             <td
-                              colSpan={6}
+                              colSpan={7}
                               className={`px-2 py-2 text-xs ${
                                 rowMessage.tone === "error"
                                   ? "text-rose-600"
