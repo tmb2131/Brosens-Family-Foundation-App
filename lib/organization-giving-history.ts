@@ -7,6 +7,10 @@ type AdminClient = SupabaseClient;
 interface GivingHistoryInput {
   organizationId?: string | null;
   name: string;
+  /** When true, treat `name` as a substring filter (%name%) instead of exact match. */
+  fuzzy?: boolean;
+  /** When provided, match these exact names instead of using `name`/`fuzzy`. */
+  names?: string[];
 }
 
 interface SentProposalRow {
@@ -36,16 +40,29 @@ function yearFromDate(dateStr: string): number {
   return new Date(dateStr).getFullYear();
 }
 
+function namesOrFilter(names: string[]): string {
+  return names.map((n) => `name.ilike.${JSON.stringify(n.trim())}`).join(",");
+}
+
+function recipientNamesOrFilter(names: string[]): string {
+  return names.map((n) => `recipient_name.ilike.${JSON.stringify(n.trim())}`).join(",");
+}
+
 async function loadChildrenAmountsByYear(
   admin: AdminClient,
   name: string,
-  extraOrganizationId?: string | null
+  extraOrganizationId?: string | null,
+  fuzzy?: boolean,
+  names?: string[]
 ): Promise<Map<number, number>> {
-  const { data: orgRows, error: orgError } = await admin
-    .from("organizations")
-    .select("id")
-    .ilike("name", name.trim())
-    .returns<OrgIdRow[]>();
+  let query = admin.from("organizations").select("id");
+  if (names && names.length > 0) {
+    query = query.or(namesOrFilter(names));
+  } else {
+    const pattern = fuzzy ? `%${name.trim()}%` : name.trim();
+    query = query.ilike("name", pattern);
+  }
+  const { data: orgRows, error: orgError } = await query.returns<OrgIdRow[]>();
 
   if (orgError) {
     throw new HttpError(500, `Failed to look up organizations: ${orgError.message}`);
@@ -81,13 +98,18 @@ async function loadChildrenAmountsByYear(
 
 async function loadFrankDeenieDonationsByYear(
   admin: AdminClient,
-  name: string
+  name: string,
+  fuzzy?: boolean,
+  names?: string[]
 ): Promise<Map<number, number>> {
-  const { data, error } = await admin
-    .from("frank_deenie_donations")
-    .select("donation_date, amount")
-    .ilike("recipient_name", name.trim())
-    .returns<FrankDeenieDonationRow[]>();
+  let query = admin.from("frank_deenie_donations").select("donation_date, amount");
+  if (names && names.length > 0) {
+    query = query.or(recipientNamesOrFilter(names));
+  } else {
+    const pattern = fuzzy ? `%${name.trim()}%` : name.trim();
+    query = query.ilike("recipient_name", pattern);
+  }
+  const { data, error } = await query.returns<FrankDeenieDonationRow[]>();
 
   if (error) {
     throw new HttpError(500, `Failed to load Frank & Deenie giving history: ${error.message}`);
@@ -156,8 +178,8 @@ export async function getOrganizationGivingHistory(
   }
 
   const [childrenByYear, fdByYear, yearlyTotals] = await Promise.all([
-    loadChildrenAmountsByYear(admin, name, input.organizationId),
-    loadFrankDeenieDonationsByYear(admin, name),
+    loadChildrenAmountsByYear(admin, name, input.organizationId, input.fuzzy, input.names),
+    loadFrankDeenieDonationsByYear(admin, name, input.fuzzy, input.names),
     loadYearlyTotals(admin)
   ]);
 

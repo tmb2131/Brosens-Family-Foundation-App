@@ -26,6 +26,10 @@ type PrimarySource = "frank_deenie" | "children";
 interface CharityGivingHistoryProps {
   charityName: string;
   organizationId?: string | null;
+  /** When true, treat charityName as a substring filter for broader matching. */
+  fuzzy?: boolean;
+  /** When provided, query these exact org names instead of using charityName/fuzzy. */
+  names?: string[];
   /** Which source to show by default. The toggle adds the other source. */
   primarySource?: PrimarySource;
   onBack?: () => void;
@@ -70,11 +74,15 @@ function computeVisibleEntries(
 export function CharityGivingHistory({
   charityName,
   organizationId,
+  fuzzy,
+  names,
   primarySource = "frank_deenie",
   onBack
 }: CharityGivingHistoryProps) {
   const params = new URLSearchParams({ name: charityName });
   if (organizationId) params.set("organizationId", organizationId);
+  if (fuzzy) params.set("fuzzy", "1");
+  if (names && names.length > 0) params.set("names", JSON.stringify(names));
 
   const { data, isLoading, error } = useSWR<OrganizationGivingHistory>(
     `/api/organizations/giving-history?${params.toString()}`,

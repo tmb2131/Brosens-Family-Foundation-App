@@ -270,6 +270,9 @@ export default function FrankDeenieClient() {
   const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [givingHistoryName, setGivingHistoryName] = useState<string | null>(null);
+  const [givingHistoryFuzzy, setGivingHistoryFuzzy] = useState(false);
+  const [givingHistoryNames, setGivingHistoryNames] = useState<string[] | null>(null);
+  const [excludedFilterNames, setExcludedFilterNames] = useState<Set<string>>(new Set());
   const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
   const addDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -488,6 +491,28 @@ export default function FrankDeenieClient() {
 
     return data.rows.find((row) => row.id === detailRowId) ?? null;
   }, [data, detailRowId]);
+
+  const filteredOrgNames = useMemo(() => {
+    if (!filters.search.trim()) return [];
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const row of filteredRows) {
+      const key = row.name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      names.push(row.name.trim());
+    }
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [filteredRows, filters.search]);
+
+  const includedFilterNames = useMemo(
+    () => filteredOrgNames.filter((n) => !excludedFilterNames.has(n)),
+    [filteredOrgNames, excludedFilterNames]
+  );
+
+  useEffect(() => {
+    setExcludedFilterNames(new Set());
+  }, [filters.search]);
 
   const visibleTotal = useMemo(
     () => filteredRows.reduce((sum, row) => sum + row.amount, 0),
@@ -1246,15 +1271,44 @@ export default function FrankDeenieClient() {
           </FilterPanel>
 
           {filters.search.trim() ? (
-            <div className="mb-3 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setGivingHistoryName(filters.search.trim())}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-xs hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <History className="h-3.5 w-3.5" />
-                Giving history for &ldquo;{filters.search.trim()}&rdquo;
-              </button>
+            <div className="mb-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={includedFilterNames.length === 0}
+                  onClick={() => {
+                    setGivingHistoryName(filters.search.trim());
+                    setGivingHistoryFuzzy(includedFilterNames.length !== 1);
+                    setGivingHistoryNames(includedFilterNames);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-xs hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <History className="h-3.5 w-3.5" />
+                  Giving history for &ldquo;{filters.search.trim()}&rdquo;
+                </button>
+              </div>
+              {filteredOrgNames.length >= 2 ? (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                  {filteredOrgNames.map((orgName) => (
+                    <label key={orgName} className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors select-none">
+                      <input
+                        type="checkbox"
+                        checked={!excludedFilterNames.has(orgName)}
+                        onChange={() => {
+                          setExcludedFilterNames((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(orgName)) next.delete(orgName);
+                            else next.add(orgName);
+                            return next;
+                          });
+                        }}
+                        className="h-3.5 w-3.5 rounded border-border accent-[hsl(var(--accent))]"
+                      />
+                      {orgName}
+                    </label>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1712,7 +1766,7 @@ export default function FrankDeenieClient() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setGivingHistoryName(detailRow.name)}
+                    onClick={() => { setGivingHistoryName(detailRow.name); setGivingHistoryFuzzy(false); setGivingHistoryNames(null); }}
                     className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
                     <History className="h-3 w-3" />
@@ -2117,7 +2171,7 @@ export default function FrankDeenieClient() {
 
       <ResponsiveModal
         open={!!givingHistoryName}
-        onOpenChange={(open) => { if (!open) setGivingHistoryName(null); }}
+        onOpenChange={(open) => { if (!open) { setGivingHistoryName(null); setGivingHistoryFuzzy(false); setGivingHistoryNames(null); } }}
       >
         {givingHistoryName ? (
           <ResponsiveModalContent
@@ -2127,7 +2181,9 @@ export default function FrankDeenieClient() {
           >
             <CharityGivingHistory
               charityName={givingHistoryName}
-              onBack={() => setGivingHistoryName(null)}
+              fuzzy={givingHistoryFuzzy}
+              names={givingHistoryNames ?? undefined}
+              onBack={() => { setGivingHistoryName(null); setGivingHistoryFuzzy(false); setGivingHistoryNames(null); }}
             />
           </ResponsiveModalContent>
         ) : null}
