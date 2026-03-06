@@ -309,14 +309,26 @@ export default function FrankDeenieClient() {
     !allNameSuggestions.some((s) => s.trim().toLowerCase() === normalizedDraftName);
 
   const normalizedFilterSearch = useMemo(() => filters.search.trim().toLowerCase(), [filters.search]);
+  const filterableNames = useMemo(() => {
+    if (!data) return [];
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const row of data.rows) {
+      const key = row.name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      names.push(row.name.trim());
+    }
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [data]);
   const filterNameSuggestions = useMemo(() => {
-    if (!allNameSuggestions.length) return [];
-    if (!normalizedFilterSearch) return allNameSuggestions.slice(0, 16);
+    if (!filterableNames.length) return [];
+    if (!normalizedFilterSearch) return filterableNames.slice(0, 16);
 
     const startsWithMatches: string[] = [];
     const containsMatches: string[] = [];
 
-    for (const name of allNameSuggestions) {
+    for (const name of filterableNames) {
       const norm = name.trim().toLowerCase();
       if (!norm.includes(normalizedFilterSearch)) continue;
       if (norm.startsWith(normalizedFilterSearch)) {
@@ -327,7 +339,7 @@ export default function FrankDeenieClient() {
     }
 
     return [...startsWithMatches, ...containsMatches].slice(0, 16);
-  }, [allNameSuggestions, normalizedFilterSearch]);
+  }, [filterableNames, normalizedFilterSearch]);
   const showFilterNamePanel =
     isFilterNameOpen && (filterNameSuggestions.length > 0 || normalizedFilterSearch.length > 0);
 
