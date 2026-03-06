@@ -309,6 +309,21 @@ export default function FrankDeenieClient() {
     !allNameSuggestions.some((s) => s.trim().toLowerCase() === normalizedDraftName);
 
   const normalizedFilterSearch = useMemo(() => filters.search.trim().toLowerCase(), [filters.search]);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("includeChildren", includeChildren ? "1" : "0");
+    if (selectedYear !== null) {
+      params.set("year", String(selectedYear));
+    }
+    return params.toString();
+  }, [includeChildren, selectedYear]);
+
+  const { data, error, isLoading, mutate } = useSWR<FrankDeenieSnapshot>(
+    canAccess ? `/api/frank-deenie?${queryString}` : null,
+    { refreshInterval: 120_000 }
+  );
+
   const filterableNames = useMemo(() => {
     if (!data) return [];
     const seen = new Set<string>();
@@ -342,20 +357,6 @@ export default function FrankDeenieClient() {
   }, [filterableNames, normalizedFilterSearch]);
   const showFilterNamePanel =
     isFilterNameOpen && (filterNameSuggestions.length > 0 || normalizedFilterSearch.length > 0);
-
-  const queryString = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set("includeChildren", includeChildren ? "1" : "0");
-    if (selectedYear !== null) {
-      params.set("year", String(selectedYear));
-    }
-    return params.toString();
-  }, [includeChildren, selectedYear]);
-
-  const { data, error, isLoading, mutate } = useSWR<FrankDeenieSnapshot>(
-    canAccess ? `/api/frank-deenie?${queryString}` : null,
-    { refreshInterval: 120_000 }
-  );
 
   useEffect(() => {
     if (!data) {
