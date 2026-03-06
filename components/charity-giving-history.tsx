@@ -254,7 +254,6 @@ export function CharityGivingHistory({
                       dataKey="frankDeenieAmount"
                       name="Frank & Deenie"
                       fill="url(#ghFrankDeenieGradient)"
-                      radius={[6, 6, 0, 0]}
                       animationDuration={600}
                     />
                     <Bar

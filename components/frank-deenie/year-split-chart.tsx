@@ -81,7 +81,6 @@ export function FrankDeenieYearSplitChart({
               dataKey="frankDeenie" 
               name="Frank & Deenie" 
               fill="url(#frankDeenieGradient)"
-              radius={[6, 6, 0, 0]}
               animationDuration={800}
               animationBegin={0}
             />
