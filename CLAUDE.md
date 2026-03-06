@@ -62,19 +62,31 @@ Email reminders run automatically via Vercel cron:
 app/
   (auth)/              # Unauthenticated pages: login, forgot-password, reset-password
   (app)/               # Protected pages: dashboard, workspace, meeting, reports, etc.
-  api/                 # API routes (14 feature groups, ~35 endpoints)
+    admin/             # Admin queue page
+    dashboard/         # Foundation dashboard with budget tracking
+    frank-deenie/      # Donation tracking for Frank & Deenie
+    mandate/           # Mandate policy editor (Oversight role)
+    meeting/           # Meeting reveal & decision flow
+    mobile/            # Mobile-first home (members)
+    proposals/new/     # New proposal submission form
+    reports/           # Reports and historical analysis
+    settings/          # User preferences and settings
+    workspace/         # Personal "My Workspace" dashboard
+  api/                 # API routes (15 feature groups, ~40 endpoints)
     admin/             auth/            budgets/
-    foundation/        frank-deenie/    meeting/
-    navigation/        notifications/   organizations/
-    policy/            proposals/       settings/
-    votes/             workspace/
+    charity-navigator/ foundation/      frank-deenie/
+    meeting/           navigation/      notifications/
+    organizations/     policy/          proposals/
+    settings/          votes/           workspace/
+  auth/callback/       # Supabase OAuth callback handler
   open/                # Device-aware redirect handler (mobile vs desktop)
 
 components/
   ui/                  # shadcn/ui primitives (card, badge, dialog, table, button, skeleton,
                        #   drawer, sheet, tabs, switch, select, tooltip, alert, sonner) +
                        #   app wrappers (responsive-modal, metric-card, status-pill, role-pill,
-                       #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar)
+                       #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar,
+                       #   password-input, collapsible-section, theme-toggle)
   auth/                # AuthProvider, Guard component, LastAccessedTouch
   dashboard/           # Charts and dashboard widgets (budget-split, historical-impact, reports-charts)
   voting/              # Voting interface components (vote-form)
@@ -83,26 +95,30 @@ components/
   frank-deenie/        # Donation tracking components (year-split-chart)
   app-shell.tsx        # Full app layout: desktop sidebar + mobile bottom nav, badge polling
   providers.tsx        # Root providers: ThemeProvider, AuthProvider, SWRConfig, TooltipProvider
-  dashboard-walkthrough-context.tsx  # Contextual walkthrough guide for Dashboard
-  workspace-walkthrough-context.tsx  # Contextual walkthrough guide for Workspace
-  pwa-ios-install-banner.tsx         # iOS PWA install prompt banner
-  scroll-to-top.tsx                  # Scroll restoration on route change
+  charity-giving-history.tsx             # Historical giving display for a charity/org
+  dashboard-walkthrough-context.tsx      # Contextual walkthrough guide for Dashboard
+  workspace-walkthrough-context.tsx      # Contextual walkthrough guide for Workspace
+  pwa-ios-install-banner.tsx             # iOS PWA install prompt banner
+  scroll-to-top.tsx                      # Scroll restoration on route change
 
 lib/
   supabase/            # Supabase client configs (browser, server, admin)
   types.ts             # Shared TypeScript types and interfaces
   auth-server.ts       # requireAuthContext(), assertRole(), isVotingRole()
   http-error.ts        # HttpError class, toErrorResponse(), cache header constants
-  utils.ts             # General utilities: cn(), currency formatting
-  foundation-data.ts   # Foundation data access utilities
+  utils.ts             # General utilities: cn(), currency formatting, number parsing
+  foundation-data.ts   # Foundation data access utilities (proposals, voting, budget)
+  workspace.ts         # Personal workspace snapshot builder
   frank-deenie-data.ts # Frank & Deenie donation data access
   policy-data.ts       # Mandate policy data access
-  mandate-policy.ts    # Mandate policy business logic
+  mandate-policy.ts    # Mandate policy business logic (versioning, diffing)
   navigation-summary.ts # Navigation badge counts (getNavigationSummary)
+  organization-giving-history.ts  # Historical giving analysis by org
+  proposer-display-names.ts       # Proposer name formatting utilities
   in-memory-db.ts      # In-memory seeded database for dev/prototype mode
   push-notifications.ts
   email-notifications.ts
-  organization-categorization.ts
+  organization-categorization.ts  # AI-based category assignment (Gemini/OpenAI)
   charity-navigator.ts # Charity Navigator GraphQL API (EIN lookup, encompass score)
   audit.ts             # Audit log writer (writeAuditLog)
   device-detection.ts  # Mobile/iOS/standalone detection (server + client)
@@ -111,7 +127,8 @@ lib/
   chart-styles.ts      # Recharts styling utilities
 
 scripts/
-  daily-digest-preview.ts  # Preview the daily digest email in the terminal
+  daily-digest-preview.ts          # Preview the daily digest email in the terminal
+  fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
 
 supabase/
   migrations/          # 22 SQL migration files (schema versioning, date-prefixed)
@@ -121,6 +138,80 @@ supabase/
 tests/                 # Playwright E2E tests (mobile viewports)
 public/                # Static assets (icons, favicon), sw.js service worker, manifest
 ```
+
+## API Routes
+
+All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` for queries, `PUT` for updates.
+
+### Admin
+- `POST /api/admin` — Dashboard data for admin users
+
+### Auth
+- `POST /api/auth/login` — Email/password authentication
+- `POST /api/auth/logout` — Session termination
+- `GET /api/auth/me` — Current user profile
+- `GET /api/auth/users` — List users (email autocomplete)
+- `POST /api/auth/touch` — Update `last_accessed_at` (rate-limited to 1x per 15 min)
+- `POST /api/auth/timezone` — Save user timezone preference
+
+### Budgets
+- `GET|POST|PUT /api/budgets` — Manage annual budgets
+
+### Charity Navigator
+- `GET /api/charity-navigator/preview` — Score preview for a Charity Navigator URL
+
+### Foundation
+- `GET /api/foundation` — Foundation snapshot (proposals, budget, history)
+- `GET /api/foundation/pending` — Pending proposals summary
+- `GET /api/foundation/history` — Historical giving by year
+- `GET|PUT|DELETE /api/foundation/proposals/[proposalId]` — Proposal CRUD
+
+### Frank & Deenie
+- `GET|POST /api/frank-deenie` — Donation ledger list/create
+- `GET|PUT|DELETE /api/frank-deenie/[donationId]` — Single donation operations
+- `POST /api/frank-deenie/import` — Bulk import donations
+- `GET /api/frank-deenie/name-suggestions` — Name autocomplete
+
+### Meeting
+- `GET /api/meeting` — Meeting stage data (ready proposals with vote reveal)
+
+### Navigation
+- `GET /api/navigation/summary` — Badge counts (to_review, action_items, etc.)
+
+### Notifications
+- `GET|POST /api/notifications/push/subscribe` — Web Push subscription
+- `POST /api/notifications/push/unsubscribe` — Remove subscription
+- `GET /api/notifications/push/preferences` — User notification preferences
+- `POST /api/notifications/push/process` — Push delivery worker (Bearer token)
+- `POST /api/notifications/email/reminders` — Email reminder cron (Vercel, CRON_SECRET)
+- `POST /api/notifications/email/process` — Email delivery worker (Bearer token)
+
+### Organizations
+- `GET /api/organizations/categories` — List organization categories
+- `POST /api/organizations/categories/process` — Category worker (Bearer token)
+- `PUT /api/organizations/[organizationId]/category` — Set category manually
+- `GET /api/organizations/giving-history` — Historical giving by org
+
+### Policy
+- `GET|PUT /api/policy/mandate` — Mandate policy CRUD
+- `GET|POST /api/policy/mandate/comments` — Comment list/create
+- `POST /api/policy/mandate/comments/[id]/resolve` — Mark comment resolved
+- `GET /api/policy/notifications/summary` — Policy notification status
+- `PATCH /api/policy/notifications/[notificationId]` — Acknowledge/flag policy change
+
+### Proposals
+- `GET|POST /api/proposals` — List/create proposals
+- `GET /api/proposals/titles` — Proposal title autocomplete
+
+### Settings
+- `GET|POST /api/settings/charity-navigator-scores` — Bulk score fetch for orgs
+- `POST /api/settings/historical-proposals/import` — Bulk import historical proposals
+
+### Votes
+- `POST /api/votes` — Submit vote (yes/no for joint, acknowledged/flagged for discretionary)
+
+### Workspace
+- `GET /api/workspace` — Personal workspace snapshot (action items, budget, history)
 
 ## Architecture & Patterns
 
@@ -187,6 +278,7 @@ public/                # Static assets (icons, favicon), sw.js service worker, m
 | `grants_master` | Reusable grant templates |
 | `budgets` | Annual budget (total, joint/discretionary ratios, rollover) |
 | `grant_proposals` | Grant proposals with status lifecycle |
+| `proposal_detail_snapshots` | Immutable snapshot of proposal state at submission time |
 | `votes` | Blind votes with allocation amounts and optional flag comments |
 | `audit_log` | Immutable audit trail for all mutations |
 | `frank_deenie_donations` | Frank & Deenie donation ledger |
@@ -196,6 +288,33 @@ public/                # Static assets (icons, favicon), sw.js service worker, m
 | `policy_changes` | Policy change diffs with version history |
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
+
+### Database Migrations (22 total)
+
+| Migration | Key Changes |
+|-----------|-------------|
+| `20260211000000_initial_schema` | Core enums, tables: user_profiles, organizations, grants_master, budgets, grant_proposals, votes; proposal_vote_progress view |
+| `20260211000001_auth_profile_and_blind_vote_policies` | handle_new_auth_user trigger; RLS for user_profiles and votes |
+| `20260212000000_discretionary_vote_choices` | vote_choice enum: `acknowledged`, `flagged` |
+| `20260212000001_mandate_policy_notifications` | policy_documents, policy_changes, policy_notifications tables |
+| `20260212000002_proposal_sent_at` | sent_at timestamp on grant_proposals |
+| `20260213000000_audit_log` | audit_log table (immutable) |
+| `20260213000001_email_notifications` | email_notifications table with typed notification kinds |
+| `20260213000002_frank_deenie_donations` | frank_deenie_donations table |
+| `20260213000003_organization_charity_navigator_url` | charity_navigator_url on organizations |
+| `20260213000004_push_notifications` | push_subscriptions, notification_events, notification_delivery tables |
+| `20260214000000_organization_directional_category` | directional_category, directional_category_source, directional_category_locked on organizations |
+| `20260214000001_ntee_broad_category_rebucket` | Updated NTEE category bucket mapping |
+| `20260215000000_email_introduction_type` | introduction email notification type |
+| `20260215000001_proposal_detail_snapshots` | proposal_detail_snapshots table |
+| `20260217000000_votes_flag_comment` | flag_comment on votes |
+| `20260217000001_proposal_vote_progress_security_invoker` | proposal_vote_progress view security update |
+| `20260217100000_mandate_comments` | mandate_comments table (threaded, quoted with offsets) |
+| `20260217100001_mandate_comment_replies` | parent_id for comment threading |
+| `20260217100002_mandate_comment_resolved` | resolved_at, resolved_by_id on mandate_comments |
+| `20260218000000_proposal_submitted_confirmation_type` | proposal_submitted_confirmation email type |
+| `20260218100000_user_profiles_last_accessed_at` | last_accessed_at on user_profiles |
+| `20260219100000_user_access_notification` | user_access_notification email type |
 
 ## Coding Conventions
 
@@ -293,6 +412,10 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
 
 ### Test environment
 - `DISABLE_EMAIL_CRON=true` — prevents email cron jobs from sending during tests (set in Vercel env for test Supabase project)
+- `E2E_EMAIL`, `E2E_PASSWORD` — credentials for authenticated Playwright test flows
+- `PLAYWRIGHT_BASE_URL` — base URL for Playwright tests (defaults to localhost)
+- `PLAYWRIGHT_PORT` — port for Playwright test server (default: 4173)
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE` — override Chromium binary path
 
 ## Testing
 
