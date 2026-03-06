@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
-import { GivingHistoryEntry, OrganizationGivingHistory } from "@/lib/types";
+import { GivingHistoryEntry, GivingHistoryGift, OrganizationGivingHistory } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
 
@@ -16,15 +16,22 @@ interface GivingHistoryInput {
 interface SentProposalRow {
   budget_year: number;
   final_amount: number | string;
+  sent_at: string | null;
 }
 
 interface FrankDeenieDonationRow {
   donation_date: string;
   amount: number | string;
+  memo: string | null;
 }
 
 interface OrgIdRow {
   id: string;
+}
+
+interface GiftLoadResult {
+  byYear: Map<number, number>;
+  giftsByYear: Map<number, GivingHistoryGift[]>;
 }
 
 function toNumber(value: unknown): number {
@@ -54,7 +61,7 @@ async function loadChildrenAmountsByYear(
   extraOrganizationId?: string | null,
   fuzzy?: boolean,
   names?: string[]
-): Promise<Map<number, number>> {
+): Promise<GiftLoadResult> {
   let query = admin.from("organizations").select("id");
   if (names && names.length > 0) {
     query = query.or(namesOrFilter(names));
@@ -74,12 +81,12 @@ async function loadChildrenAmountsByYear(
   }
 
   if (orgIds.size === 0) {
-    return new Map<number, number>();
+    return { byYear: new Map(), giftsByYear: new Map() };
   }
 
   const { data, error } = await admin
     .from("grant_proposals")
-    .select("budget_year, final_amount")
+    .select("budget_year, final_amount, sent_at")
     .in("organization_id", [...orgIds])
     .eq("status", "sent")
     .returns<SentProposalRow[]>();
@@ -88,12 +95,25 @@ async function loadChildrenAmountsByYear(
     throw new HttpError(500, `Failed to load children giving history: ${error.message}`);
   }
 
-  const map = new Map<number, number>();
+  const byYear = new Map<number, number>();
+  const giftsByYear = new Map<number, GivingHistoryGift[]>();
+
   for (const row of data ?? []) {
     const year = row.budget_year;
-    map.set(year, round2((map.get(year) ?? 0) + toNumber(row.final_amount)));
+    const amount = toNumber(row.final_amount);
+    byYear.set(year, round2((byYear.get(year) ?? 0) + amount));
+
+    const gifts = giftsByYear.get(year) ?? [];
+    gifts.push({
+      source: "children",
+      date: row.sent_at ?? `${year}-01-01`,
+      amount: round2(amount),
+      label: ""
+    });
+    giftsByYear.set(year, gifts);
   }
-  return map;
+
+  return { byYear, giftsByYear };
 }
 
 async function loadFrankDeenieDonationsByYear(
@@ -101,8 +121,8 @@ async function loadFrankDeenieDonationsByYear(
   name: string,
   fuzzy?: boolean,
   names?: string[]
-): Promise<Map<number, number>> {
-  let query = admin.from("frank_deenie_donations").select("donation_date, amount");
+): Promise<GiftLoadResult> {
+  let query = admin.from("frank_deenie_donations").select("donation_date, amount, memo");
   if (names && names.length > 0) {
     query = query.or(recipientNamesOrFilter(names));
   } else {
@@ -115,13 +135,26 @@ async function loadFrankDeenieDonationsByYear(
     throw new HttpError(500, `Failed to load Frank & Deenie giving history: ${error.message}`);
   }
 
-  const map = new Map<number, number>();
+  const byYear = new Map<number, number>();
+  const giftsByYear = new Map<number, GivingHistoryGift[]>();
+
   for (const row of data ?? []) {
     const year = yearFromDate(row.donation_date);
     if (!Number.isFinite(year) || year < 1900) continue;
-    map.set(year, round2((map.get(year) ?? 0) + toNumber(row.amount)));
+    const amount = toNumber(row.amount);
+    byYear.set(year, round2((byYear.get(year) ?? 0) + amount));
+
+    const gifts = giftsByYear.get(year) ?? [];
+    gifts.push({
+      source: "frank_deenie",
+      date: row.donation_date,
+      amount: round2(amount),
+      label: row.memo?.trim() || ""
+    });
+    giftsByYear.set(year, gifts);
   }
-  return map;
+
+  return { byYear, giftsByYear };
 }
 
 interface YearlyTotals {
@@ -177,13 +210,13 @@ export async function getOrganizationGivingHistory(
     throw new HttpError(400, "name is required.");
   }
 
-  const [childrenByYear, fdByYear, yearlyTotals] = await Promise.all([
+  const [childrenResult, fdResult, yearlyTotals] = await Promise.all([
     loadChildrenAmountsByYear(admin, name, input.organizationId, input.fuzzy, input.names),
     loadFrankDeenieDonationsByYear(admin, name, input.fuzzy, input.names),
     loadYearlyTotals(admin)
   ]);
 
-  const allYears = new Set<number>([...childrenByYear.keys(), ...fdByYear.keys()]);
+  const allYears = new Set<number>([...childrenResult.byYear.keys(), ...fdResult.byYear.keys()]);
   const sortedYears = [...allYears].sort((a, b) => b - a);
 
   let grandTotal = 0;
@@ -191,18 +224,23 @@ export async function getOrganizationGivingHistory(
   let frankDeenieGrandTotal = 0;
 
   const entries: GivingHistoryEntry[] = sortedYears.map((year) => {
-    const childrenAmount = round2(childrenByYear.get(year) ?? 0);
-    const frankDeenieAmount = round2(fdByYear.get(year) ?? 0);
+    const childrenAmount = round2(childrenResult.byYear.get(year) ?? 0);
+    const frankDeenieAmount = round2(fdResult.byYear.get(year) ?? 0);
     const totalAmount = round2(childrenAmount + frankDeenieAmount);
     const yearOverallTotal = round2(yearlyTotals.overall.get(year) ?? 0);
     const yearFrankDeenieTotal = round2(yearlyTotals.frankDeenieOnly.get(year) ?? 0);
     const percentOfYear = yearOverallTotal > 0 ? round2((totalAmount / yearOverallTotal) * 100) : 0;
 
+    const gifts = [
+      ...(childrenResult.giftsByYear.get(year) ?? []),
+      ...(fdResult.giftsByYear.get(year) ?? [])
+    ].sort((a, b) => a.date.localeCompare(b.date));
+
     grandTotal += totalAmount;
     childrenGrandTotal += childrenAmount;
     frankDeenieGrandTotal += frankDeenieAmount;
 
-    return { year, childrenAmount, frankDeenieAmount, totalAmount, yearOverallTotal, yearFrankDeenieTotal, percentOfYear };
+    return { year, childrenAmount, frankDeenieAmount, totalAmount, yearOverallTotal, yearFrankDeenieTotal, percentOfYear, gifts };
   });
 
   return {

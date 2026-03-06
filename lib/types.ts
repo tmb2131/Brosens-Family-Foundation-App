@@ -366,6 +366,13 @@ export interface NotificationPreferences {
   proposalApprovedForAdmin: boolean;
 }
 
+export interface GivingHistoryGift {
+  source: "frank_deenie" | "children";
+  date: string;
+  amount: number;
+  label: string;
+}
+
 export interface GivingHistoryEntry {
   year: number;
   childrenAmount: number;
@@ -374,6 +381,7 @@ export interface GivingHistoryEntry {
   yearOverallTotal: number;
   yearFrankDeenieTotal: number;
   percentOfYear: number;
+  gifts: GivingHistoryGift[];
 }
 
 export interface OrganizationGivingHistory {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
   Bar,
@@ -11,7 +11,7 @@ import {
   YAxis,
   LabelList
 } from "recharts";
-import { Building2, ChevronLeft, TrendingUp } from "lucide-react";
+import { Building2, ChevronDown, ChevronLeft, ChevronRight, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartLegend } from "@/components/ui/chart-legend";
@@ -55,7 +55,8 @@ function computeVisibleEntries(
           totalAmount: e.frankDeenieAmount,
           percentOfYear: e.yearFrankDeenieTotal > 0
             ? round2((e.frankDeenieAmount / e.yearFrankDeenieTotal) * 100)
-            : 0
+            : 0,
+          gifts: e.gifts.filter((g) => g.source === "frank_deenie")
         };
       }
       const yearChildrenTotal = e.yearOverallTotal - (e.yearFrankDeenieTotal || 0);
@@ -65,10 +66,17 @@ function computeVisibleEntries(
         totalAmount: e.childrenAmount,
         percentOfYear: yearChildrenTotal > 0
           ? round2((e.childrenAmount / yearChildrenTotal) * 100)
-          : 0
+          : 0,
+        gifts: e.gifts.filter((g) => g.source === "children")
       };
     })
     .filter((e) => e.totalAmount > 0);
+}
+
+function giftDate(value: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return value;
+  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export function CharityGivingHistory({
@@ -91,6 +99,16 @@ export function CharityGivingHistory({
 
   const [showChart, setShowChart] = useState(true);
   const [includeSecondary, setIncludeSecondary] = useState(false);
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+
+  const toggleYear = useCallback((year: number) => {
+    setExpandedYears((prev) => {
+      const next = new Set(prev);
+      if (next.has(year)) next.delete(year);
+      else next.add(year);
+      return next;
+    });
+  }, []);
 
   const toggleLabel = primarySource === "frank_deenie"
     ? "Include Children"
@@ -281,29 +299,80 @@ export function CharityGivingHistory({
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {visibleEntries.map((entry) => (
-              <tr key={entry.year} className="hover:bg-muted/30 transition-colors">
-                <td className="px-3 py-2.5 font-semibold tabular-nums">{entry.year}</td>
-                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
-                  {currency(entry.totalAmount)}
-                </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                  {entry.percentOfYear.toFixed(1)}%
-                </td>
-                {hasBothSources ? (
-                  <td className="hidden px-3 py-2.5 text-right text-xs text-muted-foreground sm:table-cell">
-                    <div className="flex flex-col gap-0.5">
-                      {entry.childrenAmount > 0 ? (
-                        <span>Children: {currency(entry.childrenAmount)}</span>
-                      ) : null}
-                      {entry.frankDeenieAmount > 0 ? (
-                        <span>F&amp;D: {currency(entry.frankDeenieAmount)}</span>
-                      ) : null}
-                    </div>
-                  </td>
-                ) : null}
-              </tr>
-            ))}
+            {visibleEntries.map((entry) => {
+              const isExpanded = expandedYears.has(entry.year);
+              const hasGifts = entry.gifts.length > 0;
+              const colCount = hasBothSources ? 4 : 3;
+
+              return (
+                <Fragment key={entry.year}>
+                  <tr
+                    className={`transition-colors ${hasGifts ? "cursor-pointer hover:bg-muted/30" : ""} ${isExpanded ? "bg-muted/20" : ""}`}
+                    onClick={hasGifts ? () => toggleYear(entry.year) : undefined}
+                  >
+                    <td className="px-3 py-2.5 font-semibold tabular-nums">
+                      <span className="inline-flex items-center gap-1.5">
+                        {hasGifts ? (
+                          isExpanded
+                            ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <span className="inline-block w-3.5" />
+                        )}
+                        {entry.year}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
+                      {currency(entry.totalAmount)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {entry.percentOfYear.toFixed(1)}%
+                    </td>
+                    {hasBothSources ? (
+                      <td className="hidden px-3 py-2.5 text-right text-xs text-muted-foreground sm:table-cell">
+                        <div className="flex flex-col gap-0.5">
+                          {entry.childrenAmount > 0 ? (
+                            <span>Children: {currency(entry.childrenAmount)}</span>
+                          ) : null}
+                          {entry.frankDeenieAmount > 0 ? (
+                            <span>F&amp;D: {currency(entry.frankDeenieAmount)}</span>
+                          ) : null}
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                  {isExpanded ? (
+                    entry.gifts.map((gift, idx) => (
+                      <tr
+                        key={`${entry.year}-gift-${idx}`}
+                        className="bg-muted/10 text-xs text-muted-foreground"
+                      >
+                        <td className="py-1.5 pl-9 pr-3">
+                          <span className="inline-flex items-center gap-2">
+                            <span className="tabular-nums">{giftDate(gift.date)}</span>
+                            <span
+                              className={`inline-flex rounded-full border px-1.5 py-px text-[10px] font-semibold leading-tight ${
+                                gift.source === "children"
+                                  ? "border-amber-300/60 bg-amber-50 text-amber-700 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300"
+                                  : "border-emerald-300/60 bg-emerald-50 text-emerald-700 dark:border-emerald-700/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+                              }`}
+                            >
+                              {gift.source === "children" ? "Children" : "F&D"}
+                            </span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums font-medium">
+                          {currency(gift.amount)}
+                        </td>
+                        <td className="px-3 py-1.5 text-right truncate max-w-[200px]" colSpan={hasBothSources ? 2 : 1} title={gift.label || undefined}>
+                          {gift.label || "—"}
+                        </td>
+                      </tr>
+                    ))
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </tbody>
           <tfoot className="bg-muted/40">
             <tr className="font-bold">
