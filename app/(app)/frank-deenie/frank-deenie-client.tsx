@@ -1245,6 +1245,19 @@ export default function FrankDeenieClient() {
             </div>
           </FilterPanel>
 
+          {filters.search.trim() ? (
+            <div className="mb-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setGivingHistoryName(filters.search.trim())}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-xs hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <History className="h-3.5 w-3.5" />
+                Giving history for &ldquo;{filters.search.trim()}&rdquo;
+              </button>
+            </div>
+          ) : null}
+
           {exportMessage ? (
             <p
               className={`mb-3 text-xs ${
