@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertCircle, AlertTriangle, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -369,28 +369,8 @@ export default function NewProposalClient() {
       : organizationName.trim() || null;
 
   return (
-    <div className="page-stack pb-4">
-      <GlassCard className="hidden rounded-3xl sm:block">
-        <CardLabel>Submission Flow</CardLabel>
-        <CardValue>New Giving Idea</CardValue>
-        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          Proposals are added to the full grant list and move to blind voting by eligible voters.
-        </p>
-      </GlassCard>
-
-      <GlassCard className="p-3 lg:hidden">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-            <Wallet className="h-4 w-4" />
-          </span>
-          <CardLabel>Personal Budget</CardLabel>
-        </div>
-        <BudgetPreviewCard variant="compact" {...budgetProps} />
-      </GlassCard>
-
-      {/* Mobile progress indicator */}
-      <div className="lg:hidden">
+    <>
+      <div className="sticky top-0 z-10 border-b border-border/50 bg-background/80 px-4 pb-2 pt-2 backdrop-blur-sm lg:hidden">
         <div className="flex items-center gap-3">
           <Progress
             value={formProgress}
@@ -402,6 +382,16 @@ export default function NewProposalClient() {
           </span>
         </div>
       </div>
+
+      <div className="page-stack pt-2 pb-4">
+      <GlassCard className="hidden rounded-3xl sm:block">
+        <CardLabel>Submission Flow</CardLabel>
+        <CardValue>New Giving Idea</CardValue>
+        <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          Proposals are added to the full grant list and move to blind voting by eligible voters.
+        </p>
+      </GlassCard>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
       <GlassCard>
@@ -844,5 +834,6 @@ export default function NewProposalClient() {
         </ResponsiveModalContent>
       </ResponsiveModal>
     </div>
+    </>
   );
 }
