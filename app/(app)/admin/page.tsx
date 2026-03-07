@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertCircle, CheckCircle2, ClipboardList, ExternalLink, Inbox, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, ExternalLink, Inbox, LogOut, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -21,7 +21,7 @@ interface AdminQueueResponse {
 }
 
 function AdminPageClient() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const searchParams = useSearchParams();
   const proposalIdFromUrl = searchParams.get("proposalId")?.trim() ?? null;
   const adminQueueKey = user?.role === "admin" ? "/api/admin" : null;
@@ -157,7 +157,17 @@ function AdminPageClient() {
                   Approved grants appear here. Mark as Sent once external donation execution is complete.
                 </p>
               </div>
-              <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
+              <div className="flex items-center gap-2">
+                <ThemeToggle className="h-8 w-8 shrink-0 rounded-lg border bg-card sm:h-9 sm:w-9" />
+                <button
+                  onClick={() => void signOut()}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-card hover:bg-muted focus:outline-none sm:hidden sm:h-9 sm:w-9"
+                  type="button"
+                  aria-label="Sign out"
+                >
+                  <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+              </div>
             </div>
           </GlassCard>
 
