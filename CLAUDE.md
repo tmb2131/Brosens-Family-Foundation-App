@@ -72,18 +72,20 @@ app/
     reports/           # Reports and historical analysis
     settings/          # User preferences and settings
     workspace/         # Personal "My Workspace" dashboard
-  api/                 # API routes (15 feature groups, ~40 endpoints)
+  api/                 # API routes (16 feature groups, ~41 endpoints)
     admin/             auth/            budgets/
     charity-navigator/ foundation/      frank-deenie/
-    meeting/           navigation/      notifications/
-    organizations/     policy/          proposals/
-    settings/          votes/           workspace/
+    health/            meeting/         navigation/
+    notifications/     organizations/   policy/
+    proposals/         settings/        votes/
+    workspace/
   auth/callback/       # Supabase OAuth callback handler
   open/                # Device-aware redirect handler (mobile vs desktop)
 
 components/
   ui/                  # shadcn/ui primitives (card, badge, dialog, table, button, skeleton,
-                       #   drawer, sheet, tabs, switch, select, tooltip, alert, sonner) +
+                       #   drawer, sheet, tabs, switch, select, tooltip, alert, sonner,
+                       #   dropdown-menu, input, label, progress, separator, textarea) +
                        #   app wrappers (responsive-modal, metric-card, status-pill, role-pill,
                        #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar,
                        #   password-input, collapsible-section, theme-toggle)
@@ -107,8 +109,7 @@ lib/
   auth-server.ts       # requireAuthContext(), assertRole(), isVotingRole()
   http-error.ts        # HttpError class, toErrorResponse(), cache header constants
   utils.ts             # General utilities: cn(), currency formatting, number parsing
-  foundation-data.ts   # Foundation data access utilities (proposals, voting, budget)
-  workspace.ts         # Personal workspace snapshot builder
+  foundation-data.ts   # Foundation data access utilities (proposals, voting, budget, workspace)
   frank-deenie-data.ts # Frank & Deenie donation data access
   policy-data.ts       # Mandate policy data access
   mandate-policy.ts    # Mandate policy business logic (versioning, diffing)
@@ -121,6 +122,7 @@ lib/
   organization-categorization.ts  # AI-based category assignment (Gemini/OpenAI)
   charity-navigator.ts # Charity Navigator GraphQL API (EIN lookup, encompass score)
   audit.ts             # Audit log writer (writeAuditLog)
+  csv.ts               # CSV parsing utilities (parseCsvRows, normalizeHeader)
   device-detection.ts  # Mobile/iOS/standalone detection (server + client)
   url-validation.ts    # URL normalization and validation (normalizeOptionalHttpUrl)
   swr-helpers.ts       # SWR invalidation helpers (mutateAllFoundation)
@@ -131,7 +133,7 @@ scripts/
   fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
 
 supabase/
-  migrations/          # 22 SQL migration files (schema versioning, date-prefixed)
+  migrations/          # 23 SQL migration files (schema versioning, date-prefixed)
   functions/           # Edge functions (notify-admin stub)
   config.toml          # Supabase CLI config
 
@@ -141,13 +143,13 @@ public/                # Static assets (icons, favicon), sw.js service worker, m
 
 ## API Routes
 
-All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` for queries, `PUT` for updates.
+All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` for queries, `PATCH` for partial updates.
 
 ### Admin
-- `POST /api/admin` — Dashboard data for admin users
+- `GET /api/admin` — Admin queue data (approved proposals for sending)
 
 ### Auth
-- `POST /api/auth/login` — Email/password authentication
+- `GET /api/auth/login` — Current user profile (same shape as `/auth/me`)
 - `POST /api/auth/logout` — Session termination
 - `GET /api/auth/me` — Current user profile
 - `GET /api/auth/users` — List users (email autocomplete)
@@ -155,47 +157,50 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `POST /api/auth/timezone` — Save user timezone preference
 
 ### Budgets
-- `GET|POST|PUT /api/budgets` — Manage annual budgets
+- `GET|POST /api/budgets` — Budget snapshot / create-update annual budget
 
 ### Charity Navigator
-- `GET /api/charity-navigator/preview` — Score preview for a Charity Navigator URL
+- `POST /api/charity-navigator/preview` — Score preview for a Charity Navigator URL
 
 ### Foundation
 - `GET /api/foundation` — Foundation snapshot (proposals, budget, history)
 - `GET /api/foundation/pending` — Pending proposals summary
 - `GET /api/foundation/history` — Historical giving by year
-- `GET|PUT|DELETE /api/foundation/proposals/[proposalId]` — Proposal CRUD
+- `PATCH /api/foundation/proposals/[proposalId]` — Update proposal fields
 
 ### Frank & Deenie
 - `GET|POST /api/frank-deenie` — Donation ledger list/create
-- `GET|PUT|DELETE /api/frank-deenie/[donationId]` — Single donation operations
+- `PATCH|DELETE /api/frank-deenie/[donationId]` — Update/delete single donation
 - `POST /api/frank-deenie/import` — Bulk import donations
 - `GET /api/frank-deenie/name-suggestions` — Name autocomplete
 
+### Health
+- `GET /api/health` — Health check (returns `{ status: "ok", timestamp }`)
+
 ### Meeting
-- `GET /api/meeting` — Meeting stage data (ready proposals with vote reveal)
+- `GET|POST /api/meeting` — Meeting proposals / actions (reveal, hide_votes, decision)
 
 ### Navigation
 - `GET /api/navigation/summary` — Badge counts (to_review, action_items, etc.)
 
 ### Notifications
-- `GET|POST /api/notifications/push/subscribe` — Web Push subscription
+- `POST /api/notifications/push/subscribe` — Web Push subscription
 - `POST /api/notifications/push/unsubscribe` — Remove subscription
-- `GET /api/notifications/push/preferences` — User notification preferences
+- `GET|PATCH /api/notifications/push/preferences` — User notification preferences
 - `POST /api/notifications/push/process` — Push delivery worker (Bearer token)
-- `POST /api/notifications/email/reminders` — Email reminder cron (Vercel, CRON_SECRET)
+- `GET|POST /api/notifications/email/reminders` — Email reminder cron (Vercel, CRON_SECRET)
 - `POST /api/notifications/email/process` — Email delivery worker (Bearer token)
 
 ### Organizations
 - `GET /api/organizations/categories` — List organization categories
 - `POST /api/organizations/categories/process` — Category worker (Bearer token)
-- `PUT /api/organizations/[organizationId]/category` — Set category manually
+- `PATCH /api/organizations/[organizationId]/category` — Set category manually
 - `GET /api/organizations/giving-history` — Historical giving by org
 
 ### Policy
 - `GET|PUT /api/policy/mandate` — Mandate policy CRUD
-- `GET|POST /api/policy/mandate/comments` — Comment list/create
-- `POST /api/policy/mandate/comments/[id]/resolve` — Mark comment resolved
+- `POST /api/policy/mandate/comments` — Create mandate comment
+- `PATCH /api/policy/mandate/comments/[id]/resolve` — Mark comment resolved
 - `GET /api/policy/notifications/summary` — Policy notification status
 - `PATCH /api/policy/notifications/[notificationId]` — Acknowledge/flag policy change
 
@@ -204,7 +209,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `GET /api/proposals/titles` — Proposal title autocomplete
 
 ### Settings
-- `GET|POST /api/settings/charity-navigator-scores` — Bulk score fetch for orgs
+- `POST /api/settings/charity-navigator-scores` — Bulk score backfill for orgs
 - `POST /api/settings/historical-proposals/import` — Bulk import historical proposals
 
 ### Votes
@@ -240,7 +245,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Worker endpoints (push/process, email/process, org categories/process) validate Bearer token secrets
 - Custom `HttpError` class and `toErrorResponse()` wrapper for consistent error responses
 - Cache header constants in `lib/http-error.ts`: `PRIVATE_CACHE_HEADERS`, `STALE_CACHE_HEADERS`, `DYNAMIC_CACHE_HEADERS`, `STATIC_CACHE_HEADERS`
-- `POST` for mutations, `GET` for queries, `PUT` for updates
+- `POST` for mutations, `GET` for queries, `PATCH` for partial updates, `PUT` for full replacements
 
 ### Data Access
 
@@ -266,7 +271,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (22 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (23 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -289,7 +294,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
 
-### Database Migrations (22 total)
+### Database Migrations (23 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -315,6 +320,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260218000000_proposal_submitted_confirmation_type` | proposal_submitted_confirmation email type |
 | `20260218100000_user_profiles_last_accessed_at` | last_accessed_at on user_profiles |
 | `20260219100000_user_access_notification` | user_access_notification email type |
+| `20260307000000_frank_deenie_donation_change_notification` | frank_deenie_donation_change email type |
 
 ## Coding Conventions
 
@@ -376,7 +382,7 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - `X-DNS-Prefetch-Control: on`
   - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-  - `Content-Security-Policy` (default-src self, connect-src *.supabase.co, frame-ancestors none)
+  - `Content-Security-Policy` (default-src self, script-src self unsafe-inline unsafe-eval, style-src self unsafe-inline, img-src self data: blob:, connect-src *.supabase.co, frame-ancestors none)
   - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - Static asset caching: `Cache-Control: public, max-age=31536000, immutable` for images/fonts
 - `poweredByHeader: false` in Next.js config
