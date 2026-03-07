@@ -11,8 +11,7 @@ const MANDATE_SECTION_KEYS: MandateSectionKey[] = [
   "discretionaryGivingPolicy",
   "process",
   "annualCycle",
-  "rolesAndResponsibilities",
-  "references"
+  "rolesAndResponsibilities"
 ];
 
 function isMandateSectionKey(value: unknown): value is MandateSectionKey {

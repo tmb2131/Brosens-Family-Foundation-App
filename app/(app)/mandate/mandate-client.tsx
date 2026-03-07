@@ -1,9 +1,9 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { CheckCircle, ChevronRight, MessageSquare, MessageSquarePlus, RefreshCw } from "lucide-react";
+import { CheckCircle, ChevronRight, MessageSquare, MessageSquarePlus, RefreshCw, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -26,7 +26,7 @@ import {
   PolicyVersionWithReviews
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
-import { formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 
 const STATUS_STYLES: Record<PolicyChangeNotification["status"], string> = {
   pending: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200",
@@ -83,11 +83,6 @@ const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
     /Dad \(Manager\)/gi,
     /approved donations/gi,
     /budget direction/gi
-  ],
-  references: [
-    /Master Document/gi,
-    /working documents/gi,
-    /grants master tracking sheets/gi
   ]
 };
 
@@ -539,6 +534,37 @@ export default function MandateClient() {
   const [resolvingThread, setResolvingThread] = useState(false);
   const [floatingButtonPosition, setFloatingButtonPosition] = useState<{ x: number; y: number } | null>(null);
   const [addCommentOpen, setAddCommentOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<MandateSectionKey | null>(null);
+  const sectionRefs = useRef<Map<MandateSectionKey, HTMLElement>>(new Map());
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  useEffect(() => {
+    const refs = sectionRefs.current;
+    if (refs.size === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const key = entry.target.id?.replace("section-", "") as MandateSectionKey | undefined;
+            if (key) setActiveSection(key);
+          }
+        }
+      },
+      { rootMargin: "-20% 0px -60% 0px", threshold: 0 }
+    );
+
+    refs.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [data]);
 
   const sections = useMemo(
     () =>
@@ -901,40 +927,174 @@ export default function MandateClient() {
           </div>
         </GlassCard>
       ) : (
-        <section className="space-y-3">
-          {sections.map((section, sectionIndex) => {
-            const sectionComments = data.mandateComments.filter(
-              (c) => c.sectionKey === section.key && c.parentId == null
-            );
-            const sectionText = data.policy.content[section.key];
-            const withHighlights = sectionComments.length > 0;
-            const isMission = section.key === "missionStatement";
+        <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-6">
+          <section className="max-w-prose space-y-3">
+            {sections.map((section, sectionIndex) => {
+              const sectionComments = data.mandateComments.filter(
+                (c) => c.sectionKey === section.key && c.parentId == null
+              );
+              const sectionText = data.policy.content[section.key];
+              const withHighlights = sectionComments.length > 0;
 
-            return (
-              <GlassCard key={section.key} className="border-l-2 border-l-accent/30">
-                <div className="flex items-baseline gap-2">
-                  <span className="shrink-0 font-mono text-[10px] font-semibold text-muted-foreground/50">
-                    {String(sectionIndex + 1).padStart(2, "0")}
-                  </span>
-                  <CardLabel>{section.label}</CardLabel>
-                </div>
-                <div
-                  data-mandate-section={section.key}
-                  className="select-text"
+              return (
+                <GlassCard
+                  key={section.key}
+                  id={`section-${section.key}`}
+                  ref={(el) => {
+                    if (el) sectionRefs.current.set(section.key, el);
+                    else sectionRefs.current.delete(section.key);
+                  }}
+                  className="border-l-2 border-l-accent/30 scroll-mt-6"
                 >
-                  {withHighlights
-                    ? renderSectionContentWithHighlights(
-                        sectionText,
-                        section.key,
-                        sectionComments,
-                        setViewingComment
-                      )
-                    : renderSectionContent(sectionText, section.key)}
+                  <div className="flex items-baseline gap-2">
+                    <span className="shrink-0 font-mono text-[10px] font-semibold text-muted-foreground/50">
+                      {String(sectionIndex + 1).padStart(2, "0")}
+                    </span>
+                    <CardLabel>{section.label}</CardLabel>
+                  </div>
+                  <div
+                    data-mandate-section={section.key}
+                    className="select-text"
+                  >
+                    {withHighlights
+                      ? renderSectionContentWithHighlights(
+                          sectionText,
+                          section.key,
+                          sectionComments,
+                          setViewingComment
+                        )
+                      : renderSectionContent(sectionText, section.key)}
+                  </div>
+                </GlassCard>
+              );
+            })}
+          </section>
+
+          <div className="hidden lg:block">
+            <div className="lg:sticky lg:top-6 space-y-4">
+              <nav aria-label="Mandate sections">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+                  Sections
+                </p>
+                <ul className="space-y-0.5">
+                  {sections.map((section, sectionIndex) => {
+                    const commentCount = data.mandateComments.filter(
+                      (c) => c.sectionKey === section.key && c.parentId == null
+                    ).length;
+                    const isActive = activeSection === section.key;
+                    return (
+                      <li key={section.key}>
+                        <button
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
+                            isActive
+                              ? "border-l-2 border-l-accent bg-accent/8 font-semibold text-accent"
+                              : "border-l-2 border-l-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                          )}
+                          onClick={() => {
+                            document.getElementById(`section-${section.key}`)?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start"
+                            });
+                          }}
+                        >
+                          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/50">
+                            {String(sectionIndex + 1).padStart(2, "0")}
+                          </span>
+                          <span className="flex-1 truncate">{section.label}</span>
+                          {commentCount > 0 ? (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                              {commentCount}
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+
+              {viewingComment && isDesktop ? (
+                <div className="rounded-xl border bg-card p-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-muted-foreground">Comment thread</p>
+                    <button
+                      type="button"
+                      className="rounded-md p-0.5 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setViewingComment(null);
+                        setReplyBody("");
+                        setReplyError(null);
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {viewingComment.quotedText ? (
+                    <blockquote className="mt-2 border-l-2 border-amber-400 pl-2.5 text-xs italic text-muted-foreground">
+                      &ldquo;{viewingComment.quotedText.slice(0, 100)}
+                      {viewingComment.quotedText.length > 100 ? "…" : ""}&rdquo;
+                    </blockquote>
+                  ) : null}
+                  <div className="mt-2 max-h-[40vh] space-y-2 overflow-y-auto">
+                    <article className="rounded-lg border bg-muted/30 p-2.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        {viewingComment.authorName ?? "Unknown"} · {prettyDate(viewingComment.createdAt)}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm">{viewingComment.body}</p>
+                    </article>
+                    {data.mandateComments
+                      .filter((c) => c.parentId === viewingComment.id)
+                      .map((reply) => (
+                        <article
+                          key={reply.id}
+                          className="ml-3 border-l-2 border-muted-foreground/20 pl-2.5"
+                        >
+                          <p className="text-[11px] font-medium text-muted-foreground">
+                            {reply.authorName ?? "Unknown"} · {prettyDate(reply.createdAt)}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">{reply.body}</p>
+                        </article>
+                      ))}
+                  </div>
+                  <div className="mt-2 space-y-1.5 border-t pt-2">
+                    <Textarea
+                      value={replyBody}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      placeholder="Write a reply..."
+                      className="min-h-16 text-sm"
+                      disabled={replySubmitting}
+                    />
+                    {replyError ? (
+                      <p className="text-xs text-rose-600">{replyError}</p>
+                    ) : null}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => void submitReply()}
+                        disabled={replySubmitting || !replyBody.trim()}
+                      >
+                        {replySubmitting ? "Sending…" : "Reply"}
+                      </Button>
+                      {canEdit ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-muted-foreground"
+                          onClick={() => void markThreadResolved()}
+                          disabled={resolvingThread}
+                        >
+                          {resolvingThread ? "Marking…" : "Resolve"}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
-              </GlassCard>
-            );
-          })}
-        </section>
+              ) : null}
+            </div>
+          </div>
+        </div>
       )}
 
       {typeof document !== "undefined" &&
@@ -1005,89 +1165,91 @@ export default function MandateClient() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!viewingComment}
-        onOpenChange={(open) => {
-          if (!open) {
-            setViewingComment(null);
-            setReplyBody("");
-            setReplyError(null);
-          }
-        }}
-      >
-        <DialogContent showCloseButton={!replySubmitting && !resolvingThread}>
-          {viewingComment ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Comment thread</DialogTitle>
-                {viewingComment.quotedText ? (
-                  <blockquote className="border-l-2 border-amber-400 pl-3 text-xs italic text-muted-foreground">
-                    &ldquo;{viewingComment.quotedText.slice(0, 100)}
-                    {viewingComment.quotedText.length > 100 ? "…" : ""}&rdquo;
-                  </blockquote>
-                ) : null}
-              </DialogHeader>
-              <div className="space-y-3">
-                <article className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {viewingComment.authorName ?? "Unknown"} · {prettyDate(viewingComment.createdAt)}
-                  </p>
-                  <p className="mt-1.5 whitespace-pre-wrap text-sm">{viewingComment.body}</p>
-                </article>
-                {data.mandateComments
-                  .filter((c) => c.parentId === viewingComment.id)
-                  .map((reply) => (
-                    <article
-                      key={reply.id}
-                      className="ml-4 border-l-2 border-muted-foreground/20 pl-3"
-                    >
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {reply.authorName ?? "Unknown"} · {prettyDate(reply.createdAt)}
-                      </p>
-                      <p className="mt-1.5 whitespace-pre-wrap text-sm">{reply.body}</p>
-                    </article>
-                  ))}
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="mandate-reply-body" className="text-xs text-muted-foreground">
-                    Reply
-                  </Label>
-                  <Textarea
-                    id="mandate-reply-body"
-                    value={replyBody}
-                    onChange={(e) => setReplyBody(e.target.value)}
-                    placeholder="Write a reply..."
-                    className="min-h-20 text-sm"
-                    disabled={replySubmitting}
-                  />
-                  {replyError ? (
-                    <p className="text-xs text-rose-600">{replyError}</p>
+      {!isDesktop ? (
+        <Dialog
+          open={!!viewingComment}
+          onOpenChange={(open) => {
+            if (!open) {
+              setViewingComment(null);
+              setReplyBody("");
+              setReplyError(null);
+            }
+          }}
+        >
+          <DialogContent showCloseButton={!replySubmitting && !resolvingThread}>
+            {viewingComment ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Comment thread</DialogTitle>
+                  {viewingComment.quotedText ? (
+                    <blockquote className="border-l-2 border-amber-400 pl-3 text-xs italic text-muted-foreground">
+                      &ldquo;{viewingComment.quotedText.slice(0, 100)}
+                      {viewingComment.quotedText.length > 100 ? "…" : ""}&rdquo;
+                    </blockquote>
                   ) : null}
-                  <Button
-                    size="sm"
-                    onClick={() => void submitReply()}
-                    disabled={replySubmitting || !replyBody.trim()}
-                  >
-                    {replySubmitting ? "Sending…" : "Reply"}
-                  </Button>
-                </div>
-                {canEdit ? (
-                  <div className="border-t pt-3">
+                </DialogHeader>
+                <div className="space-y-3">
+                  <article className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {viewingComment.authorName ?? "Unknown"} · {prettyDate(viewingComment.createdAt)}
+                    </p>
+                    <p className="mt-1.5 whitespace-pre-wrap text-sm">{viewingComment.body}</p>
+                  </article>
+                  {data.mandateComments
+                    .filter((c) => c.parentId === viewingComment.id)
+                    .map((reply) => (
+                      <article
+                        key={reply.id}
+                        className="ml-4 border-l-2 border-muted-foreground/20 pl-3"
+                      >
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {reply.authorName ?? "Unknown"} · {prettyDate(reply.createdAt)}
+                        </p>
+                        <p className="mt-1.5 whitespace-pre-wrap text-sm">{reply.body}</p>
+                      </article>
+                    ))}
+                  <div className="space-y-2 pt-2">
+                    <Label htmlFor="mandate-reply-body" className="text-xs text-muted-foreground">
+                      Reply
+                    </Label>
+                    <Textarea
+                      id="mandate-reply-body"
+                      value={replyBody}
+                      onChange={(e) => setReplyBody(e.target.value)}
+                      placeholder="Write a reply..."
+                      className="min-h-20 text-sm"
+                      disabled={replySubmitting}
+                    />
+                    {replyError ? (
+                      <p className="text-xs text-rose-600">{replyError}</p>
+                    ) : null}
                     <Button
-                      variant="outline"
                       size="sm"
-                      className="text-muted-foreground"
-                      onClick={() => void markThreadResolved()}
-                      disabled={resolvingThread}
+                      onClick={() => void submitReply()}
+                      disabled={replySubmitting || !replyBody.trim()}
                     >
-                      {resolvingThread ? "Marking…" : "Mark thread resolved"}
+                      {replySubmitting ? "Sending…" : "Reply"}
                     </Button>
                   </div>
-                ) : null}
-              </div>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+                  {canEdit ? (
+                    <div className="border-t pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-muted-foreground"
+                        onClick={() => void markThreadResolved()}
+                        disabled={resolvingThread}
+                      >
+                        {resolvingThread ? "Marking…" : "Mark thread resolved"}
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {!canEdit ? (
         <GlassCard>

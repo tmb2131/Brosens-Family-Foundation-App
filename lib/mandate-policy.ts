@@ -14,8 +14,7 @@ export const MANDATE_SECTION_ORDER: MandateSectionKey[] = [
   "discretionaryGivingPolicy",
   "process",
   "annualCycle",
-  "rolesAndResponsibilities",
-  "references"
+  "rolesAndResponsibilities"
 ];
 
 export const MANDATE_SECTION_LABELS: Record<MandateSectionKey, string> = {
@@ -25,8 +24,7 @@ export const MANDATE_SECTION_LABELS: Record<MandateSectionKey, string> = {
   discretionaryGivingPolicy: "Discretionary Giving Policy",
   process: "Process",
   annualCycle: "Annual Cycle",
-  rolesAndResponsibilities: "Roles & Responsibilities",
-  references: "References"
+  rolesAndResponsibilities: "Roles & Responsibilities"
 };
 
 export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
@@ -68,11 +66,6 @@ export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
     "Brynn (Admin): executes approved donations and marks proposals as Sent.",
     "Tom (Oversight): maintains policy, oversees process, and approves or declines discretionary proposals during meetings.",
     "Dad (Manager): sets foundation-level budget direction."
-  ].join("\n"),
-  references: [
-    "Brosens Family Foundation Master Document",
-    "Brosens Foundation working documents",
-    "Brosens Family Foundation grants master tracking sheets"
   ].join("\n")
 };
 
@@ -94,8 +87,7 @@ export function normalizeMandatePolicyContent(input: unknown): MandatePolicyCont
     discretionaryGivingPolicy: normalizeText(source.discretionaryGivingPolicy),
     process: normalizeText(source.process),
     annualCycle: normalizeText(source.annualCycle),
-    rolesAndResponsibilities: normalizeText(source.rolesAndResponsibilities),
-    references: normalizeText(source.references)
+    rolesAndResponsibilities: normalizeText(source.rolesAndResponsibilities)
   };
 }
 
@@ -109,8 +101,7 @@ export function applyMandateDefaults(content: MandatePolicyContent): MandatePoli
     process: content.process || DEFAULT_MANDATE_POLICY_CONTENT.process,
     annualCycle: content.annualCycle || DEFAULT_MANDATE_POLICY_CONTENT.annualCycle,
     rolesAndResponsibilities:
-      content.rolesAndResponsibilities || DEFAULT_MANDATE_POLICY_CONTENT.rolesAndResponsibilities,
-    references: content.references || DEFAULT_MANDATE_POLICY_CONTENT.references
+      content.rolesAndResponsibilities || DEFAULT_MANDATE_POLICY_CONTENT.rolesAndResponsibilities
   };
 }
 

@@ -44,6 +44,7 @@ const HistoricalImpactChart = dynamic(
 import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, WorkspaceSnapshot } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
+import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
 const DASHBOARD_WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -1711,7 +1712,30 @@ export default function DashboardClient() {
         ) : null}
       </GlassCard>
 
-      <section className="hidden lg:grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <PageWithSidebar
+        variant="wide-sidebar"
+        className="hidden"
+        sidebar={
+          <GlassCard data-walkthrough="dashboard-history">
+            <CardLabel>Historical Impact</CardLabel>
+            {historyData ? (
+              historyData.historyByYear.length === 0 ? (
+                <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">No historical data yet</p>
+                  <p className="text-xs text-muted-foreground">Sent grants will appear here once recorded.</p>
+                </div>
+              ) : (
+                <HistoricalImpactChart data={historyData.historyByYear} />
+              )
+            ) : (
+              <div className="h-[220px] w-full animate-pulse rounded-2xl bg-muted" />
+            )}
+            {!isHistoryLoading && historyError ? (
+              <p className="mt-2 text-xs text-muted-foreground">Historical data is temporarily unavailable.</p>
+            ) : null}
+          </GlassCard>
+        }
+      >
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr" data-walkthrough="dashboard-budget">
           <MetricCard
             title={<>FOUNDATION TOTAL <span className="font-semibold">BUDGET</span></>}
@@ -1757,25 +1781,7 @@ export default function DashboardClient() {
             <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(discretionaryUtilization)}% utilized</p>
           </MetricCard>
         </div>
-        <GlassCard data-walkthrough="dashboard-history">
-          <CardLabel>Historical Impact</CardLabel>
-          {historyData ? (
-            historyData.historyByYear.length === 0 ? (
-              <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
-                <p className="text-sm font-medium text-muted-foreground">No historical data yet</p>
-                <p className="text-xs text-muted-foreground">Sent grants will appear here once recorded.</p>
-              </div>
-            ) : (
-              <HistoricalImpactChart data={historyData.historyByYear} />
-            )
-          ) : (
-            <div className="h-[220px] w-full animate-pulse rounded-2xl bg-muted" />
-          )}
-          {!isHistoryLoading && historyError ? (
-            <p className="mt-2 text-xs text-muted-foreground">Historical data is temporarily unavailable.</p>
-          ) : null}
-        </GlassCard>
-      </section>
+      </PageWithSidebar>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DashboardTab)}>
       <GlassCard className="p-5" data-walkthrough="dashboard-tracker">

@@ -28,6 +28,7 @@ import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLa
 import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
+import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
 const WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -686,7 +687,16 @@ export default function WorkspaceClient() {
         </DialogContent>
       </Dialog>
 
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
+      <PageWithSidebar
+        sticky
+        sidebar={
+          <div ref={budgetSidebarRef}>
+            <div ref={budgetCardRef}>
+              {budgetSidebar}
+            </div>
+          </div>
+        }
+      >
         <div className="space-y-3">
           <GlassCard className="rounded-3xl" data-walkthrough="workspace-intro">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -931,12 +941,7 @@ export default function WorkspaceClient() {
           </section>
         </div>
 
-        <div ref={budgetSidebarRef} className="hidden lg:block">
-          <div ref={budgetCardRef} className="lg:sticky lg:top-6">
-            {budgetSidebar}
-          </div>
-        </div>
-      </div>
+      </PageWithSidebar>
     </div>
   );
 }

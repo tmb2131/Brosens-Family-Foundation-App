@@ -9,6 +9,7 @@ interface CollapsibleSectionProps {
   title: string;
   defaultOpen?: boolean;
   className?: string;
+  id?: string;
   children: React.ReactNode;
 }
 
@@ -16,12 +17,13 @@ export function CollapsibleSection({
   title,
   defaultOpen = false,
   className,
+  id,
   children
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <GlassCard className={cn("overflow-hidden", className)}>
+    <GlassCard id={id} className={cn("overflow-hidden", className)}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -38,6 +40,7 @@ export function CollapsibleSection({
         />
       </button>
       <div
+        data-collapsible
         className="grid transition-[grid-template-rows] duration-200 ease-out"
         style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
       >

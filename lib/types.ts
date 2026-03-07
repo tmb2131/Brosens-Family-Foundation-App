@@ -254,8 +254,7 @@ export type MandateSectionKey =
   | "discretionaryGivingPolicy"
   | "process"
   | "annualCycle"
-  | "rolesAndResponsibilities"
-  | "references";
+  | "rolesAndResponsibilities";
 
 export interface MandatePolicyContent {
   missionStatement: string;
@@ -265,7 +264,6 @@ export interface MandatePolicyContent {
   process: string;
   annualCycle: string;
   rolesAndResponsibilities: string;
-  references: string;
 }
 
 export interface MandateSectionDiff {

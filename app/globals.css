@@ -169,6 +169,28 @@ body {
   background: hsl(var(--border));
 }
 
+/* ─── Hidden scrollbar (horizontal pill bars) ─── */
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Settings: force sections open on desktop (sidebar handles nav) ─── */
+
+@media (min-width: 1024px) {
+  [id^="settings-"] [data-collapsible] {
+    grid-template-rows: 1fr !important;
+    transition: none !important;
+  }
+  [id^="settings-"] > button[aria-expanded] > svg:last-child {
+    display: none;
+  }
+}
+
 /* ─── Keyframes ─── */
 
 @keyframes sidebar-cta-pulse {

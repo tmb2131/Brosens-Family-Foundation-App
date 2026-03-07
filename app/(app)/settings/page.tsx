@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState, useEffect, useMemo, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
-import { DollarSign, Users, Wallet } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { DollarSign, Users, Wallet, KeyRound, Bell, FileUp, Cog, Mail, Star, Tags, PieChart } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Button } from "@/components/ui/button";
@@ -14,11 +15,12 @@ import { Label } from "@/components/ui/label";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Progress } from "@/components/ui/progress";
 import {
+  AppRole,
   DirectionalCategory,
   DIRECTIONAL_CATEGORIES,
   DIRECTIONAL_CATEGORY_LABELS
 } from "@/lib/types";
-import { currency, formatNumber, parseNumberInput } from "@/lib/utils";
+import { cn, currency, formatNumber, parseNumberInput } from "@/lib/utils";
 
 interface BudgetResponse {
   budget: {
@@ -55,6 +57,26 @@ interface OrganizationCategoryProcessResponse {
   failed: number;
   pendingRetries: number;
 }
+
+interface SettingsSection {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  roles: AppRole[] | "all";
+}
+
+const SETTINGS_SECTIONS: SettingsSection[] = [
+  { id: "password", label: "Password", icon: KeyRound, roles: "all" },
+  { id: "notifications", label: "Notifications", icon: Bell, roles: "all" },
+  { id: "csv-import", label: "CSV Import", icon: FileUp, roles: ["oversight"] },
+  { id: "category-worker", label: "Category Worker", icon: Cog, roles: ["oversight"] },
+  { id: "email-worker", label: "Email Worker", icon: Mail, roles: ["oversight"] },
+  { id: "charity-nav", label: "Charity Navigator", icon: Star, roles: ["oversight"] },
+  { id: "category-overrides", label: "Category Overrides", icon: Tags, roles: ["oversight"] },
+  { id: "budget", label: "Budget", icon: DollarSign, roles: ["oversight", "manager"] },
+  { id: "budget-snapshot", label: "Budget Snapshot", icon: PieChart, roles: ["oversight", "manager"] },
+  { id: "budget-info", label: "Budget", icon: DollarSign, roles: ["member", "admin"] },
+];
 
 export default function SettingsPage() {
   const { user, changePassword } = useAuth();
@@ -158,6 +180,82 @@ export default function SettingsPage() {
     setSelectedCategory(selectedOrganization.directionalCategory);
     setSelectedCategoryLocked(selectedOrganization.directionalCategoryLocked);
   }, [organizationCategoriesQuery.data?.organizations, selectedOrganizationId]);
+
+  const visibleSections = useMemo(
+    () =>
+      user
+        ? SETTINGS_SECTIONS.filter(
+            (s) => s.roles === "all" || s.roles.includes(user.role)
+          )
+        : [],
+    [user]
+  );
+
+  const [activeSection, setActiveSection] = useState("");
+
+  useEffect(() => {
+    if (!activeSection && visibleSections.length) {
+      setActiveSection(visibleSections[0].id);
+    }
+  }, [activeSection, visibleSections]);
+
+  const hasBudgetData = Boolean(data);
+  const desktopHidden = (sectionId: string) =>
+    activeSection && activeSection !== sectionId ? "lg:hidden" : "";
+
+  useEffect(() => {
+    const sectionIds = visibleSections.map((s) => s.id);
+    const elements = sectionIds
+      .map((id) => document.getElementById(`settings-${id}`))
+      .filter((el): el is HTMLElement => el !== null);
+
+    if (!elements.length) return;
+
+    const visibleSet = new Set<string>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const sectionId = entry.target.id.replace("settings-", "");
+          if (entry.isIntersecting) {
+            visibleSet.add(sectionId);
+          } else {
+            visibleSet.delete(sectionId);
+          }
+        }
+        const first = sectionIds.find((id) => visibleSet.has(id));
+        if (first) {
+          setActiveSection(first);
+        }
+      },
+      { rootMargin: "-5% 0px -65% 0px" }
+    );
+
+    elements.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [visibleSections, hasBudgetData]);
+
+  useEffect(() => {
+    if (!activeSection) return;
+    const pill = document.querySelector<HTMLElement>(
+      `[data-settings-pill="${activeSection}"]`
+    );
+    pill?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeSection]);
+
+  const scrollToSection = useCallback((sectionId: string) => {
+    const el = document.getElementById(`settings-${sectionId}`);
+    if (!el) return;
+
+    const collapsed = el.querySelector<HTMLButtonElement>('button[aria-expanded="false"]');
+    if (collapsed) collapsed.click();
+
+    setTimeout(
+      () => el.scrollIntoView({ behavior: "smooth", block: "start" }),
+      collapsed ? 50 : 0
+    );
+    setActiveSection(sectionId);
+  }, []);
 
   if (!user) {
     return <p className="text-sm text-muted-foreground">Loading settings...</p>;
@@ -476,8 +574,10 @@ export default function SettingsPage() {
     (organization) => organization.id === selectedOrganizationId
   );
 
+  const scrollMargin = "scroll-mt-14 lg:scroll-mt-4";
+
   return (
-    <div className="page-stack pb-4">
+    <div className="pb-4">
       <GlassCard className="rounded-3xl">
         <CardLabel>{canManageBudget ? "Process Oversight Controls" : "Account Settings"}</CardLabel>
         <CardValue>{canManageBudget ? "Budget & Annual Cycle" : "Password & Security"}</CardValue>
@@ -489,7 +589,58 @@ export default function SettingsPage() {
         </p>
       </GlassCard>
 
-      <CollapsibleSection title="Change Password" defaultOpen={false}>
+      <nav className="sticky top-0 z-10 mt-4 rounded-xl bg-card/90 p-1.5 shadow-sm ring-1 ring-border/50 backdrop-blur-md lg:hidden">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+          {visibleSections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                data-settings-pill={section.id}
+                onClick={() => scrollToSection(section.id)}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
+                  activeSection === section.id
+                    ? "bg-accent text-accent-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {section.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <div className="mt-4 lg:mt-6 lg:grid lg:grid-cols-[220px_1fr] lg:items-start lg:gap-6">
+        <nav className="hidden lg:block lg:self-stretch" aria-label="Settings sections">
+          <div className="sticky top-4 space-y-0.5">
+            {visibleSections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors",
+                    activeSection === section.id
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {section.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="page-stack">
+      <CollapsibleSection id="settings-password" title="Change Password" defaultOpen={false} className={cn(scrollMargin, desktopHidden("password"))}>
         <p className="text-sm text-muted-foreground">Update your sign-in password. You must enter your current password to confirm.</p>
         <form className="mt-3 space-y-3" onSubmit={handleChangePassword} aria-busy={changingPassword}>
           <div className="space-y-1.5">
@@ -545,12 +696,12 @@ export default function SettingsPage() {
         </form>
       </CollapsibleSection>
 
-      <CollapsibleSection title="Mobile Push Notifications" defaultOpen={false}>
+      <CollapsibleSection id="settings-notifications" title="Mobile Push Notifications" defaultOpen={false} className={cn(scrollMargin, desktopHidden("notifications"))}>
         <PushSettingsCard />
       </CollapsibleSection>
 
       {user.role === "oversight" ? (
-        <CollapsibleSection title="Historical Proposals CSV Import" defaultOpen={false}>
+        <CollapsibleSection id="settings-csv-import" title="Historical Proposals CSV Import" defaultOpen={false} className={cn(scrollMargin, desktopHidden("csv-import"))}>
           <p className="text-sm text-muted-foreground">
             Upload historical proposal records. Required headers:{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">
@@ -597,7 +748,7 @@ export default function SettingsPage() {
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <CollapsibleSection title="Organization Category Worker" defaultOpen={false}>
+        <CollapsibleSection id="settings-category-worker" title="Organization Category Worker" defaultOpen={false} className={cn(scrollMargin, desktopHidden("category-worker"))}>
           <p className="text-sm text-muted-foreground">
             Trigger organization categorization now without waiting for scheduled worker runs.
           </p>
@@ -624,7 +775,7 @@ export default function SettingsPage() {
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <CollapsibleSection title="Email Notification Worker" defaultOpen={false}>
+        <CollapsibleSection id="settings-email-worker" title="Email Notification Worker" defaultOpen={false} className={cn(scrollMargin, desktopHidden("email-worker"))}>
           <p className="text-sm text-muted-foreground">
             Manually trigger the email worker to process weekly reminders and daily sent digests now.
           </p>
@@ -651,7 +802,7 @@ export default function SettingsPage() {
       ) : null}
 
       {user.role === "oversight" ? (
-        <CollapsibleSection title="Charity Navigator Scores" defaultOpen={false}>
+        <CollapsibleSection id="settings-charity-nav" title="Charity Navigator Scores" defaultOpen={false} className={cn(scrollMargin, desktopHidden("charity-nav"))}>
           <p className="text-sm text-muted-foreground">
             Fetch Charity Navigator encompass scores for all organizations that have a Charity Navigator
             URL (from proposals or organization record) and update organization scores. Requires{" "}
@@ -681,7 +832,7 @@ export default function SettingsPage() {
       ) : null}
 
       {canManageOrganizationCategories ? (
-        <CollapsibleSection title="Organization Category Overrides" defaultOpen={false}>
+        <CollapsibleSection id="settings-category-overrides" title="Organization Category Overrides" defaultOpen={false} className={cn(scrollMargin, desktopHidden("category-overrides"))}>
           {organizationCategoriesQuery.isLoading ? (
             <p className="mt-2 text-sm text-muted-foreground">Loading organizations...</p>
           ) : organizationCategoriesQuery.error ? (
@@ -792,7 +943,7 @@ export default function SettingsPage() {
 
       {canManageBudget ? (
         <>
-          <CollapsibleSection title="Budget Management" defaultOpen={true}>
+          <CollapsibleSection id="settings-budget" title="Budget Management" defaultOpen={true} className={cn(scrollMargin, desktopHidden("budget"))}>
             {error ? (
               <>
                 <CardLabel>Settings Error</CardLabel>
@@ -899,7 +1050,7 @@ export default function SettingsPage() {
           </CollapsibleSection>
 
           {data ? (
-            <CollapsibleSection title="Current Budget Snapshot" defaultOpen={true}>
+            <CollapsibleSection id="settings-budget-snapshot" title="Current Budget Snapshot" defaultOpen={true} className={cn(scrollMargin, desktopHidden("budget-snapshot"))}>
               <section className="grid gap-3 sm:grid-cols-2">
                 <MetricCard
                   title="FOUNDATION TOTAL BUDGET"
@@ -957,12 +1108,14 @@ export default function SettingsPage() {
           ) : null}
         </>
       ) : (
-        <CollapsibleSection title="Budget Controls" defaultOpen={false}>
+        <CollapsibleSection id="settings-budget-info" title="Budget Controls" defaultOpen={false} className={cn(scrollMargin, desktopHidden("budget-info"))}>
           <p className="text-sm text-muted-foreground">
             Budget management is available only for Tom (oversight) and Dad (manager).
           </p>
         </CollapsibleSection>
       )}
+        </div>
+      </div>
     </div>
   );
 }

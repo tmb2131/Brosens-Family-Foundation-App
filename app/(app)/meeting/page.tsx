@@ -14,6 +14,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
 type MeetingProposal = FoundationSnapshot["proposals"][number];
 type MeetingSegment = "ready" | "pending" | "needs_discussion";
@@ -174,7 +175,15 @@ export default function MeetingPage() {
           </div>
         </GlassCard>
 
-        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
+        <PageWithSidebar
+          sticky
+          sidebar={
+            <div className="grid gap-3">
+              <div className="h-20 bg-muted rounded-xl border-l-[3px] border-l-muted animate-pulse" />
+              <div className="h-20 bg-muted rounded-xl border-l-[3px] border-l-muted animate-pulse" />
+            </div>
+          }
+        >
           <div className="space-y-6">
             {/* Mobile stats skeleton */}
             <GlassCard className="p-3 lg:hidden">
@@ -234,17 +243,7 @@ export default function MeetingPage() {
               </div>
             </GlassCard>
           </div>
-
-          {/* Desktop metrics skeleton */}
-          <div className="hidden lg:block">
-            <div className="lg:sticky lg:top-6">
-              <div className="grid gap-3">
-                <div className="h-20 bg-muted rounded-xl border-l-[3px] border-l-muted animate-pulse" />
-                <div className="h-20 bg-muted rounded-xl border-l-[3px] border-l-muted animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
+        </PageWithSidebar>
       </div>
     );
   }
@@ -358,7 +357,10 @@ export default function MeetingPage() {
         </div>
       </GlassCard>
 
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
+      <PageWithSidebar
+        sticky
+        sidebar={<div className="grid gap-3">{metricsCards}</div>}
+      >
         <div className="space-y-6">
           <GlassCard className="p-4">
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -451,12 +453,7 @@ export default function MeetingPage() {
           </GlassCard>
         </div>
 
-        <div className="hidden lg:block">
-          <div className="lg:sticky lg:top-6">
-            <div className="grid gap-3">{metricsCards}</div>
-          </div>
-        </div>
-      </div>
+      </PageWithSidebar>
 
       <ResponsiveModal
         open={meetingDialogProposalId !== null}

@@ -27,6 +27,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
+import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
 type SortKey = "date" | "name" | "memo" | "amount" | "status";
 type SortDirection = "asc" | "desc";
@@ -1169,7 +1170,123 @@ export default function FrankDeenieClient() {
         }} />
       </GlassCard>
 
-      <section className="grid gap-3 2xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] 2xl:items-start">
+      <PageWithSidebar
+        variant="narrow-sidebar"
+        breakpoint="2xl"
+        collapsible={false}
+        className="2xl:items-start"
+        sidebar={
+          <div className="grid gap-3">
+            {/* Sidebar chart: desktop only (mobile chart is above the grid) */}
+            <GlassCard className="hidden sm:block">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardLabel>Year Split for Filtered View</CardLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Organization filter: {filters.search.trim() || "All"}
+                  </p>
+                </div>
+              </div>
+              <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={(year) => {
+                setChartDrilldownYear(year);
+                setDrilldownSortKey("date");
+                setDrilldownSortDir("desc");
+              }} />
+            </GlassCard>
+
+            <section className="hidden sm:grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
+              <MetricCard
+                title="FRANK &amp; DEENIE"
+                value={currency(data.totals.frankDeenie)}
+                icon={DollarSign}
+                tone="emerald"
+                className="transition-all hover:shadow-md hover:border-border/80"
+              />
+              <MetricCard
+                title="CHILDREN"
+                value={includeChildren ? currency(data.totals.children) : "Not included"}
+                icon={Users}
+                tone="indigo"
+                className="transition-all hover:shadow-md hover:border-border/80"
+              />
+              <MetricCard 
+                title="VISIBLE TOTAL" 
+                value={currency(visibleTotal)} 
+                icon={PieChart} 
+                tone="amber" 
+                className="transition-all hover:shadow-md hover:border-border/80"
+              />
+            </section>
+
+            {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
+              <GlassCard>
+                {/* Mobile: collapsible toggle */}
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between sm:hidden"
+                  onClick={() => setImportExpanded((v) => !v)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                    <CardLabel>Import CSV</CardLabel>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${importExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {/* Desktop: always-visible label */}
+                <div className="hidden sm:block">
+                  <CardLabel>Import Frank &amp; Deenie CSV</CardLabel>
+                </div>
+                <div className={`${importExpanded ? "block" : "hidden"} sm:block`}>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Required headers:{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                      date,name,amount
+                    </code>
+                    . Optional: memo, status.
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
+                  </p>
+                  <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
+                    <input
+                      key={importInputKey}
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(event) => {
+                        setImportCsvFile(event.target.files?.[0] ?? null);
+                        setImportMessage(null);
+                      }}
+                      className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
+                    />
+                    <Button
+                      size="lg"
+                      type="submit"
+                      disabled={importingCsv}
+                      className="w-full sm:w-auto"
+                    >
+                      {importingCsv ? "Importing..." : "Import CSV"}
+                    </Button>
+                  </form>
+                  {importMessage ? (
+                    <p
+                      className={`mt-2 text-xs ${
+                        importMessage.tone === "error"
+                          ? "text-rose-600"
+                          : "text-emerald-700 dark:text-emerald-300"
+                      }`}
+                    >
+                      {importMessage.text}
+                    </p>
+                  ) : null}
+                </div>
+              </GlassCard>
+            ) : null}
+          </div>
+        }
+      >
         <GlassCard className="min-h-0">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
@@ -1806,116 +1923,7 @@ export default function FrankDeenieClient() {
           </div>
         </GlassCard>
 
-        <div className="grid gap-3">
-          {/* Sidebar chart: desktop only (mobile chart is above the grid) */}
-          <GlassCard className="hidden sm:block">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <CardLabel>Year Split for Filtered View</CardLabel>
-                <p className="text-xs text-muted-foreground">
-                  Selected period: {selectedYear === null ? "All years" : selectedYearLabel}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Organization filter: {filters.search.trim() || "All"}
-                </p>
-              </div>
-            </div>
-            <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={(year) => {
-              setChartDrilldownYear(year);
-              setDrilldownSortKey("date");
-              setDrilldownSortDir("desc");
-            }} />
-          </GlassCard>
-
-          <section className="hidden sm:grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
-            <MetricCard
-              title="FRANK &amp; DEENIE"
-              value={currency(data.totals.frankDeenie)}
-              icon={DollarSign}
-              tone="emerald"
-              className="transition-all hover:shadow-md hover:border-border/80"
-            />
-            <MetricCard
-              title="CHILDREN"
-              value={includeChildren ? currency(data.totals.children) : "Not included"}
-              icon={Users}
-              tone="indigo"
-              className="transition-all hover:shadow-md hover:border-border/80"
-            />
-            <MetricCard 
-              title="VISIBLE TOTAL" 
-              value={currency(visibleTotal)} 
-              icon={PieChart} 
-              tone="amber" 
-              className="transition-all hover:shadow-md hover:border-border/80"
-            />
-          </section>
-
-          {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
-            <GlassCard>
-              {/* Mobile: collapsible toggle */}
-              <button
-                type="button"
-                className="flex w-full items-center justify-between sm:hidden"
-                onClick={() => setImportExpanded((v) => !v)}
-              >
-                <div className="flex items-center gap-2">
-                  <Upload className="h-4 w-4 text-muted-foreground" />
-                  <CardLabel>Import CSV</CardLabel>
-                </div>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${importExpanded ? "rotate-180" : ""}`} />
-              </button>
-              {/* Desktop: always-visible label */}
-              <div className="hidden sm:block">
-                <CardLabel>Import Frank &amp; Deenie CSV</CardLabel>
-              </div>
-              <div className={`${importExpanded ? "block" : "hidden"} sm:block`}>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Required headers:{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                    date,name,amount
-                  </code>
-                  . Optional: memo, status.
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
-                </p>
-                <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
-                  <input
-                    key={importInputKey}
-                    type="file"
-                    accept=".csv,text/csv"
-                    onChange={(event) => {
-                      setImportCsvFile(event.target.files?.[0] ?? null);
-                      setImportMessage(null);
-                    }}
-                    className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
-                  />
-                  <Button
-                    size="lg"
-                    type="submit"
-                    disabled={importingCsv}
-                    className="w-full sm:w-auto"
-                  >
-                    {importingCsv ? "Importing..." : "Import CSV"}
-                  </Button>
-                </form>
-                {importMessage ? (
-                  <p
-                    className={`mt-2 text-xs ${
-                      importMessage.tone === "error"
-                        ? "text-rose-600"
-                        : "text-emerald-700 dark:text-emerald-300"
-                    }`}
-                  >
-                    {importMessage.text}
-                  </p>
-                ) : null}
-              </div>
-            </GlassCard>
-          ) : null}
-        </div>
-      </section>
+      </PageWithSidebar>
 
       {/* Mobile FAB: Add Donation */}
       <button
