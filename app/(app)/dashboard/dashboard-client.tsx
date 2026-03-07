@@ -864,14 +864,31 @@ export default function DashboardClient() {
     return (
       <div className="page-stack pb-4">
         <SkeletonCard />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Mobile: 3-col budget cards + chart + proposal cards */}
+        <div className="grid grid-cols-3 gap-2 lg:hidden">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <SkeletonChart className="lg:hidden" />
+        <div className="space-y-0 lg:hidden">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="border-b border-border/60 py-3.5 pl-3.5">
+              <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+              <div className="mt-1.5 h-4 w-3/4 animate-pulse rounded bg-muted" />
+              <div className="mt-1.5 h-3 w-1/2 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+        {/* Desktop: metric cards + chart + table */}
+        <div className="hidden gap-3 sm:grid-cols-2 lg:grid lg:grid-cols-4">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
         </div>
-        <SkeletonChart />
-        <SkeletonCard />
+        <SkeletonChart className="hidden lg:block" />
+        <SkeletonCard className="hidden lg:block" />
       </div>
     );
   }
@@ -1632,34 +1649,66 @@ export default function DashboardClient() {
         </div>
       </GlassCard>
 
-      <GlassCard className="p-3 lg:hidden" data-walkthrough="dashboard-budget-mobile">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-            <DollarSign className="h-4 w-4" />
-          </span>
-          <CardLabel>Foundation <span className="font-semibold">Budget</span></CardLabel>
-        </div>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(data.budget.total)}</p>
-            <p className="text-[10px] text-muted-foreground">{Math.round(totalUtilization)}% used</p>
+      <div className="grid grid-cols-3 gap-2 lg:hidden" data-walkthrough="dashboard-budget-mobile">
+        <GlassCard className="p-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</p>
           </div>
-          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Joint</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(data.budget.jointRemaining)}</p>
-            <p className="text-[10px] text-muted-foreground">of {currency(data.budget.jointPool)}</p>
+          <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.total)}</p>
+          <Progress
+            value={Math.min(totalUtilization, 100)}
+            className="mt-1.5 h-1 bg-muted"
+            indicatorClassName={totalUtilization > 100 ? "bg-rose-500" : "bg-emerald-500 dark:bg-emerald-400"}
+          />
+          <p className="mt-0.5 text-[10px] text-muted-foreground">{Math.round(totalUtilization)}% used</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-indigo-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Joint</p>
           </div>
-          <div className="rounded-xl border border-border/80 bg-muted/30 p-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Disc.</p>
-            <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">{currency(data.budget.discretionaryRemaining)}</p>
-            <p className="text-[10px] text-muted-foreground">of {currency(data.budget.discretionaryPool)}</p>
+          <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.jointRemaining)}</p>
+          <Progress
+            value={Math.min(jointUtilization, 100)}
+            className="mt-1.5 h-1 bg-muted"
+            indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
+          />
+          <p className="mt-0.5 text-[10px] text-muted-foreground">of {currency(data.budget.jointPool)}</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Disc.</p>
           </div>
-        </div>
-        <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-          Budget year runs from February 1, {selectedBudgetYear} to January 31, {selectedBudgetYear + 1}
-        </p>
+          <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.discretionaryRemaining)}</p>
+          <Progress
+            value={Math.min(discretionaryUtilization, 100)}
+            className="mt-1.5 h-1 bg-muted"
+            indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
+          />
+          <p className="mt-0.5 text-[10px] text-muted-foreground">of {currency(data.budget.discretionaryPool)}</p>
+        </GlassCard>
+      </div>
+
+      {/* Mobile-only Historical Impact chart */}
+      <GlassCard className="lg:hidden">
+        <CardLabel>Historical Impact</CardLabel>
+        {historyData ? (
+          historyData.historyByYear.length === 0 ? (
+            <div className="flex h-[160px] flex-col items-center justify-center gap-1 text-center">
+              <p className="text-xs font-medium text-muted-foreground">No historical data yet</p>
+              <p className="text-[11px] text-muted-foreground">Sent grants will appear here once recorded.</p>
+            </div>
+          ) : (
+            <HistoricalImpactChart data={historyData.historyByYear} />
+          )
+        ) : (
+          <div className="h-[160px] w-full animate-pulse rounded-2xl bg-muted" />
+        )}
+        {!isHistoryLoading && historyError ? (
+          <p className="mt-2 text-xs text-muted-foreground">Historical data is temporarily unavailable.</p>
+        ) : null}
       </GlassCard>
 
       <section className="hidden lg:grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
@@ -1937,7 +1986,93 @@ export default function DashboardClient() {
               </div>
             </div>
 
-            <FilterPanel className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,8rem)_auto] xl:items-end">
+            {/* Mobile filters: inline search + segmented pills */}
+            <div className="mb-3 space-y-2.5 md:hidden">
+              <div className="relative flex rounded-lg border border-input shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)]">
+                <input
+                  type="text"
+                  value={filters.proposal}
+                  onChange={(event) => setFilter("proposal", event.target.value)}
+                  placeholder="Search proposals..."
+                  autoComplete="off"
+                  className="min-w-0 flex-1 rounded-lg border-none bg-transparent px-3 py-2.5 text-sm text-foreground shadow-none outline-none"
+                />
+                {filters.proposal ? (
+                  <button
+                    type="button"
+                    onClick={() => setFilter("proposal", "")}
+                    className="flex w-9 shrink-0 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X aria-hidden="true" size={16} />
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(["all", "to_review", "approved", "sent", "declined"] as const).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setFilter("status", status)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      filters.status === status
+                        ? "bg-foreground text-card"
+                        : "bg-muted/80 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {status === "all" ? "All" : titleCase(status)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {(["all", "joint", "discretionary"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFilter("proposalType", type)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      filters.proposalType === type
+                        ? "bg-foreground text-card"
+                        : "bg-muted/80 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {type === "all" ? "All Types" : type === "discretionary" ? "Disc." : "Joint"}
+                  </button>
+                ))}
+                <span className="mx-0.5 h-4 w-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => setFilter("myActions", !filters.myActions)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    filters.myActions
+                      ? "bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))]"
+                      : "bg-muted/80 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  My Actions
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {([["proposal", "Name"], ["amount", "Amount"], ["status", "Status"], ["sentAt", "Date"]] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => toggleSort(key)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      sortKey === key
+                        ? "bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] font-semibold"
+                        : "text-muted-foreground hover:bg-muted/60"
+                    }`}
+                  >
+                    {label}
+                    {sortKey === key ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop filters */}
+            <FilterPanel className="mb-4 hidden gap-3 md:grid sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,8rem)_auto] xl:items-end">
               <label className="text-xs font-semibold text-muted-foreground flex flex-col">
                 Search
                 <Input
@@ -2013,237 +2148,62 @@ export default function DashboardClient() {
               </p>
             ) : null}
 
-        <div className="space-y-3 md:hidden" onClick={() => setIsExportMenuOpen(false)}>
+        <div className="divide-y divide-border/60 md:hidden" onClick={() => setIsExportMenuOpen(false)}>
           {filteredAndSortedProposals.length === 0 ? (
             <p className="rounded-xl border p-4 text-sm text-muted-foreground">
               No proposals match the current filters for {selectedBudgetYearLabel}.
             </p>
           ) : (
             filteredAndSortedProposals.map((proposal) => {
-              const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
               const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
               const requiredAction = buildRequiredActionSummary(proposal, user?.role);
-              const isOwnProposal = Boolean(user && proposal.proposerId === user.id);
-              const isRowEditable = isHistoricalBulkEditEnabled;
-              const canEditSentDate =
-                isRowEditable || (!canEditHistorical && isOwnProposal && proposal.status === "sent");
-              const sentDateDisabled = isRowEditable ? draft.status !== "sent" : !canEditSentDate;
-              const rowState = rowMessage[proposal.id];
-              const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
+              const isJoint = proposal.proposalType === "joint";
               const requiredActionToneClass =
                 requiredAction.tone === "attention"
                   ? "text-amber-700 dark:text-amber-300"
                   : requiredAction.tone === "complete"
                   ? "text-emerald-700 dark:text-emerald-300"
-                  : "text-foreground";
+                  : "text-muted-foreground";
+              const amountDisplay =
+                masked && !isJoint && proposal.proposalType !== "discretionary"
+                  ? "Blind"
+                  : (isJoint || proposal.proposalType === "discretionary") && proposal.status === "to_review"
+                  ? currency(proposal.proposedAmount)
+                  : currency(proposal.progress.computedFinalAmount);
 
               return (
-                <article key={proposal.id} className={`rounded-xl border border-t-2 p-4 ${
-                  proposal.proposalType === "joint"
-                    ? "border-t-indigo-400 dark:border-t-indigo-500"
-                    : "border-t-amber-400 dark:border-t-amber-500"
-                }`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="text-sm font-semibold">{proposal.title}</p>
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                            proposal.proposalType === "joint"
-                              ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                          }`}
-                        >
-                          {proposal.proposalType === "joint" ? "Joint" : "Discretionary"}
-                        </span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{proposal.description}</p>
-                    </div>
+                <article
+                  key={proposal.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailProposalId(proposal.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailProposalId(proposal.id); } }}
+                  className={`relative cursor-pointer px-1 py-3.5 transition-all active:scale-[0.985] ${
+                    isJoint ? "pl-3.5" : "pl-3.5"
+                  }`}
+                >
+                  <span className={`absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full ${
+                    isJoint
+                      ? "bg-indigo-400 dark:bg-indigo-500"
+                      : "bg-amber-400 dark:bg-amber-500"
+                  }`} />
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-lg font-bold tabular-nums text-foreground">
+                      {amountDisplay}
+                    </p>
                     <StatusPill status={proposal.status} />
                   </div>
-
-                  {!isRowEditable ? (
-                    <p className="mt-2 text-lg font-semibold text-foreground">
-                      {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
-                        ? "Blind until your vote is submitted"
-                        : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
-                        ? currency(proposal.proposedAmount)
-                        : currency(proposal.progress.computedFinalAmount)}
-                    </p>
-                  ) : null}
-
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Type</span>
-                      <p className="font-medium text-foreground">{titleCase(proposal.proposalType)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Sent</span>
-                      <p className="font-medium text-foreground">
-                        {proposal.sentAt
-                          ? new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-lg border border-border/70 bg-muted/50 p-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Required Action
-                    </p>
-                    <p className={`mt-1 text-xs ${requiredActionToneClass}`}>
-                      <span className="font-semibold">{requiredAction.owner}:</span>{" "}
-                      {requiredAction.detail}
-                    </p>
-                    {requiredAction.href && requiredAction.ctaLabel ? (
-                      <Link
-                        href={requiredAction.href}
-                        className="mt-2 inline-flex rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted"
-                      >
-                        {requiredAction.ctaLabel}
-                      </Link>
+                  <p className="mt-1 text-sm font-semibold text-foreground/90 leading-snug">
+                    {proposal.title}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {titleCase(proposal.proposalType)}
+                    {proposal.sentAt ? (
+                      <><span className="mx-1.5">&middot;</span>{new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</>
                     ) : null}
-                  </div>
-
-                  <div className="mt-3 space-y-2">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground">Amount</p>
-                      {isRowEditable ? (
-                        <>
-                          <AmountInput
-                            min={0}
-                            step="0.01"
-                            value={draft.finalAmount}
-                            onChange={(event) => updateDraft(proposal.id, { finalAmount: event.target.value })}
-                            className="mt-1"
-                          />
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            Amount preview: {parsedDraftFinalAmount !== null ? currency(parsedDraftFinalAmount) : "—"}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm text-foreground">
-                          {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
-                            ? "Blind until your vote is submitted"
-                            : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
-                            ? currency(proposal.proposedAmount)
-                            : currency(proposal.progress.computedFinalAmount)}
-                        </p>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground">Status</p>
-                      {isRowEditable ? (
-                        <select
-                          value={draft.status}
-                          onChange={(event) =>
-                            updateDraft(proposal.id, {
-                              status: event.target.value as ProposalStatus,
-                              ...(event.target.value === "sent" ? {} : { sentAt: "" })
-                            })
-                          }
-                          className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1"
-                        >
-                          {STATUS_OPTIONS.map((statusOption) => (
-                            <option key={statusOption} value={statusOption}>
-                              {titleCase(statusOption)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p className="text-sm text-foreground">
-                          {titleCase(proposal.status)}
-                        </p>
-                      )}
-                    </div>
-
-                    {canEditSentDate ? (
-                      <label className="block text-xs font-semibold text-muted-foreground">
-                        Date amount sent
-                        <Input
-                          type="date"
-                          value={draft.sentAt}
-                          disabled={sentDateDisabled}
-                          onChange={(event) => updateDraft(proposal.id, { sentAt: event.target.value })}
-                          className="mt-1"
-                        />
-                      </label>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">Date amount sent: {proposal.sentAt ?? "—"}</p>
-                    )}
-
-                    {isRowEditable ? (
-                      <label className="block text-xs font-semibold text-muted-foreground">
-                        Notes
-                        <Input
-                          type="text"
-                          value={draft.notes}
-                          onChange={(event) => updateDraft(proposal.id, { notes: event.target.value })}
-                          placeholder="Optional notes"
-                          className="mt-1"
-                        />
-                      </label>
-                    ) : proposal.notes?.trim() ? (
-                      <p className="text-xs text-muted-foreground">Notes: {proposal.notes}</p>
-                    ) : null}
-
-                    {!canEditHistorical && isOwnProposal && proposal.status === "sent" ? (
-                      <Button
-                        type="button"
-                        disabled={savingProposalId === proposal.id}
-                        onClick={() => void saveProposalSentDate(proposal)}
-                        className="w-full"
-                      >
-                        {savingProposalId === proposal.id ? "Saving..." : "Save date"}
-                      </Button>
-                    ) : null}
-
-                    {user &&
-                    canVote &&
-                    proposal.status === "to_review" &&
-                    !proposal.progress.hasCurrentUserVoted ? (
-                      <VoteForm
-                        proposalId={proposal.id}
-                        proposalType={proposal.proposalType}
-                        proposedAmount={proposal.proposedAmount}
-                        totalRequiredVotes={proposal.progress.totalRequiredVotes}
-                        onSuccess={() => {
-                          mutateAllFoundation();
-                          void globalMutate("/api/workspace");
-                          if (isOversight) {
-                            void mutatePending();
-                          }
-                        }}
-                        maxJointAllocation={
-                          proposal.proposalType === "joint" && workspace
-                            ? workspace.personalBudget.jointRemaining +
-                              workspace.personalBudget.discretionaryRemaining
-                            : undefined
-                        }
-                      />
-                    ) : null}
-
-                    {rowState ? (
-                      <p
-                        className={`text-xs ${
-                          rowState.tone === "error"
-                            ? "text-rose-600"
-                            : "text-emerald-700 dark:text-emerald-300"
-                        }`}
-                      >
-                        {rowState.text}
-                      </p>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      onClick={() => setDetailProposalId(proposal.id)}
-                      className="mt-3 w-full rounded-lg border border-border py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
-                    >
-                      View Details
-                    </button>
-                  </div>
+                    <span className="mx-1.5">&middot;</span>
+                    <span className={requiredActionToneClass}>{requiredAction.detail}</span>
+                  </p>
                 </article>
               );
             })
@@ -2486,19 +2446,17 @@ export default function DashboardClient() {
             <div className={cn(!isSmallScreen && detailShowVoteForm && "flex items-start gap-6")}>
             <div className={cn(!isSmallScreen && detailShowVoteForm && "flex-1 min-w-0")}>
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <DialogTitle id="proposal-details-title" className="text-lg font-bold">
-                    {detailProposal.title}
-                  </DialogTitle>
-                  <Badge className={detailProposal.proposalType === "joint"
-                    ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
-                    : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
-                  }>
-                    {titleCase(detailProposal.proposalType)}
-                  </Badge>
-                  <StatusPill status={detailProposal.status} />
-                </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-bold tabular-nums text-foreground">
+                  {detailMasked && detailProposal?.proposalType !== "joint" && detailProposal?.proposalType !== "discretionary"
+                    ? "Blind"
+                    : (detailProposal?.proposalType === "joint" || detailProposal?.proposalType === "discretionary") && detailProposal?.status === "to_review"
+                    ? currency(detailProposal.proposedAmount)
+                    : currency(detailProposal.progress.computedFinalAmount)}
+                </p>
+                <DialogTitle id="proposal-details-title" className="mt-1 text-base font-semibold leading-snug">
+                  {detailProposal.title}
+                </DialogTitle>
               </div>
               <Button
                 variant="outline"
@@ -2510,48 +2468,33 @@ export default function DashboardClient() {
               </Button>
             </div>
 
-            {detailProposal.organizationName && detailProposal.organizationName !== "Unknown Organization" && detailProposal.organizationName !== detailProposal.title ? (
-              <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium">{detailProposal.organizationName}</span>
-                <button
-                  type="button"
-                  onClick={() => setGivingHistoryCharity({
-                    name: detailProposal.organizationName,
-                    organizationId: detailProposal.organizationId
-                  })}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  <History className="h-3 w-3" />
-                  Giving history
-                </button>
-              </div>
-            ) : (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setGivingHistoryCharity({
-                    name: detailProposal.organizationName || detailProposal.title,
-                    organizationId: detailProposal.organizationId
-                  })}
-                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  <History className="h-3 w-3" />
-                  Giving history
-                </button>
-              </div>
-            )}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <Badge className={detailProposal.proposalType === "joint"
+                ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
+                : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
+              }>
+                {titleCase(detailProposal.proposalType)}
+              </Badge>
+              <StatusPill status={detailProposal.status} />
+              {detailProposal.organizationName && detailProposal.organizationName !== "Unknown Organization" && detailProposal.organizationName !== detailProposal.title ? (
+                <span className="text-sm text-muted-foreground">{detailProposal.organizationName}</span>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setGivingHistoryCharity({
+                  name: detailProposal.organizationName || detailProposal.title,
+                  organizationId: detailProposal.organizationId
+                })}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <History className="h-3 w-3" />
+                Giving history
+              </button>
+            </div>
 
-            <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Amount</dt>
-                <dd className="mt-1.5 text-lg font-bold text-foreground">
-                  {detailMasked && detailProposal?.proposalType !== "joint" && detailProposal?.proposalType !== "discretionary"
-                    ? "Blind until your vote is submitted"
-                    : (detailProposal?.proposalType === "joint" || detailProposal?.proposalType === "discretionary") && detailProposal?.status === "to_review"
-                    ? currency(detailProposal.proposedAmount)
-                    : currency(detailProposal.progress.computedFinalAmount)}
-                </dd>
-              </div>
+            <div className="my-4 h-px bg-border" />
+
+            <dl className="grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
               <div>
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
                 <dd className="mt-1.5 font-semibold text-foreground">

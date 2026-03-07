@@ -3,7 +3,7 @@
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
-import { Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Users, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Upload, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -21,7 +21,6 @@ import { FilterPanel } from "@/components/ui/filter-panel";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
@@ -251,6 +250,7 @@ export default function FrankDeenieClient() {
   const [importCsvFile, setImportCsvFile] = useState<File | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
   const [importInputKey, setImportInputKey] = useState(0);
+  const [importExpanded, setImportExpanded] = useState(false);
   const [importMessage, setImportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
     null
   );
@@ -397,52 +397,6 @@ export default function FrankDeenieClient() {
       setOpenActionMenuRowId(null);
     }
   }, [data, detailRowId]);
-
-  useEffect(() => {
-    const hasOpenOverlay = showAddForm || detailRowId !== null;
-    if (!hasOpenOverlay) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const frame = showAddForm
-      ? window.requestAnimationFrame(() => {
-          addDonationNameInputRef.current?.focus();
-        })
-      : null;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
-        return;
-      }
-
-      if (showAddForm && !isCreating) {
-        setShowAddForm(false);
-        setCreateMessage(null);
-        return;
-      }
-
-      if (detailRowId !== null) {
-        if (editingId === detailRowId) {
-          setEditingId(null);
-          setEditDraft(null);
-        }
-        setDetailRowId(null);
-        setOpenActionMenuRowId(null);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      if (frame !== null) {
-        window.cancelAnimationFrame(frame);
-      }
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [detailRowId, editingId, isCreating, showAddForm]);
-
 
   const filteredRows = useMemo(() => {
     if (!data) {
@@ -1014,31 +968,73 @@ export default function FrankDeenieClient() {
   if (isLoading) {
     return (
       <div className="page-stack pb-6">
-        <GlassCard className="rounded-3xl">
-          <div className="flex items-center gap-3">
-            <div className="h-3 w-3 animate-pulse rounded-full bg-emerald-500" />
-            <CardLabel>Frank &amp; Deenie</CardLabel>
-          </div>
-          <CardValue className="mt-1">Donation Ledger</CardValue>
-          <div className="mt-3 h-4 w-48 animate-pulse rounded-lg bg-muted" />
-        </GlassCard>
-        
-        <GlassCard className="min-h-0">
-          <div className="mb-3 h-6 w-32 animate-pulse rounded-lg bg-muted" />
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+        {/* Mobile skeleton */}
+        <div className="sm:hidden space-y-4">
+          <GlassCard className="rounded-3xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-3 w-40 animate-pulse rounded bg-muted" />
+              </div>
+              <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <div className="h-9 flex-1 animate-pulse rounded-lg bg-muted" />
+              <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
+            </div>
+          </GlassCard>
+          <div className="grid grid-cols-3 gap-2">
+            {[...Array(3)].map((_, i) => (
+              <GlassCard key={i} className="p-3.5">
+                <div className="h-2 w-10 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-5 w-16 animate-pulse rounded bg-muted" />
+              </GlassCard>
             ))}
           </div>
-        </GlassCard>
-        
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[...Array(3)].map((_, i) => (
-            <GlassCard key={i}>
-              <div className="h-4 w-24 animate-pulse rounded-lg bg-muted" />
-              <div className="mt-2 h-8 w-32 animate-pulse rounded-lg bg-muted" />
-            </GlassCard>
-          ))}
+          <GlassCard>
+            <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+            <div className="mt-3 h-[176px] animate-pulse rounded-2xl bg-muted" />
+          </GlassCard>
+          <GlassCard>
+            <div className="h-9 animate-pulse rounded-lg bg-muted" />
+            <div className="mt-3 space-y-0 divide-y divide-border/40">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="py-3.5">
+                  <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+                  <div className="mt-1.5 h-3.5 w-40 animate-pulse rounded bg-muted" />
+                  <div className="mt-1.5 h-3 w-32 animate-pulse rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Desktop skeleton */}
+        <div className="hidden sm:block space-y-6">
+          <GlassCard className="rounded-3xl">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 animate-pulse rounded-full bg-emerald-500" />
+              <CardLabel>Frank &amp; Deenie</CardLabel>
+            </div>
+            <CardValue className="mt-1">Donation Ledger</CardValue>
+            <div className="mt-3 h-4 w-48 animate-pulse rounded-lg bg-muted" />
+          </GlassCard>
+          <GlassCard className="min-h-0">
+            <div className="mb-3 h-6 w-32 animate-pulse rounded-lg bg-muted" />
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
+          </GlassCard>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[...Array(3)].map((_, i) => (
+              <GlassCard key={i}>
+                <div className="h-4 w-24 animate-pulse rounded-lg bg-muted" />
+                <div className="mt-2 h-8 w-32 animate-pulse rounded-lg bg-muted" />
+              </GlassCard>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -1074,7 +1070,47 @@ export default function FrankDeenieClient() {
 
   return (
     <div className="page-stack pb-6">
-      <GlassCard className="rounded-3xl">
+      {/* Mobile hero: compact header */}
+      <GlassCard className="rounded-3xl sm:hidden">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardLabel>F&amp;D Ledger</CardLabel>
+            <p className="text-xs text-muted-foreground">
+              {selectedYear === null ? "All years" : selectedYear} &middot; {formatNumber(filteredRows.length)} donations
+            </p>
+          </div>
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <select
+            aria-label="Year"
+            className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 flex-1 rounded-lg border px-2.5 py-1.5 text-sm outline-none"
+            value={selectedYear === null ? "all" : String(selectedYear)}
+            onChange={(event) =>
+              setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
+            }
+          >
+            <option value="all">All years</option>
+            {data.availableYears.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold transition-colors hover:bg-muted/50 whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={includeChildren}
+              onChange={(event) => setIncludeChildren(event.target.checked)}
+              className="h-4 w-4 accent-[hsl(var(--accent))]"
+            />
+            Children
+          </label>
+        </div>
+      </GlassCard>
+
+      {/* Desktop hero: full header */}
+      <GlassCard className="hidden rounded-3xl sm:block">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardLabel>Frank &amp; Deenie</CardLabel>
@@ -1084,10 +1120,10 @@ export default function FrankDeenieClient() {
               Track Frank &amp; Deenie giving, with optional Children donations from this app.
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
+          <div className="flex w-auto flex-row items-end gap-2">
             <select
               aria-label="Year"
-              className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 rounded-md border px-3 py-2 text-sm outline-none block w-full sm:w-auto"
+              className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 rounded-md border px-3 py-2 text-sm outline-none"
               value={selectedYear === null ? "all" : String(selectedYear)}
               onChange={(event) =>
                 setSelectedYear(event.target.value === "all" ? null : Number(event.target.value))
@@ -1100,7 +1136,7 @@ export default function FrankDeenieClient() {
                 </option>
               ))}
             </select>
-            <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold transition-colors hover:bg-muted/50">
+            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold transition-colors hover:bg-muted/50 whitespace-nowrap">
               <input
                 type="checkbox"
                 checked={includeChildren}
@@ -1113,13 +1149,53 @@ export default function FrankDeenieClient() {
               type="button"
               variant="prominent"
               onClick={showAddForm ? closeAddForm : openAddForm}
-              className="w-full sm:w-auto min-h-10"
+              className="min-h-10"
             >
               {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {showAddForm ? "Close" : "Add Donation"}
             </Button>
           </div>
         </div>
+      </GlassCard>
+
+      {/* Compact mobile totals */}
+      <div className="grid grid-cols-3 gap-2 sm:hidden">
+        <GlassCard className="p-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">F&amp;D</p>
+          </div>
+          <p className="mt-1 text-base font-bold tabular-nums">{currency(data.totals.frankDeenie)}</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Kids</p>
+          </div>
+          <p className="mt-1 text-base font-bold tabular-nums">{includeChildren ? currency(data.totals.children) : "—"}</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-blue-500" />
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</p>
+          </div>
+          <p className="mt-1 text-base font-bold tabular-nums">{currency(visibleTotal)}</p>
+        </GlassCard>
+      </div>
+
+      {/* Mobile-only chart: shown above the donation list */}
+      <GlassCard className="sm:hidden">
+        <div className="mb-2 flex items-center justify-between">
+          <CardLabel>Year Split</CardLabel>
+          <p className="text-[10px] font-medium text-muted-foreground">
+            {filters.search.trim() || "All orgs"}
+          </p>
+        </div>
+        <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={(year) => {
+          setChartDrilldownYear(year);
+          setDrilldownSortKey("date");
+          setDrilldownSortDir("desc");
+        }} />
       </GlassCard>
 
       <section className="grid gap-3 2xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)] 2xl:items-start">
@@ -1156,7 +1232,139 @@ export default function FrankDeenieClient() {
             </DropdownMenu>
           </div>
 
-          <FilterPanel className="mb-3 grid gap-2 items-end sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_auto]">
+          {/* Mobile filters: inline search + segmented status + sort pills */}
+          <div className="mb-3 space-y-2.5 sm:hidden">
+            <div
+              className="relative flex rounded-lg border border-input shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)]"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setIsFilterNameOpen(false);
+                }
+              }}
+            >
+              <input
+                ref={filterNameInputRef}
+                value={filters.search}
+                onChange={(event) => {
+                  setFilter("search", event.target.value);
+                  setIsFilterNameOpen(true);
+                }}
+                onFocus={() => {
+                  setExportMessage(null);
+                  setIsFilterNameOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setIsFilterNameOpen(false);
+                }}
+                autoComplete="off"
+                placeholder="Search organizations..."
+                className="min-w-0 flex-1 rounded-l-lg border-none bg-transparent px-3 py-2.5 text-sm text-foreground shadow-none outline-none"
+              />
+              {filters.search ? (
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setFilter("search", "");
+                    setIsFilterNameOpen(false);
+                    filterNameInputRef.current?.focus();
+                  }}
+                  className="flex w-9 shrink-0 items-center justify-center text-muted-foreground transition hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X aria-hidden="true" size={16} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setIsFilterNameOpen((open) => !open)}
+                className="flex w-10 shrink-0 items-center justify-center rounded-r-lg border-l border-input bg-muted/60 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-label="Toggle name suggestions"
+                aria-expanded={showFilterNamePanel}
+              >
+                <ChevronDown aria-hidden="true" size={16} />
+              </button>
+              {showFilterNamePanel ? (
+                <div
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
+                >
+                  {normalizedFilterSearch ? (
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setFilter("search", "");
+                        setIsFilterNameOpen(false);
+                      }}
+                      className="mb-1 block w-full rounded-lg px-2 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                    >
+                      Show all organizations
+                    </button>
+                  ) : null}
+                  {filterNameSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setFilter("search", name);
+                        setIsFilterNameOpen(false);
+                      }}
+                      className={`block w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-muted ${
+                        filters.search.trim().toLowerCase() === name.trim().toLowerCase()
+                          ? "bg-muted font-semibold text-foreground"
+                          : "text-foreground"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                  {normalizedFilterSearch.length > 0 && filterNameSuggestions.length === 0 ? (
+                    <p className="px-2 py-2 text-sm text-muted-foreground">
+                      No matching organizations
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {(["all", "Gave", "Planned"] as const).map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setFilter("status", status === "all" ? "all" : status)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    filters.status === (status === "all" ? "all" : status)
+                      ? "bg-foreground text-card"
+                      : "bg-muted/80 text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {status === "all" ? "All" : status}
+                </button>
+              ))}
+              <span className="mx-1 h-4 w-px bg-border" />
+              {([["date", "Date"], ["name", "Name"], ["amount", "$"]] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleSort(key)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    sortKey === key
+                      ? "bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] font-semibold"
+                      : "text-muted-foreground hover:bg-muted/60"
+                  }`}
+                >
+                  {label}
+                  {sortKey === key ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop filters */}
+          <FilterPanel className="mb-3 hidden gap-2 items-end sm:grid sm:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,0.9fr)_auto]">
             <div className="text-xs font-semibold text-muted-foreground">
               Organization
               <div
@@ -1168,7 +1376,6 @@ export default function FrankDeenieClient() {
                 }}
               >
                 <input
-                  ref={filterNameInputRef}
                   value={filters.search}
                   onChange={(event) => {
                     setFilter("search", event.target.value);
@@ -1192,7 +1399,6 @@ export default function FrankDeenieClient() {
                     onClick={() => {
                       setFilter("search", "");
                       setIsFilterNameOpen(false);
-                      filterNameInputRef.current?.focus();
                     }}
                     className="flex w-8 shrink-0 items-center justify-center text-muted-foreground transition hover:text-foreground"
                     aria-label="Clear search"
@@ -1338,9 +1544,7 @@ export default function FrankDeenieClient() {
               {exportMessage.text}
             </p>
           ) : null}
-
-          {/* Mobile card list */}
-          <div className="space-y-3 md:hidden">
+          <div className="divide-y divide-border/60 md:hidden">
             {filteredRows.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-border/50 bg-muted/20 p-8 text-center">
                 <div className="mb-4 rounded-full border border-border bg-muted p-3">
@@ -1366,79 +1570,47 @@ export default function FrankDeenieClient() {
               filteredRows.map((row) => {
                 const notesText = row.memo.trim();
                 const rowMessage = rowMessageById[row.id];
+                const isChildren = row.source === "children";
 
                 return (
                   <article
                     key={row.id}
-                    className={`rounded-xl border p-4 transition-all hover:shadow-md hover:border-border/80 ${
-                      row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/50" : ""
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDetailRowId(row.id)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailRowId(row.id); } }}
+                    className={`relative cursor-pointer px-1 py-3.5 transition-all active:scale-[0.985] ${
+                      isChildren ? "pl-3.5" : ""
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => setDetailRowId(row.id)}
-                          className="truncate text-left text-sm font-semibold hover:underline hover:text-primary transition-colors"
-                          title={row.name}
-                        >
-                          {row.name}
-                        </button>
-                        {row.source === "children" ? (
-                          <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 transition-colors">
-                            <Users className="h-3 w-3" />
-                            Children
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${
-                            row.status === "Planned"
-                              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
-                              : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                        {row.editable ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="icon-sm" aria-label="Open actions">
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-36">
-                              <DropdownMenuItem
-                                className="text-xs font-semibold"
-                                onSelect={() => {
-                                  beginEdit(row);
-                                  setDetailRowId(row.id);
-                                }}
-                              >
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-xs font-semibold text-destructive focus:text-destructive"
-                                onSelect={() => void deleteRow(row)}
-                              >
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : null}
-                      </div>
+                    {isChildren ? (
+                      <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full bg-amber-400 dark:bg-amber-500" />
+                    ) : null}
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-lg font-bold tabular-nums text-foreground">
+                        ${formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      </p>
+                      <span
+                        className={`shrink-0 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                          row.status === "Planned"
+                            ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
+                        }`}
+                      >
+                        {row.status}
+                      </span>
                     </div>
-                    <p className="mt-2 text-lg font-semibold tabular-nums text-foreground">
-                      ${formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    <p className="mt-1 text-sm font-semibold text-foreground/90 leading-snug" title={row.name}>
+                      {row.name}
                     </p>
-                    <div className="mt-2 grid grid-cols-2 gap-1 text-xs text-muted-foreground">
-                      <p>{tableDate(row.date)}</p>
-                      <p>By {byDisplay(row)}</p>
-                      {notesText ? <p className="col-span-2 truncate">{notesText}</p> : null}
-                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {tableDate(row.date)}
+                      <span className="mx-1.5">&middot;</span>
+                      {isChildren ? "Children" : byDisplay(row)}
+                      {notesText ? <><span className="mx-1.5">&middot;</span><span className="text-muted-foreground/70">{notesText}</span></> : null}
+                    </p>
                     {rowMessage ? (
-                      <p className={`mt-2 text-xs ${rowMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
+                      <p className={`mt-1.5 text-xs ${rowMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
                         {rowMessage.text}
                       </p>
                     ) : null}
@@ -1664,7 +1836,8 @@ export default function FrankDeenieClient() {
         </GlassCard>
 
         <div className="grid gap-3">
-          <GlassCard>
+          {/* Sidebar chart: desktop only (mobile chart is above the grid) */}
+          <GlassCard className="hidden sm:block">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <CardLabel>Year Split for Filtered View</CardLabel>
@@ -1683,7 +1856,7 @@ export default function FrankDeenieClient() {
             }} />
           </GlassCard>
 
-          <section className="grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
+          <section className="hidden sm:grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
             <MetricCard
               title="FRANK &amp; DEENIE"
               value={currency(data.totals.frankDeenie)}
@@ -1709,67 +1882,111 @@ export default function FrankDeenieClient() {
 
           {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
             <GlassCard>
-              <CardLabel>Import Frank &amp; Deenie CSV</CardLabel>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Required headers:{" "}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                  date,name,amount
-                </code>
-                . Optional: memo, status.
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
-              </p>
-              <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
-                <input
-                  key={importInputKey}
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={(event) => {
-                    setImportCsvFile(event.target.files?.[0] ?? null);
-                    setImportMessage(null);
-                  }}
-                  className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
-                />
-                <Button
-                  size="lg"
-                  type="submit"
-                  disabled={importingCsv}
-                  className="w-full sm:w-auto"
-                >
-                  {importingCsv ? "Importing..." : "Import CSV"}
-                </Button>
-              </form>
-              {importMessage ? (
-                <p
-                  className={`mt-2 text-xs ${
-                    importMessage.tone === "error"
-                      ? "text-rose-600"
-                      : "text-emerald-700 dark:text-emerald-300"
-                  }`}
-                >
-                  {importMessage.text}
+              {/* Mobile: collapsible toggle */}
+              <button
+                type="button"
+                className="flex w-full items-center justify-between sm:hidden"
+                onClick={() => setImportExpanded((v) => !v)}
+              >
+                <div className="flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                  <CardLabel>Import CSV</CardLabel>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${importExpanded ? "rotate-180" : ""}`} />
+              </button>
+              {/* Desktop: always-visible label */}
+              <div className="hidden sm:block">
+                <CardLabel>Import Frank &amp; Deenie CSV</CardLabel>
+              </div>
+              <div className={`${importExpanded ? "block" : "hidden"} sm:block`}>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Required headers:{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                    date,name,amount
+                  </code>
+                  . Optional: memo, status.
                 </p>
-              ) : null}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Status values are limited to <strong>Gave</strong> or <strong>Planned</strong>.
+                </p>
+                <form className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center" onSubmit={importCsv}>
+                  <input
+                    key={importInputKey}
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(event) => {
+                      setImportCsvFile(event.target.files?.[0] ?? null);
+                      setImportMessage(null);
+                    }}
+                    className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
+                  />
+                  <Button
+                    size="lg"
+                    type="submit"
+                    disabled={importingCsv}
+                    className="w-full sm:w-auto"
+                  >
+                    {importingCsv ? "Importing..." : "Import CSV"}
+                  </Button>
+                </form>
+                {importMessage ? (
+                  <p
+                    className={`mt-2 text-xs ${
+                      importMessage.tone === "error"
+                        ? "text-rose-600"
+                        : "text-emerald-700 dark:text-emerald-300"
+                    }`}
+                  >
+                    {importMessage.text}
+                  </p>
+                ) : null}
+              </div>
             </GlassCard>
           ) : null}
         </div>
       </section>
 
-      <Dialog open={!!detailRow} onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}>
+      {/* Mobile FAB: Add Donation */}
+      <button
+        type="button"
+        onClick={openAddForm}
+        className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[hsl(var(--accent))] text-white shadow-lg shadow-emerald-500/25 transition-transform active:scale-90 sm:hidden"
+        aria-label="Add donation"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      <ResponsiveModal open={!!detailRow} onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}>
         {detailRow ? (
-        <DialogContent
+        <ResponsiveModalContent
           aria-labelledby="donation-details-title"
-          className="max-w-3xl rounded-3xl p-4 sm:p-5"
+          dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5"
           showCloseButton={false}
+          footer={detailRow.editable ? (
+            <div className="flex flex-wrap items-center gap-3 pt-3">
+              {editingId !== detailRow.id ? (
+                <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => beginEdit(detailRow)}>
+                  Edit donation
+                </Button>
+              ) : null}
+              <Button
+                variant="destructive-outline"
+                className="flex-1 sm:flex-none"
+                onClick={() => void deleteRow(detailRow)}
+                disabled={deletingRowId === detailRow.id}
+              >
+                {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
+              </Button>
+            </div>
+          ) : undefined}
         >
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 id="donation-details-title" className="text-lg font-bold">
-                  Donation Details
+              <div className="min-w-0 flex-1">
+                <p className="text-2xl font-bold tabular-nums">{currency(detailRow.amount)}</p>
+                <h2 id="donation-details-title" className="mt-1 text-base font-semibold leading-snug">
+                  {detailRow.name}
                 </h2>
-                <p className="mt-1 text-xs text-muted-foreground">{detailRow.name}</p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                       detailRow.source === "children"
@@ -1794,7 +2011,7 @@ export default function FrankDeenieClient() {
                     className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
                     <History className="h-3 w-3" />
-                    Giving history
+                    History
                   </button>
                 </div>
               </div>
@@ -1803,26 +2020,24 @@ export default function FrankDeenieClient() {
                 size="icon"
                 onClick={closeDetailDrawer}
                 aria-label="Close donation details"
+                className="shrink-0"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
+            <div className="my-4 h-px bg-border" />
+
             {editingId === detailRow.id && editDraft ? (
               <>
-                <div className="mt-5 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Edit</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-                <form className="mt-3 grid gap-3" onSubmit={(event) => event.preventDefault()}>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <form className="grid gap-3" onSubmit={(event) => event.preventDefault()}>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="text-xs font-semibold text-muted-foreground">
                     Date
                     <button
                       type="button"
                       onClick={() => editDonationDateInputRef.current?.showPicker()}
-                      className="mt-1 flex h-9 w-full cursor-pointer items-center rounded-md border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
+                      className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
                     >
                       <span className={`flex-1 text-left ${editDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
                         {editDraft.date ? tableDate(editDraft.date) : "Select date"}
@@ -1848,7 +2063,7 @@ export default function FrankDeenieClient() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, name: event.target.value } : current))
                       }
-                      className="mt-1"
+                      className="mt-1 h-10 rounded-lg"
                     />
                   </label>
                   <label className="text-xs font-semibold text-muted-foreground">
@@ -1860,7 +2075,7 @@ export default function FrankDeenieClient() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, amount: event.target.value } : current))
                       }
-                      className="mt-1"
+                      className="mt-1 h-10 rounded-lg"
                     />
                   </label>
                   <label className="text-xs font-semibold text-muted-foreground">
@@ -1870,7 +2085,7 @@ export default function FrankDeenieClient() {
                       onChange={(event) =>
                         setEditDraft((current) => (current ? { ...current, status: event.target.value } : current))
                       }
-                      className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1"
+                      className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 w-full rounded-lg border px-3 py-1 text-base outline-none sm:text-sm mt-1"
                     >
                       {DONATION_STATUSES.map((statusOption) => (
                         <option key={statusOption} value={statusOption}>
@@ -1888,13 +2103,14 @@ export default function FrankDeenieClient() {
                     onChange={(event) =>
                       setEditDraft((current) => (current ? { ...current, memo: event.target.value } : current))
                     }
-                    className="mt-1"
+                    className="mt-1 h-10 rounded-lg"
                   />
                 </label>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 pt-1">
                   <Button
                     type="button"
                     variant="prominent"
+                    className="flex-1 sm:flex-none"
                     onClick={() => void saveEdit()}
                     disabled={savingRowId === detailRow.id}
                   >
@@ -1902,6 +2118,7 @@ export default function FrankDeenieClient() {
                   </Button>
                   <Button
                     variant="outline"
+                    className="flex-1 sm:flex-none"
                     onClick={cancelEdit}
                     disabled={savingRowId === detailRow.id}
                   >
@@ -1911,45 +2128,37 @@ export default function FrankDeenieClient() {
                 </form>
               </>
             ) : (
-              <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Date
-                  </dt>
-                  <dd className="mt-1 font-medium">{tableDate(detailRow.date)}</dd>
+              <dl className="grid gap-3 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Date
+                    </dt>
+                    <dd className="mt-0.5 font-medium">{tableDate(detailRow.date)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Source
+                    </dt>
+                    <dd className="mt-0.5 font-medium">
+                      {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
+                    </dd>
+                  </div>
                 </div>
                 <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Amount
-                  </dt>
-                  <dd className="mt-1 text-lg font-bold">{currency(detailRow.amount)}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Status
-                  </dt>
-                  <dd className="mt-1 font-medium">{detailRow.status}</dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Source
-                  </dt>
-                  <dd className="mt-1 font-medium">
-                    {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Proposed by
                   </dt>
-                  <dd className="mt-1 font-medium">{byDisplay(detailRow)}</dd>
+                  <dd className="mt-0.5 font-medium">{byDisplay(detailRow)}</dd>
                 </div>
-                <div className="md:col-span-2">
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
-                    Notes / Description
-                  </dt>
-                  <dd className="mt-1 whitespace-pre-wrap font-medium">{detailRow.memo || "—"}</dd>
-                </div>
+                {detailRow.memo ? (
+                  <div>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Notes
+                    </dt>
+                    <dd className="mt-0.5 whitespace-pre-wrap font-medium text-muted-foreground">{detailRow.memo}</dd>
+                  </div>
+                ) : null}
               </dl>
             )}
 
@@ -1965,38 +2174,36 @@ export default function FrankDeenieClient() {
               </p>
             ) : null}
 
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              {detailRow.editable && editingId !== detailRow.id ? (
-                <Button
-                  variant="outline"
-                  onClick={() => beginEdit(detailRow)}
-                >
-                  Edit donation
-                </Button>
-              ) : null}
-              {detailRow.editable ? (
-                <Button
-                  variant="destructive-outline"
-                  onClick={() => void deleteRow(detailRow)}
-                  disabled={deletingRowId === detailRow.id}
-                >
-                  {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
-                </Button>
-              ) : null}
-            </div>
-        </DialogContent>
+        </ResponsiveModalContent>
         ) : null}
-      </Dialog>
+      </ResponsiveModal>
 
-      <Dialog
+      <ResponsiveModal
         open={showAddForm}
         onOpenChange={(open) => { if (!open && !isCreating) closeAddForm(); }}
       >
-        <DialogContent
+        <ResponsiveModalContent
           aria-labelledby="add-donation-title"
-          className="sm:max-w-5xl p-4 sm:p-5"
+          dialogClassName="sm:max-w-5xl p-4 sm:p-5"
           showCloseButton={false}
           onInteractOutside={(e) => { if (isCreating) e.preventDefault(); }}
+          footer={
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-3">
+              <div className="flex items-center gap-2">
+                <Button type="submit" form="add-donation-form" disabled={isCreating} className="flex-1 sm:flex-none">
+                  {isCreating ? "Saving..." : "Save Donation"}
+                </Button>
+                <Button variant="outline" type="button" onClick={closeAddForm} disabled={isCreating} className="flex-1 sm:flex-none">
+                  Cancel
+                </Button>
+              </div>
+              {createMessage ? (
+                <p className={`text-xs ${createMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
+                  {createMessage.text}
+                </p>
+              ) : null}
+            </div>
+          }
         >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -2018,7 +2225,7 @@ export default function FrankDeenieClient() {
               </Button>
             </div>
 
-            <form className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
+            <form id="add-donation-form" className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <div className="text-xs font-semibold text-muted-foreground">
                   Date
@@ -2160,38 +2367,9 @@ export default function FrankDeenieClient() {
                 </label>
               </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="submit"
-                    disabled={isCreating}
-                  >
-                    {isCreating ? "Saving..." : "Save Donation"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={closeAddForm}
-                    disabled={isCreating}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-                {createMessage ? (
-                  <p
-                    className={`text-xs ${
-                      createMessage.tone === "error"
-                        ? "text-rose-600"
-                        : "text-emerald-700 dark:text-emerald-300"
-                    }`}
-                  >
-                    {createMessage.text}
-                  </p>
-                ) : null}
-              </div>
             </form>
-        </DialogContent>
-      </Dialog>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
 
       <ResponsiveModal
         open={!!givingHistoryName}

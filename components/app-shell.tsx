@@ -133,10 +133,16 @@ const focusNavItems: NavItem[] = [
   { href: "/dashboard", label: "Full Details", icon: FileText }
 ];
 
-/** Mobile-only nav for admin: just Admin Queue and Full Details. */
+/** Mobile-only nav for admin: Admin Queue and F&D (Frank & Deenie). */
 const adminMobileNavItems: NavItem[] = [
   { href: "/admin", label: "Admin Queue", icon: ShieldCheck },
-  { href: "/dashboard", label: "Full Details", icon: FileText }
+  { href: "/frank-deenie" as Route, label: "F&D", icon: HandCoins }
+];
+
+/** Mobile-only nav for manager: Full Details and F&D (Frank & Deenie). */
+const managerMobileNavItems: NavItem[] = [
+  { href: "/dashboard", label: "Full Details", icon: FileText },
+  { href: "/frank-deenie" as Route, label: "F&D", icon: HandCoins }
 ];
 
 const fullNavSections: Array<{ id: NavSectionId; label: string }> = [
@@ -768,13 +774,14 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
-  /** Home, Admin Queue, + New Proposal, Full Details: constrain viewport so bottom nav always visible without scrolling. */
+  /** Home, Admin Queue, + New Proposal, F&D (or Full Details for non-admin): constrain viewport so bottom nav always visible without scrolling. */
   const stickyBottomNavOnMobile =
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/proposals/new"));
+      pathname.startsWith("/proposals/new") ||
+      pathname.startsWith("/frank-deenie"));
   /** In browser (non-PWA), use window scroll to avoid iOS Safari bottom nav hit-test issues. */
   const useStickyBottomNavLayout = stickyBottomNavOnMobile && isStandalone;
   const hideShellHeader =
@@ -783,13 +790,16 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new") ||
-      pathname.startsWith("/admin"));
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/frank-deenie"));
   const renderedNav =
     isSmallViewport && user?.role === "admin"
       ? adminMobileNavItems
-      : showMobileFocusNav
-        ? availableFocusNav
-        : availableFullNav;
+      : isSmallViewport && user?.role === "manager"
+        ? managerMobileNavItems
+        : showMobileFocusNav
+          ? availableFocusNav
+          : availableFullNav;
   const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
     { refreshInterval: navPollInterval, refreshWhenHidden: false }
