@@ -2,6 +2,7 @@
 
 import { FormEvent, useState, useEffect, useMemo, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
 import { DollarSign, Users, Wallet, KeyRound, Bell, FileUp, Cog, Mail, Star, Tags, PieChart } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -93,45 +94,20 @@ export default function SettingsPage() {
   const [jointRatio, setJointRatio] = useState("0.75");
   const [discretionaryRatio, setDiscretionaryRatio] = useState("0.25");
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordChangeMessage, setPasswordChangeMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const [historicalCsvFile, setHistoricalCsvFile] = useState<File | null>(null);
   const [historicalImporting, setHistoricalImporting] = useState(false);
   const [historicalImportInputKey, setHistoricalImportInputKey] = useState(0);
-  const [historicalImportMessage, setHistoricalImportMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<DirectionalCategory>("other");
   const [selectedCategoryLocked, setSelectedCategoryLocked] = useState(false);
   const [savingCategoryOverride, setSavingCategoryOverride] = useState(false);
-  const [categoryOverrideMessage, setCategoryOverrideMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const [runningCategoryWorker, setRunningCategoryWorker] = useState(false);
-  const [categoryWorkerMessage, setCategoryWorkerMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const [runningEmailWorker, setRunningEmailWorker] = useState(false);
-  const [emailWorkerMessage, setEmailWorkerMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const [runningCharityNavigatorScores, setRunningCharityNavigatorScores] = useState(false);
-  const [charityNavigatorScoresMessage, setCharityNavigatorScoresMessage] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const parsedTotalAmount = parseNumberInput(totalAmount);
   const parsedRollover = parseNumberInput(rollover);
   const parsedJointRatio = parseNumberInput(jointRatio);
@@ -264,7 +240,6 @@ export default function SettingsPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
-    setMessage(null);
 
     try {
       const response = await fetch("/api/budgets", {
@@ -281,13 +256,13 @@ export default function SettingsPage() {
 
       if (response.ok) {
         void mutate();
-        setMessage("Budget saved.");
+        toast.success("Budget saved.");
       } else {
         const payload = await response.json().catch(() => ({ error: "Failed to save budget" }));
-        setMessage(payload.error || "Failed to save budget");
+        toast.error(payload.error || "Failed to save budget");
       }
     } catch {
-      setMessage("Failed to save budget");
+      toast.error("Failed to save budget");
     } finally {
       setSaving(false);
     }
@@ -295,21 +270,20 @@ export default function SettingsPage() {
 
   const handleChangePassword = async (event: FormEvent) => {
     event.preventDefault();
-    setPasswordChangeMessage(null);
 
     if (newPassword.length < 12) {
-      setPasswordChangeMessage({ tone: "error", text: "New password must be at least 12 characters." });
+      toast.error("New password must be at least 12 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordChangeMessage({ tone: "error", text: "Passwords do not match." });
+      toast.error("Passwords do not match.");
       return;
     }
 
     setChangingPassword(true);
     try {
       await changePassword(currentPassword, newPassword);
-      setPasswordChangeMessage({ tone: "success", text: "Password updated." });
+      toast.success("Password updated.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -323,7 +297,7 @@ export default function SettingsPage() {
             : msg.toLowerCase().includes("password")
               ? "Your new password does not meet requirements. Use at least 12 characters."
               : msg;
-      setPasswordChangeMessage({ tone: "error", text: friendly });
+      toast.error(friendly);
     } finally {
       setChangingPassword(false);
     }
@@ -332,15 +306,11 @@ export default function SettingsPage() {
   const importHistoricalCsv = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!historicalCsvFile) {
-      setHistoricalImportMessage({
-        tone: "error",
-        text: "Select a CSV file before importing."
-      });
+      toast.error("Select a CSV file before importing.");
       return;
     }
 
     setHistoricalImporting(true);
-    setHistoricalImportMessage(null);
 
     try {
       const csvText = await historicalCsvFile.text();
@@ -358,20 +328,16 @@ export default function SettingsPage() {
       const importedCount = Number(payload.importedCount ?? 0);
       const skippedCount = Number(payload.skippedCount ?? 0);
 
-      setHistoricalImportMessage({
-        tone: "success",
-        text: `Imported ${formatNumber(importedCount)} historical proposals${
+      toast.success(
+        `Imported ${formatNumber(importedCount)} historical proposals${
           skippedCount > 0 ? `, skipped ${formatNumber(skippedCount)} duplicates` : ""
         }.`
-      });
+      );
       setHistoricalCsvFile(null);
       setHistoricalImportInputKey((current) => current + 1);
       void globalMutate("/api/foundation");
     } catch (err) {
-      setHistoricalImportMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Failed to import historical proposals."
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to import historical proposals.");
     } finally {
       setHistoricalImporting(false);
     }
@@ -381,15 +347,11 @@ export default function SettingsPage() {
     event.preventDefault();
 
     if (!selectedOrganizationId) {
-      setCategoryOverrideMessage({
-        tone: "error",
-        text: "Select an organization before saving."
-      });
+      toast.error("Select an organization before saving.");
       return;
     }
 
     setSavingCategoryOverride(true);
-    setCategoryOverrideMessage(null);
 
     try {
       const response = await fetch(`/api/organizations/${selectedOrganizationId}/category`, {
@@ -407,15 +369,9 @@ export default function SettingsPage() {
       }
 
       await organizationCategoriesQuery.mutate();
-      setCategoryOverrideMessage({
-        tone: "success",
-        text: "Organization category override saved."
-      });
+      toast.success("Organization category override saved.");
     } catch (error) {
-      setCategoryOverrideMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Failed to save category override."
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to save category override.");
     } finally {
       setSavingCategoryOverride(false);
     }
@@ -423,7 +379,6 @@ export default function SettingsPage() {
 
   const runCategoryWorker = async () => {
     setRunningCategoryWorker(true);
-    setCategoryWorkerMessage(null);
 
     try {
       const response = await fetch("/api/organizations/categories/process", {
@@ -446,21 +401,17 @@ export default function SettingsPage() {
       const failed = Number(payload.failed ?? 0);
       const pendingRetries = Number(payload.pendingRetries ?? 0);
 
-      setCategoryWorkerMessage({
-        tone: "success",
-        text: `Worker completed: processed ${formatNumber(processed)}, categorized ${formatNumber(
+      toast.success(
+        `Worker completed: processed ${formatNumber(processed)}, categorized ${formatNumber(
           categorized
         )}, skipped locked ${formatNumber(skippedLocked)}, failed ${formatNumber(
           failed
         )}, pending retries ${formatNumber(pendingRetries)}.`
-      });
+      );
 
       await organizationCategoriesQuery.mutate();
     } catch (error) {
-      setCategoryWorkerMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Failed to run organization categorization worker."
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to run organization categorization worker.");
     } finally {
       setRunningCategoryWorker(false);
     }
@@ -468,7 +419,6 @@ export default function SettingsPage() {
 
   const runEmailWorker = async () => {
     setRunningEmailWorker(true);
-    setEmailWorkerMessage(null);
 
     try {
       const response = await fetch("/api/notifications/email/reminders", {
@@ -482,7 +432,7 @@ export default function SettingsPage() {
       }
 
       if (payload.disabled === true && typeof payload.message === "string") {
-        setEmailWorkerMessage({ tone: "success", text: payload.message });
+        toast.success(payload.message);
         return;
       }
 
@@ -521,15 +471,9 @@ export default function SettingsPage() {
         parts.push(`${delivery.failed} delivery failed`);
       }
 
-      setEmailWorkerMessage({
-        tone: "success",
-        text: parts.length ? parts.join(". ") + "." : "Email worker completed — nothing to send."
-      });
+      toast.success(parts.length ? parts.join(". ") + "." : "Email worker completed — nothing to send.");
     } catch (error) {
-      setEmailWorkerMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Failed to run email worker."
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to run email worker.");
     } finally {
       setRunningEmailWorker(false);
     }
@@ -537,7 +481,6 @@ export default function SettingsPage() {
 
   const runCharityNavigatorScores = async () => {
     setRunningCharityNavigatorScores(true);
-    setCharityNavigatorScoresMessage(null);
 
     try {
       const response = await fetch("/api/settings/charity-navigator-scores", { method: "POST" });
@@ -555,16 +498,12 @@ export default function SettingsPage() {
       const updated = Number(payload.updated ?? 0);
       const skipped = Number(payload.skipped ?? 0);
       const failed = Number(payload.failed ?? 0);
-      setCharityNavigatorScoresMessage({
-        tone: "success",
-        text: `Done. Updated ${formatNumber(updated)}, skipped ${formatNumber(skipped)}, failed ${formatNumber(failed)}.`
-      });
+      toast.success(
+        `Done. Updated ${formatNumber(updated)}, skipped ${formatNumber(skipped)}, failed ${formatNumber(failed)}.`
+      );
       void globalMutate("/api/foundation");
     } catch (error) {
-      setCharityNavigatorScoresMessage({
-        tone: "error",
-        text: error instanceof Error ? error.message : "Failed to fetch Charity Navigator scores."
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to fetch Charity Navigator scores.");
     } finally {
       setRunningCharityNavigatorScores(false);
     }
@@ -688,11 +627,6 @@ export default function SettingsPage() {
           >
             {changingPassword ? "Updating…" : "Change password"}
           </Button>
-          {passwordChangeMessage ? (
-            <p className={`text-xs ${passwordChangeMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
-              {passwordChangeMessage.text}
-            </p>
-          ) : null}
         </form>
       </CollapsibleSection>
 
@@ -720,7 +654,6 @@ export default function SettingsPage() {
               accept=".csv,text/csv"
               onChange={(event) => {
                 setHistoricalCsvFile(event.target.files?.[0] ?? null);
-                setHistoricalImportMessage(null);
               }}
               className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
             />
@@ -733,17 +666,6 @@ export default function SettingsPage() {
               {historicalImporting ? "Importing..." : "Import CSV"}
             </Button>
           </form>
-          {historicalImportMessage ? (
-            <p
-              className={`mt-2 text-xs ${
-                historicalImportMessage.tone === "error"
-                  ? "text-rose-600"
-                  : "text-emerald-700 dark:text-emerald-300"
-              }`}
-            >
-              {historicalImportMessage.text}
-            </p>
-          ) : null}
         </CollapsibleSection>
       ) : null}
 
@@ -760,17 +682,6 @@ export default function SettingsPage() {
           >
             {runningCategoryWorker ? "Running..." : "Run Categorization Worker"}
           </Button>
-          {categoryWorkerMessage ? (
-            <p
-              className={`mt-2 text-xs ${
-                categoryWorkerMessage.tone === "error"
-                  ? "text-rose-600"
-                  : "text-emerald-700 dark:text-emerald-300"
-              }`}
-            >
-              {categoryWorkerMessage.text}
-            </p>
-          ) : null}
         </CollapsibleSection>
       ) : null}
 
@@ -787,17 +698,6 @@ export default function SettingsPage() {
           >
             {runningEmailWorker ? "Running..." : "Run Email Worker"}
           </Button>
-          {emailWorkerMessage ? (
-            <p
-              className={`mt-2 text-xs ${
-                emailWorkerMessage.tone === "error"
-                  ? "text-rose-600"
-                  : "text-emerald-700 dark:text-emerald-300"
-              }`}
-            >
-              {emailWorkerMessage.text}
-            </p>
-          ) : null}
         </CollapsibleSection>
       ) : null}
 
@@ -817,17 +717,6 @@ export default function SettingsPage() {
           >
             {runningCharityNavigatorScores ? "Fetching…" : "Fetch Charity Navigator Scores"}
           </Button>
-          {charityNavigatorScoresMessage ? (
-            <p
-              className={`mt-2 text-xs ${
-                charityNavigatorScoresMessage.tone === "error"
-                  ? "text-rose-600"
-                  : "text-emerald-700 dark:text-emerald-300"
-              }`}
-            >
-              {charityNavigatorScoresMessage.text}
-            </p>
-          ) : null}
         </CollapsibleSection>
       ) : null}
 
@@ -859,7 +748,6 @@ export default function SettingsPage() {
                       setSelectedCategory(nextOrganization.directionalCategory);
                       setSelectedCategoryLocked(nextOrganization.directionalCategoryLocked);
                     }
-                    setCategoryOverrideMessage(null);
                   }}
                 >
                   {(organizationCategoriesQuery.data?.organizations ?? []).map((organization) => (
@@ -878,7 +766,6 @@ export default function SettingsPage() {
                   value={selectedCategory}
                   onChange={(event) => {
                     setSelectedCategory(event.target.value as DirectionalCategory);
-                    setCategoryOverrideMessage(null);
                   }}
                 >
                   {DIRECTIONAL_CATEGORIES.map((category) => (
@@ -895,7 +782,6 @@ export default function SettingsPage() {
                   checked={selectedCategoryLocked}
                   onChange={(event) => {
                     setSelectedCategoryLocked(event.target.checked);
-                    setCategoryOverrideMessage(null);
                   }}
                   className="h-4 w-4 accent-[hsl(var(--accent))]"
                 />
@@ -925,17 +811,6 @@ export default function SettingsPage() {
                 {savingCategoryOverride ? "Saving..." : "Save Category Override"}
               </Button>
 
-              {categoryOverrideMessage ? (
-                <p
-                  className={`text-xs ${
-                    categoryOverrideMessage.tone === "error"
-                      ? "text-rose-600"
-                      : "text-emerald-700 dark:text-emerald-300"
-                  }`}
-                >
-                  {categoryOverrideMessage.text}
-                </p>
-              ) : null}
             </form>
           )}
         </CollapsibleSection>
@@ -1044,7 +919,6 @@ export default function SettingsPage() {
                   {saving ? "Saving..." : "Save Budget"}
                 </Button>
 
-                {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
               </form>
             )}
           </CollapsibleSection>

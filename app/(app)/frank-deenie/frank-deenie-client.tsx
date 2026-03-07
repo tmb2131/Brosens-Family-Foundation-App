@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { ArrowDownAZ, ArrowUpAZ, Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Upload, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
@@ -246,29 +247,19 @@ export default function FrankDeenieClient() {
   const [newDraft, setNewDraft] = useState<DonationDraft>(() => initialDraftForYear(null));
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof DonationDraft, string>>>({});
   const [isCreating, setIsCreating] = useState(false);
-  const [createMessage, setCreateMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
-    null
-  );
   const [importCsvFile, setImportCsvFile] = useState<File | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
   const [importInputKey, setImportInputKey] = useState(0);
   const [importExpanded, setImportExpanded] = useState(false);
-  const [importMessage, setImportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
-    null
-  );
-  const [exportMessage, setExportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
-    null
-  );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DonationDraft | null>(null);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
+  const [deleteConfirmRow, setDeleteConfirmRow] = useState<FrankDeenieDonationRow | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [openActionMenuRowId, setOpenActionMenuRowId] = useState<string | null>(null);
-  const [rowMessageById, setRowMessageById] = useState<
-    Record<string, { tone: "success" | "error"; text: string }>
-  >({});
+  
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [chartDrilldownYear, setChartDrilldownYear] = useState<number | null>(null);
   const [drilldownSortKey, setDrilldownSortKey] = useState<"date" | "name" | "amount" | "status">("date");
@@ -535,14 +526,12 @@ export default function FrankDeenieClient() {
 
   const openAddForm = () => {
     setShowAddForm(true);
-    setCreateMessage(null);
     setFormErrors({});
     setNewDraft(initialDraftForYear(selectedYear));
   };
 
   const closeAddForm = () => {
     setShowAddForm(false);
-    setCreateMessage(null);
     setFormErrors({});
   };
 
@@ -555,17 +544,6 @@ export default function FrankDeenieClient() {
     setOpenActionMenuRowId(null);
   };
 
-  const clearRowMessage = (rowId: string) => {
-    setRowMessageById((current) => {
-      if (!current[rowId]) {
-        return current;
-      }
-      const next = { ...current };
-      delete next[rowId];
-      return next;
-    });
-  };
-
   const beginEdit = (row: FrankDeenieDonationRow) => {
     if (!row.editable) {
       return;
@@ -573,7 +551,6 @@ export default function FrankDeenieClient() {
 
     setEditingId(row.id);
     setEditDraft(rowToDraft(row));
-    clearRowMessage(row.id);
   };
 
   const cancelEdit = () => {
@@ -588,18 +565,11 @@ export default function FrankDeenieClient() {
 
     const parsedAmount = parseNumberInput(editDraft.amount);
     if (parsedAmount === null || parsedAmount < 0) {
-      setRowMessageById((current) => ({
-        ...current,
-        [editingId]: {
-          tone: "error",
-          text: "Amount must be a non-negative number."
-        }
-      }));
+      toast.error("Amount must be a non-negative number.");
       return;
     }
 
     setSavingRowId(editingId);
-    clearRowMessage(editingId);
 
     try {
       const response = await fetch(`/api/frank-deenie/${editingId}`, {
@@ -621,41 +591,28 @@ export default function FrankDeenieClient() {
         throw new Error(String(payload.error ?? "Failed to update donation."));
       }
 
-      setRowMessageById((current) => ({
-        ...current,
-        [editingId]: {
-          tone: "success",
-          text: "Donation updated."
-        }
-      }));
+      toast.success("Donation updated.");
       setEditingId(null);
       setEditDraft(null);
       void mutate();
     } catch (saveError) {
-      setRowMessageById((current) => ({
-        ...current,
-        [editingId]: {
-          tone: "error",
-          text: saveError instanceof Error ? saveError.message : "Failed to update donation."
-        }
-      }));
+      toast.error(saveError instanceof Error ? saveError.message : "Failed to update donation.");
     } finally {
       setSavingRowId(null);
     }
   };
 
-  const deleteRow = async (row: FrankDeenieDonationRow) => {
-    if (!row.editable) {
-      return;
-    }
+  const requestDelete = (row: FrankDeenieDonationRow) => {
+    if (!row.editable) return;
+    setDeleteConfirmRow(row);
+  };
 
-    const confirmed = window.confirm(`Delete donation to "${row.name}" on ${tableDate(row.date)}?`);
-    if (!confirmed) {
-      return;
-    }
+  const executeDelete = async () => {
+    if (!deleteConfirmRow) return;
 
+    const row = deleteConfirmRow;
+    setDeleteConfirmRow(null);
     setDeletingRowId(row.id);
-    clearRowMessage(row.id);
 
     try {
       const response = await fetch(`/api/frank-deenie/${row.id}`, {
@@ -671,15 +628,13 @@ export default function FrankDeenieClient() {
         setEditingId(null);
         setEditDraft(null);
       }
+      if (detailRowId === row.id) {
+        setDetailRowId(null);
+      }
+      toast.success("Donation deleted.");
       void mutate();
     } catch (deleteError) {
-      setRowMessageById((current) => ({
-        ...current,
-        [row.id]: {
-          tone: "error",
-          text: deleteError instanceof Error ? deleteError.message : "Failed to delete donation."
-        }
-      }));
+      toast.error(deleteError instanceof Error ? deleteError.message : "Failed to delete donation.");
     } finally {
       setDeletingRowId(null);
     }
@@ -714,25 +669,18 @@ export default function FrankDeenieClient() {
   };
   const submitNewDonation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setCreateMessage(null);
 
     const errors = validateForm(newDraft);
     setFormErrors(errors);
     
     if (Object.keys(errors).length > 0) {
-      setCreateMessage({
-        tone: "error",
-        text: "Please fix the errors below."
-      });
+      toast.error("Please fix the errors below.");
       return;
     }
 
     const parsedAmount = parseNumberInput(newDraft.amount);
     if (parsedAmount === null || parsedAmount < 0) {
-      setCreateMessage({
-        tone: "error",
-        text: "Amount must be a non-negative number."
-      });
+      toast.error("Amount must be a non-negative number.");
       return;
     }
 
@@ -758,18 +706,12 @@ export default function FrankDeenieClient() {
         throw new Error(String(payload.error ?? "Failed to create donation."));
       }
 
-      setCreateMessage({
-        tone: "success",
-        text: "Donation added."
-      });
+      toast.success("Donation added.");
       setNewDraft(initialDraftForYear(selectedYear));
       setFormErrors({});
       void mutate();
     } catch (createError) {
-      setCreateMessage({
-        tone: "error",
-        text: createError instanceof Error ? createError.message : "Failed to create donation."
-      });
+      toast.error(createError instanceof Error ? createError.message : "Failed to create donation.");
     } finally {
       setIsCreating(false);
     }
@@ -778,15 +720,11 @@ export default function FrankDeenieClient() {
   const importCsv = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!importCsvFile) {
-      setImportMessage({
-        tone: "error",
-        text: "Select a CSV file before importing."
-      });
+      toast.error("Select a CSV file before importing.");
       return;
     }
 
     setImportingCsv(true);
-    setImportMessage(null);
 
     try {
       const csvText = await importCsvFile.text();
@@ -804,20 +742,16 @@ export default function FrankDeenieClient() {
       const importedCount = Number(payload.importedCount ?? 0);
       const skippedCount = Number(payload.skippedCount ?? 0);
 
-      setImportMessage({
-        tone: "success",
-        text: `Imported ${formatNumber(importedCount)} donations${
+      toast.success(
+        `Imported ${formatNumber(importedCount)} donations${
           skippedCount > 0 ? `, skipped ${formatNumber(skippedCount)} duplicates` : ""
         }.`
-      });
+      );
       setImportCsvFile(null);
       setImportInputKey((current) => current + 1);
       void mutate();
     } catch (importError) {
-      setImportMessage({
-        tone: "error",
-        text: importError instanceof Error ? importError.message : "Failed to import donations CSV."
-      });
+      toast.error(importError instanceof Error ? importError.message : "Failed to import donations CSV.");
     } finally {
       setImportingCsv(false);
     }
@@ -828,10 +762,7 @@ export default function FrankDeenieClient() {
       return true;
     }
 
-    setExportMessage({
-      tone: "error",
-      text: "No rows are available to export for the current filters."
-    });
+    toast.error("No rows are available to export for the current filters.");
     return false;
   };
 
@@ -841,10 +772,7 @@ export default function FrankDeenieClient() {
     }
 
     downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
-    setExportMessage({
-      tone: "success",
-      text: `CSV exported (${formatNumber(exportRows.length)} rows).`
-    });
+    toast.success(`CSV exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
 
@@ -858,10 +786,7 @@ export default function FrankDeenieClient() {
       buildExcelHtml(exportRows, exportTitle, exportSubtitle),
       "application/vnd.ms-excel;charset=utf-8"
     );
-    setExportMessage({
-      tone: "success",
-      text: `Excel file exported (${formatNumber(exportRows.length)} rows).`
-    });
+    toast.success(`Excel file exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
 
@@ -872,10 +797,7 @@ export default function FrankDeenieClient() {
 
     const printWindow = window.open("", "_blank", "width=1200,height=900");
     if (!printWindow) {
-      setExportMessage({
-        tone: "error",
-        text: "The PDF export window was blocked. Allow pop-ups and try again."
-      });
+      toast.error("The PDF export window was blocked. Allow pop-ups and try again.");
       return;
     }
 
@@ -886,10 +808,7 @@ export default function FrankDeenieClient() {
       printWindow.print();
     }, 250);
 
-    setExportMessage({
-      tone: "success",
-      text: "Print dialog opened. Choose Save as PDF to finish."
-    });
+    toast.success("Print dialog opened. Choose Save as PDF to finish.");
     setIsExportMenuOpen(false);
   };
 
@@ -906,18 +825,12 @@ export default function FrankDeenieClient() {
 
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
 
-      setExportMessage({
-        tone: "success",
-        text: "Copied rows for Google Sheets. Paste into cell A1 in the new sheet."
-      });
+      toast.success("Copied rows for Google Sheets. Paste into cell A1 in the new sheet.");
       setIsExportMenuOpen(false);
     } catch {
       downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
-      setExportMessage({
-        tone: "error",
-        text: "Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets."
-      });
+      toast.error("Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets.");
       setIsExportMenuOpen(false);
     }
   };
@@ -1255,10 +1168,7 @@ export default function FrankDeenieClient() {
                       key={importInputKey}
                       type="file"
                       accept=".csv,text/csv"
-                      onChange={(event) => {
-                        setImportCsvFile(event.target.files?.[0] ?? null);
-                        setImportMessage(null);
-                      }}
+                      onChange={(event) => setImportCsvFile(event.target.files?.[0] ?? null)}
                       className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80"
                     />
                     <Button
@@ -1270,17 +1180,6 @@ export default function FrankDeenieClient() {
                       {importingCsv ? "Importing..." : "Import CSV"}
                     </Button>
                   </form>
-                  {importMessage ? (
-                    <p
-                      className={`mt-2 text-xs ${
-                        importMessage.tone === "error"
-                          ? "text-rose-600"
-                          : "text-emerald-700 dark:text-emerald-300"
-                      }`}
-                    >
-                      {importMessage.text}
-                    </p>
-                  ) : null}
                 </div>
               </GlassCard>
             ) : null}
@@ -1295,7 +1194,7 @@ export default function FrankDeenieClient() {
                 Showing {formatNumber(filteredRows.length)} rows | Total {currency(visibleTotal)}
               </p>
             </div>
-            <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
+            <DropdownMenu open={isExportMenuOpen} onOpenChange={setIsExportMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-10 transition-colors hover:bg-muted">
                   <Download className="h-3.5 w-3.5" />
@@ -1337,10 +1236,7 @@ export default function FrankDeenieClient() {
                   setFilter("search", event.target.value);
                   setIsFilterNameOpen(true);
                 }}
-                onFocus={() => {
-                  setExportMessage(null);
-                  setIsFilterNameOpen(true);
-                }}
+                onFocus={() => setIsFilterNameOpen(true)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") setIsFilterNameOpen(false);
                 }}
@@ -1469,10 +1365,7 @@ export default function FrankDeenieClient() {
                     setFilter("search", event.target.value);
                     setIsFilterNameOpen(true);
                   }}
-                  onFocus={() => {
-                    setExportMessage(null);
-                    setIsFilterNameOpen(true);
-                  }}
+                  onFocus={() => setIsFilterNameOpen(true)}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") setIsFilterNameOpen(false);
                   }}
@@ -1570,7 +1463,6 @@ export default function FrankDeenieClient() {
                 size="sm"
                 onClick={() => {
                   setFilters(DEFAULT_FILTERS);
-                  setExportMessage(null);
                   setIsExportMenuOpen(false);
                   setIsFilterNameOpen(false);
                 }}
@@ -1623,15 +1515,6 @@ export default function FrankDeenieClient() {
             </div>
           ) : null}
 
-          {exportMessage ? (
-            <p
-              className={`mb-3 text-xs ${
-                exportMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"
-              }`}
-            >
-              {exportMessage.text}
-            </p>
-          ) : null}
           <div className="divide-y divide-border/60 md:hidden">
             {filteredRows.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-border/50 bg-muted/20 p-8 text-center">
@@ -1646,10 +1529,7 @@ export default function FrankDeenieClient() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setFilters(DEFAULT_FILTERS);
-                    setExportMessage(null);
-                  }}
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
                 >
                   Clear filters
                 </Button>
@@ -1657,7 +1537,6 @@ export default function FrankDeenieClient() {
             ) : (
               filteredRows.map((row) => {
                 const notesText = row.memo.trim();
-                const rowMessage = rowMessageById[row.id];
                 const isChildren = row.source === "children";
 
                 return (
@@ -1697,11 +1576,6 @@ export default function FrankDeenieClient() {
                       {isChildren ? "Children" : byDisplay(row)}
                       {notesText ? <><span className="mx-1.5">&middot;</span><span className="text-muted-foreground/70">{notesText}</span></> : null}
                     </p>
-                    {rowMessage ? (
-                      <p className={`mt-1.5 text-xs ${rowMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
-                        {rowMessage.text}
-                      </p>
-                    ) : null}
                   </article>
                 );
               })
@@ -1772,10 +1646,7 @@ export default function FrankDeenieClient() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setFilters(DEFAULT_FILTERS);
-                            setExportMessage(null);
-                          }}
+                          onClick={() => setFilters(DEFAULT_FILTERS)}
                         >
                           Clear filters
                         </Button>
@@ -1783,12 +1654,9 @@ export default function FrankDeenieClient() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRows.map((row) => {
-                    const rowMessage = rowMessageById[row.id];
-
-                    return (
-                      <Fragment key={row.id}>
+                  filteredRows.map((row) => (
                         <DataTableRow
+                          key={row.id}
                           className={`group cursor-pointer align-middle transition-colors hover:bg-muted/30 ${
                             row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           }`}
@@ -1888,7 +1756,7 @@ export default function FrankDeenieClient() {
                                       type="button"
                                       onClick={() => {
                                         setOpenActionMenuRowId(null);
-                                        void deleteRow(row);
+                                        requestDelete(row);
                                       }}
                                       className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors"
                                     >
@@ -1900,23 +1768,7 @@ export default function FrankDeenieClient() {
                             </div>
                           </td>
                         </DataTableRow>
-                        {rowMessage ? (
-                          <tr className="border-b">
-                            <td
-                              colSpan={7}
-                              className={`px-2 py-2 text-xs ${
-                                rowMessage.tone === "error"
-                                  ? "text-rose-600"
-                                  : "text-emerald-700 dark:text-emerald-300"
-                              }`}
-                            >
-                              {rowMessage.text}
-                            </td>
-                          </tr>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })
+                  ))
                 )}
               </tbody>
             </table>
@@ -1951,7 +1803,7 @@ export default function FrankDeenieClient() {
               <Button
                 variant="destructive-outline"
                 className="flex-1 sm:flex-none"
-                onClick={() => void deleteRow(detailRow)}
+                onClick={() => requestDelete(detailRow)}
                 disabled={deletingRowId === detailRow.id}
               >
                 {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
@@ -2141,18 +1993,6 @@ export default function FrankDeenieClient() {
               </dl>
             )}
 
-            {rowMessageById[detailRow.id] ? (
-              <p
-                className={`mt-3 text-xs ${
-                  rowMessageById[detailRow.id].tone === "error"
-                    ? "text-rose-600"
-                    : "text-emerald-700 dark:text-emerald-300"
-                }`}
-              >
-                {rowMessageById[detailRow.id].text}
-              </p>
-            ) : null}
-
         </ResponsiveModalContent>
         ) : null}
       </ResponsiveModal>
@@ -2176,11 +2016,6 @@ export default function FrankDeenieClient() {
                   Cancel
                 </Button>
               </div>
-              {createMessage ? (
-                <p className={`text-xs ${createMessage.tone === "error" ? "text-rose-600" : "text-emerald-700 dark:text-emerald-300"}`}>
-                  {createMessage.text}
-                </p>
-              ) : null}
             </div>
           }
         >
@@ -2375,6 +2210,51 @@ export default function FrankDeenieClient() {
             )}
           </div>
         </ResponsiveModalContent>
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        open={deleteConfirmRow !== null}
+        onOpenChange={(open) => { if (!open) setDeleteConfirmRow(null); }}
+      >
+        {deleteConfirmRow ? (
+          <ResponsiveModalContent
+            aria-labelledby="delete-confirm-title"
+            dialogClassName="max-w-md rounded-3xl p-5"
+            showCloseButton={false}
+          >
+            <div className="space-y-4">
+              <div>
+                <h2 id="delete-confirm-title" className="text-lg font-bold text-foreground">
+                  Delete Donation
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Are you sure you want to delete the donation to{" "}
+                  <span className="font-semibold text-foreground">&ldquo;{deleteConfirmRow.name}&rdquo;</span>{" "}
+                  on {tableDate(deleteConfirmRow.date)}?
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This action cannot be undone.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="destructive"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => void executeDelete()}
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => setDeleteConfirmRow(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </ResponsiveModalContent>
+        ) : null}
       </ResponsiveModal>
     </div>
   );

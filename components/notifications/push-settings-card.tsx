@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -76,7 +77,6 @@ export function PushSettingsCard() {
   const [standalone, setStandalone] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [savingPreferenceKey, setSavingPreferenceKey] = useState<PreferenceToggleKey | null>(null);
 
   useEffect(() => {
@@ -144,22 +144,15 @@ export function PushSettingsCard() {
       return;
     }
     if (!standalone) {
-      setMessage({
-        tone: "error",
-        text: "Add this app to your home screen, then open it from there to enable push."
-      });
+      toast.error("Add this app to your home screen, then open it from there to enable push.");
       return;
     }
     if (!data?.vapidPublicKey) {
-      setMessage({
-        tone: "error",
-        text: "Missing VAPID public key. Configure push keys on the server."
-      });
+      toast.error("Missing VAPID public key. Configure push keys on the server.");
       return;
     }
 
     setBusy(true);
-    setMessage(null);
 
     try {
       const registration = await registerServiceWorker();
@@ -198,15 +191,9 @@ export function PushSettingsCard() {
       }
 
       await mutate();
-      setMessage({
-        tone: "success",
-        text: "Push notifications are enabled for this device."
-      });
+      toast.success("Push notifications are enabled for this device.");
     } catch (err) {
-      setMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Failed to enable push notifications."
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to enable push notifications.");
     } finally {
       setBusy(false);
     }
@@ -218,7 +205,6 @@ export function PushSettingsCard() {
     }
 
     setBusy(true);
-    setMessage(null);
 
     try {
       const registration = await navigator.serviceWorker.getRegistration("/");
@@ -254,15 +240,9 @@ export function PushSettingsCard() {
       }
 
       await mutate();
-      setMessage({
-        tone: "success",
-        text: "Push notifications are disabled for this device."
-      });
+      toast.success("Push notifications are disabled for this device.");
     } catch (err) {
-      setMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Failed to disable push notifications."
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to disable push notifications.");
     } finally {
       setBusy(false);
     }
@@ -270,7 +250,6 @@ export function PushSettingsCard() {
 
   const updatePreference = async (key: PreferenceToggleKey, value: boolean) => {
     setSavingPreferenceKey(key);
-    setMessage(null);
 
     try {
       const response = await fetch("/api/notifications/push/preferences", {
@@ -286,10 +265,7 @@ export function PushSettingsCard() {
 
       await mutate();
     } catch (err) {
-      setMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Failed to update preference."
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to update preference.");
     } finally {
       setSavingPreferenceKey(null);
     }
@@ -363,11 +339,6 @@ export function PushSettingsCard() {
             })}
           </div>
 
-          {message ? (
-            <p className={`mt-2 text-xs ${message.tone === "error" ? "text-rose-600" : "text-emerald-600"}`}>
-              {message.text}
-            </p>
-          ) : null}
         </>
       ) : null}
     </GlassCard>

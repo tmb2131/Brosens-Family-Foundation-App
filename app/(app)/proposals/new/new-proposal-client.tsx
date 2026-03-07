@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import useSWR, { mutate as globalMutate } from "swr";
+import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -307,7 +308,7 @@ export default function NewProposalClient() {
       window.dispatchEvent(new Event("route-progress-start"));
       router.push(getClientIsMobile() ? "/mobile" : "/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit");
+      toast.error(err instanceof Error ? err.message : "Failed to submit");
     } finally {
       savingRef.current = false;
       setSaving(false);

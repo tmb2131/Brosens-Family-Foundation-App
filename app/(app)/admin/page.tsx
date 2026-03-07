@@ -123,13 +123,11 @@ function AdminPageClient() {
         return next;
       });
     } catch (submissionError) {
-      setSentErrorByProposalId((current) => ({
-        ...current,
-        [proposalId]:
-          submissionError instanceof Error
-            ? submissionError.message
-            : "Could not mark proposal as Sent."
-      }));
+      toast.error(
+        submissionError instanceof Error
+          ? submissionError.message
+          : "Could not mark proposal as Sent."
+      );
     } finally {
       savingRef.current = false;
       setSavingProposalId((current) => (current === proposalId ? null : current));

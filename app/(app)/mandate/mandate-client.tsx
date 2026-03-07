@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { toast } from "sonner";
 import { CheckCircle, ChevronRight, MessageSquare, MessageSquarePlus, RefreshCw, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -513,10 +514,8 @@ export default function MandateClient() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<MandatePolicyContent | null>(null);
-  const [saveMessage, setSaveMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [activeNotificationId, setActiveNotificationId] = useState<string | null>(null);
   const [flagReasons, setFlagReasons] = useState<Record<string, string>>({});
 
@@ -526,11 +525,9 @@ export default function MandateClient() {
   } | null>(null);
   const [addCommentBody, setAddCommentBody] = useState("");
   const [addCommentSubmitting, setAddCommentSubmitting] = useState(false);
-  const [addCommentError, setAddCommentError] = useState<string | null>(null);
   const [viewingComment, setViewingComment] = useState<MandateComment | null>(null);
   const [replyBody, setReplyBody] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
   const [resolvingThread, setResolvingThread] = useState(false);
   const [floatingButtonPosition, setFloatingButtonPosition] = useState<{ x: number; y: number } | null>(null);
   const [addCommentOpen, setAddCommentOpen] = useState(false);
@@ -619,7 +616,6 @@ export default function MandateClient() {
 
   const openAddCommentDialog = useCallback(() => {
     setAddCommentBody("");
-    setAddCommentError(null);
     setFloatingButtonPosition(null);
     window.getSelection()?.removeAllRanges();
     setAddCommentOpen(true);
@@ -649,9 +645,6 @@ export default function MandateClient() {
 
   const updateDraftField = (key: MandateSectionKey, value: string) => {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
-    if (saveMessage) {
-      setSaveMessage(null);
-    }
   };
 
   const savePolicy = async () => {
@@ -660,7 +653,6 @@ export default function MandateClient() {
     }
 
     setSaving(true);
-    setSaveMessage(null);
 
     try {
       const response = await fetch("/api/policy/mandate", {
@@ -675,17 +667,13 @@ export default function MandateClient() {
       }
 
       const notifiedUsersCount = Number(payload.notifiedUsersCount ?? 0);
-      setSaveMessage({
-        tone: "success",
-        text: `Mandate saved. A new version was created and ${formatNumber(notifiedUsersCount)} users were notified.`
-      });
+      toast.success(
+        `Mandate saved. A new version was created and ${formatNumber(notifiedUsersCount)} users were notified.`
+      );
       setIsEditing(false);
       await mutate();
     } catch (err) {
-      setSaveMessage({
-        tone: "error",
-        text: err instanceof Error ? err.message : "Failed to save policy."
-      });
+      toast.error(err instanceof Error ? err.message : "Failed to save policy.");
     } finally {
       setSaving(false);
     }
@@ -694,7 +682,6 @@ export default function MandateClient() {
   const submitNewComment = async () => {
     if (!pendingComment || !addCommentBody.trim()) return;
     setAddCommentSubmitting(true);
-    setAddCommentError(null);
     try {
       const response = await fetch("/api/policy/mandate/comments", {
         method: "POST",
@@ -714,7 +701,7 @@ export default function MandateClient() {
       setAddCommentBody("");
       await mutate();
     } catch (err) {
-      setAddCommentError(err instanceof Error ? err.message : "Failed to add comment.");
+      toast.error(err instanceof Error ? err.message : "Failed to add comment.");
     } finally {
       setAddCommentSubmitting(false);
     }
@@ -723,7 +710,6 @@ export default function MandateClient() {
   const submitReply = async () => {
     if (!viewingComment?.id || !replyBody.trim()) return;
     setReplySubmitting(true);
-    setReplyError(null);
     try {
       const response = await fetch("/api/policy/mandate/comments", {
         method: "POST",
@@ -737,7 +723,7 @@ export default function MandateClient() {
       setReplyBody("");
       await mutate();
     } catch (err) {
-      setReplyError(err instanceof Error ? err.message : "Failed to add reply.");
+      toast.error(err instanceof Error ? err.message : "Failed to add reply.");
     } finally {
       setReplySubmitting(false);
     }
@@ -756,10 +742,9 @@ export default function MandateClient() {
       }
       setViewingComment(null);
       setReplyBody("");
-      setReplyError(null);
       await mutate();
     } catch (err) {
-      setReplyError(err instanceof Error ? err.message : "Failed to mark as resolved.");
+      toast.error(err instanceof Error ? err.message : "Failed to mark as resolved.");
     } finally {
       setResolvingThread(false);
     }
@@ -770,7 +755,6 @@ export default function MandateClient() {
     action: "acknowledge" | "flag"
   ) => {
     setActiveNotificationId(notificationId);
-    setNotificationMessage(null);
 
     try {
       const response = await fetch(`/api/policy/notifications/${notificationId}`, {
@@ -787,7 +771,7 @@ export default function MandateClient() {
         throw new Error(String(payload.error ?? "Failed to update notification."));
       }
 
-      setNotificationMessage(
+      toast.success(
         action === "acknowledge"
           ? "Update acknowledged."
           : "Update flagged for discussion."
@@ -795,7 +779,7 @@ export default function MandateClient() {
       await mutate();
       void globalMutate("/api/navigation/summary");
     } catch (err) {
-      setNotificationMessage(err instanceof Error ? err.message : "Failed to update notification.");
+      toast.error(err instanceof Error ? err.message : "Failed to update notification.");
     } finally {
       setActiveNotificationId(null);
     }
@@ -849,7 +833,6 @@ export default function MandateClient() {
                     onClick={() => {
                       setIsEditing(false);
                       setDraft(data.policy.content);
-                      setSaveMessage(null);
                     }}
                   >
                     Cancel
@@ -862,7 +845,6 @@ export default function MandateClient() {
                   onClick={() => {
                     setIsEditing(true);
                     setDraft(data.policy.content);
-                    setSaveMessage(null);
                   }}
                 >
                   Edit Mandate
@@ -872,17 +854,6 @@ export default function MandateClient() {
           ) : null}
         </div>
 
-        {saveMessage ? (
-          <p
-            className={`mt-2 text-xs ${
-              saveMessage.tone === "error"
-                ? "text-rose-600"
-                : "text-emerald-700 dark:text-emerald-300"
-            }`}
-          >
-            {saveMessage.text}
-          </p>
-        ) : null}
       </GlassCard>
 
       {isEditing && canEdit && draft ? (
@@ -919,7 +890,6 @@ export default function MandateClient() {
               onClick={() => {
                 setIsEditing(false);
                 setDraft(data.policy.content);
-                setSaveMessage(null);
               }}
             >
               Cancel
@@ -1025,7 +995,6 @@ export default function MandateClient() {
                       onClick={() => {
                         setViewingComment(null);
                         setReplyBody("");
-                        setReplyError(null);
                       }}
                     >
                       <X className="h-3.5 w-3.5" />
@@ -1066,9 +1035,6 @@ export default function MandateClient() {
                       className="min-h-16 text-sm"
                       disabled={replySubmitting}
                     />
-                    {replyError ? (
-                      <p className="text-xs text-rose-600">{replyError}</p>
-                    ) : null}
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
@@ -1126,7 +1092,6 @@ export default function MandateClient() {
           setAddCommentOpen(open);
           if (!open) {
             setPendingComment(null);
-            setAddCommentError(null);
           }
         }}
       >
@@ -1150,9 +1115,6 @@ export default function MandateClient() {
               className="min-h-24"
               disabled={addCommentSubmitting}
             />
-            {addCommentError ? (
-              <p className="text-xs text-rose-600">{addCommentError}</p>
-            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -1172,7 +1134,6 @@ export default function MandateClient() {
             if (!open) {
               setViewingComment(null);
               setReplyBody("");
-              setReplyError(null);
             }
           }}
         >
@@ -1220,9 +1181,6 @@ export default function MandateClient() {
                       className="min-h-20 text-sm"
                       disabled={replySubmitting}
                     />
-                    {replyError ? (
-                      <p className="text-xs text-rose-600">{replyError}</p>
-                    ) : null}
                     <Button
                       size="sm"
                       onClick={() => void submitReply()}
@@ -1257,10 +1215,6 @@ export default function MandateClient() {
           <p className="mt-1 text-sm text-muted-foreground">
             Review each update and either acknowledge it or flag it for discussion.
           </p>
-
-          {notificationMessage ? (
-            <p className="mt-2 text-xs text-muted-foreground">{notificationMessage}</p>
-          ) : null}
 
           <div className="mt-3 space-y-3">
             {data.notifications.length === 0 ? (

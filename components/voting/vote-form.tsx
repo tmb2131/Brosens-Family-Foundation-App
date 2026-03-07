@@ -10,6 +10,7 @@ import {
 } from "react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { mutate } from "swr";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
@@ -144,7 +145,7 @@ function useVoteFormState(
       onSuccess();
       void mutate("/api/navigation/summary");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save vote");
+      toast.error(err instanceof Error ? err.message : "Could not save vote");
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -598,7 +599,7 @@ function VoteFormStandalone({
       onSuccess();
       void mutate("/api/navigation/summary");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save vote");
+      toast.error(err instanceof Error ? err.message : "Could not save vote");
     } finally {
       savingRef.current = false;
       setSaving(false);

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
+import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, History, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -475,15 +476,8 @@ export default function DashboardClient() {
   const [isDetailEditMode, setIsDetailEditMode] = useState(false);
   const [detailEditDraft, setDetailEditDraft] = useState<ProposalDetailEditDraft | null>(null);
   const [isDetailSaving, setIsDetailSaving] = useState(false);
-  const [detailEditError, setDetailEditError] = useState<string | null>(null);
   const [detailCharityNavigatorPreview, setDetailCharityNavigatorPreview] =
     useState<CharityNavigatorPreviewResponse | null>(null);
-  const [bulkMessage, setBulkMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
-    null
-  );
-  const [exportMessage, setExportMessage] = useState<{ tone: "success" | "error"; text: string } | null>(
-    null
-  );
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [givingHistoryCharity, setGivingHistoryCharity] = useState<{
     name: string;
@@ -751,7 +745,6 @@ export default function DashboardClient() {
   useEffect(() => {
     if (!canEditHistorical || !allowHistoricalBulkEdit) {
       setIsBulkEditMode(false);
-      setBulkMessage(null);
     }
   }, [allowHistoricalBulkEdit, canEditHistorical]);
 
@@ -779,7 +772,6 @@ export default function DashboardClient() {
     setIsDetailEditMode(false);
     setDetailEditDraft(null);
     setIsDetailSaving(false);
-    setDetailEditError(null);
   }, [detailProposalId]);
 
   useEffect(() => {
@@ -910,7 +902,6 @@ export default function DashboardClient() {
 
   const setFilter = <K extends keyof TableFilters>(key: K, value: TableFilters[K]) => {
     setFilters((current) => ({ ...current, [key]: value }));
-    setExportMessage(null);
     setIsExportMenuOpen(false);
   };
   const exportRows: ProposalExportRow[] = filteredAndSortedProposals.map((proposal) => {
@@ -936,7 +927,6 @@ export default function DashboardClient() {
   const exportSubtitle = `${isAllYearsView ? "All budget years" : `Budget Year ${selectedBudgetYear}`} | ${formatNumber(exportRows.length)} rows`;
   const clearTrackerFilters = () => {
     setFilters(DEFAULT_FILTERS);
-    setExportMessage(null);
     setIsExportMenuOpen(false);
   };
 
@@ -965,7 +955,6 @@ export default function DashboardClient() {
         ...patch
       }
     }));
-    setBulkMessage(null);
     setRowMessage((current) => {
       if (!current[proposalId]) {
         return current;
@@ -1004,7 +993,6 @@ export default function DashboardClient() {
     }
 
     setSavingProposalId(proposal.id);
-    setBulkMessage(null);
     setRowMessage((current) => {
       const next = { ...current };
       delete next[proposal.id];
@@ -1057,7 +1045,6 @@ export default function DashboardClient() {
       Object.fromEntries(data.proposals.map((proposal) => [proposal.id, toProposalDraft(proposal)]))
     );
     setRowMessage({});
-    setBulkMessage(null);
     setIsBulkEditMode(false);
   };
 
@@ -1067,10 +1054,7 @@ export default function DashboardClient() {
     }
 
     if (!dirtyHistoricalCount) {
-      setBulkMessage({
-        tone: "success",
-        text: "No changes to save."
-      });
+      toast.success("No changes to save.");
       return;
     }
 
@@ -1109,15 +1093,11 @@ export default function DashboardClient() {
     });
 
     if (!updates.length) {
-      setBulkMessage({
-        tone: "error",
-        text: "Bulk save blocked. Fix row errors and try again."
-      });
+      toast.error("Bulk save blocked. Fix row errors and try again.");
       return;
     }
 
     setIsBulkSaving(true);
-    setBulkMessage(null);
 
     try {
       const results: Array<
@@ -1184,22 +1164,13 @@ export default function DashboardClient() {
 
       const validationErrorCount = Object.keys(validationMessages).length;
       if (savedCount > 0 && failedCount === 0 && validationErrorCount === 0) {
-        setBulkMessage({
-          tone: "success",
-          text: `Saved ${formatNumber(savedCount)} historical proposal${savedCount === 1 ? "" : "s"}.`
-        });
+        toast.success(`Saved ${formatNumber(savedCount)} historical proposal${savedCount === 1 ? "" : "s"}.`);
         setIsBulkEditMode(false);
       } else if (savedCount > 0) {
         const issueCount = failedCount + validationErrorCount;
-        setBulkMessage({
-          tone: "error",
-          text: `Saved ${formatNumber(savedCount)} proposal${savedCount === 1 ? "" : "s"}. ${formatNumber(issueCount)} row${issueCount === 1 ? "" : "s"} need attention.`
-        });
+        toast.error(`Saved ${formatNumber(savedCount)} proposal${savedCount === 1 ? "" : "s"}. ${formatNumber(issueCount)} row${issueCount === 1 ? "" : "s"} need attention.`);
       } else {
-        setBulkMessage({
-          tone: "error",
-          text: "No proposals were saved. Fix row errors and try again."
-        });
+        toast.error("No proposals were saved. Fix row errors and try again.");
       }
 
       if (savedCount > 0) {
@@ -1220,10 +1191,7 @@ export default function DashboardClient() {
       return true;
     }
 
-    setExportMessage({
-      tone: "error",
-      text: "No rows are available to export for the current filters."
-    });
+    toast.error("No rows are available to export for the current filters.");
     return false;
   };
 
@@ -1234,10 +1202,7 @@ export default function DashboardClient() {
     }
 
     downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
-    setExportMessage({
-      tone: "success",
-      text: `CSV exported (${formatNumber(exportRows.length)} rows).`
-    });
+    toast.success(`CSV exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
 
@@ -1252,10 +1217,7 @@ export default function DashboardClient() {
       buildExcelHtml(exportRows, exportTitle, exportSubtitle),
       "application/vnd.ms-excel;charset=utf-8"
     );
-    setExportMessage({
-      tone: "success",
-      text: `Excel file exported (${formatNumber(exportRows.length)} rows).`
-    });
+    toast.success(`Excel file exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
 
@@ -1267,10 +1229,7 @@ export default function DashboardClient() {
 
     const printWindow = window.open("", "_blank", "width=1200,height=900");
     if (!printWindow) {
-      setExportMessage({
-        tone: "error",
-        text: "The PDF export window was blocked. Allow pop-ups and try again."
-      });
+      toast.error("The PDF export window was blocked. Allow pop-ups and try again.");
       setIsExportMenuOpen(false);
       return;
     }
@@ -1282,10 +1241,7 @@ export default function DashboardClient() {
       printWindow.print();
     }, 250);
 
-    setExportMessage({
-      tone: "success",
-      text: "Print dialog opened. Choose Save as PDF to finish."
-    });
+    toast.success("Print dialog opened. Choose Save as PDF to finish.");
     setIsExportMenuOpen(false);
   };
 
@@ -1303,18 +1259,12 @@ export default function DashboardClient() {
 
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
 
-      setExportMessage({
-        tone: "success",
-        text: "Copied rows for Google Sheets. Paste into cell A1 in the new sheet."
-      });
+      toast.success("Copied rows for Google Sheets. Paste into cell A1 in the new sheet.");
       setIsExportMenuOpen(false);
     } catch {
       downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
-      setExportMessage({
-        tone: "error",
-        text: "Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets."
-      });
+      toast.error("Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets.");
       setIsExportMenuOpen(false);
     }
   };
@@ -1324,7 +1274,6 @@ export default function DashboardClient() {
     value: ProposalDetailEditDraft[K]
   ) => {
     setDetailEditDraft((current) => (current ? { ...current, [key]: value } : current));
-    setDetailEditError(null);
   };
 
   const saveDetailProposalEdits = async () => {
@@ -1339,7 +1288,7 @@ export default function DashboardClient() {
     if (!isVoteLocked) {
       const title = detailEditDraft.title.trim();
       if (!title) {
-        setDetailEditError("Title is required.");
+        toast.error("Title is required.");
         return;
       }
       if (title !== detailProposal.title.trim()) {
@@ -1348,7 +1297,7 @@ export default function DashboardClient() {
 
       const description = detailEditDraft.description.trim();
       if (!description) {
-        setDetailEditError("Description is required.");
+        toast.error("Description is required.");
         return;
       }
       if (description !== detailProposal.description.trim()) {
@@ -1357,7 +1306,7 @@ export default function DashboardClient() {
 
       const proposedAmount = parseNumberInput(detailEditDraft.proposedAmount);
       if (proposedAmount === null || proposedAmount < 0) {
-        setDetailEditError("Proposed amount must be a non-negative number.");
+        toast.error("Proposed amount must be a non-negative number.");
         return;
       }
       if (amountsDiffer(proposedAmount, detailProposal.proposedAmount)) {
@@ -1384,12 +1333,11 @@ export default function DashboardClient() {
     }
 
     if (!Object.keys(payload).length) {
-      setDetailEditError("No changes to save.");
+      toast.error("No changes to save.");
       return;
     }
 
     setIsDetailSaving(true);
-    setDetailEditError(null);
     setRowMessage((current) => {
       const next = { ...current };
       delete next[detailProposal.id];
@@ -1419,7 +1367,7 @@ export default function DashboardClient() {
         void mutatePending();
       }
     } catch (saveError) {
-      setDetailEditError(
+      toast.error(
         saveError instanceof Error ? saveError.message : "Failed to update proposal details."
       );
     } finally {
@@ -1808,7 +1756,6 @@ export default function DashboardClient() {
                     type="button"
                     onClick={() => {
                       setIsBulkEditMode(true);
-                      setBulkMessage(null);
                       setRowMessage({});
                     }}
                     className="rounded-md bg-accent px-2 py-1 text-xs font-semibold text-white"
@@ -1842,18 +1789,6 @@ export default function DashboardClient() {
             ) : null}
           </div>
         </div>
-        {!showPendingTab && bulkMessage ? (
-          <p
-            className={`mb-3 text-xs ${
-              bulkMessage.tone === "error"
-                ? "text-rose-600"
-                : "text-emerald-700 dark:text-emerald-300"
-            }`}
-          >
-            {bulkMessage.text}
-          </p>
-        ) : null}
-
         {showPendingTab ? (
           <div className="overflow-x-auto">
             {pendingError ? (
@@ -1966,7 +1901,7 @@ export default function DashboardClient() {
                 <span className="text-xs text-muted-foreground">for {selectedBudgetYearLabel}</span>
               </div>
               <div className="hidden md:block">
-                <DropdownMenu open={isExportMenuOpen} onOpenChange={(open) => { setIsExportMenuOpen(open); if (open) setExportMessage(null); }}>
+                <DropdownMenu open={isExportMenuOpen} onOpenChange={setIsExportMenuOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
                       <Download className="h-3.5 w-3.5" />
@@ -2141,18 +2076,6 @@ export default function DashboardClient() {
                 </Button>
               </div>
             </FilterPanel>
-
-            {exportMessage ? (
-              <p
-                className={`mb-3 text-xs ${
-                  exportMessage.tone === "error"
-                    ? "text-rose-600"
-                    : "text-emerald-700 dark:text-emerald-300"
-                }`}
-              >
-                {exportMessage.text}
-              </p>
-            ) : null}
 
         <div className="divide-y divide-border/60 md:hidden" onClick={() => setIsExportMenuOpen(false)}>
           {filteredAndSortedProposals.length === 0 ? (
@@ -2748,9 +2671,6 @@ export default function DashboardClient() {
                     </span>
                   </label>
                 </div>
-                {detailEditError ? (
-                  <p className="mt-3 text-xs text-rose-600">{detailEditError}</p>
-                ) : null}
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
@@ -2758,7 +2678,6 @@ export default function DashboardClient() {
                     onClick={() => {
                       setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
                       setIsDetailEditMode(false);
-                      setDetailEditError(null);
                     }}
                     disabled={isDetailSaving}
                   >
@@ -2792,11 +2711,9 @@ export default function DashboardClient() {
                   onClick={() => {
                     if (isDetailEditMode) {
                       setIsDetailEditMode(false);
-                      setDetailEditError(null);
                       return;
                     }
                     setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
-                    setDetailEditError(null);
                     setIsDetailEditMode(true);
                   }}
                 >
