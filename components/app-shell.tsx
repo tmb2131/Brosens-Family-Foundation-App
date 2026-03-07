@@ -130,7 +130,7 @@ const focusNavItems: NavItem[] = [
     icon: Plus,
     roles: ["member", "oversight", "manager", "admin"]
   },
-  { href: "/dashboard", label: "Full Details", icon: FileText }
+  { href: "/dashboard", label: "Dashboard", icon: FileText }
 ];
 
 /** Mobile-only nav for admin: Admin Queue and F&D (Frank & Deenie). */
@@ -139,9 +139,9 @@ const adminMobileNavItems: NavItem[] = [
   { href: "/frank-deenie" as Route, label: "F&D", icon: HandCoins }
 ];
 
-/** Mobile-only nav for manager: Full Details and F&D (Frank & Deenie). */
+/** Mobile-only nav for manager: Dashboard and F&D (Frank & Deenie). */
 const managerMobileNavItems: NavItem[] = [
-  { href: "/dashboard", label: "Full Details", icon: FileText },
+  { href: "/dashboard", label: "Dashboard", icon: FileText },
   { href: "/frank-deenie" as Route, label: "F&D", icon: HandCoins }
 ];
 
@@ -774,7 +774,7 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
-  /** Home, Admin Queue, + New Proposal, F&D (or Full Details for non-admin): constrain viewport so bottom nav always visible without scrolling. */
+  /** Home, Admin Queue, + New Proposal, F&D (or Dashboard for non-admin): constrain viewport so bottom nav always visible without scrolling. */
   const stickyBottomNavOnMobile =
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||

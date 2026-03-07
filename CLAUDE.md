@@ -227,8 +227,8 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 
 `components/app-shell.tsx` renders the full application chrome:
 - **Desktop:** collapsible sidebar (240px open / 64px collapsed), persisted to `localStorage`; Cmd/Ctrl+B keyboard shortcut to toggle
-- **Mobile:** fixed bottom nav bar; adapts between focus-nav (Home, Meeting, + New Proposal, Full Details) and full-nav depending on route and role
-- **Admin mobile nav:** special two-item nav (Admin Queue, Full Details)
+- **Mobile:** fixed bottom nav bar; adapts between focus-nav (Home, Meeting, + New Proposal, Dashboard) and full-nav depending on route and role
+- **Admin mobile nav:** special two-item nav (Admin Queue, F&D)
 - **Badge counts:** polls `/api/navigation/summary` every 30s; revalidates on every client-side route change
 - **Route prefetch:** prefetches all visible nav routes on browser idle
 
