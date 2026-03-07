@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertTriangle, Check, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
+import { MeetingProposalCard } from "@/components/meeting/meeting-proposal-card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
-import { SkeletonCard } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -47,95 +47,6 @@ interface CharityNavigatorPreviewResponse {
   message?: string;
 }
 
-function MeetingProposalCard({
-  proposal,
-  userRole,
-  saving,
-  onOpenDecisionDialog
-}: {
-  proposal: MeetingProposal;
-  userRole: string;
-  saving: boolean;
-  onOpenDecisionDialog: (proposalId: string) => void;
-}) {
-  const votesComplete =
-    proposal.progress.totalRequiredVotes > 0 &&
-    proposal.progress.votesSubmitted >= proposal.progress.totalRequiredVotes;
-  const flagCount = proposal.voteBreakdown.filter(
-    (v) => v.choice === "flagged" && v.flagComment
-  ).length;
-  const cnScore =
-    userRole === "oversight" && proposal.charityNavigatorScore != null
-      ? Math.round(proposal.charityNavigatorScore)
-      : null;
-
-  return (
-    <article
-      className={`content-auto group relative flex flex-col gap-2 rounded-xl border border-t-2 bg-background p-4 shadow-sm transition-all hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
-        proposal.proposalType === "joint"
-          ? "border-t-indigo-400 dark:border-t-indigo-500 hover:border-t-indigo-500"
-          : "border-t-amber-400 dark:border-t-amber-500 hover:border-t-amber-500"
-      }`}
-    >
-      {/* Header with title and status */}
-      <div className="flex min-w-0 items-baseline justify-between gap-3">
-        <h3 className="min-w-0 truncate text-base font-semibold leading-tight">{proposal.title}</h3>
-        <span className="shrink-0">
-          <StatusPill status={proposal.status} />
-        </span>
-      </div>
-
-      {/* Key metrics row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="shrink-0">
-          <p className="text-lg font-bold tabular-nums text-foreground">
-            {currency(proposal.progress.computedFinalAmount)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">final amount</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 font-medium">
-            {titleCase(proposal.proposalType)}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            {votesComplete ? (
-              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden />
-            ) : null}
-            <span className="font-medium">{formatNumber(proposal.progress.votesSubmitted)}/{formatNumber(proposal.progress.totalRequiredVotes)}</span>
-            <span className="text-muted-foreground">votes</span>
-          </span>
-          {flagCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100/80 px-2 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              <span className="font-medium">{flagCount}</span>
-              <span className="text-muted-foreground">flagged</span>
-            </span>
-          ) : null}
-          {cnScore != null ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100/80 px-2 py-1 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
-              <span className="font-medium">CN {cnScore}%</span>
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Action button */}
-      <div>
-        <Button
-          className="w-full sm:w-auto sm:flex-1 transition-colors group-hover:bg-primary/90"
-          size="sm"
-          disabled={saving}
-          onClick={() => onOpenDecisionDialog(proposal.id)}
-          aria-label={`Review and confirm: ${proposal.title}`}
-        >
-          <Eye className="h-3.5 w-3.5 mr-2" />
-          Review & confirm
-        </Button>
-      </div>
-    </article>
-  );
-}
-
 export default function MeetingPage() {
   const { user } = useAuth();
   const { data, mutate, isLoading, error } = useSWR<MeetingResponse>("/api/meeting", {
@@ -146,6 +57,11 @@ export default function MeetingPage() {
   const [confirmAction, setConfirmAction] = useState<{
     proposalId: string;
     proposalTitle: string;
+    proposalType: string;
+    organizationName: string;
+    finalAmount: number;
+    votesSubmitted: number;
+    totalRequiredVotes: number;
     status: "approved" | "declined";
   } | null>(null);
   const [meetingDialogCharityNavigatorPreview, setMeetingDialogCharityNavigatorPreview] =
@@ -502,7 +418,7 @@ export default function MeetingPage() {
                 </TabsTrigger>
               </TabsList>
               {(["ready", "pending", "needs_discussion"] as const).map((segment) => (
-                <TabsContent key={segment} value={segment} className="mt-4 space-y-2" role="tabpanel">
+                <TabsContent key={segment} value={segment} className="mt-4 space-y-2" role="tabpanel" style={{ animation: "fade-slide-in 220ms ease-out" }}>
                   {segmentProposals[segment].length > 0 ? (
                     <div className="space-y-3">
                       {segmentProposals[segment].map((proposal) => (
@@ -687,6 +603,11 @@ export default function MeetingPage() {
                       setConfirmAction({
                         proposalId: meetingDialogProposal.id,
                         proposalTitle: meetingDialogProposal.title,
+                        proposalType: meetingDialogProposal.proposalType,
+                        organizationName: meetingDialogProposal.organizationName,
+                        finalAmount: meetingDialogProposal.progress.computedFinalAmount,
+                        votesSubmitted: meetingDialogProposal.progress.votesSubmitted,
+                        totalRequiredVotes: meetingDialogProposal.progress.totalRequiredVotes,
                         status: "approved"
                       });
                       setMeetingDialogProposalId(null);
@@ -703,6 +624,11 @@ export default function MeetingPage() {
                       setConfirmAction({
                         proposalId: meetingDialogProposal.id,
                         proposalTitle: meetingDialogProposal.title,
+                        proposalType: meetingDialogProposal.proposalType,
+                        organizationName: meetingDialogProposal.organizationName,
+                        finalAmount: meetingDialogProposal.progress.computedFinalAmount,
+                        votesSubmitted: meetingDialogProposal.progress.votesSubmitted,
+                        totalRequiredVotes: meetingDialogProposal.progress.totalRequiredVotes,
                         status: "declined"
                       });
                       setMeetingDialogProposalId(null);
@@ -718,43 +644,70 @@ export default function MeetingPage() {
               <div className="flex-1 min-h-0 overflow-y-auto">
                 {meetingDialogProposal.revealVotes ? (
                   <div className="rounded-xl border border-border/70 bg-muted/50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 sticky top-0 bg-muted/50 pb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 sticky top-0 bg-muted/50 pb-2">
                       Revealed votes ({meetingDialogProposal.voteBreakdown.length})
                     </p>
-                    <div className="space-y-2 text-xs">
-                      {meetingDialogProposal.voteBreakdown.map((vote) => (
-                        <div key={`${meetingDialogProposal.id}-${vote.userId}`} className="flex items-start justify-between gap-2 pb-2 border-b border-border/20 last:border-0">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <p className="font-medium text-foreground truncate">
-                                  {vote.userId}
-                                </p>
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
-                                  vote.choice === 'yes' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
-                                  vote.choice === 'no' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' :
-                                  'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                                }`}>
-                                  {voteChoiceLabel(vote.choice)}
-                                </span>
+                    <div className="space-y-2">
+                      {meetingDialogProposal.voteBreakdown.map((vote, idx) => {
+                        const initial = (vote.userDisplayName?.[0] ?? "?").toUpperCase();
+                        const avatarColor =
+                          vote.choice === "yes" || vote.choice === "acknowledged"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                            : vote.choice === "no"
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300";
+                        const choiceColor =
+                          vote.choice === "yes" || vote.choice === "acknowledged"
+                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                            : vote.choice === "no"
+                            ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
+
+                        return (
+                          <div
+                            key={`${meetingDialogProposal.id}-${vote.userId}`}
+                            className="rounded-lg border border-border/40 bg-background p-2.5 shadow-sm"
+                            style={{
+                              animation: `scale-fade-in 280ms ease-out ${idx * 80}ms both`
+                            }}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
+                                {initial}
                               </div>
-                              <p className="font-bold text-foreground tabular-nums shrink-0">
-                                {currency(vote.allocationAmount)}
-                              </p>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-medium text-foreground truncate">
+                                    {vote.userDisplayName}
+                                  </p>
+                                  <p className="text-sm font-bold text-foreground tabular-nums shrink-0">
+                                    {currency(vote.allocationAmount)}
+                                  </p>
+                                </div>
+                                <div className="mt-0.5">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${choiceColor}`}>
+                                    {voteChoiceLabel(vote.choice)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                             {vote.choice === "flagged" && vote.flagComment ? (
-                              <p className="mt-1 text-xs text-muted-foreground italic line-clamp-2">
-                                &ldquo;{vote.flagComment}&rdquo;
-                              </p>
+                              <div className="mt-2 ml-10.5 rounded-md bg-amber-50/80 dark:bg-amber-900/20 px-2.5 py-1.5 border-l-2 border-amber-400 dark:border-amber-600">
+                                <p className="text-xs text-muted-foreground italic line-clamp-3">
+                                  &ldquo;{vote.flagComment}&rdquo;
+                                </p>
+                              </div>
                             ) : null}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-border/30 bg-muted/30 p-3 text-center">
-                    <EyeOff className="h-4 w-4 mx-auto mb-2 text-muted-foreground" />
+                  <div className="rounded-xl border border-border/30 bg-muted/30 p-4 text-center">
+                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted/60 mb-2">
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       Votes remain masked until reveal for privacy.
                     </p>
@@ -773,84 +726,110 @@ export default function MeetingPage() {
         {confirmAction ? (
           <ResponsiveModalContent
             aria-labelledby="confirm-decision-title"
-            dialogClassName="max-w-md rounded-3xl p-6"
+            dialogClassName="max-w-md rounded-3xl overflow-hidden"
             showCloseButton={false}
           >
-            {/* Warning icon and title */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                confirmAction.status === "approved" 
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
-              }`}>
-                {confirmAction.status === "approved" ? (
-                  <CheckCircle2 className="h-5 w-5" />
-                ) : (
-                  <XCircle className="h-5 w-5" />
-                )}
-              </div>
-              <div>
-                <h2
-                  id="confirm-decision-title"
-                  className="text-lg font-semibold"
+            {/* Status banner */}
+            <div className={`px-6 pt-6 pb-4 ${
+              confirmAction.status === "approved"
+                ? "bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/20"
+                : "bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/40 dark:to-rose-900/20"
+            }`}>
+              <div className="flex items-center gap-3">
+                <div
+                  className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                    confirmAction.status === "approved"
+                      ? "bg-emerald-200/80 text-emerald-700 dark:bg-emerald-800/60 dark:text-emerald-300"
+                      : "bg-rose-200/80 text-rose-700 dark:bg-rose-800/60 dark:text-rose-300"
+                  }`}
+                  style={{ animation: "scale-fade-in 300ms ease-out" }}
                 >
-                  {confirmAction.status === "approved" ? "Approve" : "Decline"} Proposal?
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                  {confirmAction.status === "approved" ? (
+                    <CheckCircle2 className="h-6 w-6" />
+                  ) : (
+                    <XCircle className="h-6 w-6" />
+                  )}
+                </div>
+                <div>
+                  <h2
+                    id="confirm-decision-title"
+                    className="text-lg font-semibold"
+                  >
+                    {confirmAction.status === "approved" ? "Approve" : "Decline"} Proposal?
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Final decision for this grant
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 pb-6">
+              {/* Proposal summary card */}
+              <div className="mt-4 mb-3 p-3 rounded-xl border border-border/70 bg-muted/30">
+                <p className="text-sm font-semibold text-foreground leading-tight">
+                  {confirmAction.proposalTitle}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{confirmAction.organizationName}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">
+                    {titleCase(confirmAction.proposalType)}
+                  </span>
+                  <span className="font-bold tabular-nums text-foreground">
+                    {currency(confirmAction.finalAmount)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {formatNumber(confirmAction.votesSubmitted)}/{formatNumber(confirmAction.totalRequiredVotes)} votes
+                  </span>
+                </div>
+              </div>
+
+              {/* Caution strip */}
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 px-3 py-2">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
                   This action cannot be undone
                 </p>
               </div>
-            </div>
 
-            {/* Proposal details */}
-            <div className="mb-6 p-4 rounded-xl border border-border/70 bg-muted/30">
-              <p className="text-sm font-medium text-foreground mb-1">
-                {confirmAction.proposalTitle}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Will be marked as <span className={`font-semibold ${
-                  confirmAction.status === "approved" ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                }`}>{confirmAction.status}</span>
-              </p>
-            </div>
-
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                size="lg"
-                disabled={saving}
-                onClick={() => setConfirmAction(null)}
-              >
-                Cancel
-              </Button>
-              {confirmAction.status === "approved" ? (
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
                 <Button
-                  size="lg"
-                  className="bg-emerald-600 hover:bg-emerald-600/90"
-                  disabled={saving}
-                  onClick={() => {
-                    void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "approved" });
-                    setConfirmAction(null);
-                  }}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  {saving ? "Saving..." : "Approve"}
-                </Button>
-              ) : (
-                <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="lg"
                   disabled={saving}
-                  onClick={() => {
-                    void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "declined" });
-                    setConfirmAction(null);
-                  }}
+                  onClick={() => setConfirmAction(null)}
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  {saving ? "Saving..." : "Decline"}
+                  Cancel
                 </Button>
-              )}
+                {confirmAction.status === "approved" ? (
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-600/90 hover:to-emerald-500/90 text-white shadow-md"
+                    disabled={saving}
+                    onClick={() => {
+                      void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "approved" });
+                      setConfirmAction(null);
+                    }}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {saving ? "Saving..." : "Approve"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-600/90 hover:to-rose-500/90 text-white shadow-md"
+                    disabled={saving}
+                    onClick={() => {
+                      void updateMeeting({ action: "decision", proposalId: confirmAction.proposalId, status: "declined" });
+                      setConfirmAction(null);
+                    }}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {saving ? "Saving..." : "Decline"}
+                  </Button>
+                )}
+              </div>
             </div>
           </ResponsiveModalContent>
         ) : null}

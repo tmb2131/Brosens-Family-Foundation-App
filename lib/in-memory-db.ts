@@ -375,13 +375,17 @@ function withProgress(proposal: GrantProposal, userId?: string, revealOverride =
     organizationWebsite: org?.website ?? null,
     charityNavigatorUrl: org?.charityNavigatorUrl ?? null,
     organizationDirectionalCategory: org?.directionalCategory ?? "other",
-    voteBreakdown: votes.map((vote) => ({
-      userId: vote.userId,
-      choice: vote.choice,
-      allocationAmount: vote.allocationAmount,
-      createdAt: vote.createdAt,
-      flagComment: vote.flagComment
-    })),
+    voteBreakdown: votes.map((vote) => {
+      const user = db().users.find((u) => u.id === vote.userId);
+      return {
+        userId: vote.userId,
+        userDisplayName: user?.name ?? "Unknown",
+        choice: vote.choice,
+        allocationAmount: vote.allocationAmount,
+        createdAt: vote.createdAt,
+        flagComment: vote.flagComment
+      };
+    }),
     progress: {
       totalRequiredVotes: requiredVotes,
       votesSubmitted,

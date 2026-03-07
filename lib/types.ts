@@ -148,6 +148,7 @@ export interface FoundationSnapshot {
       organizationDirectionalCategory: DirectionalCategory;
       voteBreakdown: Array<{
         userId: string;
+        userDisplayName: string;
         choice: VoteChoice;
         allocationAmount: number;
         createdAt: string;

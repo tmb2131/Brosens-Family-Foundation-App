@@ -321,6 +321,28 @@ async function loadProposerEmailsById(
   return map;
 }
 
+async function loadVoterDisplayNames(
+  admin: AdminClient,
+  voterIds: string[]
+): Promise<Map<string, string>> {
+  if (voterIds.length === 0) return new Map();
+  const uniqueIds = [...new Set(voterIds)];
+  const { data, error } = await admin
+    .from("user_profiles")
+    .select("id, full_name, email")
+    .in("id", uniqueIds)
+    .returns<Array<{ id: string; full_name: string; email: string }>>();
+  if (error) {
+    throw new HttpError(500, `Could not load voter profiles: ${error.message}`);
+  }
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    const displayName = getProposerDisplayName(row.email);
+    map.set(row.id, displayName !== "—" ? displayName : row.full_name || "Unknown");
+  }
+  return map;
+}
+
 async function getCurrentBudget(admin: AdminClient): Promise<BudgetRow> {
   const year = currentYear();
 
@@ -609,6 +631,7 @@ function buildProposalViews(input: {
   grantById: Map<string, GrantMasterRow>;
   organizationById: Map<string, OrganizationRow>;
   votesByProposalId: Map<string, Vote[]>;
+  voterDisplayNames: Map<string, string>;
   currentUserId?: string;
   votingMemberIds: string[];
 }) {
@@ -661,6 +684,7 @@ function buildProposalViews(input: {
       organizationDirectionalCategory: toDirectionalCategory(organization?.directional_category),
       voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,
+        userDisplayName: input.voterDisplayNames.get(vote.userId) ?? "Unknown",
         choice: vote.choice,
         allocationAmount: vote.allocationAmount,
         createdAt: vote.createdAt,
@@ -691,10 +715,14 @@ async function loadProposalsWithDependencies(admin: AdminClient, proposalRows: P
     loadVotesByProposalIds(admin, proposalIds)
   ]);
 
+  const allVoterIds = unique(votes.map((v) => v.userId));
+  const voterDisplayNames = await loadVoterDisplayNames(admin, allVoterIds);
+
   return {
     grantById: new Map(grantRows.map((row) => [row.id, row])),
     organizationById: new Map(organizationRows.map((row) => [row.id, row])),
-    votesByProposalId: groupVotes(votes)
+    votesByProposalId: groupVotes(votes),
+    voterDisplayNames
   };
 }
 
@@ -791,6 +819,7 @@ export async function getFoundationSnapshot(
     grantById: deps.grantById,
     organizationById: deps.organizationById,
     votesByProposalId: deps.votesByProposalId,
+    voterDisplayNames: deps.voterDisplayNames,
     currentUserId,
     votingMemberIds
   });
@@ -1525,6 +1554,7 @@ export async function getMeetingProposals(admin: AdminClient, currentUserId: str
     grantById: deps.grantById,
     organizationById: deps.organizationById,
     votesByProposalId: deps.votesByProposalId,
+    voterDisplayNames: deps.voterDisplayNames,
     currentUserId,
     votingMemberIds
   });
@@ -1543,6 +1573,7 @@ export async function getPendingProposalsForOversight(
     grantById: deps.grantById,
     organizationById: deps.organizationById,
     votesByProposalId: deps.votesByProposalId,
+    voterDisplayNames: deps.voterDisplayNames,
     currentUserId,
     votingMemberIds
   });
@@ -1559,6 +1590,7 @@ async function getProposalViewById(admin: AdminClient, proposalId: string, curre
     grantById: deps.grantById,
     organizationById: deps.organizationById,
     votesByProposalId: deps.votesByProposalId,
+    voterDisplayNames: deps.voterDisplayNames,
     currentUserId,
     votingMemberIds
   })[0];
@@ -1940,6 +1972,7 @@ export async function getAdminQueue(admin: AdminClient, currentUserId: string) {
     grantById: deps.grantById,
     organizationById: deps.organizationById,
     votesByProposalId: deps.votesByProposalId,
+    voterDisplayNames: deps.voterDisplayNames,
     currentUserId,
     votingMemberIds
   });
