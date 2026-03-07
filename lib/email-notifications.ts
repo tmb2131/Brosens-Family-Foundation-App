@@ -10,7 +10,8 @@ type EmailNotificationType =
   | "proposal_sent_fyi"
   | "introduction"
   | "proposal_submitted_confirmation"
-  | "user_access_notification";
+  | "user_access_notification"
+  | "frank_deenie_donation_change";
 
 type OutstandingActionType = "vote_required" | "meeting_review_required" | "admin_send_required";
 
@@ -816,6 +817,53 @@ function buildUserAccessNotificationContent(input: {
 <p style="margin:0;color:#4b5563;font-size:14px;"><strong>Last accessed at:</strong> ${escapeHtml(dateTime)}</p>
 </td></tr>
 </table>`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
+
+  return {
+    subject,
+    htmlBody,
+    textBody
+  };
+}
+
+export type FrankDeenieDonationChangeAction = "created" | "updated" | "deleted";
+
+function buildFrankDeenieDonationChangeContent(input: {
+  userEmail: string;
+  action: FrankDeenieDonationChangeAction;
+  recipientName: string;
+  amount: string;
+  donationDate: string;
+}) {
+  const actionLabel = input.action === "created" ? "added" : input.action;
+  const subject = `F&D donation ${actionLabel}: ${input.recipientName}`;
+  const openUrl = buildOpenUrl("/frank-deenie");
+
+  const textBody = [
+    `A Frank & Deenie donation has been ${actionLabel} by ${input.userEmail}.`,
+    "",
+    `Recipient: ${input.recipientName}`,
+    `Amount: ${input.amount}`,
+    `Date: ${input.donationDate}`,
+    `Action: ${actionLabel}`,
+    "",
+    openUrl,
+    "",
+    "Brosens Family Foundation"
+  ].join("\n");
+
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">A Frank &amp; Deenie donation has been ${escapeHtml(actionLabel)} by <strong>${escapeHtml(input.userEmail)}</strong>.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
+<tr><td style="padding:16px 20px;background-color:#f0fdf4;border-left:4px solid #16a34a;border-radius:4px;">
+<p style="margin:0 0 4px 0;font-size:15px;color:#111827;"><strong>Recipient:</strong> ${escapeHtml(input.recipientName)}</p>
+<p style="margin:0 0 4px 0;font-size:15px;color:#111827;"><strong>Amount:</strong> ${escapeHtml(input.amount)}</p>
+<p style="margin:0 0 4px 0;color:#4b5563;font-size:14px;"><strong>Date:</strong> ${escapeHtml(input.donationDate)}</p>
+<p style="margin:0;color:#4b5563;font-size:14px;"><strong>Action:</strong> ${escapeHtml(actionLabel)}</p>
+</td></tr>
+</table>
+${emailButton("Open Frank & Deenie", openUrl)}`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
 
@@ -1649,6 +1697,56 @@ export async function queueUserAccessNotification(
     payload: {
       userEmail: input.userEmail,
       lastAccessedAt: input.lastAccessedAt
+    },
+    recipientUserIds: oversightIds
+  });
+
+  return result;
+}
+
+export async function queueFrankDeenieDonationChangeNotification(
+  admin: AdminClient,
+  input: {
+    userId: string;
+    userEmail: string;
+    action: FrankDeenieDonationChangeAction;
+    donationId: string;
+    recipientName: string;
+    amount: string;
+    donationDate: string;
+  }
+) {
+  const oversightUsers = await loadUsersByRoles(admin, ["oversight"]);
+  const oversightIds = oversightUsers.map((u) => u.id).filter(Boolean);
+  if (!oversightIds.length) {
+    return { enqueued: false, reason: "no_oversight_users" as const };
+  }
+
+  const content = buildFrankDeenieDonationChangeContent({
+    userEmail: input.userEmail,
+    action: input.action,
+    recipientName: input.recipientName,
+    amount: input.amount,
+    donationDate: input.donationDate
+  });
+
+  const idempotencyKey = `fd-donation-change:${input.action}:${input.donationId}:${Date.now()}`;
+  const result = await queueEmailNotification(admin, {
+    notificationType: "frank_deenie_donation_change",
+    actorUserId: input.userId,
+    entityId: input.donationId,
+    idempotencyKey,
+    subject: content.subject,
+    htmlBody: content.htmlBody,
+    textBody: content.textBody,
+    primaryLinkPath: "/frank-deenie",
+    primaryLinkLabel: "Open Frank & Deenie",
+    payload: {
+      userEmail: input.userEmail,
+      action: input.action,
+      recipientName: input.recipientName,
+      amount: input.amount,
+      donationDate: input.donationDate
     },
     recipientUserIds: oversightIds
   });

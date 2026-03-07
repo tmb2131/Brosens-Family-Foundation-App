@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
-import { deleteFrankDeenieDonation, updateFrankDeenieDonation } from "@/lib/frank-deenie-data";
+import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
+import { deleteFrankDeenieDonation, getFrankDeenieDonationById, updateFrankDeenieDonation } from "@/lib/frank-deenie-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
 
@@ -47,6 +49,18 @@ export async function PATCH(
       requesterId: profile.id
     });
 
+    if (profile.role !== "oversight") {
+      queueFrankDeenieDonationChangeNotification(admin, {
+        userId: profile.id,
+        userEmail: profile.email ?? "",
+        action: "updated",
+        donationId: donation.id,
+        recipientName: donation.name,
+        amount: currency(donation.amount),
+        donationDate: donation.date
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ donation });
   } catch (error) {
     const response = toErrorResponse(error);
@@ -63,7 +77,24 @@ export async function DELETE(
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, [...FRANK_DEENIE_ALLOWED_ROLES]);
 
+    const donationBeforeDelete = profile.role !== "oversight"
+      ? await getFrankDeenieDonationById(admin, donationId)
+      : null;
+
     await deleteFrankDeenieDonation(admin, donationId);
+
+    if (profile.role !== "oversight" && donationBeforeDelete) {
+      queueFrankDeenieDonationChangeNotification(admin, {
+        userId: profile.id,
+        userEmail: profile.email ?? "",
+        action: "deleted",
+        donationId,
+        recipientName: donationBeforeDelete.name,
+        amount: currency(donationBeforeDelete.amount),
+        donationDate: donationBeforeDelete.date
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     const response = toErrorResponse(error);

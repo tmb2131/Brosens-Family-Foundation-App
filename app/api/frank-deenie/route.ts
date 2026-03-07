@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
+import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
 import { createFrankDeenieDonation, getFrankDeenieSnapshot } from "@/lib/frank-deenie-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
 
@@ -84,6 +86,18 @@ export async function POST(request: NextRequest) {
       status: body.status === undefined ? undefined : String(body.status ?? ""),
       requesterId: profile.id
     });
+
+    if (profile.role !== "oversight") {
+      queueFrankDeenieDonationChangeNotification(admin, {
+        userId: profile.id,
+        userEmail: profile.email ?? "",
+        action: "created",
+        donationId: donation.id,
+        recipientName: donation.name,
+        amount: currency(donation.amount),
+        donationDate: donation.date
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ donation }, { status: 201 });
   } catch (error) {

@@ -533,6 +533,26 @@ export async function updateFrankDeenieDonation(
   return mapFrankDeenieDonationRow(data, profileEmailById);
 }
 
+export async function getFrankDeenieDonationById(admin: AdminClient, donationId: string) {
+  const { data, error } = await admin
+    .from("frank_deenie_donations")
+    .select(DONATION_SELECT)
+    .eq("id", donationId)
+    .maybeSingle<FrankDeenieDonationDbRow>();
+
+  if (error) {
+    throw new HttpError(500, `Could not fetch Frank & Deenie donation: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const creatorIds = [data.created_by].filter((id): id is string => !!id);
+  const profileEmailById = await fetchProfileEmailsById(admin, creatorIds);
+  return mapFrankDeenieDonationRow(data, profileEmailById);
+}
+
 export async function deleteFrankDeenieDonation(admin: AdminClient, donationId: string) {
   const { data, error } = await admin
     .from("frank_deenie_donations")
