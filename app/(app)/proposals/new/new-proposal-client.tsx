@@ -684,7 +684,7 @@ export default function NewProposalClient() {
           {/* Giving history for the selected / previewed organization */}
           {givingHistoryOrgName ? (
             <CollapsibleSection title="Past giving history" className="rounded-2xl">
-              <CharityGivingHistory charityName={givingHistoryOrgName} fuzzy />
+              <CharityGivingHistory charityName={givingHistoryOrgName} fuzzy primarySource="children" showSourceToggle={false} />
             </CollapsibleSection>
           ) : null}
 

@@ -32,6 +32,8 @@ interface CharityGivingHistoryProps {
   names?: string[];
   /** Which source to show by default. The toggle adds the other source. */
   primarySource?: PrimarySource;
+  /** When false, only the primary source is shown and the source toggle is hidden. Default true. */
+  showSourceToggle?: boolean;
   onBack?: () => void;
 }
 
@@ -85,6 +87,7 @@ export function CharityGivingHistory({
   fuzzy,
   names,
   primarySource = "frank_deenie",
+  showSourceToggle = true,
   onBack
 }: CharityGivingHistoryProps) {
   const params = new URLSearchParams({ name: charityName });
@@ -132,7 +135,7 @@ export function CharityGivingHistory({
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <Header name={charityName} onBack={onBack} toggleLabel={toggleLabel} toggleChecked={includeSecondary} onToggle={setIncludeSecondary} />
+        <Header name={charityName} onBack={onBack} toggleLabel={showSourceToggle ? toggleLabel : undefined} toggleChecked={showSourceToggle ? includeSecondary : undefined} onToggle={showSourceToggle ? setIncludeSecondary : undefined} />
         <p className="text-sm text-muted-foreground">
           Could not load giving history. Please try again.
         </p>
@@ -143,7 +146,7 @@ export function CharityGivingHistory({
   if (visibleEntries.length === 0) {
     return (
       <div className="space-y-4">
-        <Header name={charityName} onBack={onBack} toggleLabel={toggleLabel} toggleChecked={includeSecondary} onToggle={setIncludeSecondary} />
+        <Header name={charityName} onBack={onBack} toggleLabel={showSourceToggle ? toggleLabel : undefined} toggleChecked={showSourceToggle ? includeSecondary : undefined} onToggle={showSourceToggle ? setIncludeSecondary : undefined} />
         <div className="flex flex-col items-center justify-center rounded-xl border border-border/50 bg-muted/20 p-8 text-center">
           <div className="mb-3 rounded-full border border-border bg-muted p-3">
             <Building2 className="h-5 w-5 text-muted-foreground" />
@@ -168,7 +171,7 @@ export function CharityGivingHistory({
 
   return (
     <div className="space-y-4">
-      <Header name={data.charityName} onBack={onBack} toggleLabel={toggleLabel} toggleChecked={includeSecondary} onToggle={setIncludeSecondary} />
+      <Header name={data.charityName} onBack={onBack} toggleLabel={showSourceToggle ? toggleLabel : undefined} toggleChecked={showSourceToggle ? includeSecondary : undefined} onToggle={showSourceToggle ? setIncludeSecondary : undefined} />
 
       {/* Grand total */}
       <div className="rounded-xl border border-border bg-muted/40 p-4">
