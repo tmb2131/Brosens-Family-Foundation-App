@@ -1,23 +1,49 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import useSWR, { mutate as globalMutate } from "swr";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { AlertCircle, AlertTriangle, ChevronDown, Wallet } from "lucide-react";
+import { AlertCircle, AlertTriangle, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { AmountInput } from "@/components/ui/amount-input";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
+import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
+import { useDraftPersistence, type ProposalDraft } from "@/lib/hooks/use-draft-persistence";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
+
+const CharityGivingHistory = dynamic(
+  () =>
+    import("@/components/charity-giving-history").then((mod) => mod.CharityGivingHistory),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3 p-2">
+        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+        <div className="h-24 w-full animate-pulse rounded bg-muted" />
+      </div>
+    )
+  }
+);
 
 interface ProposalTitleSuggestionsResponse {
   titles: string[];
@@ -62,7 +88,6 @@ export default function NewProposalClient() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<CharityNavigatorPreviewResponse | null>(null);
-  const [isTitleSuggestionsOpen, setIsTitleSuggestionsOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const parsedProposedAmount = parseNumberInput(proposedAmount);
   const parsedProposerAllocation = parseNumberInput(proposerAllocationAmount);
@@ -79,41 +104,11 @@ export default function NewProposalClient() {
     [titleSuggestionsQuery.data?.titles]
   );
   const normalizedOrganizationName = organizationName.trim().toLowerCase();
-  const matchingTitleSuggestions = useMemo(() => {
-    if (!allTitleSuggestions.length) {
-      return [];
-    }
-
-    if (!normalizedOrganizationName) {
-      return allTitleSuggestions.slice(0, 12);
-    }
-
-    const startsWithMatches: string[] = [];
-    const containsMatches: string[] = [];
-
-    for (const suggestion of allTitleSuggestions) {
-      const normalizedSuggestion = suggestion.trim().toLowerCase();
-      if (!normalizedSuggestion.includes(normalizedOrganizationName)) {
-        continue;
-      }
-
-      if (normalizedSuggestion.startsWith(normalizedOrganizationName)) {
-        startsWithMatches.push(suggestion);
-      } else {
-        containsMatches.push(suggestion);
-      }
-    }
-
-    return [...startsWithMatches, ...containsMatches].slice(0, 12);
-  }, [allTitleSuggestions, normalizedOrganizationName]);
   const hasExactTitleSuggestion = normalizedOrganizationName
     ? allTitleSuggestions.some(
         (suggestion) => suggestion.trim().toLowerCase() === normalizedOrganizationName
       )
     : false;
-  const showCreateTitleOption = Boolean(organizationName.trim()) && !hasExactTitleSuggestion;
-  const hasAnyTitleSuggestions = matchingTitleSuggestions.length > 0 || showCreateTitleOption;
-  const showTitleSuggestionsPanel = isTitleSuggestionsOpen && hasAnyTitleSuggestions;
   const isManager = user?.role === "manager" || user?.role === "admin";
 
   const jointRemaining = workspaceQuery.data?.personalBudget.jointRemaining ?? 0;
@@ -133,13 +128,13 @@ export default function NewProposalClient() {
       ? Math.max(0, parsedProposedAmount ?? parseNumberInput(proposedAmount) ?? 0)
       : 0;
 
-  const jointAllocatedPreview =
-    workspaceQuery.data && proposalType === "joint" && isVotingMember
-      ? workspaceQuery.data.personalBudget.jointAllocated + jointPortionOfProposerAllocation
-      : workspaceQuery.data?.personalBudget.jointAllocated ?? 0;
   const jointRemainingPreview =
     workspaceQuery.data && proposalType === "joint" && isVotingMember
-      ? Math.max(0, workspaceQuery.data.personalBudget.jointTarget - jointAllocatedPreview)
+      ? Math.max(
+          0,
+          workspaceQuery.data.personalBudget.jointTarget -
+            (workspaceQuery.data.personalBudget.jointAllocated + jointPortionOfProposerAllocation)
+        )
       : workspaceQuery.data?.personalBudget.jointRemaining ?? 0;
 
   const discretionaryAllocatedPreview =
@@ -151,14 +146,63 @@ export default function NewProposalClient() {
           discretionaryPortionOfProposerAllocation
         : workspaceQuery.data?.personalBudget.discretionaryAllocated ?? 0;
   const discretionaryRemainingPreview =
-    workspaceQuery.data && proposalType === "discretionary"
-      ? Math.max(0, workspaceQuery.data.personalBudget.discretionaryCap - discretionaryAllocatedPreview)
-      : workspaceQuery.data && proposalType === "joint" && isVotingMember
-        ? Math.max(
-            0,
-            workspaceQuery.data.personalBudget.discretionaryCap - discretionaryAllocatedPreview
-          )
-        : workspaceQuery.data?.personalBudget.discretionaryRemaining ?? 0;
+    workspaceQuery.data
+      ? Math.max(
+          0,
+          workspaceQuery.data.personalBudget.discretionaryCap - discretionaryAllocatedPreview
+        )
+      : 0;
+
+  // --- Draft persistence ---
+  const getValues = useCallback(
+    (): Omit<ProposalDraft, "savedAt"> => ({
+      organizationName,
+      description,
+      website,
+      charityNavigatorUrl,
+      proposalType,
+      proposedAmount,
+      proposerAllocationAmount
+    }),
+    [organizationName, description, website, charityNavigatorUrl, proposalType, proposedAmount, proposerAllocationAmount]
+  );
+  const setValues = useCallback((draft: ProposalDraft) => {
+    setOrganizationName(draft.organizationName);
+    setDescription(draft.description);
+    setWebsite(draft.website);
+    setCharityNavigatorUrl(draft.charityNavigatorUrl);
+    if (draft.proposalType === "joint" || draft.proposalType === "discretionary") {
+      setProposalType(draft.proposalType);
+    }
+    setProposedAmount(draft.proposedAmount || "0");
+    setProposerAllocationAmount(draft.proposerAllocationAmount);
+  }, []);
+  const { saveDraft, clearDraft } = useDraftPersistence({ getValues, setValues });
+
+  useEffect(() => {
+    saveDraft();
+  }, [organizationName, description, website, charityNavigatorUrl, proposalType, proposedAmount, proposerAllocationAmount, saveDraft]);
+
+  // --- Progress indicator ---
+  const requiredFields = useMemo(() => {
+    const fields = [
+      Boolean(organizationName.trim()),
+      Boolean(description.trim()),
+      Boolean(proposalType),
+      parsedProposedAmount !== null && parsedProposedAmount > 0
+    ];
+    if (proposalType === "joint" && isVotingMember) {
+      fields.push(
+        parsedProposerAllocation !== null && parsedProposerAllocation > 0
+      );
+    }
+    return fields;
+  }, [organizationName, description, proposalType, parsedProposedAmount, isVotingMember, parsedProposerAllocation]);
+
+  const formProgress = useMemo(() => {
+    const completed = requiredFields.filter(Boolean).length;
+    return Math.round((completed / requiredFields.length) * 100);
+  }, [requiredFields]);
 
   useEffect(() => {
     if (isManager && proposalType !== "joint") {
@@ -255,6 +299,7 @@ export default function NewProposalClient() {
         }
       }
 
+      clearDraft();
       void globalMutate("/api/navigation/summary");
       void globalMutate("/api/workspace");
       mutateAllFoundation();
@@ -300,72 +345,28 @@ export default function NewProposalClient() {
     setIsConfirmDialogOpen(true);
   };
 
-  const budgetCardContent = (
-    <>
-      <CardLabel>{isManager ? "Your Budget Access" : "Your Individual Budget"}</CardLabel>
-      {workspaceQuery.isLoading ? (
-        <p className="mt-2 text-sm text-muted-foreground">Loading budget details...</p>
-      ) : workspaceQuery.error || !workspaceQuery.data ? (
-        <p className="mt-2 text-sm text-rose-600">
-          Could not load your budget details. You can still submit a proposal.
-        </p>
-      ) : isManager ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Managers do not have an individual budget. Manager profiles can submit joint proposals only.
-        </p>
-      ) : (
-        <>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <PersonalBudgetBars
-              title="Joint Budget"
-              allocated={workspaceQuery.data.personalBudget.jointAllocated}
-              total={workspaceQuery.data.personalBudget.jointTarget}
-              pendingAllocation={jointPortionOfProposerAllocation}
-            />
-            <PersonalBudgetBars
-              title="Discretionary Budget"
-              allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
-              total={workspaceQuery.data.personalBudget.discretionaryCap}
-              pendingAllocation={
-                proposalType === "joint"
-                  ? discretionaryPortionOfProposerAllocation
-                  : discretionaryProposedPending
-              }
-            />
-          </div>
-          <p
-            className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
-            role="img"
-            aria-label="Green is allocated, blue is your allocation"
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
-              Allocated
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-4 shrink-0 rounded-full"
-                style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
-                aria-hidden
-              />
-              Your input
-            </span>
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {proposalType === "joint"
-              ? `Your allocation uses joint budget first, then discretionary (max ${currency(
-                  totalBudgetRemaining
-                )} total).${proposalType === "joint" && isVotingMember && (parsedProposerAllocation ?? 0) > 0 ? ` After this allocation: ${currency(jointRemainingPreview)} joint, ${currency(discretionaryRemainingPreview)} discretionary remaining.` : ""}`
-              : proposalType === "discretionary"
-              ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
-                  discretionaryRemainingPreview
-                )} remaining${(parsedProposedAmount ?? 0) > 0 ? " after this proposal" : ""}.`
-              : "Select a proposal type to see how this proposal affects your budget."}
-          </p>
-        </>
-      )}
-    </>
-  );
+  const budgetProps = {
+    budget: workspaceQuery.data?.personalBudget,
+    isLoading: workspaceQuery.isLoading,
+    hasError: Boolean(workspaceQuery.error) || !workspaceQuery.data,
+    isManager,
+    proposalType,
+    isVotingMember,
+    jointPortionOfProposerAllocation,
+    discretionaryPortionOfProposerAllocation,
+    discretionaryProposedPending,
+    jointAllocationFromProposer,
+    totalBudgetRemaining,
+    jointRemainingPreview,
+    discretionaryRemainingPreview,
+    parsedProposerAllocation,
+    parsedProposedAmount
+  } as const;
+
+  const givingHistoryOrgName =
+    previewResult?.state === "preview_available" && previewResult.organizationName?.trim()
+      ? previewResult.organizationName.trim()
+      : organizationName.trim() || null;
 
   return (
     <div className="page-stack pb-4">
@@ -385,164 +386,36 @@ export default function NewProposalClient() {
           </span>
           <CardLabel>Personal Budget</CardLabel>
         </div>
-        {workspaceQuery.isLoading ? (
-          <p className="mt-2 text-sm text-muted-foreground">Loading budget details...</p>
-        ) : workspaceQuery.error || !workspaceQuery.data ? (
-          <p className="mt-2 text-sm text-rose-600">
-            Could not load your budget details. You can still submit a proposal.
-          </p>
-        ) : isManager ? (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Managers do not have an individual budget. Manager profiles can submit joint proposals only.
-          </p>
-        ) : (
-          <>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <PersonalBudgetBars
-                title="Total"
-                allocated={
-                  workspaceQuery.data.personalBudget.jointAllocated +
-                  workspaceQuery.data.personalBudget.discretionaryAllocated
-                }
-                total={
-                  workspaceQuery.data.personalBudget.jointTarget +
-                  workspaceQuery.data.personalBudget.discretionaryCap
-                }
-                pendingAllocation={
-                  proposalType === "joint"
-                    ? jointAllocationFromProposer
-                    : discretionaryProposedPending
-                }
-                compact
-              />
-              <PersonalBudgetBars
-                title="Joint"
-                allocated={workspaceQuery.data.personalBudget.jointAllocated}
-                total={workspaceQuery.data.personalBudget.jointTarget}
-                pendingAllocation={jointPortionOfProposerAllocation}
-                compact
-              />
-              <PersonalBudgetBars
-                title="Discretionary"
-                allocated={workspaceQuery.data.personalBudget.discretionaryAllocated}
-                total={workspaceQuery.data.personalBudget.discretionaryCap}
-                pendingAllocation={
-                  proposalType === "joint"
-                    ? discretionaryPortionOfProposerAllocation
-                    : discretionaryProposedPending
-                }
-                compact
-              />
-            </div>
-            <p
-              className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
-              role="img"
-              aria-label="Green is allocated, blue is your allocation"
-            >
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
-                Allocated
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="h-2.5 w-4 shrink-0 rounded-full"
-                  style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
-                  aria-hidden
-                />
-                Your input
-              </span>
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {proposalType === "joint"
-                ? `Your allocation uses joint budget first, then discretionary (max ${currency(
-                    totalBudgetRemaining
-                  )} total).${proposalType === "joint" && isVotingMember && (parsedProposerAllocation ?? 0) > 0 ? ` After this allocation: ${currency(jointRemainingPreview)} joint, ${currency(discretionaryRemainingPreview)} discretionary remaining.` : ""}`
-                : proposalType === "discretionary"
-                ? `Discretionary proposals count against your discretionary cap when approved. You currently have ${currency(
-                    discretionaryRemainingPreview
-                  )} remaining${(parsedProposedAmount ?? 0) > 0 ? " after this proposal" : ""}.`
-                : "Select a proposal type to see how this proposal affects your budget."}
-            </p>
-          </>
-        )}
+        <BudgetPreviewCard variant="compact" {...budgetProps} />
       </GlassCard>
+
+      {/* Mobile progress indicator */}
+      <div className="lg:hidden">
+        <div className="flex items-center gap-3">
+          <Progress
+            value={formProgress}
+            className="h-1.5"
+            indicatorClassName="bg-accent transition-all duration-300"
+          />
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {formProgress}%
+          </span>
+        </div>
+      </div>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
       <GlassCard>
         <form className="space-y-4" onSubmit={submit}>
           <label className="block text-sm font-medium">
             Organization name
-            <div
-              className="relative mt-1 flex rounded-xl border border-input shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)]"
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                  setIsTitleSuggestionsOpen(false);
-                }
-              }}
-            >
-              <input
-                value={organizationName}
-                onChange={(event) => {
-                  setOrganizationName(event.target.value);
-                  setIsTitleSuggestionsOpen(true);
-                }}
-                onFocus={() => setIsTitleSuggestionsOpen(true)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    setIsTitleSuggestionsOpen(false);
-                  }
-                }}
-                autoComplete="off"
-                className="min-w-0 flex-1 rounded-l-xl border-none bg-transparent px-2 py-2 text-sm text-foreground shadow-none outline-none"
-                required
-              />
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setIsTitleSuggestionsOpen((open) => !open)}
-                className="flex w-10 shrink-0 items-center justify-center rounded-r-xl border-l border-input bg-muted text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
-                aria-label="Toggle organization name suggestions"
-                aria-expanded={showTitleSuggestionsPanel}
-                aria-controls="organization-name-suggestions-list"
-              >
-                <ChevronDown aria-hidden="true" size={16} />
-              </button>
-              {showTitleSuggestionsPanel ? (
-                <div
-                  id="organization-name-suggestions-list"
-                  role="listbox"
-                  className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
-                >
-                  {matchingTitleSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setOrganizationName(suggestion);
-                        setIsTitleSuggestionsOpen(false);
-                      }}
-                      className="block w-full rounded-lg px-2 py-2.5 text-left text-sm text-foreground hover:bg-muted"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                  {showCreateTitleOption ? (
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setOrganizationName(organizationName.trim());
-                        setIsTitleSuggestionsOpen(false);
-                      }}
-                      className="mt-1 block w-full rounded-lg border border-dashed border-border px-2 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted"
-                    >
-                      Add as new organization: {organizationName.trim()}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <AutocompleteInput
+              value={organizationName}
+              onChange={setOrganizationName}
+              suggestions={allTitleSuggestions}
+              addNewLabel="Add as new organization"
+              className="mt-1"
+              required
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               {titleSuggestionsQuery.isLoading
                 ? "Loading known organization names..."
@@ -568,11 +441,10 @@ export default function NewProposalClient() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="proposal-type">Proposal type</Label>
-              <select
-                id="proposal-type"
+              <Select
                 value={proposalType}
-                onChange={(event) => {
-                  const nextType = event.target.value as ProposalTypeOption;
+                onValueChange={(value) => {
+                  const nextType = value as ProposalTypeOption;
                   if (isManager && nextType !== "joint") {
                     setProposalType("joint");
                     return;
@@ -589,22 +461,19 @@ export default function NewProposalClient() {
                     });
                   }
                 }}
-                className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-xl border px-3 py-1 text-base outline-none disabled:opacity-50 md:text-sm"
                 disabled={isManager}
                 required
               >
-                {isManager ? (
-                  <option value="joint">Joint (75% pool)</option>
-                ) : (
-                  <>
-                    <option value="" disabled>
-                      Select
-                    </option>
-                    <option value="joint">Joint (75% pool)</option>
-                    <option value="discretionary">Discretionary (25% pool)</option>
-                  </>
-                )}
-              </select>
+                <SelectTrigger id="proposal-type" className="rounded-xl">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="joint">Joint (75% pool)</SelectItem>
+                  {!isManager && (
+                    <SelectItem value="discretionary">Discretionary (25% pool)</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
               {isManager ? (
                 <p className="mt-1 text-xs text-muted-foreground">Managers can submit joint proposals only.</p>
               ) : null}
@@ -812,6 +681,13 @@ export default function NewProposalClient() {
             ) : null}
           </div>
 
+          {/* Giving history for the selected / previewed organization */}
+          {givingHistoryOrgName ? (
+            <CollapsibleSection title="Past giving history" className="rounded-2xl">
+              <CharityGivingHistory charityName={givingHistoryOrgName} fuzzy />
+            </CollapsibleSection>
+          ) : null}
+
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               variant="outline"
@@ -855,7 +731,9 @@ export default function NewProposalClient() {
 
       <div className="hidden lg:block">
         <div className="lg:sticky lg:top-6">
-          <GlassCard>{budgetCardContent}</GlassCard>
+          <GlassCard>
+            <BudgetPreviewCard variant="sidebar" {...budgetProps} />
+          </GlassCard>
         </div>
       </div>
       </div>

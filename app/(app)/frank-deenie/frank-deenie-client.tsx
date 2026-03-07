@@ -19,6 +19,7 @@ import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { AmountInput } from "@/components/ui/amount-input";
+import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
@@ -267,7 +268,6 @@ export default function FrankDeenieClient() {
   const [rowMessageById, setRowMessageById] = useState<
     Record<string, { tone: "success" | "error"; text: string }>
   >({});
-  const [isNameSuggestionsOpen, setIsNameSuggestionsOpen] = useState(false);
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [chartDrilldownYear, setChartDrilldownYear] = useState<number | null>(null);
   const [drilldownSortKey, setDrilldownSortKey] = useState<"date" | "name" | "amount" | "status">("date");
@@ -276,7 +276,6 @@ export default function FrankDeenieClient() {
   const [givingHistoryFuzzy, setGivingHistoryFuzzy] = useState(false);
   const [givingHistoryNames, setGivingHistoryNames] = useState<string[] | null>(null);
   const [excludedFilterNames, setExcludedFilterNames] = useState<Set<string>>(new Set());
-  const addDonationNameInputRef = useRef<HTMLInputElement | null>(null);
   const addDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
@@ -288,32 +287,6 @@ export default function FrankDeenieClient() {
     () => nameSuggestionsQuery.data?.names ?? [],
     [nameSuggestionsQuery.data]
   );
-  const normalizedDraftName = useMemo(() => newDraft.name.trim().toLowerCase(), [newDraft.name]);
-  const matchingNameSuggestions = useMemo(() => {
-    if (!allNameSuggestions.length) return [];
-    if (!normalizedDraftName) return allNameSuggestions.slice(0, 12);
-
-    const startsWithMatches: string[] = [];
-    const containsMatches: string[] = [];
-
-    for (const suggestion of allNameSuggestions) {
-      const normalized = suggestion.trim().toLowerCase();
-      if (!normalized.includes(normalizedDraftName)) continue;
-      if (normalized.startsWith(normalizedDraftName)) {
-        startsWithMatches.push(suggestion);
-      } else {
-        containsMatches.push(suggestion);
-      }
-    }
-
-    return [...startsWithMatches, ...containsMatches].slice(0, 12);
-  }, [allNameSuggestions, normalizedDraftName]);
-  const showNameSuggestionsPanel =
-    isNameSuggestionsOpen && (matchingNameSuggestions.length > 0 || normalizedDraftName.length > 0);
-  const showCreateNameOption =
-    normalizedDraftName.length > 0 &&
-    !allNameSuggestions.some((s) => s.trim().toLowerCase() === normalizedDraftName);
-
   const normalizedFilterSearch = useMemo(() => filters.search.trim().toLowerCase(), [filters.search]);
 
   const queryString = useMemo(() => {
@@ -564,14 +537,12 @@ export default function FrankDeenieClient() {
     setCreateMessage(null);
     setFormErrors({});
     setNewDraft(initialDraftForYear(selectedYear));
-    setIsNameSuggestionsOpen(false);
   };
 
   const closeAddForm = () => {
     setShowAddForm(false);
     setCreateMessage(null);
     setFormErrors({});
-    setIsNameSuggestionsOpen(false);
   };
 
   const closeDetailDrawer = () => {
@@ -2254,76 +2225,15 @@ export default function FrankDeenieClient() {
                 </div>
                 <div className="text-xs font-semibold text-muted-foreground">
                   Name
-                  <div
-                    className={`relative mt-1 flex rounded-lg border shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:border-[hsl(var(--accent)/0.45)] focus-within:shadow-[0_0_0_2px_hsl(var(--accent)/0.22)] ${formErrors.name ? "border-rose-300" : "border-input"}`}
-                    onBlur={(event) => {
-                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                        setIsNameSuggestionsOpen(false);
-                      }
-                    }}
-                  >
-                    <input
-                      ref={addDonationNameInputRef}
-                      value={newDraft.name}
-                      onChange={(event) => {
-                        updateDraft("name", event.target.value);
-                        setIsNameSuggestionsOpen(true);
-                      }}
-                      onFocus={() => setIsNameSuggestionsOpen(true)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") setIsNameSuggestionsOpen(false);
-                      }}
-                      autoComplete="off"
-                      required
-                      className="min-w-0 flex-1 rounded-l-lg border-none bg-transparent px-2 py-2 text-sm text-foreground shadow-none outline-none"
-                    />
-                    <button
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => setIsNameSuggestionsOpen((open) => !open)}
-                      className="flex w-10 shrink-0 items-center justify-center rounded-r-lg border-l border-input bg-muted text-muted-foreground transition hover:bg-muted/80 hover:text-foreground"
-                      aria-label="Toggle name suggestions"
-                      aria-expanded={showNameSuggestionsPanel}
-                      aria-controls="donation-name-suggestions-list"
-                    >
-                      <ChevronDown aria-hidden="true" size={16} />
-                    </button>
-                    {showNameSuggestionsPanel ? (
-                      <div
-                        id="donation-name-suggestions-list"
-                        role="listbox"
-                        className="absolute left-0 right-0 top-full z-30 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl"
-                      >
-                        {matchingNameSuggestions.map((suggestion) => (
-                          <button
-                            key={suggestion}
-                            type="button"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              updateDraft("name", suggestion);
-                              setIsNameSuggestionsOpen(false);
-                            }}
-                            className="block w-full rounded-lg px-2 py-2.5 text-left text-sm text-foreground hover:bg-muted"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                        {showCreateNameOption ? (
-                          <button
-                            type="button"
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => {
-                              updateDraft("name", newDraft.name.trim());
-                              setIsNameSuggestionsOpen(false);
-                            }}
-                            className="mt-1 block w-full rounded-lg border border-dashed border-border px-2 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted"
-                          >
-                            Add as new name: {newDraft.name.trim()}
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
+                  <AutocompleteInput
+                    value={newDraft.name}
+                    onChange={(value) => updateDraft("name", value)}
+                    suggestions={allNameSuggestions}
+                    addNewLabel="Add as new name"
+                    className="mt-1 rounded-lg"
+                    hasError={Boolean(formErrors.name)}
+                    required
+                  />
                   {formErrors.name && (
                     <p className="mt-1 text-xs text-rose-600">{formErrors.name}</p>
                   )}
