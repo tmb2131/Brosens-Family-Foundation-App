@@ -31,6 +31,7 @@ import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
 import { RouteProgressBar } from "@/components/ui/route-progress-bar";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
+import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 
 function formatBadgeCount(count: number): string {
@@ -499,10 +500,16 @@ function DesktopSidebar({
 }: DesktopSidebarProps) {
   const { startWalkthrough } = useWorkspaceWalkthrough();
   const { startWalkthrough: startDashboardWalkthrough } = useDashboardWalkthrough();
+  const { startWalkthrough: startMobileWalkthrough } = useMobileWalkthrough();
   const isWorkspace = pathname === "/workspace";
   const isDashboard = pathname === "/dashboard";
-  const showWalkthroughGuide = isWorkspace || isDashboard;
-  const onStartWalkthrough = isWorkspace ? startWalkthrough : startDashboardWalkthrough;
+  const isMobile = pathname === "/mobile";
+  const showWalkthroughGuide = isWorkspace || isDashboard || isMobile;
+  const onStartWalkthrough = isMobile
+    ? startMobileWalkthrough
+    : isWorkspace
+      ? startWalkthrough
+      : startDashboardWalkthrough;
 
   return (
     <aside
