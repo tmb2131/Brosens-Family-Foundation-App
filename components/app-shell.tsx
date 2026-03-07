@@ -768,10 +768,11 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/meeting") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
-  /** Home, + New Proposal, Full Details: constrain viewport so bottom nav always visible without scrolling. */
+  /** Home, Admin Queue, + New Proposal, Full Details: constrain viewport so bottom nav always visible without scrolling. */
   const stickyBottomNavOnMobile =
     isSmallViewport &&
     (pathname.startsWith("/mobile") ||
+      pathname.startsWith("/admin") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/proposals/new"));
   /** In browser (non-PWA), use window scroll to avoid iOS Safari bottom nav hit-test issues. */
