@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest & Record<string, unkn
     name: "Brosens Family Foundation",
     short_name: "Foundation",
     description: "Mobile-first grant management platform for the Brosens Family Foundation",
-    start_url: "/",
+    start_url: "/mobile",
     scope: "/",
     display: "standalone",
     background_color: "#0f172a",
