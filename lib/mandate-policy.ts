@@ -39,6 +39,7 @@ export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
     "Joint proposals are reviewed case-by-case across the full mandate, not limited to one cause area.",
     "Voting stays blind.",
     "The final joint amount is the sum of eligible allocation votes (not the initial proposed amount).",
+    "Joint proposals should receive support from all eligible voters; any 'no' vote triggers discussion before a decision is made.",
     "Joint proposals move through To Review -> Approved/Declined -> Sent."
   ].join("\n"),
   discretionaryGivingPolicy: [

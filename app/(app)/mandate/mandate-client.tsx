@@ -53,6 +53,8 @@ const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
     /blind/gi,
     /sum of eligible allocation votes \(not an average\)/gi,
     /sum of eligible allocation votes \(not the initial proposed amount\)/gi,
+    /all eligible voters/gi,
+    /'no' vote triggers discussion/gi,
     /To Review -> Approved\/Declined -> Sent/gi
   ],
   discretionaryGivingPolicy: [
