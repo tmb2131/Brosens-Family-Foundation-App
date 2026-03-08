@@ -901,7 +901,7 @@ export default function MandateClient() {
         </GlassCard>
       ) : (
         <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-6">
-          <section className="max-w-prose space-y-3">
+          <section className="max-w-3xl space-y-3">
             {sections.map((section, sectionIndex) => {
               const sectionComments = data.mandateComments.filter(
                 (c) => c.sectionKey === section.key && c.parentId == null
