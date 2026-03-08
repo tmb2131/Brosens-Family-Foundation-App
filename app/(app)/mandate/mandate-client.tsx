@@ -52,6 +52,7 @@ const SECTION_EMPHASIS_PATTERNS: Record<MandateSectionKey, RegExp[]> = {
   jointGivingPolicy: [
     /blind/gi,
     /sum of eligible allocation votes \(not an average\)/gi,
+    /sum of eligible allocation votes \(not the initial proposed amount\)/gi,
     /To Review -> Approved\/Declined -> Sent/gi
   ],
   discretionaryGivingPolicy: [
