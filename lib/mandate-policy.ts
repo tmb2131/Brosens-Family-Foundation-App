@@ -64,7 +64,7 @@ export const DEFAULT_MANDATE_POLICY_CONTENT: MandatePolicyContent = {
   ].join("\n"),
   rolesAndResponsibilities: [
     "Brynn (Admin): executes approved donations and marks proposals as Sent.",
-    "Tom (Oversight): maintains policy, oversees process, and approves or declines discretionary proposals during meetings.",
+    "Tom (Oversight): maintains policy, oversees process, and marks proposals approved or declined during meetings.",
     "Dad (Manager): sets foundation-level budget direction."
   ].join("\n")
 };
