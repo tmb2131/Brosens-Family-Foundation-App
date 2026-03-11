@@ -19,6 +19,16 @@ interface VoteProposalIdRow {
   proposal_id: string;
 }
 
+interface VoteRow {
+  proposal_id: string;
+  voter_id: string;
+  choice: string;
+}
+
+interface VotingMemberRow {
+  id: string;
+}
+
 async function getCurrentBudgetYearOrNull(admin: AdminClient) {
   const thisYear = new Date().getFullYear();
 
@@ -143,6 +153,89 @@ async function getWorkspaceActionItemsCount(
   return actionItemCount;
 }
 
+async function getMeetingActionableCount(
+  admin: AdminClient,
+  budgetYear: number | null
+) {
+  if (budgetYear === null) return 0;
+
+  const { data: proposals, error: proposalError } = await admin
+    .from("grant_proposals")
+    .select("id, proposal_type, proposer_id")
+    .eq("status", "to_review")
+    .eq("budget_year", budgetYear)
+    .returns<ActionItemProposalRow[]>();
+
+  if (proposalError) {
+    throw new HttpError(500, `Could not load meeting proposals: ${proposalError.message}`);
+  }
+
+  if (!proposals?.length) return 0;
+
+  const proposalIds = proposals.map((p) => p.id);
+
+  const [votingMembersResult, votesResult] = await Promise.all([
+    admin
+      .from("user_profiles")
+      .select("id")
+      .in("role", ["member", "oversight"])
+      .returns<VotingMemberRow[]>(),
+    admin
+      .from("votes")
+      .select("proposal_id, voter_id, choice")
+      .in("proposal_id", proposalIds)
+      .returns<VoteRow[]>()
+  ]);
+
+  if (votingMembersResult.error) {
+    throw new HttpError(500, `Could not load voting members: ${votingMembersResult.error.message}`);
+  }
+  if (votesResult.error) {
+    throw new HttpError(500, `Could not load meeting votes: ${votesResult.error.message}`);
+  }
+
+  const votingMemberIds = new Set((votingMembersResult.data ?? []).map((r) => r.id));
+
+  const votesByProposal = new Map<string, VoteRow[]>();
+  for (const vote of votesResult.data ?? []) {
+    const existing = votesByProposal.get(vote.proposal_id);
+    if (existing) {
+      existing.push(vote);
+    } else {
+      votesByProposal.set(vote.proposal_id, [vote]);
+    }
+  }
+
+  let count = 0;
+  for (const proposal of proposals) {
+    const allVotes = votesByProposal.get(proposal.id) ?? [];
+
+    const eligibleVotes =
+      proposal.proposal_type === "joint"
+        ? allVotes.filter((v) => votingMemberIds.has(v.voter_id))
+        : allVotes.filter((v) => votingMemberIds.has(v.voter_id) && v.voter_id !== proposal.proposer_id);
+
+    const hasNoOrFlagged = eligibleVotes.some(
+      (v) => v.choice === "no" || v.choice === "flagged"
+    );
+    if (hasNoOrFlagged) {
+      count += 1;
+      continue;
+    }
+
+    const requiredVotes =
+      proposal.proposal_type === "joint"
+        ? votingMemberIds.size
+        : [...votingMemberIds].filter((id) => id !== proposal.proposer_id).length;
+
+    if (eligibleVotes.length >= requiredVotes) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
 export async function getNavigationSummary(
   admin: AdminClient,
   userId: string,
@@ -152,18 +245,21 @@ export async function getNavigationSummary(
   const toReviewCountPromise =
     budgetYear === null ? Promise.resolve(0) : countProposalsByStatus(admin, "to_review", budgetYear);
 
-  const [dashboardToReviewCount, workspaceActionItemsCount, adminApprovedCount, pendingPolicyNotificationsCount] =
+  const isMeetingRole = ["oversight", "manager"].includes(role);
+
+  const [dashboardToReviewCount, workspaceActionItemsCount, adminApprovedCount, pendingPolicyNotificationsCount, meetingToReviewCount] =
     await Promise.all([
       toReviewCountPromise,
       getWorkspaceActionItemsCount(admin, userId, role, budgetYear),
       role === "admin" ? countProposalsByStatus(admin, "approved") : Promise.resolve(0),
-      getPendingPolicyNotificationCount(admin, userId, role)
+      getPendingPolicyNotificationCount(admin, userId, role),
+      isMeetingRole ? getMeetingActionableCount(admin, budgetYear) : Promise.resolve(0)
     ]);
 
   return {
     dashboardToReviewCount,
     workspaceActionItemsCount,
-    meetingToReviewCount: ["oversight", "manager"].includes(role) ? dashboardToReviewCount : 0,
+    meetingToReviewCount,
     adminApprovedCount,
     pendingPolicyNotificationsCount
   };
