@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { getProposerDisplayName } from "@/lib/proposer-display-names";
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -19,22 +20,30 @@ function getInitials(fullName: string): string {
   return (parts[0]?.[0] ?? "?").toUpperCase();
 }
 
+/** Resolve display name: email mapping first (e.g. thomas.brosens@gmail.com → Tom), else first name from full name. */
+function getDisplayName(userEmail: string | null | undefined, userName: string | null): string | null {
+  const fromMapping = userEmail ? getProposerDisplayName(userEmail) : null;
+  if (fromMapping && fromMapping !== "—") return fromMapping;
+  return userName ? getFirstName(userName) : null;
+}
+
 interface MobileGreetingHeaderProps {
   userName: string | null;
+  userEmail?: string | null;
   onAvatarPress: () => void;
 }
 
-export function MobileGreetingHeader({ userName, onAvatarPress }: MobileGreetingHeaderProps) {
+export function MobileGreetingHeader({ userName, userEmail, onAvatarPress }: MobileGreetingHeaderProps) {
   const greeting = useMemo(() => getGreeting(), []);
-  const firstName = userName ? getFirstName(userName) : null;
+  const displayName = getDisplayName(userEmail ?? null, userName);
   const initials = userName ? getInitials(userName) : null;
 
   return (
     <div className="flex items-center justify-between" data-walkthrough="mobile-header">
       <div>
-        {firstName ? (
+        {displayName ? (
           <p className="text-base font-semibold text-foreground">
-            {greeting}, {firstName}
+            {greeting}, {displayName}
           </p>
         ) : (
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

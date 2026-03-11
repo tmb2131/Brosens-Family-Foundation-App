@@ -216,6 +216,7 @@ export default function MobileFocusClient() {
     <div className="page-stack pb-4">
       <MobileGreetingHeader
         userName={workspace.user.name}
+        userEmail={workspace.user.email}
         onAvatarPress={() => setProfileSheetOpen(true)}
       />
 
