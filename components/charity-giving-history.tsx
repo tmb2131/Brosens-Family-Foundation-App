@@ -78,7 +78,7 @@ function computeVisibleEntries(
 function giftDate(value: string): string {
   const parsed = Date.parse(value);
   if (Number.isNaN(parsed)) return value;
-  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 export function CharityGivingHistory({

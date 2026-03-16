@@ -108,7 +108,7 @@ function tableDate(value: string) {
   if (Number.isNaN(parsed)) {
     return value;
   }
-  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 function normalized(value: string) {
@@ -471,7 +471,7 @@ export default function FrankDeenieClient() {
     const byYear = new Map<number, { frankDeenie: number; children: number }>();
 
     for (const row of filteredRows) {
-      const year = new Date(row.date).getFullYear();
+      const year = Number(row.date.slice(0, 4));
       if (!byYear.has(year)) {
         byYear.set(year, { frankDeenie: 0, children: 0 });
       }
@@ -490,7 +490,7 @@ export default function FrankDeenieClient() {
 
   const chartDrilldownRows = useMemo(() => {
     if (chartDrilldownYear === null) return [];
-    const rows = filteredRows.filter((row) => new Date(row.date).getFullYear() === chartDrilldownYear);
+    const rows = filteredRows.filter((row) => Number(row.date.slice(0, 4)) === chartDrilldownYear);
     return [...rows].sort((a, b) => {
       let cmp = 0;
       if (drilldownSortKey === "date") cmp = a.date.localeCompare(b.date);
