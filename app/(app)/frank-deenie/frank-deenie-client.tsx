@@ -27,7 +27,7 @@ import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/respons
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
-import { currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
+import { compactCurrency, currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
 type SortKey = "date" | "name" | "memo" | "amount" | "status";
@@ -1050,21 +1050,21 @@ export default function FrankDeenieClient() {
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">F&amp;D</p>
           </div>
-          <p className="mt-1 text-base font-bold tabular-nums">{currency(data.totals.frankDeenie)}</p>
+          <p className="mt-1 text-base font-bold tabular-nums">{compactCurrency(data.totals.frankDeenie)}</p>
         </GlassCard>
         <GlassCard className="p-3.5">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-amber-500" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Kids</p>
           </div>
-          <p className="mt-1 text-base font-bold tabular-nums">{includeChildren ? currency(data.totals.children) : "—"}</p>
+          <p className="mt-1 text-base font-bold tabular-nums">{includeChildren ? compactCurrency(data.totals.children) : "—"}</p>
         </GlassCard>
         <GlassCard className="p-3.5">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-blue-500" />
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</p>
           </div>
-          <p className="mt-1 text-base font-bold tabular-nums">{currency(visibleTotal)}</p>
+          <p className="mt-1 text-base font-bold tabular-nums">{compactCurrency(visibleTotal)}</p>
         </GlassCard>
       </div>
 
@@ -1186,7 +1186,7 @@ export default function FrankDeenieClient() {
           </div>
         }
       >
-        <GlassCard className="min-h-0">
+        <GlassCard className="min-h-0 overflow-hidden">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <CardLabel>Donations</CardLabel>
@@ -1313,7 +1313,7 @@ export default function FrankDeenieClient() {
                 </div>
               ) : null}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               {(["all", "Gave", "Planned"] as const).map((status) => (
                 <button
                   key={status}
