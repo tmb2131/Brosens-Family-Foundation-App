@@ -92,7 +92,7 @@ components/
   auth/                # AuthProvider, Guard component, LastAccessedTouch
   dashboard/           # Charts and dashboard widgets (budget-split, historical-impact, reports-charts)
   voting/              # Voting interface components (vote-form)
-  workspace/           # Personal workspace components (personal-budget-bars)
+  workspace/           # Personal workspace components (personal-budget-bars, budget-preview-card)
   notifications/       # Push notification components (push-settings-card)
   frank-deenie/        # Donation tracking components (year-split-chart)
   app-shell.tsx        # Full app layout: desktop sidebar + mobile bottom nav, badge polling
@@ -271,7 +271,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (23 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (24 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -294,7 +294,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
 
-### Database Migrations (23 total)
+### Database Migrations (24 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -321,6 +321,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260218100000_user_profiles_last_accessed_at` | last_accessed_at on user_profiles |
 | `20260219100000_user_access_notification` | user_access_notification email type |
 | `20260307000000_frank_deenie_donation_change_notification` | frank_deenie_donation_change email type |
+| `20260308000000_mandate_oversight_wording` | In-place wording fix in mandate rolesAndResponsibilities (no new version) |
 
 ## Coding Conventions
 

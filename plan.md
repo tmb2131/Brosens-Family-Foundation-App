@@ -44,25 +44,23 @@ The app already has solid mobile-first foundations (safe area support, 44px nav 
 
 ---
 
-## Phase 3 — Loading & Error State Improvements
+## Phase 3 — Loading & Error State Improvements ✅ (mostly complete)
 
 **Goal:** Replace plain-text loading messages with skeleton loaders and add retry actions to error states.
 
-### 3.1 Create a `Skeleton` UI primitive
-- **New file:** `components/ui/skeleton.tsx`
-- **Change:** Simple `animate-pulse` rounded div with configurable width/height, consistent with glass-card aesthetic
+### 3.1 ~~Create a `Skeleton` UI primitive~~ ✅ Done
+- `components/ui/skeleton.tsx` exists with `Skeleton`, `SkeletonCard`, and `SkeletonChart` exports
 
-### 3.2 Add skeleton loaders to key pages
-- **Files:** `app/(app)/mobile/page.tsx`, `app/(app)/dashboard/page.tsx`, `app/(app)/workspace/page.tsx`
-- **Change:** Replace `"Loading workspace..."` text with skeleton card placeholders (2–3 skeleton cards matching actual card layout)
+### 3.2 ~~Add skeleton loaders to key pages~~ ✅ Done
+- All pages have `loading.tsx` with skeleton placeholders, plus client-component SWR loading states use skeletons
+- All secondary plain-text "Loading..." states have been converted to skeleton placeholders
 
 ### 3.3 Add chart loading skeleton
 - **File:** `components/dashboard/historical-impact-chart.tsx`
 - **Change:** Replace blank `<div className="h-[220px]">` fallback with a skeleton pulse placeholder
 
-### 3.4 Add retry buttons to error states
-- **Files:** `app/(app)/mobile/page.tsx`, `app/(app)/workspace/page.tsx`
-- **Change:** Add a "Try again" button next to error messages that calls `mutate()` to retry the SWR fetch
+### 3.4 ~~Add retry buttons to error states~~ ✅ Done
+- Mobile and Workspace error states have "Try again" buttons that call `mutate()`
 
 ---
 
@@ -153,5 +151,5 @@ After each phase:
 
 ## New Files
 
-- `components/ui/skeleton.tsx` — reusable skeleton loader primitive
+- ~~`components/ui/skeleton.tsx`~~ ✅ Already exists — reusable skeleton loader primitive (`Skeleton`, `SkeletonCard`, `SkeletonChart`)
 - `components/dashboard/mobile-proposal-card.tsx` — mobile card view for proposals
