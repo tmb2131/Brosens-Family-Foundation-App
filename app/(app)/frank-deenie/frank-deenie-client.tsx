@@ -683,13 +683,13 @@ export default function FrankDeenieClient() {
 
     try {
       await mutate(
-        async (current) => {
+        async () => {
           const response = await fetch(`/api/frank-deenie/${row.id}`, { method: "DELETE" });
           const payload = await response.json().catch(() => ({} as Record<string, unknown>));
           if (!response.ok) {
             throw new Error(String(payload.error ?? "Failed to delete donation."));
           }
-          return current;
+          return undefined as unknown as FrankDeenieSnapshot;
         },
         {
           optimisticData: (current) =>
@@ -706,6 +706,7 @@ export default function FrankDeenieClient() {
                   },
                 }
               : current!,
+          populateCache: false,
           rollbackOnError: true,
           revalidate: true,
         },
