@@ -27,6 +27,7 @@ import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/respons
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { compactCurrency, currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
@@ -836,7 +837,12 @@ export default function FrankDeenieClient() {
   };
 
   if (!user) {
-    return <p className="text-sm text-muted-foreground">Loading Frank &amp; Deenie donations...</p>;
+    return (
+      <div className="space-y-3">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (!canAccess) {

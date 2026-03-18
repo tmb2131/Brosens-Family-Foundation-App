@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getClientIsStandalone } from "@/lib/device-detection";
 import { NotificationPreferences } from "@/lib/types";
 
@@ -275,7 +276,12 @@ export function PushSettingsCard() {
     <GlassCard>
       <CardLabel>Mobile Push Notifications</CardLabel>
       {error ? <p className="mt-2 text-sm text-rose-600">{error.message}</p> : null}
-      {isLoading ? <p className="mt-2 text-sm text-muted-foreground">Loading notification settings...</p> : null}
+      {isLoading ? (
+        <div className="mt-2 space-y-2">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      ) : null}
 
       {!isLoading && !error ? (
         <>

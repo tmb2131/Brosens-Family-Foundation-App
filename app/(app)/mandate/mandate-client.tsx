@@ -27,6 +27,7 @@ import {
   PolicyVersionWithReviews
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { cn, formatNumber } from "@/lib/utils";
 
 const STATUS_STYLES: Record<PolicyChangeNotification["status"], string> = {
@@ -625,7 +626,12 @@ export default function MandateClient() {
   }, []);
 
   if (!user) {
-    return <p className="text-sm text-muted-foreground">Loading mandate...</p>;
+    return (
+      <div className="space-y-3">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   if (error) {
@@ -643,7 +649,12 @@ export default function MandateClient() {
   }
 
   if (isLoading || !data) {
-    return <p className="text-sm text-muted-foreground">Loading mandate...</p>;
+    return (
+      <div className="space-y-3">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   const updateDraftField = (key: MandateSectionKey, value: string) => {

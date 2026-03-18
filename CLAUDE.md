@@ -134,7 +134,7 @@ scripts/
 
 supabase/
   migrations/          # 23 SQL migration files (schema versioning, date-prefixed)
-  functions/           # Edge functions (notify-admin stub)
+  functions/           # Edge functions (currently empty)
   config.toml          # Supabase CLI config
 
 tests/                 # Playwright E2E tests (mobile viewports)

@@ -142,7 +142,7 @@ Config: `supabase/config.toml` (migrations live in `supabase/migrations/`).
 ## Supabase schema
 
 - Migrations in `supabase/migrations/` with unique timestamp versions (e.g. `20260211000000_initial_schema.sql` through `20260215000001_proposal_detail_snapshots.sql`).
-- Edge function stub: `supabase/functions/notify-admin/index.ts`
+- Edge functions directory: `supabase/functions/` (currently empty; admin notifications are handled by the email notification system)
 
 ## Push notifications
 

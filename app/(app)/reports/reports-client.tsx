@@ -276,11 +276,7 @@ export default function ReportsClient() {
     }, 200);
   };
 
-  if (!user) {
-    return <p className="text-sm text-muted-foreground">Loading secure report view...</p>;
-  }
-
-  if (isLoading) {
+  if (!user || isLoading) {
     return (
       <div className="page-stack pb-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

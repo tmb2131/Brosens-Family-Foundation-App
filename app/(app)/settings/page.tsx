@@ -21,6 +21,7 @@ import {
   DIRECTIONAL_CATEGORIES,
   DIRECTIONAL_CATEGORY_LABELS
 } from "@/lib/types";
+import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { cn, currency, formatNumber, parseNumberInput } from "@/lib/utils";
 
 interface BudgetResponse {
@@ -234,7 +235,12 @@ export default function SettingsPage() {
   }, []);
 
   if (!user) {
-    return <p className="text-sm text-muted-foreground">Loading settings...</p>;
+    return (
+      <div className="space-y-3">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   const submit = async (event: FormEvent) => {
@@ -723,7 +729,10 @@ export default function SettingsPage() {
       {canManageOrganizationCategories ? (
         <CollapsibleSection id="settings-category-overrides" title="Organization Category Overrides" defaultOpen={false} className={cn(scrollMargin, desktopHidden("category-overrides"))}>
           {organizationCategoriesQuery.isLoading ? (
-            <p className="mt-2 text-sm text-muted-foreground">Loading organizations...</p>
+            <div className="mt-2 space-y-2">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-10 w-full rounded-xl" />
+            </div>
           ) : organizationCategoriesQuery.error ? (
             <p className="mt-2 text-sm text-rose-600">
               Could not load organizations: {organizationCategoriesQuery.error.message}
@@ -825,7 +834,10 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm text-rose-600">{error.message}</p>
               </>
             ) : isLoading || !data ? (
-              <p className="text-sm text-muted-foreground">Loading settings...</p>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-10 w-full rounded-xl" />
+              </div>
             ) : (
               <form className="space-y-3" onSubmit={submit}>
                 <div className="grid gap-3 sm:grid-cols-2">

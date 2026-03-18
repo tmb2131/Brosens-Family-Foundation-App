@@ -76,7 +76,12 @@ function AdminPageClient() {
   }
 
   if (isLoading || !data) {
-    return <p className="text-sm text-muted-foreground">Loading execution queue...</p>;
+    return (
+      <div className="page-stack pb-4">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
   }
 
   const markSent = async (proposalId: string) => {
