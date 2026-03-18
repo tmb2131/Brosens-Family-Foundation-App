@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Calendar, History, Pencil, X } from "lucide-react";
 
@@ -63,7 +63,7 @@ function rowToDraft(row: FrankDeenieDonationRow): DonationDraft {
   };
 }
 
-export function DonationDetailDrawer({
+export const DonationDetailDrawer = memo(function DonationDetailDrawer({
   row,
   isAdmin,
   deletingRowId,
@@ -489,4 +489,4 @@ export function DonationDetailDrawer({
       ) : null}
     </ResponsiveModal>
   );
-}
+});

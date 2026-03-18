@@ -288,11 +288,20 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
 }
 
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
-  const query = admin
+  let query = admin
     .from("grant_proposals")
     .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, created_at, returned_at, return_group_id")
     .in("status", ["sent", "approved"])
     .order("created_at", { ascending: false });
+
+  if (year !== null) {
+    const { startDate, endDate } = toYearWindow(year);
+    query = query.or(
+      `and(status.eq.sent,sent_at.gte.${startDate},sent_at.lte.${endDate}),` +
+      `and(status.eq.sent,sent_at.is.null,created_at.gte.${startDate},created_at.lte.${endDate}),` +
+      `and(status.eq.approved,created_at.gte.${startDate},created_at.lte.${endDate})`
+    );
+  }
 
   const { data: proposals, error: proposalsError } = await query.returns<ChildrenProposalRow[]>();
 
@@ -343,7 +352,7 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
 
   const profileEmailById = await profileEmailByIdPromise;
 
-  const mappedRows = (proposals ?? []).map((row) =>
+  return (proposals ?? []).map((row) =>
     mapChildrenDonationRow(
       row,
       organizationNamesById,
@@ -352,60 +361,29 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
       profileEmailById
     )
   );
-
-  if (year === null) {
-    return mappedRows;
-  }
-
-  return mappedRows.filter((row) => Number(row.date.slice(0, 4)) === year);
 }
 
 async function loadAvailableYears(admin: AdminClient) {
   const [frankDeenieResult, childrenResult] = await Promise.all([
-    admin
-      .from("frank_deenie_donations")
-      .select("donation_date")
-      .returns<Array<{ donation_date: string }>>(),
-    admin
-      .from("grant_proposals")
-      .select("status, sent_at, created_at")
-      .in("status", ["sent", "approved"])
-      .returns<Array<{ status: string; sent_at: string | null; created_at: string }>>()
+    admin.rpc("get_distinct_frank_deenie_years"),
+    admin.rpc("get_distinct_children_years"),
   ]);
-
-  if (frankDeenieResult.error) {
-    throw new HttpError(500, `Could not load Frank & Deenie years: ${frankDeenieResult.error.message}`);
-  }
-
-  if (childrenResult.error) {
-    throw new HttpError(500, `Could not load Children years: ${childrenResult.error.message}`);
-  }
 
   const years = new Set<number>();
 
-  for (const row of frankDeenieResult.data ?? []) {
-    if (row.donation_date) {
-      years.add(Number(row.donation_date.slice(0, 4)));
-    }
+  const fdRows = (frankDeenieResult.data ?? []) as Array<{ year: number }>;
+  const chRows = (childrenResult.data ?? []) as Array<{ year: number }>;
+
+  for (const row of fdRows) {
+    if (Number.isInteger(row.year) && row.year > 0) years.add(row.year);
   }
-
-  for (const row of childrenResult.data ?? []) {
-    const normalizedStatus = row.status.trim().toLowerCase();
-    const effectiveDate =
-      normalizedStatus === "sent"
-        ? row.sent_at ?? row.created_at
-        : row.created_at;
-
-    if (effectiveDate) {
-      years.add(Number(effectiveDate.slice(0, 4)));
-    }
+  for (const row of chRows) {
+    if (Number.isInteger(row.year) && row.year > 0) years.add(row.year);
   }
 
   years.add(currentYear());
 
-  return [...years]
-    .filter((value) => Number.isInteger(value) && value > 0)
-    .sort((a, b) => b - a);
+  return [...years].sort((a, b) => b - a);
 }
 
 export async function getFrankDeenieSnapshot(

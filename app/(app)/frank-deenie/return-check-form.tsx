@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Calendar } from "lucide-react";
 
@@ -22,7 +22,7 @@ interface ReturnCheckFormProps {
   onReturned: () => void;
 }
 
-export function ReturnCheckForm({ row, onClose, onReturned }: ReturnCheckFormProps) {
+export const ReturnCheckForm = memo(function ReturnCheckForm({ row, onClose, onReturned }: ReturnCheckFormProps) {
   const [draft, setDraft] = useState({ returnedDate: "", newDonationDate: "", newAmount: "" });
   const [isReturning, setIsReturning] = useState(false);
   const returnDateRef = useRef<HTMLInputElement | null>(null);
@@ -177,4 +177,4 @@ export function ReturnCheckForm({ row, onClose, onReturned }: ReturnCheckFormPro
       ) : null}
     </ResponsiveModal>
   );
-}
+});

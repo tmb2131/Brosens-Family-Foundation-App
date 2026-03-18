@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, Cell } from "recharts";
 import { ChartLegend } from "@/components/ui/chart-legend";
 import { chartPalette, chartGradients, chartText, chartTooltip } from "@/lib/chart-styles";
@@ -11,17 +12,17 @@ export interface FrankDeenieYearSplitPoint {
   children: number;
 }
 
-export function FrankDeenieYearSplitChart({
+export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart({
   data,
   onYearClick
 }: {
   data: FrankDeenieYearSplitPoint[];
   onYearClick?: (year: number) => void;
 }) {
-  const chartData = data.map((entry) => ({
-    ...entry,
-    total: entry.frankDeenie + entry.children
-  }));
+  const chartData = useMemo(
+    () => data.map((entry) => ({ ...entry, total: entry.frankDeenie + entry.children })),
+    [data]
+  );
 
   return (
     <div className="w-full">
@@ -113,4 +114,4 @@ export function FrankDeenieYearSplitChart({
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, memo, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Calendar, X } from "lucide-react";
 
@@ -60,7 +60,7 @@ interface AddDonationFormProps {
   onCreated: () => void;
 }
 
-export function AddDonationForm({ open, onClose, selectedYear, nameSuggestions, onCreated }: AddDonationFormProps) {
+export const AddDonationForm = memo(function AddDonationForm({ open, onClose, selectedYear, nameSuggestions, onCreated }: AddDonationFormProps) {
   const [draft, setDraft] = useState<DonationDraft>(() => initialDraft(selectedYear));
   const [errors, setErrors] = useState<DraftErrors>({});
   const [isCreating, setIsCreating] = useState(false);
@@ -261,4 +261,4 @@ export function AddDonationForm({ open, onClose, selectedYear, nameSuggestions, 
       </ResponsiveModalContent>
     </ResponsiveModal>
   );
-}
+});

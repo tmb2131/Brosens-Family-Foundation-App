@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
 import { createFrankDeenieDonation, getFrankDeenieSnapshot } from "@/lib/frank-deenie-data";
-import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { HttpError, PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     const includeChildren = parseIncludeChildren(request.nextUrl.searchParams.get("includeChildren"));
     const snapshot = await getFrankDeenieSnapshot(admin, { year, includeChildren });
 
-    return NextResponse.json(snapshot);
+    return NextResponse.json(snapshot, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);
     return NextResponse.json(response.body, { status: response.status });

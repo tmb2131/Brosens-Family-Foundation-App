@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, memo, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Calendar } from "lucide-react";
 
@@ -23,7 +23,7 @@ interface FoundationEventFormProps {
   onCreated: () => void;
 }
 
-export function FoundationEventForm({ eventType, onClose, onCreated }: FoundationEventFormProps) {
+export const FoundationEventForm = memo(function FoundationEventForm({ eventType, onClose, onCreated }: FoundationEventFormProps) {
   const [draft, setDraft] = useState({ date: "", amount: "", memo: "" });
   const [isCreating, setIsCreating] = useState(false);
   const dateRef = useRef<HTMLInputElement | null>(null);
@@ -143,4 +143,4 @@ export function FoundationEventForm({ eventType, onClose, onCreated }: Foundatio
       ) : null}
     </ResponsiveModal>
   );
-}
+});

@@ -568,7 +568,7 @@ export default function FrankDeenieClient() {
     setGivingHistoryNames(null);
   }, []);
 
-  const deleteFoundationEvent = async (eventId: string) => {
+  const deleteFoundationEvent = useCallback(async (eventId: string) => {
     setDeletingEventId(eventId);
     try {
       const response = await fetch(`/api/frank-deenie/foundation-events/${eventId}`, { method: "DELETE" });
@@ -583,7 +583,13 @@ export default function FrankDeenieClient() {
     } finally {
       setDeletingEventId(null);
     }
-  };
+  }, [mutate]);
+
+  const handleYearClick = useCallback((year: number) => {
+    setChartDrilldownYear(year);
+    setDrilldownSortKey("date");
+    setDrilldownSortDir("desc");
+  }, []);
 
   const handleDonationCreated = useCallback(() => void mutate(), [mutate]);
 
@@ -991,11 +997,7 @@ export default function FrankDeenieClient() {
             {filters.search.trim() || "All orgs"}
           </p>
         </div>
-        <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={(year) => {
-          setChartDrilldownYear(year);
-          setDrilldownSortKey("date");
-          setDrilldownSortDir("desc");
-        }} />
+        <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={handleYearClick} />
       </GlassCard>
 
       {data.foundationEvents.length > 0 ? (
@@ -1066,11 +1068,7 @@ export default function FrankDeenieClient() {
                   </p>
                 </div>
               </div>
-              <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={(year) => {
-                setChartDrilldownYear(year);
-                setDrilldownSortKey("date");
-                setDrilldownSortDir("desc");
-              }} />
+              <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={handleYearClick} />
             </GlassCard>
 
             <section className="hidden sm:grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
