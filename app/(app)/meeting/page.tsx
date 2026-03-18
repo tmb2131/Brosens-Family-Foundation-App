@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import useSWR, { mutate as globalMutate } from "swr";
-import { mutateAllFoundation } from "@/lib/swr-helpers";
+import useSWR from "swr";
+import { mutateAllFoundation, optimisticMutate } from "@/lib/swr-helpers";
 import { AlertTriangle, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { MeetingProposalCard } from "@/components/meeting/meeting-proposal-card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -252,16 +253,44 @@ export default function MeetingPage() {
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
-    try {
-      await fetch("/api/meeting", {
+
+    const doFetch = async () => {
+      const response = await fetch("/api/meeting", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-      void mutate();
-      void globalMutate("/api/navigation/summary");
-      void globalMutate("/api/workspace");
-      mutateAllFoundation();
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: "Meeting action failed" }));
+        throw new Error(body.error || "Meeting action failed");
+      }
+    };
+
+    const proposalId = payload.proposalId as string;
+
+    const meetingUpdater = (d: MeetingResponse): MeetingResponse => {
+      if (payload.action === "reveal") {
+        return {
+          ...d,
+          proposals: d.proposals.map((p) =>
+            p.id === proposalId ? { ...p, revealVotes: payload.reveal as boolean } : p
+          ),
+        };
+      }
+      if (payload.action === "decision") {
+        return {
+          ...d,
+          proposals: d.proposals.filter((p) => p.id !== proposalId),
+        };
+      }
+      return d;
+    };
+
+    try {
+      await optimisticMutate("/api/meeting", doFetch, meetingUpdater);
+      await mutateAllFoundation();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Meeting action failed");
     } finally {
       savingRef.current = false;
       setSaving(false);

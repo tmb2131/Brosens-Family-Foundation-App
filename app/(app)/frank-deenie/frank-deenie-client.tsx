@@ -673,25 +673,44 @@ export default function FrankDeenieClient() {
     setDeleteConfirmRow(null);
     setDeletingRowId(row.id);
 
+    if (editingId === row.id) {
+      setEditingId(null);
+      setEditDraft(null);
+    }
+    if (detailRowId === row.id) {
+      setDetailRowId(null);
+    }
+
     try {
-      const response = await fetch(`/api/frank-deenie/${row.id}`, {
-        method: "DELETE"
-      });
-
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to delete donation."));
-      }
-
-      if (editingId === row.id) {
-        setEditingId(null);
-        setEditDraft(null);
-      }
-      if (detailRowId === row.id) {
-        setDetailRowId(null);
-      }
+      await mutate(
+        async (current) => {
+          const response = await fetch(`/api/frank-deenie/${row.id}`, { method: "DELETE" });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload.error ?? "Failed to delete donation."));
+          }
+          return current;
+        },
+        {
+          optimisticData: (current) =>
+            current
+              ? {
+                  ...current,
+                  rows: current.rows.filter((r) => r.id !== row.id),
+                  totals: {
+                    ...current.totals,
+                    overall: current.totals.overall - row.amount,
+                    ...(row.source === "frank_deenie"
+                      ? { frankDeenie: current.totals.frankDeenie - row.amount }
+                      : { children: current.totals.children - row.amount }),
+                  },
+                }
+              : current!,
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      );
       toast.success("Donation deleted.");
-      void mutate();
     } catch (deleteError) {
       toast.error(deleteError instanceof Error ? deleteError.message : "Failed to delete donation.");
     } finally {

@@ -746,17 +746,38 @@ export default function MandateClient() {
   const markThreadResolved = async () => {
     if (!viewingComment?.id) return;
     setResolvingThread(true);
+    const commentId = viewingComment.id;
+    setViewingComment(null);
+    setReplyBody("");
+
     try {
-      const response = await fetch(`/api/policy/mandate/comments/${viewingComment.id}/resolve`, {
-        method: "PATCH"
-      });
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to mark as resolved."));
-      }
-      setViewingComment(null);
-      setReplyBody("");
-      await mutate();
+      await mutate(
+        async (current) => {
+          const response = await fetch(`/api/policy/mandate/comments/${commentId}/resolve`, {
+            method: "PATCH",
+          });
+          const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+          if (!response.ok) {
+            throw new Error(String(payload.error ?? "Failed to mark as resolved."));
+          }
+          return current;
+        },
+        {
+          optimisticData: (current) =>
+            current
+              ? {
+                  ...current,
+                  mandateComments: current.mandateComments.map((c) =>
+                    c.id === commentId
+                      ? { ...c, resolvedAt: new Date().toISOString(), resolvedById: user?.id ?? null }
+                      : c
+                  ),
+                }
+              : current!,
+          rollbackOnError: true,
+          revalidate: true,
+        },
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to mark as resolved.");
     } finally {

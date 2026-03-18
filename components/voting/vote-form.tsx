@@ -9,19 +9,29 @@ import {
   useState,
 } from "react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
-import { mutate } from "swr";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
-import { ProposalType, type VoteChoice } from "@/lib/types";
+import {
+  ProposalType,
+  type FoundationSnapshot,
+  type NavigationSummarySnapshot,
+  type VoteChoice,
+  type WorkspaceSnapshot,
+} from "@/lib/types";
 import { cn, currency, parseNumberInput } from "@/lib/utils";
+import { optimisticMutateMany } from "@/lib/swr-helpers";
 
 interface VoteFormProps {
   proposalId: string;
   proposalType: ProposalType;
   proposedAmount: number;
   totalRequiredVotes: number;
+  /** Current user id — used for optimistic cache updates. */
+  userId: string;
+  /** Proposal title — used for optimistic voteHistory entry. */
+  proposalTitle: string;
   onSuccess: () => void;
   /** Called when the user changes allocation (joint only). Use to show live budget preview. */
   onAllocationChange?: (amount: number) => void;
@@ -75,6 +85,8 @@ function useVoteFormState(
     proposalType,
     proposedAmount,
     totalRequiredVotes,
+    userId,
+    proposalTitle,
     onSuccess,
     onAllocationChange,
     maxJointAllocation,
@@ -123,27 +135,81 @@ function useVoteFormState(
         ? (parseNumberInput(allocationAmountRef.current) ?? 0)
         : 0;
 
-    try {
+    const votePayload = {
+      proposalId,
+      choice,
+      allocationAmount: amountToSend,
+      ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {}),
+    };
+
+    const doFetch = async () => {
       const response = await fetch("/api/votes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          proposalId,
-          choice,
-          allocationAmount: amountToSend,
-          ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {}),
-        }),
+        body: JSON.stringify(votePayload),
       });
-
       if (!response.ok) {
         const payload = await response.json().catch(() => ({ error: "Could not save vote" }));
         throw new Error(payload.error || "Could not save vote");
       }
+    };
 
+    try {
       navigator.vibrate?.(10);
       setIsReviewing(false);
       onSuccess();
-      void mutate("/api/navigation/summary");
+
+      const workspaceUpdater = (ws: WorkspaceSnapshot): WorkspaceSnapshot => ({
+        ...ws,
+        actionItems: ws.actionItems.filter((item) => item.proposalId !== proposalId),
+        voteHistory: [
+          { proposalId, proposalTitle, choice, amount: amountToSend, at: new Date().toISOString() },
+          ...ws.voteHistory,
+        ],
+        personalBudget: {
+          ...ws.personalBudget,
+          jointAllocated: ws.personalBudget.jointAllocated + (proposalType === "joint" ? amountToSend : 0),
+          jointRemaining: ws.personalBudget.jointRemaining - (proposalType === "joint" ? amountToSend : 0),
+        },
+      });
+
+      const foundationUpdater = (fd: FoundationSnapshot): FoundationSnapshot => ({
+        ...fd,
+        budget: {
+          ...fd.budget,
+          jointAllocated: fd.budget.jointAllocated + (proposalType === "joint" ? amountToSend : 0),
+          jointRemaining: fd.budget.jointRemaining - (proposalType === "joint" ? amountToSend : 0),
+        },
+        proposals: fd.proposals.map((p) => {
+          if (p.id !== proposalId) return p;
+          const newVotesSubmitted = p.progress.votesSubmitted + 1;
+          return {
+            ...p,
+            progress: {
+              ...p.progress,
+              hasCurrentUserVoted: true,
+              votesSubmitted: newVotesSubmitted,
+              masked: false,
+              isReadyForMeeting: newVotesSubmitted >= p.progress.totalRequiredVotes,
+            },
+          };
+        }),
+      });
+
+      const navUpdater = (nav: NavigationSummarySnapshot): NavigationSummarySnapshot => ({
+        ...nav,
+        workspaceActionItemsCount: Math.max(0, nav.workspaceActionItemsCount - 1),
+        dashboardToReviewCount: Math.max(0, nav.dashboardToReviewCount - 1),
+      });
+
+      await optimisticMutateMany(
+        [
+          { key: "/api/workspace", updater: workspaceUpdater },
+          { key: "/api/navigation/summary", updater: navUpdater },
+          { key: (key) => typeof key === "string" && key.startsWith("/api/foundation"), updater: foundationUpdater },
+        ],
+        doFetch,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save vote");
     } finally {
@@ -153,6 +219,7 @@ function useVoteFormState(
   }, [
     proposalId,
     proposalType,
+    proposalTitle,
     choice,
     flagComment,
     onSuccess,
@@ -528,6 +595,8 @@ function VoteFormStandalone({
   proposalType,
   proposedAmount,
   totalRequiredVotes,
+  userId,
+  proposalTitle,
   onSuccess,
   onAllocationChange,
   maxJointAllocation,
@@ -577,27 +646,81 @@ function VoteFormStandalone({
         ? (parseNumberInput(allocationAmountRef.current) ?? 0)
         : 0;
 
-    try {
+    const votePayload = {
+      proposalId,
+      choice,
+      allocationAmount: amountToSend,
+      ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {}),
+    };
+
+    const doFetch = async () => {
       const response = await fetch("/api/votes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          proposalId,
-          choice,
-          allocationAmount: amountToSend,
-          ...(choice === "flagged" && flagComment.trim() !== "" ? { flagComment: flagComment.trim() } : {}),
-        }),
+        body: JSON.stringify(votePayload),
       });
-
       if (!response.ok) {
         const payload = await response.json().catch(() => ({ error: "Could not save vote" }));
         throw new Error(payload.error || "Could not save vote");
       }
+    };
 
+    try {
       navigator.vibrate?.(10);
       setIsReviewing(false);
       onSuccess();
-      void mutate("/api/navigation/summary");
+
+      const workspaceUpdater = (ws: WorkspaceSnapshot): WorkspaceSnapshot => ({
+        ...ws,
+        actionItems: ws.actionItems.filter((item) => item.proposalId !== proposalId),
+        voteHistory: [
+          { proposalId, proposalTitle, choice, amount: amountToSend, at: new Date().toISOString() },
+          ...ws.voteHistory,
+        ],
+        personalBudget: {
+          ...ws.personalBudget,
+          jointAllocated: ws.personalBudget.jointAllocated + (proposalType === "joint" ? amountToSend : 0),
+          jointRemaining: ws.personalBudget.jointRemaining - (proposalType === "joint" ? amountToSend : 0),
+        },
+      });
+
+      const foundationUpdater = (fd: FoundationSnapshot): FoundationSnapshot => ({
+        ...fd,
+        budget: {
+          ...fd.budget,
+          jointAllocated: fd.budget.jointAllocated + (proposalType === "joint" ? amountToSend : 0),
+          jointRemaining: fd.budget.jointRemaining - (proposalType === "joint" ? amountToSend : 0),
+        },
+        proposals: fd.proposals.map((p) => {
+          if (p.id !== proposalId) return p;
+          const newVotesSubmitted = p.progress.votesSubmitted + 1;
+          return {
+            ...p,
+            progress: {
+              ...p.progress,
+              hasCurrentUserVoted: true,
+              votesSubmitted: newVotesSubmitted,
+              masked: false,
+              isReadyForMeeting: newVotesSubmitted >= p.progress.totalRequiredVotes,
+            },
+          };
+        }),
+      });
+
+      const navUpdater = (nav: NavigationSummarySnapshot): NavigationSummarySnapshot => ({
+        ...nav,
+        workspaceActionItemsCount: Math.max(0, nav.workspaceActionItemsCount - 1),
+        dashboardToReviewCount: Math.max(0, nav.dashboardToReviewCount - 1),
+      });
+
+      await optimisticMutateMany(
+        [
+          { key: "/api/workspace", updater: workspaceUpdater },
+          { key: "/api/navigation/summary", updater: navUpdater },
+          { key: (key) => typeof key === "string" && key.startsWith("/api/foundation"), updater: foundationUpdater },
+        ],
+        doFetch,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save vote");
     } finally {

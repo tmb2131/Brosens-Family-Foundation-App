@@ -2360,12 +2360,9 @@ export default function DashboardClient() {
                 proposalType={detailProposal.proposalType}
                 proposedAmount={detailProposal.proposedAmount}
                 totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                onSuccess={() => {
-                  void mutate();
-                  if (isOversight) {
-                    void mutatePending();
-                  }
-                }}
+                userId={user!.id}
+                proposalTitle={detailProposal.title}
+                onSuccess={() => {}}
                 maxJointAllocation={
                   detailProposal.proposalType === "joint" && workspace
                     ? workspace.personalBudget.jointRemaining +
@@ -2755,12 +2752,9 @@ export default function DashboardClient() {
                   proposalType={detailProposal.proposalType}
                   proposedAmount={detailProposal.proposedAmount}
                   totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                  onSuccess={() => {
-                    void mutate();
-                    if (isOversight) {
-                      void mutatePending();
-                    }
-                  }}
+                  userId={user!.id}
+                  proposalTitle={detailProposal.title}
+                  onSuccess={() => {}}
                   maxJointAllocation={
                     detailProposal.proposalType === "joint" && workspace
                       ? workspace.personalBudget.jointRemaining +

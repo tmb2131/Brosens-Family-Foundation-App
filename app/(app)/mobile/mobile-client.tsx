@@ -5,7 +5,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { RefreshCw, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
@@ -328,6 +327,7 @@ export default function MobileFocusClient() {
           totalBudgetRemaining,
         }}
         isVoteSaving={isVoteSaving}
+        userId={workspace.user.id}
         onClose={() => {
           setVoteDialogProposalId(null);
           if (voteDialogProposalId) {
@@ -345,8 +345,6 @@ export default function MobileFocusClient() {
             return next;
           });
           setVoteDialogProposalId(null);
-          void workspaceQuery.mutate();
-          mutateAllFoundation();
         }}
         onAllocationChange={(proposalId, amount) => {
           setPendingJointAllocationByProposalId((prev) => ({

@@ -38,6 +38,7 @@ interface MobileVoteModalProps {
   isManager: boolean;
   budget: BudgetNumbers;
   isVoteSaving: boolean;
+  userId: string;
   onClose: () => void;
   onSuccess: (proposalId: string) => void;
   onAllocationChange: (proposalId: string, amount: number) => void;
@@ -49,6 +50,7 @@ export function MobileVoteModal({
   isManager,
   budget,
   isVoteSaving,
+  userId,
   onClose,
   onSuccess,
   onAllocationChange,
@@ -74,6 +76,8 @@ export function MobileVoteModal({
           proposalType={voteDialogItem.proposalType}
           proposedAmount={voteDialogItem.proposedAmount}
           totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+          userId={userId}
+          proposalTitle={voteDialogItem.title}
           onSuccess={() => onSuccess(voteDialogItem.proposalId)}
           onAllocationChange={
             voteDialogItem.proposalType === "joint"
@@ -180,6 +184,8 @@ export function MobileVoteModal({
                 proposalType={voteDialogItem.proposalType}
                 proposedAmount={voteDialogItem.proposedAmount}
                 totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                userId={userId}
+                proposalTitle={voteDialogItem.title}
                 onSuccess={() => {}}
                 onAllocationChange={undefined}
                 maxJointAllocation={undefined}

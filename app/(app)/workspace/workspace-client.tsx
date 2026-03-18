@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -397,6 +396,8 @@ export default function WorkspaceClient() {
                   proposalType={voteDialogItem.proposalType}
                   proposedAmount={voteDialogItem.proposedAmount}
                   totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                  userId={workspace.user.id}
+                  proposalTitle={voteDialogItem.title}
                   onSuccess={() => {
                     setPendingJointAllocationByProposalId((prev) => {
                       const next = { ...prev };
@@ -404,8 +405,6 @@ export default function WorkspaceClient() {
                       return next;
                     });
                     setVoteDialogProposalId(null);
-                    void workspaceQuery.mutate();
-                    mutateAllFoundation();
                   }}
                   onAllocationChange={
                     voteDialogItem.proposalType === "joint"
@@ -557,6 +556,8 @@ export default function WorkspaceClient() {
                     proposalType={voteDialogItem.proposalType}
                     proposedAmount={voteDialogItem.proposedAmount}
                     totalRequiredVotes={voteDialogItem.totalRequiredVotes}
+                    userId={workspace.user.id}
+                    proposalTitle={voteDialogItem.title}
                     onSuccess={() => {
                       setPendingJointAllocationByProposalId((prev) => {
                         const next = { ...prev };
@@ -564,8 +565,6 @@ export default function WorkspaceClient() {
                         return next;
                       });
                       setVoteDialogProposalId(null);
-                      void workspaceQuery.mutate();
-                      mutateAllFoundation();
                     }}
                     onAllocationChange={
                       voteDialogItem.proposalType === "joint"
