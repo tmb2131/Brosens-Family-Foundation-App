@@ -21,6 +21,7 @@ import {
   type WorkspaceSnapshot,
 } from "@/lib/types";
 import { cn, currency, parseNumberInput } from "@/lib/utils";
+import { mutate as globalMutate } from "swr";
 import { optimisticMutateMany } from "@/lib/swr-helpers";
 
 interface VoteFormProps {
@@ -206,10 +207,11 @@ function useVoteFormState(
         [
           { key: "/api/workspace", updater: workspaceUpdater },
           { key: "/api/navigation/summary", updater: navUpdater },
-          { key: (key) => typeof key === "string" && key.startsWith("/api/foundation"), updater: foundationUpdater },
+          { key: (key) => typeof key === "string" && /^\/api\/foundation(\?|$)/.test(key), updater: foundationUpdater },
         ],
         doFetch,
       );
+      void globalMutate((k) => typeof k === "string" && k.startsWith("/api/foundation/"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save vote");
     } finally {
@@ -717,10 +719,11 @@ function VoteFormStandalone({
         [
           { key: "/api/workspace", updater: workspaceUpdater },
           { key: "/api/navigation/summary", updater: navUpdater },
-          { key: (key) => typeof key === "string" && key.startsWith("/api/foundation"), updater: foundationUpdater },
+          { key: (key) => typeof key === "string" && /^\/api\/foundation(\?|$)/.test(key), updater: foundationUpdater },
         ],
         doFetch,
       );
+      void globalMutate((k) => typeof k === "string" && k.startsWith("/api/foundation/"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save vote");
     } finally {
