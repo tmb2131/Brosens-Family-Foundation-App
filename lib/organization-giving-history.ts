@@ -23,6 +23,7 @@ interface FrankDeenieDonationRow {
   donation_date: string;
   amount: number | string;
   memo: string | null;
+  return_role: string | null;
 }
 
 interface OrgIdRow {
@@ -89,6 +90,7 @@ async function loadChildrenAmountsByYear(
     .select("budget_year, final_amount, sent_at")
     .in("organization_id", [...orgIds])
     .eq("status", "sent")
+    .is("returned_at", null)
     .returns<SentProposalRow[]>();
 
   if (error) {
@@ -122,13 +124,14 @@ async function loadFrankDeenieDonationsByYear(
   fuzzy?: boolean,
   names?: string[]
 ): Promise<GiftLoadResult> {
-  let query = admin.from("frank_deenie_donations").select("donation_date, amount, memo");
+  let query = admin.from("frank_deenie_donations").select("donation_date, amount, memo, return_role");
   if (names && names.length > 0) {
     query = query.or(recipientNamesOrFilter(names));
   } else {
     const pattern = fuzzy ? `%${name.trim()}%` : name.trim();
     query = query.ilike("recipient_name", pattern);
   }
+  query = query.or("return_role.is.null,return_role.eq.replacement");
   const { data, error } = await query.returns<FrankDeenieDonationRow[]>();
 
   if (error) {
@@ -168,10 +171,12 @@ async function loadYearlyTotals(admin: AdminClient): Promise<YearlyTotals> {
       .from("grant_proposals")
       .select("budget_year, final_amount")
       .eq("status", "sent")
+      .is("returned_at", null)
       .returns<SentProposalRow[]>(),
     admin
       .from("frank_deenie_donations")
-      .select("donation_date, amount")
+      .select("donation_date, amount, return_role")
+      .or("return_role.is.null,return_role.eq.replacement")
       .returns<FrankDeenieDonationRow[]>()
   ]);
 

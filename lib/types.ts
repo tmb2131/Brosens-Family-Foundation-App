@@ -166,6 +166,7 @@ export interface FoundationSnapshot {
 }
 
 export type DonationLedgerSource = "frank_deenie" | "children";
+export type DonationReturnRole = "original" | "reversal" | "replacement";
 
 export interface FrankDeenieDonationRow {
   id: string;
@@ -179,6 +180,9 @@ export interface FrankDeenieDonationRow {
   status: string;
   editable: boolean;
   proposedBy: string;
+  returnGroupId: string | null;
+  returnRole: DonationReturnRole | null;
+  returnedAt: string | null;
 }
 
 export interface FrankDeenieSnapshot {

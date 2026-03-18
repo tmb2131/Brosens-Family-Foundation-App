@@ -16,6 +16,11 @@ export async function PATCH(
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, [...FRANK_DEENIE_ALLOWED_ROLES]);
 
+    const existing = await getFrankDeenieDonationById(admin, donationId);
+    if (existing && (existing.returnRole === "original" || existing.returnRole === "reversal")) {
+      throw new HttpError(400, "Returned or reversal donations cannot be edited.");
+    }
+
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || typeof body !== "object") {
       throw new HttpError(400, "Request body must be a JSON object.");
@@ -77,21 +82,22 @@ export async function DELETE(
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, [...FRANK_DEENIE_ALLOWED_ROLES]);
 
-    const donationBeforeDelete = profile.role !== "oversight"
-      ? await getFrankDeenieDonationById(admin, donationId)
-      : null;
+    const donationBeforeDelete = await getFrankDeenieDonationById(admin, donationId);
+    if (donationBeforeDelete?.returnRole) {
+      throw new HttpError(400, "Donations that are part of a return group cannot be deleted.");
+    }
 
     await deleteFrankDeenieDonation(admin, donationId);
 
-    if (profile.role !== "oversight" && donationBeforeDelete) {
+    if (profile.role !== "oversight") {
       queueFrankDeenieDonationChangeNotification(admin, {
         userId: profile.id,
         userEmail: profile.email ?? "",
         action: "deleted",
         donationId,
-        recipientName: donationBeforeDelete.name,
-        amount: currency(donationBeforeDelete.amount),
-        donationDate: donationBeforeDelete.date
+        recipientName: donationBeforeDelete?.name ?? "",
+        amount: currency(donationBeforeDelete?.amount ?? 0),
+        donationDate: donationBeforeDelete?.date ?? ""
       }).catch(() => {});
     }
 

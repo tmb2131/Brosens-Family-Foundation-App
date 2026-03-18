@@ -269,8 +269,13 @@ export default function FrankDeenieClient() {
   const [givingHistoryFuzzy, setGivingHistoryFuzzy] = useState(false);
   const [givingHistoryNames, setGivingHistoryNames] = useState<string[] | null>(null);
   const [excludedFilterNames, setExcludedFilterNames] = useState<Set<string>>(new Set());
+  const [returnRow, setReturnRow] = useState<FrankDeenieDonationRow | null>(null);
+  const [returnDraft, setReturnDraft] = useState({ returnedDate: "", newDonationDate: "", newAmount: "" });
+  const [isReturning, setIsReturning] = useState(false);
   const addDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
+  const returnDateInputRef = useRef<HTMLInputElement | null>(null);
+  const newDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
@@ -638,6 +643,52 @@ export default function FrankDeenieClient() {
       toast.error(deleteError instanceof Error ? deleteError.message : "Failed to delete donation.");
     } finally {
       setDeletingRowId(null);
+    }
+  };
+
+  const beginReturn = (row: FrankDeenieDonationRow) => {
+    setReturnRow(row);
+    setReturnDraft({ returnedDate: toISODate(new Date()), newDonationDate: toISODate(new Date()), newAmount: String(row.amount) });
+  };
+
+  const submitReturn = async () => {
+    if (!returnRow) return;
+    if (!returnDraft.returnedDate || !returnDraft.newDonationDate) {
+      toast.error("Both dates are required.");
+      return;
+    }
+    const parsedAmount = parseNumberInput(returnDraft.newAmount);
+    if (parsedAmount === null || parsedAmount < 0) {
+      toast.error("Amount must be a non-negative number.");
+      return;
+    }
+
+    setIsReturning(true);
+    try {
+      const sourceId = returnRow.source === "children" ? returnRow.id.replace(/^children:/, "") : returnRow.id;
+      const response = await fetch("/api/frank-deenie/return", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceId,
+          source: returnRow.source,
+          returnedDate: returnDraft.returnedDate,
+          newDonationDate: returnDraft.newDonationDate,
+          newAmount: parsedAmount,
+        }),
+      });
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to mark donation as returned."));
+      }
+      toast.success("Check marked as returned. Replacement donation created.");
+      setReturnRow(null);
+      setDetailRowId(null);
+      void mutate();
+    } catch (returnError) {
+      toast.error(returnError instanceof Error ? returnError.message : "Failed to mark donation as returned.");
+    } finally {
+      setIsReturning(false);
     }
   };
 
@@ -1544,6 +1595,9 @@ export default function FrankDeenieClient() {
               filteredRows.map((row) => {
                 const notesText = row.memo.trim();
                 const isChildren = row.source === "children";
+                const isReturnedOriginal = row.returnRole === "original";
+                const isReversal = row.returnRole === "reversal";
+                const isReplacement = row.returnRole === "replacement";
 
                 return (
                   <article
@@ -1553,27 +1607,48 @@ export default function FrankDeenieClient() {
                     onClick={() => setDetailRowId(row.id)}
                     onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailRowId(row.id); } }}
                     className={`relative cursor-pointer px-1 py-3.5 transition-all active:scale-[0.985] ${
-                      isChildren ? "pl-3.5" : ""
-                    }`}
+                      isChildren && !isReturnedOriginal ? "pl-3.5" : ""
+                    } ${isReturnedOriginal ? "opacity-60" : ""} ${isReversal ? "opacity-60" : ""}`}
                   >
-                    {isChildren ? (
+                    {isChildren && !isReturnedOriginal ? (
                       <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full bg-amber-400 dark:bg-amber-500" />
                     ) : null}
+                    {isReturnedOriginal ? (
+                      <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full bg-rose-400 dark:bg-rose-500" />
+                    ) : null}
+                    {isReversal ? (
+                      <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full bg-rose-400 dark:bg-rose-500" />
+                    ) : null}
                     <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-lg font-bold tabular-nums text-foreground">
-                        ${formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      <p className={`text-lg font-bold tabular-nums ${isReturnedOriginal ? "line-through text-muted-foreground" : isReversal ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>
+                        {isReversal ? "-" : ""}${formatNumber(Math.abs(row.amount), { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </p>
-                      <span
-                        className={`shrink-0 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
-                          row.status === "Planned"
-                            ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
-                            : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
-                        }`}
-                      >
-                        {row.status}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isReturnedOriginal ? (
+                          <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
+                            Returned
+                          </span>
+                        ) : isReversal ? (
+                          <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
+                            Reversal
+                          </span>
+                        ) : isReplacement ? (
+                          <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
+                            Reissued
+                          </span>
+                        ) : null}
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
+                            row.status === "Planned"
+                              ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
+                              : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      </div>
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-foreground/90 leading-snug" title={row.name}>
+                    <p className={`mt-1 text-sm font-semibold leading-snug ${isReturnedOriginal ? "line-through text-muted-foreground" : "text-foreground/90"}`} title={row.name}>
                       {row.name}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -1660,12 +1735,17 @@ export default function FrankDeenieClient() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRows.map((row) => (
+                  filteredRows.map((row) => {
+                    const isReturnedOriginal = row.returnRole === "original";
+                    const isReversal = row.returnRole === "reversal";
+                    const isReplacement = row.returnRole === "replacement";
+
+                    return (
                         <DataTableRow
                           key={row.id}
                           className={`group cursor-pointer align-middle transition-colors hover:bg-muted/30 ${
-                            row.source === "children" ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
-                          }`}
+                            row.source === "children" && !isReturnedOriginal ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                          } ${isReturnedOriginal || isReversal ? "opacity-60" : ""}`}
                           onClick={(event) => {
                             const target = event.target;
                             if (
@@ -1682,15 +1762,28 @@ export default function FrankDeenieClient() {
                           <td className="px-2 py-2 align-middle">
                             <div className="flex min-w-0 items-center gap-1.5">
                               <p
-                                className="truncate text-left font-semibold transition-colors group-hover:text-primary group-hover:underline"
+                                className={`truncate text-left font-semibold transition-colors group-hover:text-primary group-hover:underline ${isReturnedOriginal ? "line-through text-muted-foreground" : ""}`}
                                 title={row.name}
                               >
                                 {row.name}
                               </p>
-                              {row.source === "children" ? (
+                              {row.source === "children" && !isReturnedOriginal ? (
                                 <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                                   <Users className="h-2.5 w-2.5" />
                                   Children
+                                </span>
+                              ) : null}
+                              {isReturnedOriginal ? (
+                                <span className="shrink-0 inline-flex rounded-full border border-rose-300 bg-rose-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
+                                  Returned
+                                </span>
+                              ) : isReversal ? (
+                                <span className="shrink-0 inline-flex rounded-full border border-rose-300 bg-rose-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
+                                  Reversal
+                                </span>
+                              ) : isReplacement ? (
+                                <span className="shrink-0 inline-flex rounded-full border border-blue-300 bg-blue-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
+                                  Reissued
                                 </span>
                               ) : null}
                             </div>
@@ -1700,8 +1793,8 @@ export default function FrankDeenieClient() {
                               {row.memo.trim() || "—"}
                             </p>
                           </td>
-                          <td className="px-2 py-2 text-right text-muted-foreground tabular-nums align-middle font-medium">
-                            {formatNumber(row.amount, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          <td className={`px-2 py-2 text-right tabular-nums align-middle font-medium ${isReturnedOriginal ? "line-through text-muted-foreground" : isReversal ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}>
+                            {isReversal ? "-" : ""}{formatNumber(Math.abs(row.amount), { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-2 py-2 align-middle">
                             <span
@@ -1757,7 +1850,7 @@ export default function FrankDeenieClient() {
                                       Edit
                                     </button>
                                   ) : null}
-                                  {row.editable ? (
+                                  {row.editable && !row.returnRole ? (
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1774,7 +1867,8 @@ export default function FrankDeenieClient() {
                             </div>
                           </td>
                         </DataTableRow>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -1799,28 +1893,37 @@ export default function FrankDeenieClient() {
           aria-labelledby="donation-details-title"
           dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5"
           showCloseButton={false}
-          footer={detailRow.editable ? (
+          footer={detailRow.editable || (detailRow.returnRole === null && detailRow.status === "Gave") ? (
             <div className="flex flex-wrap items-center gap-3 pt-3">
-              {editingId !== detailRow.id ? (
+              {detailRow.editable && editingId !== detailRow.id ? (
                 <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => beginEdit(detailRow)}>
                   Edit donation
                 </Button>
               ) : null}
-              <Button
-                variant="destructive-outline"
-                className="flex-1 sm:flex-none"
-                onClick={() => requestDelete(detailRow)}
-                disabled={deletingRowId === detailRow.id}
-              >
-                {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
-              </Button>
+              {detailRow.returnRole === null && detailRow.status === "Gave" ? (
+                <Button variant="outline" className="flex-1 sm:flex-none border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20" onClick={() => beginReturn(detailRow)}>
+                  Mark as Returned
+                </Button>
+              ) : null}
+              {detailRow.editable && !detailRow.returnRole ? (
+                <Button
+                  variant="destructive-outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => requestDelete(detailRow)}
+                  disabled={deletingRowId === detailRow.id}
+                >
+                  {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
+                </Button>
+              ) : null}
             </div>
           ) : undefined}
         >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-2xl font-bold tabular-nums">{currency(detailRow.amount)}</p>
-                <h2 id="donation-details-title" className="mt-1 text-base font-semibold leading-snug">
+                <p className={`text-2xl font-bold tabular-nums ${detailRow.returnRole === "original" ? "line-through text-muted-foreground" : detailRow.returnRole === "reversal" ? "text-rose-600 dark:text-rose-400" : ""}`}>
+                  {detailRow.returnRole === "reversal" ? `-${currency(Math.abs(detailRow.amount))}` : currency(detailRow.amount)}
+                </p>
+                <h2 id="donation-details-title" className={`mt-1 text-base font-semibold leading-snug ${detailRow.returnRole === "original" ? "line-through text-muted-foreground" : ""}`}>
                   {detailRow.name}
                 </h2>
                 <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -1842,6 +1945,19 @@ export default function FrankDeenieClient() {
                   >
                     {detailRow.status}
                   </span>
+                  {detailRow.returnRole === "original" ? (
+                    <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
+                      Returned{detailRow.returnedAt ? ` ${tableDate(detailRow.returnedAt)}` : ""}
+                    </span>
+                  ) : detailRow.returnRole === "reversal" ? (
+                    <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
+                      Reversal
+                    </span>
+                  ) : detailRow.returnRole === "replacement" ? (
+                    <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
+                      Reissued
+                    </span>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => { setGivingHistoryName(detailRow.name); setGivingHistoryFuzzy(false); setGivingHistoryNames(null); }}
@@ -2257,6 +2373,105 @@ export default function FrankDeenieClient() {
                 >
                   Cancel
                 </Button>
+              </div>
+            </div>
+          </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        open={returnRow !== null}
+        onOpenChange={(open) => { if (!open && !isReturning) setReturnRow(null); }}
+      >
+        {returnRow ? (
+          <ResponsiveModalContent
+            aria-labelledby="return-check-title"
+            dialogClassName="max-w-md rounded-3xl p-5"
+            showCloseButton={false}
+            onInteractOutside={(e) => { if (isReturning) e.preventDefault(); }}
+            footer={
+              <div className="flex items-center gap-2 pt-3">
+                <Button
+                  className="flex-1 sm:flex-none"
+                  onClick={() => void submitReturn()}
+                  disabled={isReturning}
+                >
+                  {isReturning ? "Processing..." : "Mark as Returned"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => setReturnRow(null)}
+                  disabled={isReturning}
+                >
+                  Cancel
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              <div>
+                <h2 id="return-check-title" className="text-lg font-bold text-foreground">
+                  Mark Check as Returned
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  The original {currency(returnRow.amount)} donation to <span className="font-semibold text-foreground">&ldquo;{returnRow.name}&rdquo;</span> will be flagged as returned. A reversal entry and a new replacement donation will be created.
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="text-xs font-semibold text-muted-foreground">
+                  Date Returned
+                  <button
+                    type="button"
+                    onClick={() => returnDateInputRef.current?.showPicker()}
+                    className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
+                  >
+                    <span className={`flex-1 text-left ${returnDraft.returnedDate ? "text-foreground" : "text-muted-foreground"}`}>
+                      {returnDraft.returnedDate ? tableDate(returnDraft.returnedDate) : "Select date"}
+                    </span>
+                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                  <input
+                    ref={returnDateInputRef}
+                    type="date"
+                    value={returnDraft.returnedDate}
+                    onChange={(e) => setReturnDraft((d) => ({ ...d, returnedDate: e.target.value }))}
+                    tabIndex={-1}
+                    className="sr-only"
+                  />
+                </div>
+                <div className="text-xs font-semibold text-muted-foreground">
+                  New Check Date
+                  <button
+                    type="button"
+                    onClick={() => newDonationDateInputRef.current?.showPicker()}
+                    className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
+                  >
+                    <span className={`flex-1 text-left ${returnDraft.newDonationDate ? "text-foreground" : "text-muted-foreground"}`}>
+                      {returnDraft.newDonationDate ? tableDate(returnDraft.newDonationDate) : "Select date"}
+                    </span>
+                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                  <input
+                    ref={newDonationDateInputRef}
+                    type="date"
+                    value={returnDraft.newDonationDate}
+                    onChange={(e) => setReturnDraft((d) => ({ ...d, newDonationDate: e.target.value }))}
+                    tabIndex={-1}
+                    className="sr-only"
+                  />
+                </div>
+                <label className="text-xs font-semibold text-muted-foreground">
+                  New Amount
+                  <AmountInput
+                    min={0}
+                    step="0.01"
+                    value={returnDraft.newAmount}
+                    onChange={(e) => setReturnDraft((d) => ({ ...d, newAmount: e.target.value }))}
+                    className="mt-1 h-10 rounded-lg"
+                  />
+                </label>
               </div>
             </div>
           </ResponsiveModalContent>

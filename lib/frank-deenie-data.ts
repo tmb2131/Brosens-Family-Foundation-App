@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
-import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
+import { DonationLedgerSource, DonationReturnRole, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
 
@@ -15,6 +15,10 @@ interface FrankDeenieDonationDbRow {
   status: string;
   created_at: string;
   created_by: string | null;
+  return_group_id: string | null;
+  return_role: DonationReturnRole | null;
+  returned_at: string | null;
+  return_source_id: string | null;
 }
 
 interface ChildrenProposalRow {
@@ -27,6 +31,8 @@ interface ChildrenProposalRow {
   notes: string | null;
   sent_at: string | null;
   created_at: string;
+  returned_at: string | null;
+  return_group_id: string | null;
 }
 
 interface OrganizationRow {
@@ -79,7 +85,7 @@ export interface FrankDeenieImportRow {
 }
 
 const DONATION_SELECT =
-  "id, donation_date, donation_type, recipient_name, memo, split, amount, status, created_at, created_by";
+  "id, donation_date, donation_type, recipient_name, memo, split, amount, status, created_at, created_by, return_group_id, return_role, returned_at, return_source_id";
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 
 function currentYear() {
@@ -190,6 +196,8 @@ function mapFrankDeenieDonationRow(
   row: FrankDeenieDonationDbRow,
   profileEmailById: Map<string, string>
 ): FrankDeenieDonationRow {
+  const returnRole = row.return_role ?? null;
+  const lockedByReturn = returnRole === "original" || returnRole === "reversal";
   return {
     id: row.id,
     source: "frank_deenie",
@@ -200,8 +208,11 @@ function mapFrankDeenieDonationRow(
     split: row.split ?? "",
     amount: toNumber(row.amount),
     status: row.status,
-    editable: true,
-    proposedBy: row.created_by ? profileEmailById.get(row.created_by) ?? "" : ""
+    editable: !lockedByReturn,
+    proposedBy: row.created_by ? profileEmailById.get(row.created_by) ?? "" : "",
+    returnGroupId: row.return_group_id ?? null,
+    returnRole,
+    returnedAt: row.returned_at ?? null,
   };
 }
 
@@ -219,6 +230,7 @@ function mapChildrenDonationRow(
   const organizationName = row.organization_id
     ? organizationNamesById.get(row.organization_id)?.trim() ?? ""
     : "";
+  const isReturned = !!row.returned_at;
 
   return {
     id: `children:${row.id}`,
@@ -231,7 +243,10 @@ function mapChildrenDonationRow(
     amount: toNumber(row.final_amount),
     status: isSent ? "Gave" : "Planned",
     editable: false,
-    proposedBy: profileEmailById.get(row.proposer_id) ?? ""
+    proposedBy: profileEmailById.get(row.proposer_id) ?? "",
+    returnGroupId: row.return_group_id ?? null,
+    returnRole: isReturned ? "original" : null,
+    returnedAt: row.returned_at ?? null,
   };
 }
 
@@ -274,7 +289,7 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
   const query = admin
     .from("grant_proposals")
-    .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, created_at")
+    .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, created_at, returned_at, return_group_id")
     .in("status", ["sent", "approved"])
     .order("created_at", { ascending: false });
 
@@ -568,6 +583,229 @@ export async function deleteFrankDeenieDonation(admin: AdminClient, donationId: 
   if (!data) {
     throw new HttpError(404, "Frank & Deenie donation not found.");
   }
+}
+
+export interface MarkDonationReturnedInput {
+  sourceId: string;
+  source: DonationLedgerSource;
+  returnedDate: string;
+  newDonationDate: string;
+  newAmount?: number;
+  requesterId: string;
+}
+
+export async function markDonationReturned(
+  admin: AdminClient,
+  input: MarkDonationReturnedInput
+) {
+  const returnedDate = normalizeDateString(input.returnedDate);
+  const newDonationDate = normalizeDateString(input.newDonationDate);
+
+  const { data: groupIdRow } = await admin.rpc("gen_random_uuid").single<string>();
+  const returnGroupId = groupIdRow ?? crypto.randomUUID();
+
+  if (input.source === "frank_deenie") {
+    return markFrankDeenieDonationReturned(admin, input, returnedDate, newDonationDate, returnGroupId);
+  }
+  return markChildrenDonationReturned(admin, input, returnedDate, newDonationDate, returnGroupId);
+}
+
+async function markFrankDeenieDonationReturned(
+  admin: AdminClient,
+  input: MarkDonationReturnedInput,
+  returnedDate: string,
+  newDonationDate: string,
+  returnGroupId: string,
+) {
+  const { data: original, error: fetchError } = await admin
+    .from("frank_deenie_donations")
+    .select(DONATION_SELECT)
+    .eq("id", input.sourceId)
+    .maybeSingle<FrankDeenieDonationDbRow>();
+
+  if (fetchError) {
+    throw new HttpError(500, `Could not fetch donation: ${fetchError.message}`);
+  }
+  if (!original) {
+    throw new HttpError(404, "Donation not found.");
+  }
+  if (original.return_role !== null) {
+    throw new HttpError(400, "This donation is already part of a return group.");
+  }
+  if (original.status !== "Gave") {
+    throw new HttpError(400, "Only donations with status \"Gave\" can be marked as returned.");
+  }
+
+  const originalAmount = toNumber(original.amount);
+  const newAmount = input.newAmount !== undefined ? roundCurrency(Number(input.newAmount)) : originalAmount;
+  if (!Number.isFinite(newAmount) || newAmount < 0) {
+    throw new HttpError(400, "newAmount must be a non-negative number.");
+  }
+
+  const { error: updateError } = await admin
+    .from("frank_deenie_donations")
+    .update({
+      return_group_id: returnGroupId,
+      return_role: "original",
+      returned_at: returnedDate,
+      updated_by: input.requesterId,
+    })
+    .eq("id", input.sourceId);
+
+  if (updateError) {
+    throw new HttpError(500, `Could not update original donation: ${updateError.message}`);
+  }
+
+  const { error: reversalError } = await admin
+    .from("frank_deenie_donations")
+    .insert({
+      donation_date: returnedDate,
+      donation_type: original.donation_type,
+      recipient_name: original.recipient_name,
+      memo: original.memo,
+      split: original.split,
+      amount: roundCurrency(-originalAmount),
+      status: "Gave",
+      return_group_id: returnGroupId,
+      return_role: "reversal",
+      returned_at: returnedDate,
+      created_by: input.requesterId,
+      updated_by: input.requesterId,
+    });
+
+  if (reversalError) {
+    throw new HttpError(500, `Could not create reversal entry: ${reversalError.message}`);
+  }
+
+  const { error: replacementError } = await admin
+    .from("frank_deenie_donations")
+    .insert({
+      donation_date: newDonationDate,
+      donation_type: original.donation_type,
+      recipient_name: original.recipient_name,
+      memo: original.memo,
+      split: original.split,
+      amount: newAmount,
+      status: "Gave",
+      return_group_id: returnGroupId,
+      return_role: "replacement",
+      created_by: input.requesterId,
+      updated_by: input.requesterId,
+    });
+
+  if (replacementError) {
+    throw new HttpError(500, `Could not create replacement entry: ${replacementError.message}`);
+  }
+
+  return { returnGroupId };
+}
+
+async function markChildrenDonationReturned(
+  admin: AdminClient,
+  input: MarkDonationReturnedInput,
+  returnedDate: string,
+  newDonationDate: string,
+  returnGroupId: string,
+) {
+  const { data: proposal, error: fetchError } = await admin
+    .from("grant_proposals")
+    .select("id, organization_id, final_amount, status, returned_at")
+    .eq("id", input.sourceId)
+    .maybeSingle<{
+      id: string;
+      organization_id: string | null;
+      final_amount: number | string;
+      status: string;
+      returned_at: string | null;
+    }>();
+
+  if (fetchError) {
+    throw new HttpError(500, `Could not fetch proposal: ${fetchError.message}`);
+  }
+  if (!proposal) {
+    throw new HttpError(404, "Proposal not found.");
+  }
+  if (proposal.returned_at !== null) {
+    throw new HttpError(400, "This proposal has already been marked as returned.");
+  }
+  if (proposal.status !== "sent") {
+    throw new HttpError(400, "Only sent proposals can be marked as returned.");
+  }
+
+  let recipientName = "Unknown Organization";
+  if (proposal.organization_id) {
+    const { data: org } = await admin
+      .from("organizations")
+      .select("name")
+      .eq("id", proposal.organization_id)
+      .maybeSingle<{ name: string }>();
+    if (org?.name) {
+      recipientName = org.name;
+    }
+  }
+
+  const originalAmount = toNumber(proposal.final_amount);
+  const newAmount = input.newAmount !== undefined ? roundCurrency(Number(input.newAmount)) : originalAmount;
+  if (!Number.isFinite(newAmount) || newAmount < 0) {
+    throw new HttpError(400, "newAmount must be a non-negative number.");
+  }
+
+  const { error: updateError } = await admin
+    .from("grant_proposals")
+    .update({
+      returned_at: returnedDate,
+      return_group_id: returnGroupId,
+    })
+    .eq("id", input.sourceId);
+
+  if (updateError) {
+    throw new HttpError(500, `Could not update proposal: ${updateError.message}`);
+  }
+
+  const { error: reversalError } = await admin
+    .from("frank_deenie_donations")
+    .insert({
+      donation_date: returnedDate,
+      donation_type: "donation",
+      recipient_name: recipientName,
+      memo: null,
+      split: null,
+      amount: roundCurrency(-originalAmount),
+      status: "Gave",
+      return_group_id: returnGroupId,
+      return_role: "reversal",
+      returned_at: returnedDate,
+      return_source_id: input.sourceId,
+      created_by: input.requesterId,
+      updated_by: input.requesterId,
+    });
+
+  if (reversalError) {
+    throw new HttpError(500, `Could not create reversal entry: ${reversalError.message}`);
+  }
+
+  const { error: replacementError } = await admin
+    .from("frank_deenie_donations")
+    .insert({
+      donation_date: newDonationDate,
+      donation_type: "donation",
+      recipient_name: recipientName,
+      memo: null,
+      split: null,
+      amount: newAmount,
+      status: "Gave",
+      return_group_id: returnGroupId,
+      return_role: "replacement",
+      return_source_id: input.sourceId,
+      created_by: input.requesterId,
+      updated_by: input.requesterId,
+    });
+
+  if (replacementError) {
+    throw new HttpError(500, `Could not create replacement entry: ${replacementError.message}`);
+  }
+
+  return { returnGroupId };
 }
 
 function dedupeKeyFromInsertRow(row: {
