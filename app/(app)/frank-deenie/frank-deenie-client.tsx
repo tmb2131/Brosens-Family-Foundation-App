@@ -57,6 +57,7 @@ interface DonationExportRow {
   status: string;
   source: string;
   proposedBy: string;
+  returnStatus: string;
 }
 
 const DEFAULT_FILTERS: DonationFilters = {
@@ -66,7 +67,7 @@ const DEFAULT_FILTERS: DonationFilters = {
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = true;
-const EXPORT_HEADERS = ["Date", "Name", "Notes", "Amount", "Status", "Source", "Proposed by"] as const;
+const EXPORT_HEADERS = ["Date", "Name", "Notes", "Amount", "Status", "Source", "Proposed by", "Return Status"] as const;
 
 function proposerName(email: string) {
   return getProposerDisplayName(email);
@@ -138,7 +139,8 @@ function rowToExportValues(row: DonationExportRow) {
     row.amount.toFixed(2),
     row.status,
     row.source,
-    row.proposedBy
+    row.proposedBy,
+    row.returnStatus
   ];
 }
 
@@ -465,7 +467,8 @@ export default function FrankDeenieClient() {
         amount: row.amount,
         status: row.status.trim(),
         source: row.source === "children" ? "Children" : "Frank & Deenie",
-        proposedBy: byDisplay(row)
+        proposedBy: byDisplay(row),
+        returnStatus: row.returnRole === "original" ? "Returned" : row.returnRole === "reversal" ? "Reversal" : row.returnRole === "replacement" ? "Reissued" : ""
       })),
     [filteredRows]
   );
