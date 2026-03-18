@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
-import { deleteFrankDeenieDonation, getFrankDeenieDonationById, updateFrankDeenieDonation } from "@/lib/frank-deenie-data";
+import { deleteFrankDeenieDonation, getFrankDeenieDonationById, updateChildrenDonationNotes, updateFrankDeenieDonation } from "@/lib/frank-deenie-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
 import { currency } from "@/lib/utils";
 
@@ -16,26 +16,46 @@ export async function PATCH(
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, [...FRANK_DEENIE_ALLOWED_ROLES]);
 
-    const existing = await getFrankDeenieDonationById(admin, donationId);
-    if (existing && (existing.returnRole === "original" || existing.returnRole === "reversal")) {
-      throw new HttpError(400, "Returned or reversal donations cannot be edited.");
-    }
-
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     if (!body || typeof body !== "object") {
       throw new HttpError(400, "Request body must be a JSON object.");
     }
 
+    const hasMemo = Object.prototype.hasOwnProperty.call(body, "memo");
+
+    if (donationId.startsWith("children:")) {
+      if (profile.role !== "admin") {
+        throw new HttpError(403, "Only admin users can edit Children donation notes.");
+      }
+      if (!hasMemo) {
+        throw new HttpError(400, "Only notes can be edited on Children donations.");
+      }
+
+      const proposalId = donationId.slice("children:".length);
+      const memoValue = body.memo === null ? null : String(body.memo ?? "");
+      await updateChildrenDonationNotes(admin, proposalId, memoValue);
+
+      return NextResponse.json({ success: true });
+    }
+
     const hasDate = Object.prototype.hasOwnProperty.call(body, "date");
     const hasType = Object.prototype.hasOwnProperty.call(body, "type");
     const hasName = Object.prototype.hasOwnProperty.call(body, "name");
-    const hasMemo = Object.prototype.hasOwnProperty.call(body, "memo");
     const hasSplit = Object.prototype.hasOwnProperty.call(body, "split");
     const hasAmount = Object.prototype.hasOwnProperty.call(body, "amount");
     const hasStatus = Object.prototype.hasOwnProperty.call(body, "status");
 
     if (!hasDate && !hasType && !hasName && !hasMemo && !hasSplit && !hasAmount && !hasStatus) {
       throw new HttpError(400, "No editable fields were provided.");
+    }
+
+    const isMemoOnly = hasMemo && !hasDate && !hasType && !hasName && !hasSplit && !hasAmount && !hasStatus;
+
+    const existing = await getFrankDeenieDonationById(admin, donationId);
+    if (existing && (existing.returnRole === "original" || existing.returnRole === "reversal")) {
+      if (!(isMemoOnly && profile.role === "admin")) {
+        throw new HttpError(400, "Returned or reversal donations cannot be edited.");
+      }
     }
 
     const donation = await updateFrankDeenieDonation(admin, {

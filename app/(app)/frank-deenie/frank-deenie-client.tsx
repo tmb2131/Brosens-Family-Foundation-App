@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { ArrowDownAZ, ArrowUpAZ, Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, PieChart, Plus, RefreshCw, Upload, Users, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Upload, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -238,6 +238,7 @@ function downloadFile(filename: string, content: string, mimeType: string) {
 export default function FrankDeenieClient() {
   const { user } = useAuth();
   const canAccess = user ? ["oversight", "admin", "manager"].includes(user.role) : false;
+  const isAdmin = user?.role === "admin";
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [includeChildren, setIncludeChildren] = useState(false);
@@ -255,6 +256,9 @@ export default function FrankDeenieClient() {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DonationDraft | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [editingNotesValue, setEditingNotesValue] = useState("");
+  const [savingNotesId, setSavingNotesId] = useState<string | null>(null);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<FrankDeenieDonationRow | null>(null);
@@ -546,6 +550,10 @@ export default function FrankDeenieClient() {
       setEditingId(null);
       setEditDraft(null);
     }
+    if (detailRowId !== null && editingNotesId === detailRowId) {
+      setEditingNotesId(null);
+      setEditingNotesValue("");
+    }
     setDetailRowId(null);
     setOpenActionMenuRowId(null);
   };
@@ -562,6 +570,43 @@ export default function FrankDeenieClient() {
   const cancelEdit = () => {
     setEditingId(null);
     setEditDraft(null);
+  };
+
+  const beginNotesEdit = (row: FrankDeenieDonationRow) => {
+    setEditingNotesId(row.id);
+    setEditingNotesValue(row.memo);
+  };
+
+  const cancelNotesEdit = () => {
+    setEditingNotesId(null);
+    setEditingNotesValue("");
+  };
+
+  const saveNotesEdit = async () => {
+    if (!editingNotesId) return;
+
+    setSavingNotesId(editingNotesId);
+    try {
+      const response = await fetch(`/api/frank-deenie/${editingNotesId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ memo: editingNotesValue.trim() || null })
+      });
+
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok) {
+        throw new Error(String(payload.error ?? "Failed to update notes."));
+      }
+
+      toast.success("Notes updated.");
+      setEditingNotesId(null);
+      setEditingNotesValue("");
+      void mutate();
+    } catch (saveError) {
+      toast.error(saveError instanceof Error ? saveError.message : "Failed to update notes.");
+    } finally {
+      setSavingNotesId(null);
+    }
   };
 
   const saveEdit = async () => {
@@ -1850,6 +1895,19 @@ export default function FrankDeenieClient() {
                                       Edit
                                     </button>
                                   ) : null}
+                                  {isAdmin && !row.editable ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        beginNotesEdit(row);
+                                        setDetailRowId(row.id);
+                                        setOpenActionMenuRowId(null);
+                                      }}
+                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                                    >
+                                      Edit notes
+                                    </button>
+                                  ) : null}
                                   {row.editable && !row.returnRole ? (
                                     <button
                                       type="button"
@@ -1893,11 +1951,17 @@ export default function FrankDeenieClient() {
           aria-labelledby="donation-details-title"
           dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5"
           showCloseButton={false}
-          footer={detailRow.editable || (detailRow.returnRole === null && detailRow.status === "Gave") ? (
+          footer={detailRow.editable || isAdmin || (detailRow.returnRole === null && detailRow.status === "Gave") ? (
             <div className="flex flex-wrap items-center gap-3 pt-3">
               {detailRow.editable && editingId !== detailRow.id ? (
                 <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => beginEdit(detailRow)}>
                   Edit donation
+                </Button>
+              ) : null}
+              {isAdmin && !detailRow.editable && editingNotesId !== detailRow.id ? (
+                <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => beginNotesEdit(detailRow)}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Edit notes
                 </Button>
               ) : null}
               {detailRow.returnRole === null && detailRow.status === "Gave" ? (
@@ -2104,12 +2168,57 @@ export default function FrankDeenieClient() {
                   </dt>
                   <dd className="mt-0.5 font-medium">{byDisplay(detailRow)}</dd>
                 </div>
-                {detailRow.memo ? (
+                {editingNotesId === detailRow.id ? (
                   <div>
                     <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Notes
                     </dt>
-                    <dd className="mt-0.5 whitespace-pre-wrap font-medium text-muted-foreground">{detailRow.memo}</dd>
+                    <div className="mt-1 space-y-2">
+                      <Input
+                        type="text"
+                        value={editingNotesValue}
+                        onChange={(event) => setEditingNotesValue(event.target.value)}
+                        placeholder="Add notes..."
+                        className="h-9 rounded-lg text-sm"
+                        autoFocus
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") { event.preventDefault(); void saveNotesEdit(); }
+                          if (event.key === "Escape") cancelNotesEdit();
+                        }}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="prominent"
+                          onClick={() => void saveNotesEdit()}
+                          disabled={savingNotesId === detailRow.id}
+                        >
+                          {savingNotesId === detailRow.id ? "Saving..." : "Save"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelNotesEdit} disabled={savingNotesId === detailRow.id}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : detailRow.memo || isAdmin ? (
+                  <div>
+                    <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Notes
+                      {isAdmin && editingId !== detailRow.id ? (
+                        <button
+                          type="button"
+                          onClick={() => beginNotesEdit(detailRow)}
+                          className="inline-flex items-center rounded-md p-0.5 text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
+                          aria-label="Edit notes"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      ) : null}
+                    </dt>
+                    <dd className="mt-0.5 whitespace-pre-wrap font-medium text-muted-foreground">
+                      {detailRow.memo || <span className="italic text-muted-foreground/50">No notes</span>}
+                    </dd>
                   </div>
                 ) : null}
               </dl>

@@ -231,6 +231,7 @@ function mapChildrenDonationRow(
     ? organizationNamesById.get(row.organization_id)?.trim() ?? ""
     : "";
   const isReturned = !!row.returned_at;
+  const proposalNotes = row.notes?.trim() ?? "";
 
   return {
     id: `children:${row.id}`,
@@ -238,7 +239,7 @@ function mapChildrenDonationRow(
     date: isSent ? row.sent_at ?? row.created_at.slice(0, 10) : row.created_at.slice(0, 10),
     type: "donation",
     name: organizationName || proposalTitle,
-    memo: proposalDescription,
+    memo: proposalNotes || proposalDescription,
     split: "",
     amount: toNumber(row.final_amount),
     status: isSent ? "Gave" : "Planned",
@@ -546,6 +547,29 @@ export async function updateFrankDeenieDonation(
   const creatorIds = [data.created_by].filter((id): id is string => !!id);
   const profileEmailById = await fetchProfileEmailsById(admin, creatorIds);
   return mapFrankDeenieDonationRow(data, profileEmailById);
+}
+
+export async function updateChildrenDonationNotes(
+  admin: AdminClient,
+  proposalId: string,
+  notes: string | null
+) {
+  const normalizedNotes = normalizeOptionalText(notes, "notes", 800);
+
+  const { data, error } = await admin
+    .from("grant_proposals")
+    .update({ notes: normalizedNotes })
+    .eq("id", proposalId)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error) {
+    throw new HttpError(500, `Could not update Children donation notes: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new HttpError(404, "Children donation not found.");
+  }
 }
 
 export async function getFrankDeenieDonationById(admin: AdminClient, donationId: string) {
