@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
+import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { cn, currency, formatNumber, toISODate, titleCase } from "@/lib/utils";
 import { AdminQueueProposal } from "@/lib/foundation-data";
 
@@ -25,7 +26,7 @@ function AdminPageClient() {
   const searchParams = useSearchParams();
   const proposalIdFromUrl = searchParams.get("proposalId")?.trim() ?? null;
   const adminQueueKey = user?.role === "admin" ? "/api/admin" : null;
-  const { data, mutate, isLoading, error } = useSWR<AdminQueueResponse>(adminQueueKey, {
+  const { data, mutate, isLoading, isValidating, error } = useSWR<AdminQueueResponse>(adminQueueKey, {
     refreshInterval: 45_000
   });
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -153,7 +154,7 @@ function AdminPageClient() {
           <GlassCard className="rounded-3xl">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <CardLabel>Administrator Workspace</CardLabel>
+                <span className="flex items-center gap-1.5"><CardLabel>Administrator Workspace</CardLabel><RevalidatingDot isValidating={isValidating} hasData={!!data} /></span>
                 <CardValue>Donation Execution Queue</CardValue>
                 <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />

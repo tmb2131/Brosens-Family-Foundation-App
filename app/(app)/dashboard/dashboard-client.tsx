@@ -46,6 +46,7 @@ import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus,
 import { VoteForm } from "@/components/voting/vote-form";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
+import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 
 const DASHBOARD_WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -574,7 +575,7 @@ export default function DashboardClient() {
     return `/api/foundation?budgetYear=${selectedYear}`;
   }, [selectedYear, user]);
 
-  const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey, {
+  const { data, isLoading, error, mutate, isValidating } = useSWR<FoundationSnapshot>(foundationKey, {
     refreshInterval: 30_000
   });
   const {
@@ -1521,7 +1522,10 @@ export default function DashboardClient() {
         data-walkthrough="dashboard-intro-mobile"
         className="flex items-center justify-between gap-2 lg:hidden"
       >
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dashboard</p>
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Dashboard
+          <RevalidatingDot isValidating={isValidating} hasData={!!data} />
+        </p>
         <div className="flex items-center gap-1.5">
           <select
             className="h-8 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground outline-none transition-colors active:bg-muted focus:outline-none"
@@ -1549,7 +1553,7 @@ export default function DashboardClient() {
       <GlassCard data-walkthrough="dashboard-intro" className="hidden rounded-3xl lg:block">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardLabel>Dashboard</CardLabel>
+            <span className="flex items-center gap-1.5"><CardLabel>Dashboard</CardLabel><RevalidatingDot isValidating={isValidating} hasData={!!data} /></span>
             <CardValue>{selectedYearFilterValue === "all" ? "All years" : selectedYearFilterValue}</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />

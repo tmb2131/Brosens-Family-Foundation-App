@@ -22,6 +22,7 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency } from "@/lib/utils";
+import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { MobileGreetingHeader } from "./mobile-greeting-header";
 import { MobileProfileSheet } from "./mobile-profile-sheet";
 import { MobileNudgeCard } from "./mobile-nudge-card";
@@ -246,6 +247,7 @@ export default function MobileFocusClient() {
             <Wallet className="h-4 w-4" />
           </span>
           <CardLabel>Personal Budget</CardLabel>
+          <RevalidatingDot isValidating={workspaceQuery.isValidating} hasData={!!workspaceQuery.data} />
         </div>
         {isManager ? (
           <p className="mt-2 text-sm text-muted-foreground">

@@ -29,7 +29,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { getClientIsStandalone } from "@/lib/device-detection";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
-import { RouteProgressBar } from "@/components/ui/route-progress-bar";
+import { RouteProgressBar, BackgroundRevalidationBar } from "@/components/ui/route-progress-bar";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
@@ -807,7 +807,7 @@ export function AppShell({ children }: PropsWithChildren) {
         : showMobileFocusNav
           ? availableFocusNav
           : availableFullNav;
-  const { data: navigationSummary } = useSWR<NavigationSummarySnapshot>(
+  const { data: navigationSummary, isValidating: isNavValidating } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
     { refreshInterval: navPollInterval, refreshWhenHidden: false }
   );
@@ -873,6 +873,7 @@ export function AppShell({ children }: PropsWithChildren) {
       }}
     >
       <RouteProgressBar />
+      <BackgroundRevalidationBar active={isNavValidating && !!navigationSummary} />
       <DesktopSidebar
         user={user}
         pathname={pathname}

@@ -29,6 +29,7 @@ import { FoundationEventForm } from "./foundation-event-form";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton";
+import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
@@ -257,7 +258,7 @@ export default function FrankDeenieClient() {
     return params.toString();
   }, [includeChildren, selectedYear]);
 
-  const { data, error, isLoading, mutate } = useSWR<FrankDeenieSnapshot>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<FrankDeenieSnapshot>(
     canAccess ? `/api/frank-deenie?${queryString}` : null,
     { refreshInterval: 120_000 }
   );
@@ -840,7 +841,7 @@ export default function FrankDeenieClient() {
       <GlassCard className="rounded-3xl sm:hidden">
         <div className="flex items-center justify-between">
           <div>
-            <CardLabel>F&amp;D Ledger</CardLabel>
+            <span className="flex items-center gap-1.5"><CardLabel>F&amp;D Ledger</CardLabel><RevalidatingDot isValidating={isValidating} hasData={!!data} /></span>
             <p className="text-xs text-muted-foreground">
               {selectedYear === null ? "All years" : selectedYear} &middot; {formatNumber(filteredRows.length)} donations
             </p>
@@ -901,7 +902,7 @@ export default function FrankDeenieClient() {
       <GlassCard className="hidden rounded-3xl sm:block">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardLabel>Frank &amp; Deenie</CardLabel>
+            <span className="flex items-center gap-1.5"><CardLabel>Frank &amp; Deenie</CardLabel><RevalidatingDot isValidating={isValidating} hasData={!!data} /></span>
             <CardValue>Donation Ledger</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />

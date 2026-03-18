@@ -218,6 +218,15 @@ body {
   }
 }
 
+@keyframes revalidation-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 @keyframes scale-fade-in {
   from {
     opacity: 0;

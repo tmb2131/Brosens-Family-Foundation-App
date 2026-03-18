@@ -28,6 +28,7 @@ import { VoteForm } from "@/components/voting/vote-form";
 import { StatusPill } from "@/components/ui/status-pill";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
+import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 
 const WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -700,7 +701,7 @@ export default function WorkspaceClient() {
           <GlassCard className="rounded-3xl" data-walkthrough="workspace-intro">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardLabel>My Workspace</CardLabel>
+                <span className="flex items-center gap-1.5"><CardLabel>My Workspace</CardLabel><RevalidatingDot isValidating={workspaceQuery.isValidating} hasData={!!workspaceQuery.data} /></span>
                 <CardValue>{workspace.user.name}</CardValue>
                 <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />

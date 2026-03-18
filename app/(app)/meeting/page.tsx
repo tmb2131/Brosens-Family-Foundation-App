@@ -51,7 +51,7 @@ interface CharityNavigatorPreviewResponse {
 
 export default function MeetingPage() {
   const { user } = useAuth();
-  const { data, mutate, isLoading, error } = useSWR<MeetingResponse>("/api/meeting", {
+  const { data, mutate, isLoading, isValidating, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000
   });
   const [activeSegment, setActiveSegment] = useState<MeetingSegment>("ready");
