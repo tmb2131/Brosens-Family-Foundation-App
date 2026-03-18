@@ -129,7 +129,7 @@ const focusNavItems: NavItem[] = [
     href: "/proposals/new",
     label: "New Proposal",
     icon: Plus,
-    roles: ["member", "oversight", "manager", "admin"]
+    roles: ["member", "oversight"]
   },
   { href: "/dashboard", label: "Dashboard", icon: FileText }
 ];

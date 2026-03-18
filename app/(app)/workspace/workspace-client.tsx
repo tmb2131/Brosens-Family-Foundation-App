@@ -723,11 +723,13 @@ export default function WorkspaceClient() {
                   <span className="text-xs text-muted-foreground">&middot; {formatNumber(workspace.submittedGifts.length)} submitted proposal{workspace.submittedGifts.length !== 1 ? "s" : ""}</span>
                 </div>
               </div>
-              <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
-                <Link href="/proposals/new" title="New Proposal (⇧N)">
-                  <Plus className="h-4 w-4" /> New Proposal
-                </Link>
-              </Button>
+              {!isManager && workspace.user.role !== "admin" && (
+                <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
+                  <Link href="/proposals/new" title="New Proposal (⇧N)">
+                    <Plus className="h-4 w-4" /> New Proposal
+                  </Link>
+                </Button>
+              )}
             </div>
             {(() => {
               const noSubmissionThisYear = !workspace.submittedGifts.some(

@@ -1535,11 +1535,13 @@ export default function DashboardClient() {
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
-          <Button variant="proposal" size="sm" asChild className="h-8 min-h-8">
-            <Link href="/proposals/new">
-              <Plus className="h-3 w-3" /> New Proposal
-            </Link>
-          </Button>
+          {user && !["admin", "manager"].includes(user.role) && (
+            <Button variant="proposal" size="sm" asChild className="h-8 min-h-8">
+              <Link href="/proposals/new">
+                <Plus className="h-3 w-3" /> New Proposal
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1589,11 +1591,13 @@ export default function DashboardClient() {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
-            <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
-              <Link href="/proposals/new" title="New Proposal (⇧N)">
-                <Plus className="h-4 w-4" /> New Proposal
-              </Link>
-            </Button>
+            {user && !["admin", "manager"].includes(user.role) && (
+              <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
+                <Link href="/proposals/new" title="New Proposal (⇧N)">
+                  <Plus className="h-4 w-4" /> New Proposal
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </GlassCard>
