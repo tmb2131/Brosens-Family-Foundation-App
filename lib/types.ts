@@ -165,6 +165,17 @@ export interface FoundationSnapshot {
   };
 }
 
+export type FoundationEventType = "fund_foundation" | "transfer_to_foundation";
+
+export interface FoundationEvent {
+  id: string;
+  eventType: FoundationEventType;
+  eventDate: string;
+  amount: number;
+  memo: string;
+  createdAt: string;
+}
+
 export type DonationLedgerSource = "frank_deenie" | "children";
 export type DonationReturnRole = "original" | "reversal" | "replacement";
 
@@ -195,6 +206,7 @@ export interface FrankDeenieSnapshot {
     overall: number;
   };
   rows: FrankDeenieDonationRow[];
+  foundationEvents: FoundationEvent[];
 }
 
 export interface WorkspaceSnapshot {

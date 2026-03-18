@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { ArrowDownAZ, ArrowUpAZ, Calendar, ChevronDown, DollarSign, Download, History, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Upload, Users, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, Banknote, Calendar, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -26,7 +26,7 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
-import { FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
+import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { compactCurrency, currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
@@ -276,10 +276,15 @@ export default function FrankDeenieClient() {
   const [returnRow, setReturnRow] = useState<FrankDeenieDonationRow | null>(null);
   const [returnDraft, setReturnDraft] = useState({ returnedDate: "", newDonationDate: "", newAmount: "" });
   const [isReturning, setIsReturning] = useState(false);
+  const [foundationEventType, setFoundationEventType] = useState<FoundationEventType | null>(null);
+  const [foundationEventDraft, setFoundationEventDraft] = useState({ date: "", amount: "", memo: "" });
+  const [isCreatingFoundationEvent, setIsCreatingFoundationEvent] = useState(false);
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const addDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const returnDateInputRef = useRef<HTMLInputElement | null>(null);
   const newDonationDateInputRef = useRef<HTMLInputElement | null>(null);
+  const foundationEventDateInputRef = useRef<HTMLInputElement | null>(null);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
@@ -737,6 +742,70 @@ export default function FrankDeenieClient() {
     }
   };
 
+  const openFoundationEventModal = (type: FoundationEventType) => {
+    setFoundationEventType(type);
+    setFoundationEventDraft({ date: toISODate(new Date()), amount: "", memo: "" });
+  };
+
+  const submitFoundationEvent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!foundationEventType) return;
+
+    const parsedAmount = parseNumberInput(foundationEventDraft.amount);
+    if (parsedAmount === null || parsedAmount <= 0) {
+      toast.error("Amount must be a positive number.");
+      return;
+    }
+    if (!foundationEventDraft.date) {
+      toast.error("Date is required.");
+      return;
+    }
+
+    setIsCreatingFoundationEvent(true);
+    try {
+      const response = await fetch("/api/frank-deenie/foundation-events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: foundationEventType,
+          date: foundationEventDraft.date,
+          amount: parsedAmount,
+          memo: foundationEventDraft.memo.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error ?? "Failed to create foundation event.");
+      }
+
+      toast.success(foundationEventType === "fund_foundation" ? "Foundation funded." : "Transfer recorded.");
+      setFoundationEventType(null);
+      void mutate();
+    } catch (submitError) {
+      toast.error(submitError instanceof Error ? submitError.message : "Failed to create foundation event.");
+    } finally {
+      setIsCreatingFoundationEvent(false);
+    }
+  };
+
+  const deleteFoundationEvent = async (eventId: string) => {
+    setDeletingEventId(eventId);
+    try {
+      const response = await fetch(`/api/frank-deenie/foundation-events/${eventId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error ?? "Failed to delete event.");
+      }
+      toast.success("Event deleted.");
+      void mutate();
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : "Failed to delete event.");
+    } finally {
+      setDeletingEventId(null);
+    }
+  };
+
   const validateForm = (draft: DonationDraft): Partial<Record<keyof DonationDraft, string>> => {
     const errors: Partial<Record<keyof DonationDraft, string>> = {};
     
@@ -1094,6 +1163,28 @@ export default function FrankDeenieClient() {
             Children
           </label>
         </div>
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => openFoundationEventModal("fund_foundation")}
+            className="flex-1 text-xs"
+          >
+            <Landmark className="h-3.5 w-3.5" />
+            Fund Foundation
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => openFoundationEventModal("transfer_to_foundation")}
+            className="flex-1 text-xs"
+          >
+            <Banknote className="h-3.5 w-3.5" />
+            Transfer
+          </Button>
+        </div>
       </GlassCard>
 
       {/* Desktop hero: full header */}
@@ -1132,6 +1223,24 @@ export default function FrankDeenieClient() {
               />
               Include Children
             </label>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openFoundationEventModal("fund_foundation")}
+              className="min-h-10"
+            >
+              <Landmark className="h-4 w-4" />
+              Fund Foundation
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openFoundationEventModal("transfer_to_foundation")}
+              className="min-h-10"
+            >
+              <Banknote className="h-4 w-4" />
+              Transfer into Foundation
+            </Button>
             <Button
               type="button"
               variant="prominent"
@@ -1185,6 +1294,54 @@ export default function FrankDeenieClient() {
         }} />
       </GlassCard>
 
+      {data.foundationEvents.length > 0 ? (
+        <GlassCard className="sm:hidden">
+          <CardLabel>Foundation Events</CardLabel>
+          {(["fund_foundation", "transfer_to_foundation"] as const).map((type) => {
+            const events = data.foundationEvents.filter((e) => e.eventType === type);
+            if (events.length === 0) return null;
+            return (
+              <div key={type} className="mt-2.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  {type === "fund_foundation" ? (
+                    <Landmark className="h-3 w-3 text-muted-foreground" />
+                  ) : (
+                    <Banknote className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {type === "fund_foundation" ? "Fund Foundation" : "Transfer into Foundation"}
+                  </p>
+                </div>
+                <ul className="space-y-0.5">
+                  {events.map((evt) => (
+                    <li key={evt.id} className="group flex items-center justify-between rounded-lg px-1.5 py-1 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">{tableDate(evt.eventDate)}</span>
+                          <span className="text-sm font-semibold tabular-nums">{currency(evt.amount)}</span>
+                        </div>
+                        {evt.memo ? (
+                          <p className="truncate text-xs text-muted-foreground">{evt.memo}</p>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteFoundationEvent(evt.id)}
+                        disabled={deletingEventId === evt.id}
+                        className="ml-2 shrink-0 rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                        aria-label="Delete event"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </GlassCard>
+      ) : null}
+
       <PageWithSidebar
         variant="narrow-sidebar"
         breakpoint="2xl"
@@ -1235,6 +1392,54 @@ export default function FrankDeenieClient() {
                 className="transition-all hover:shadow-md hover:border-border/80"
               />
             </section>
+
+            {data.foundationEvents.length > 0 ? (
+              <GlassCard>
+                <CardLabel>Foundation Events</CardLabel>
+                {(["fund_foundation", "transfer_to_foundation"] as const).map((type) => {
+                  const events = data.foundationEvents.filter((e) => e.eventType === type);
+                  if (events.length === 0) return null;
+                  return (
+                    <div key={type} className="mt-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        {type === "fund_foundation" ? (
+                          <Landmark className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <Banknote className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {type === "fund_foundation" ? "Fund Foundation" : "Transfer into Foundation"}
+                        </p>
+                      </div>
+                      <ul className="space-y-1">
+                        {events.map((evt) => (
+                          <li key={evt.id} className="group flex items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/50">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{tableDate(evt.eventDate)}</span>
+                                <span className="font-semibold tabular-nums">{currency(evt.amount)}</span>
+                              </div>
+                              {evt.memo ? (
+                                <p className="mt-0.5 truncate text-xs text-muted-foreground">{evt.memo}</p>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => deleteFoundationEvent(evt.id)}
+                              disabled={deletingEventId === evt.id}
+                              className="ml-2 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
+                              aria-label="Delete event"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </GlassCard>
+            ) : null}
 
             {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
               <GlassCard>
@@ -2583,6 +2788,73 @@ export default function FrankDeenieClient() {
                 </label>
               </div>
             </div>
+          </ResponsiveModalContent>
+        ) : null}
+      </ResponsiveModal>
+
+      <ResponsiveModal open={!!foundationEventType} onOpenChange={(open) => { if (!open) setFoundationEventType(null); }}>
+        {foundationEventType ? (
+          <ResponsiveModalContent
+            aria-labelledby="foundation-event-title"
+            dialogClassName="max-w-md rounded-3xl p-4 sm:p-5"
+            showCloseButton
+          >
+            <h2 id="foundation-event-title" className="text-base font-bold">
+              {foundationEventType === "fund_foundation" ? "Fund Foundation" : "Transfer into Foundation"}
+            </h2>
+            <form onSubmit={submitFoundationEvent} className="space-y-4 pt-2">
+              <div className="text-xs font-semibold text-muted-foreground">
+                Date
+                <button
+                  type="button"
+                  onClick={() => foundationEventDateInputRef.current?.showPicker()}
+                  className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
+                >
+                  <span className={`flex-1 text-left ${foundationEventDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
+                    {foundationEventDraft.date ? tableDate(foundationEventDraft.date) : "Select date"}
+                  </span>
+                  <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+                <input
+                  ref={foundationEventDateInputRef}
+                  type="date"
+                  value={foundationEventDraft.date}
+                  onChange={(e) => setFoundationEventDraft((d) => ({ ...d, date: e.target.value }))}
+                  tabIndex={-1}
+                  className="sr-only"
+                />
+              </div>
+              <label className="block text-xs font-semibold text-muted-foreground">
+                Amount
+                <AmountInput
+                  min={0}
+                  step="0.01"
+                  value={foundationEventDraft.amount}
+                  onChange={(e) => setFoundationEventDraft((d) => ({ ...d, amount: e.target.value }))}
+                  placeholder="0.00"
+                  className="mt-1 h-10 rounded-lg"
+                  required
+                />
+              </label>
+              <label className="block text-xs font-semibold text-muted-foreground">
+                Memo <span className="font-normal text-muted-foreground">(optional)</span>
+                <Input
+                  value={foundationEventDraft.memo}
+                  onChange={(e) => setFoundationEventDraft((d) => ({ ...d, memo: e.target.value }))}
+                  placeholder="Optional note"
+                  className="mt-1 h-10 rounded-lg"
+                  maxLength={800}
+                />
+              </label>
+              <Button
+                type="submit"
+                variant="prominent"
+                className="w-full"
+                disabled={isCreatingFoundationEvent}
+              >
+                {isCreatingFoundationEvent ? "Saving\u2026" : foundationEventType === "fund_foundation" ? "Record Funding" : "Record Transfer"}
+              </Button>
+            </form>
           </ResponsiveModalContent>
         ) : null}
       </ResponsiveModal>

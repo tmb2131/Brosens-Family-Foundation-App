@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
-import { DonationLedgerSource, DonationReturnRole, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
+import { DonationLedgerSource, DonationReturnRole, FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
 
@@ -416,10 +416,11 @@ export async function getFrankDeenieSnapshot(
   const requestedYear = input.year ?? null;
   const year = requestedYear === null ? null : normalizeYear(requestedYear);
 
-  const [frankDeenieRows, childrenRows, availableYears] = await Promise.all([
+  const [frankDeenieRows, childrenRows, availableYears, foundationEvents] = await Promise.all([
     listFrankDeenieDonationsByYear(admin, year),
     includeChildren ? listChildrenDonationsByYear(admin, year) : Promise.resolve([]),
-    loadAvailableYears(admin)
+    loadAvailableYears(admin),
+    listFoundationEvents(admin, year)
   ]);
 
   const years =
@@ -441,7 +442,8 @@ export async function getFrankDeenieSnapshot(
       children: roundCurrency(childrenTotal),
       overall: roundCurrency(frankDeenieTotal + childrenTotal)
     },
-    rows
+    rows,
+    foundationEvents
   };
 }
 
@@ -830,6 +832,111 @@ async function markChildrenDonationReturned(
   }
 
   return { returnGroupId };
+}
+
+interface FoundationEventDbRow {
+  id: string;
+  event_type: FoundationEventType;
+  event_date: string;
+  amount: number | string;
+  memo: string | null;
+  created_at: string;
+}
+
+const FOUNDATION_EVENT_SELECT = "id, event_type, event_date, amount, memo, created_at";
+
+function mapFoundationEventRow(row: FoundationEventDbRow): FoundationEvent {
+  return {
+    id: row.id,
+    eventType: row.event_type,
+    eventDate: row.event_date,
+    amount: toNumber(row.amount),
+    memo: row.memo ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+async function listFoundationEvents(admin: AdminClient, year: number | null): Promise<FoundationEvent[]> {
+  let query = admin
+    .from("foundation_events")
+    .select(FOUNDATION_EVENT_SELECT)
+    .order("event_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (year !== null) {
+    const { startDate, endDate } = toYearWindow(year);
+    query = query.gte("event_date", startDate).lte("event_date", endDate);
+  }
+
+  const { data, error } = await query.returns<FoundationEventDbRow[]>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load foundation events: ${error.message}`);
+  }
+
+  return (data ?? []).map(mapFoundationEventRow);
+}
+
+interface CreateFoundationEventInput {
+  eventType: FoundationEventType;
+  date: string;
+  amount: number;
+  memo?: string | null;
+  requesterId: string;
+}
+
+const VALID_EVENT_TYPES: FoundationEventType[] = ["fund_foundation", "transfer_to_foundation"];
+
+export async function createFoundationEvent(
+  admin: AdminClient,
+  input: CreateFoundationEventInput
+) {
+  if (!VALID_EVENT_TYPES.includes(input.eventType)) {
+    throw new HttpError(400, "eventType must be fund_foundation or transfer_to_foundation.");
+  }
+
+  const date = normalizeDateString(input.date);
+  const memo = normalizeOptionalText(input.memo, "memo", 800);
+  const amount = Number(input.amount);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new HttpError(400, "amount must be a positive number.");
+  }
+
+  const { data, error } = await admin
+    .from("foundation_events")
+    .insert({
+      event_type: input.eventType,
+      event_date: date,
+      amount: roundCurrency(amount),
+      memo,
+      created_by: input.requesterId,
+    })
+    .select(FOUNDATION_EVENT_SELECT)
+    .single<FoundationEventDbRow>();
+
+  if (error || !data) {
+    throw new HttpError(500, `Could not create foundation event: ${error?.message ?? "missing row"}`);
+  }
+
+  return mapFoundationEventRow(data);
+}
+
+export async function deleteFoundationEvent(admin: AdminClient, eventId: string) {
+  const { data, error } = await admin
+    .from("foundation_events")
+    .delete()
+    .eq("id", eventId)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error) {
+    throw new HttpError(500, `Could not delete foundation event: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new HttpError(404, "Foundation event not found.");
+  }
 }
 
 function dedupeKeyFromInsertRow(row: {
