@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
@@ -20,11 +20,11 @@ import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { AmountInput } from "@/components/ui/amount-input";
-import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AddDonationForm } from "./add-donation-form";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -79,18 +79,6 @@ function byDisplay(row: FrankDeenieDonationRow): string {
     return row.proposedBy ? proposerName(row.proposedBy) : "—";
   }
   return "F&D";
-}
-
-function initialDraftForYear(year: number | null): DonationDraft {
-  return {
-    date: year ? `${year}-01-01` : toISODate(new Date()),
-    type: "donation",
-    name: "",
-    memo: "",
-    split: "",
-    amount: "",
-    status: "Gave"
-  };
 }
 
 function rowToDraft(row: FrankDeenieDonationRow): DonationDraft {
@@ -248,9 +236,6 @@ export default function FrankDeenieClient() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newDraft, setNewDraft] = useState<DonationDraft>(() => initialDraftForYear(null));
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof DonationDraft, string>>>({});
-  const [isCreating, setIsCreating] = useState(false);
   const [importCsvFile, setImportCsvFile] = useState<File | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
   const [importInputKey, setImportInputKey] = useState(0);
@@ -282,7 +267,6 @@ export default function FrankDeenieClient() {
   const [foundationEventDraft, setFoundationEventDraft] = useState({ date: "", amount: "", memo: "" });
   const [isCreatingFoundationEvent, setIsCreatingFoundationEvent] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
-  const addDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
   const returnDateInputRef = useRef<HTMLInputElement | null>(null);
   const newDonationDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -542,16 +526,8 @@ export default function FrankDeenieClient() {
     setFilters((current) => ({ ...current, [key]: value }));
   };
 
-  const openAddForm = () => {
-    setShowAddForm(true);
-    setFormErrors({});
-    setNewDraft(initialDraftForYear(selectedYear));
-  };
-
-  const closeAddForm = () => {
-    setShowAddForm(false);
-    setFormErrors({});
-  };
+  const openAddForm = useCallback(() => setShowAddForm(true), []);
+  const closeAddForm = useCallback(() => setShowAddForm(false), []);
 
   const closeDetailDrawer = () => {
     if (detailRowId !== null && editingId === detailRowId) {
@@ -829,82 +805,7 @@ export default function FrankDeenieClient() {
     }
   };
 
-  const validateForm = (draft: DonationDraft): Partial<Record<keyof DonationDraft, string>> => {
-    const errors: Partial<Record<keyof DonationDraft, string>> = {};
-    
-    if (!draft.name.trim()) {
-      errors.name = "Name is required";
-    }
-    
-    const parsedAmount = parseNumberInput(draft.amount);
-    if (parsedAmount === null || parsedAmount < 0) {
-      errors.amount = "Amount must be a non-negative number";
-    }
-    
-    if (!draft.date) {
-      errors.date = "Date is required";
-    }
-    
-    return errors;
-  };
-
-  const updateDraft = (field: keyof DonationDraft, value: string) => {
-    setNewDraft(current => {
-      const updated = { ...current, [field]: value };
-      const errors = validateForm(updated);
-      setFormErrors(errors);
-      return updated;
-    });
-  };
-  const submitNewDonation = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const errors = validateForm(newDraft);
-    setFormErrors(errors);
-    
-    if (Object.keys(errors).length > 0) {
-      toast.error("Please fix the errors below.");
-      return;
-    }
-
-    const parsedAmount = parseNumberInput(newDraft.amount);
-    if (parsedAmount === null || parsedAmount < 0) {
-      toast.error("Amount must be a non-negative number.");
-      return;
-    }
-
-    setIsCreating(true);
-
-    try {
-      const response = await fetch("/api/frank-deenie", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          date: newDraft.date,
-          type: newDraft.type,
-          name: newDraft.name,
-          memo: newDraft.memo,
-          split: newDraft.split,
-          amount: parsedAmount,
-          status: newDraft.status
-        })
-      });
-
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to create donation."));
-      }
-
-      toast.success("Donation added.");
-      setNewDraft(initialDraftForYear(selectedYear));
-      setFormErrors({});
-      void mutate();
-    } catch (createError) {
-      toast.error(createError instanceof Error ? createError.message : "Failed to create donation.");
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  const handleDonationCreated = useCallback(() => void mutate(), [mutate]);
 
   const importCsv = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -2456,132 +2357,13 @@ export default function FrankDeenieClient() {
         ) : null}
       </ResponsiveModal>
 
-      <ResponsiveModal
+      <AddDonationForm
         open={showAddForm}
-        onOpenChange={(open) => { if (!open && !isCreating) closeAddForm(); }}
-      >
-        <ResponsiveModalContent
-          aria-labelledby="add-donation-title"
-          dialogClassName="sm:max-w-5xl p-4 sm:p-5"
-          showCloseButton={false}
-          onInteractOutside={(e) => { if (isCreating) e.preventDefault(); }}
-          footer={
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-3">
-              <div className="flex items-center gap-2">
-                <Button type="submit" form="add-donation-form" disabled={isCreating} className="flex-1 sm:flex-none">
-                  {isCreating ? "Saving..." : "Save Donation"}
-                </Button>
-                <Button variant="outline" type="button" onClick={closeAddForm} disabled={isCreating} className="flex-1 sm:flex-none">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          }
-        >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 id="add-donation-title" className="text-lg font-bold">
-                  Add Donation
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Add a new ledger entry for the selected period.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={closeAddForm}
-                disabled={isCreating}
-                aria-label="Close add donation dialog"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <form id="add-donation-form" className="mt-4 grid gap-3" onSubmit={submitNewDonation}>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <div className="text-xs font-semibold text-muted-foreground">
-                  Date
-                  <button
-                    type="button"
-                    onClick={() => addDonationDateInputRef.current?.showPicker()}
-                    className={`mt-1 flex h-9 w-full cursor-pointer items-center rounded-lg border bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40 ${formErrors.date ? "border-rose-300" : "border-input"}`}
-                  >
-                    <span className={`flex-1 text-left ${newDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
-                      {newDraft.date ? tableDate(newDraft.date) : "Select date"}
-                    </span>
-                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
-                  <input
-                    ref={addDonationDateInputRef}
-                    type="date"
-                    value={newDraft.date}
-                    onChange={(event) => updateDraft("date", event.target.value)}
-                    required
-                    tabIndex={-1}
-                    className="sr-only"
-                  />
-                  {formErrors.date && (
-                    <p className="mt-1 text-xs text-rose-600">{formErrors.date}</p>
-                  )}
-                </div>
-                <div className="text-xs font-semibold text-muted-foreground">
-                  Name
-                  <AutocompleteInput
-                    value={newDraft.name}
-                    onChange={(value) => updateDraft("name", value)}
-                    suggestions={allNameSuggestions}
-                    addNewLabel="Add as new name"
-                    className="mt-1 rounded-lg"
-                    hasError={Boolean(formErrors.name)}
-                    required
-                  />
-                  {formErrors.name && (
-                    <p className="mt-1 text-xs text-rose-600">{formErrors.name}</p>
-                  )}
-                </div>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Amount
-                  <AmountInput
-                    min={0}
-                    step="0.01"
-                    value={newDraft.amount}
-                    onChange={(event) => updateDraft("amount", event.target.value)}
-                    className={`mt-1 rounded-lg ${formErrors.amount ? "border-rose-300 focus:border-rose-500" : ""}`}
-                    required
-                  />
-                  {formErrors.amount && (
-                    <p className="mt-1 text-xs text-rose-600">{formErrors.amount}</p>
-                  )}
-                </label>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Notes / Description
-                  <Input
-                    type="text"
-                    value={newDraft.memo}
-                    onChange={(event) => updateDraft("memo", event.target.value)}
-                    className="mt-1 rounded-lg"
-                  />
-                </label>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Status
-                  <select
-                    value={newDraft.status}
-                    onChange={(event) => updateDraft("status", event.target.value)}
-                    className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-lg border px-3 py-1 text-base outline-none md:text-sm mt-1"
-                  >
-                    {DONATION_STATUSES.map((statusOption) => (
-                      <option key={statusOption} value={statusOption}>
-                        {statusOption}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-            </form>
-        </ResponsiveModalContent>
-      </ResponsiveModal>
+        onClose={closeAddForm}
+        selectedYear={selectedYear}
+        nameSuggestions={allNameSuggestions}
+        onCreated={handleDonationCreated}
+      />
 
       <ResponsiveModal
         open={!!givingHistoryName}
