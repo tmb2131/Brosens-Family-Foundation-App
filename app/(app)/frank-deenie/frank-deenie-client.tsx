@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { ArrowDownAZ, ArrowUpAZ, Banknote, Calendar, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, Banknote, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -19,30 +19,21 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
-import { AmountInput } from "@/components/ui/amount-input";
-import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AddDonationForm } from "./add-donation-form";
+import { DonationDetailDrawer, DetailMode } from "./donation-detail-drawer";
+import { ReturnCheckForm } from "./return-check-form";
+import { FoundationEventForm } from "./foundation-event-form";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton";
-import { compactCurrency, currency, formatNumber, parseNumberInput, toISODate } from "@/lib/utils";
+import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 
 type SortKey = "date" | "name" | "memo" | "amount" | "status";
 type SortDirection = "asc" | "desc";
-
-interface DonationDraft {
-  date: string;
-  type: string;
-  name: string;
-  memo: string;
-  split: string;
-  amount: string;
-  status: string;
-}
 
 interface DonationFilters {
   search: string;
@@ -79,18 +70,6 @@ function byDisplay(row: FrankDeenieDonationRow): string {
     return row.proposedBy ? proposerName(row.proposedBy) : "—";
   }
   return "F&D";
-}
-
-function rowToDraft(row: FrankDeenieDonationRow): DonationDraft {
-  return {
-    date: row.date,
-    type: row.type,
-    name: row.name,
-    memo: row.memo,
-    split: row.split,
-    amount: Number.isInteger(row.amount) ? String(row.amount) : row.amount.toFixed(2),
-    status: row.status
-  };
 }
 
 function tableDate(value: string) {
@@ -241,15 +220,10 @@ export default function FrankDeenieClient() {
   const [importInputKey, setImportInputKey] = useState(0);
   const [importExpanded, setImportExpanded] = useState(false);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<DonationDraft | null>(null);
-  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
-  const [editingNotesValue, setEditingNotesValue] = useState("");
-  const [savingNotesId, setSavingNotesId] = useState<string | null>(null);
-  const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<FrankDeenieDonationRow | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const [detailMode, setDetailMode] = useState<DetailMode>("view");
   const [openActionMenuRowId, setOpenActionMenuRowId] = useState<string | null>(null);
   
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
@@ -261,16 +235,8 @@ export default function FrankDeenieClient() {
   const [givingHistoryNames, setGivingHistoryNames] = useState<string[] | null>(null);
   const [excludedFilterNames, setExcludedFilterNames] = useState<Set<string>>(new Set());
   const [returnRow, setReturnRow] = useState<FrankDeenieDonationRow | null>(null);
-  const [returnDraft, setReturnDraft] = useState({ returnedDate: "", newDonationDate: "", newAmount: "" });
-  const [isReturning, setIsReturning] = useState(false);
   const [foundationEventType, setFoundationEventType] = useState<FoundationEventType | null>(null);
-  const [foundationEventDraft, setFoundationEventDraft] = useState({ date: "", amount: "", memo: "" });
-  const [isCreatingFoundationEvent, setIsCreatingFoundationEvent] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
-  const editDonationDateInputRef = useRef<HTMLInputElement | null>(null);
-  const returnDateInputRef = useRef<HTMLInputElement | null>(null);
-  const newDonationDateInputRef = useRef<HTMLInputElement | null>(null);
-  const foundationEventDateInputRef = useRef<HTMLInputElement | null>(null);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
@@ -339,18 +305,6 @@ export default function FrankDeenieClient() {
       setSelectedYear(null);
     }
   }, [data, selectedYear]);
-
-  useEffect(() => {
-    if (!editingId || !data) {
-      return;
-    }
-
-    const stillExists = data.rows.some((row) => row.id === editingId);
-    if (!stillExists) {
-      setEditingId(null);
-      setEditDraft(null);
-    }
-  }, [data, editingId]);
 
   useEffect(() => {
     if (!detailRowId) {
@@ -529,113 +483,11 @@ export default function FrankDeenieClient() {
   const openAddForm = useCallback(() => setShowAddForm(true), []);
   const closeAddForm = useCallback(() => setShowAddForm(false), []);
 
-  const closeDetailDrawer = () => {
-    if (detailRowId !== null && editingId === detailRowId) {
-      setEditingId(null);
-      setEditDraft(null);
-    }
-    if (detailRowId !== null && editingNotesId === detailRowId) {
-      setEditingNotesId(null);
-      setEditingNotesValue("");
-    }
+  const closeDetailDrawer = useCallback(() => {
     setDetailRowId(null);
+    setDetailMode("view");
     setOpenActionMenuRowId(null);
-  };
-
-  const beginEdit = (row: FrankDeenieDonationRow) => {
-    if (!row.editable) {
-      return;
-    }
-
-    setEditingId(row.id);
-    setEditDraft(rowToDraft(row));
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditDraft(null);
-  };
-
-  const beginNotesEdit = (row: FrankDeenieDonationRow) => {
-    setEditingNotesId(row.id);
-    setEditingNotesValue(row.memo);
-  };
-
-  const cancelNotesEdit = () => {
-    setEditingNotesId(null);
-    setEditingNotesValue("");
-  };
-
-  const saveNotesEdit = async () => {
-    if (!editingNotesId) return;
-
-    setSavingNotesId(editingNotesId);
-    try {
-      const response = await fetch(`/api/frank-deenie/${editingNotesId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ memo: editingNotesValue.trim() || null })
-      });
-
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to update notes."));
-      }
-
-      toast.success("Notes updated.");
-      setEditingNotesId(null);
-      setEditingNotesValue("");
-      void mutate();
-    } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : "Failed to update notes.");
-    } finally {
-      setSavingNotesId(null);
-    }
-  };
-
-  const saveEdit = async () => {
-    if (!editingId || !editDraft) {
-      return;
-    }
-
-    const parsedAmount = parseNumberInput(editDraft.amount);
-    if (parsedAmount === null || parsedAmount < 0) {
-      toast.error("Amount must be a non-negative number.");
-      return;
-    }
-
-    setSavingRowId(editingId);
-
-    try {
-      const response = await fetch(`/api/frank-deenie/${editingId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          date: editDraft.date,
-          type: editDraft.type,
-          name: editDraft.name,
-          memo: editDraft.memo,
-          split: editDraft.split,
-          amount: parsedAmount,
-          status: editDraft.status
-        })
-      });
-
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to update donation."));
-      }
-
-      toast.success("Donation updated.");
-      setEditingId(null);
-      setEditDraft(null);
-      void mutate();
-    } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : "Failed to update donation.");
-    } finally {
-      setSavingRowId(null);
-    }
-  };
+  }, []);
 
   const requestDelete = (row: FrankDeenieDonationRow) => {
     if (!row.editable) return;
@@ -649,10 +501,6 @@ export default function FrankDeenieClient() {
     setDeleteConfirmRow(null);
     setDeletingRowId(row.id);
 
-    if (editingId === row.id) {
-      setEditingId(null);
-      setEditDraft(null);
-    }
     if (detailRowId === row.id) {
       setDetailRowId(null);
     }
@@ -695,98 +543,30 @@ export default function FrankDeenieClient() {
     }
   };
 
-  const beginReturn = (row: FrankDeenieDonationRow) => {
-    setReturnRow(row);
-    setReturnDraft({ returnedDate: toISODate(new Date()), newDonationDate: toISODate(new Date()), newAmount: String(row.amount) });
-  };
+  const handleReturnClose = useCallback(() => setReturnRow(null), []);
+  const handleReturnDone = useCallback(() => {
+    setReturnRow(null);
+    setDetailRowId(null);
+    void mutate();
+  }, [mutate]);
 
-  const submitReturn = async () => {
-    if (!returnRow) return;
-    if (!returnDraft.returnedDate || !returnDraft.newDonationDate) {
-      toast.error("Both dates are required.");
-      return;
-    }
-    const parsedAmount = parseNumberInput(returnDraft.newAmount);
-    if (parsedAmount === null || parsedAmount < 0) {
-      toast.error("Amount must be a non-negative number.");
-      return;
-    }
+  const handleFoundationEventClose = useCallback(() => setFoundationEventType(null), []);
+  const handleFoundationEventCreated = useCallback(() => {
+    setFoundationEventType(null);
+    void mutate();
+  }, [mutate]);
 
-    setIsReturning(true);
-    try {
-      const sourceId = returnRow.source === "children" ? returnRow.id.replace(/^children:/, "") : returnRow.id;
-      const response = await fetch("/api/frank-deenie/return", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceId,
-          source: returnRow.source,
-          returnedDate: returnDraft.returnedDate,
-          newDonationDate: returnDraft.newDonationDate,
-          newAmount: parsedAmount,
-        }),
-      });
-      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to mark donation as returned."));
-      }
-      toast.success("Check marked as returned. Replacement donation created.");
-      setReturnRow(null);
-      setDetailRowId(null);
-      void mutate();
-    } catch (returnError) {
-      toast.error(returnError instanceof Error ? returnError.message : "Failed to mark donation as returned.");
-    } finally {
-      setIsReturning(false);
-    }
-  };
-
-  const openFoundationEventModal = (type: FoundationEventType) => {
-    setFoundationEventType(type);
-    setFoundationEventDraft({ date: toISODate(new Date()), amount: "", memo: "" });
-  };
-
-  const submitFoundationEvent = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!foundationEventType) return;
-
-    const parsedAmount = parseNumberInput(foundationEventDraft.amount);
-    if (parsedAmount === null || parsedAmount <= 0) {
-      toast.error("Amount must be a positive number.");
-      return;
-    }
-    if (!foundationEventDraft.date) {
-      toast.error("Date is required.");
-      return;
-    }
-
-    setIsCreatingFoundationEvent(true);
-    try {
-      const response = await fetch("/api/frank-deenie/foundation-events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventType: foundationEventType,
-          date: foundationEventDraft.date,
-          amount: parsedAmount,
-          memo: foundationEventDraft.memo.trim() || null,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error ?? "Failed to create foundation event.");
-      }
-
-      toast.success(foundationEventType === "fund_foundation" ? "Foundation funded." : "Transfer recorded.");
-      setFoundationEventType(null);
-      void mutate();
-    } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : "Failed to create foundation event.");
-    } finally {
-      setIsCreatingFoundationEvent(false);
-    }
-  };
+  const handleDetailMutate = useCallback(() => void mutate(), [mutate]);
+  const handleDetailBeginReturn = useCallback((row: FrankDeenieDonationRow) => setReturnRow(row), []);
+  const handleDetailRequestDelete = useCallback((row: FrankDeenieDonationRow) => {
+    if (!row.editable) return;
+    setDeleteConfirmRow(row);
+  }, []);
+  const handleDetailViewHistory = useCallback((name: string) => {
+    setGivingHistoryName(name);
+    setGivingHistoryFuzzy(false);
+    setGivingHistoryNames(null);
+  }, []);
 
   const deleteFoundationEvent = async (eventId: string) => {
     setDeletingEventId(eventId);
@@ -1092,7 +872,7 @@ export default function FrankDeenieClient() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => openFoundationEventModal("fund_foundation")}
+            onClick={() => setFoundationEventType("fund_foundation")}
             className="flex-1 text-xs"
           >
             <Landmark className="h-3.5 w-3.5" />
@@ -1102,7 +882,7 @@ export default function FrankDeenieClient() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => openFoundationEventModal("transfer_to_foundation")}
+            onClick={() => setFoundationEventType("transfer_to_foundation")}
             className="flex-1 text-xs"
           >
             <Banknote className="h-3.5 w-3.5" />
@@ -1150,7 +930,7 @@ export default function FrankDeenieClient() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => openFoundationEventModal("fund_foundation")}
+              onClick={() => setFoundationEventType("fund_foundation")}
               className="min-h-10"
             >
               <Landmark className="h-4 w-4" />
@@ -1159,7 +939,7 @@ export default function FrankDeenieClient() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => openFoundationEventModal("transfer_to_foundation")}
+              onClick={() => setFoundationEventType("transfer_to_foundation")}
               className="min-h-10"
             >
               <Banknote className="h-4 w-4" />
@@ -2015,7 +1795,7 @@ export default function FrankDeenieClient() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        beginEdit(row);
+                                        setDetailMode("edit");
                                         setDetailRowId(row.id);
                                         setOpenActionMenuRowId(null);
                                       }}
@@ -2028,7 +1808,7 @@ export default function FrankDeenieClient() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        beginNotesEdit(row);
+                                        setDetailMode("edit-notes");
                                         setDetailRowId(row.id);
                                         setOpenActionMenuRowId(null);
                                       }}
@@ -2074,288 +1854,17 @@ export default function FrankDeenieClient() {
         <Plus className="h-6 w-6" />
       </button>
 
-      <ResponsiveModal open={!!detailRow} onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}>
-        {detailRow ? (
-        <ResponsiveModalContent
-          aria-labelledby="donation-details-title"
-          dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5"
-          showCloseButton={false}
-          footer={detailRow.editable || isAdmin || (detailRow.returnRole === null && detailRow.status === "Gave") ? (
-            <div className="flex flex-wrap items-center gap-3 pt-3">
-              {detailRow.editable && editingId !== detailRow.id ? (
-                <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => beginEdit(detailRow)}>
-                  Edit donation
-                </Button>
-              ) : null}
-              {isAdmin && !detailRow.editable && editingNotesId !== detailRow.id ? (
-                <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => beginNotesEdit(detailRow)}>
-                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                  Edit notes
-                </Button>
-              ) : null}
-              {detailRow.returnRole === null && detailRow.status === "Gave" ? (
-                <Button variant="outline" className="flex-1 sm:flex-none border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20" onClick={() => beginReturn(detailRow)}>
-                  Mark as Returned
-                </Button>
-              ) : null}
-              {detailRow.editable && !detailRow.returnRole ? (
-                <Button
-                  variant="destructive-outline"
-                  className="flex-1 sm:flex-none"
-                  onClick={() => requestDelete(detailRow)}
-                  disabled={deletingRowId === detailRow.id}
-                >
-                  {deletingRowId === detailRow.id ? "Deleting..." : "Delete donation"}
-                </Button>
-              ) : null}
-            </div>
-          ) : undefined}
-        >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className={`text-2xl font-bold tabular-nums ${detailRow.returnRole === "original" ? "line-through text-muted-foreground" : detailRow.returnRole === "reversal" ? "text-rose-600 dark:text-rose-400" : ""}`}>
-                  {detailRow.returnRole === "reversal" ? `-${currency(Math.abs(detailRow.amount))}` : currency(detailRow.amount)}
-                </p>
-                <h2 id="donation-details-title" className={`mt-1 text-base font-semibold leading-snug ${detailRow.returnRole === "original" ? "line-through text-muted-foreground" : ""}`}>
-                  {detailRow.name}
-                </h2>
-                <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                      detailRow.source === "children"
-                        ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-                        : "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
-                    }`}
-                  >
-                    {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
-                  </span>
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                      detailRow.status === "Planned"
-                        ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300"
-                        : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300"
-                    }`}
-                  >
-                    {detailRow.status}
-                  </span>
-                  {detailRow.returnRole === "original" ? (
-                    <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
-                      Returned{detailRow.returnedAt ? ` ${tableDate(detailRow.returnedAt)}` : ""}
-                    </span>
-                  ) : detailRow.returnRole === "reversal" ? (
-                    <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 dark:border-rose-700/50 dark:bg-rose-900/20 dark:text-rose-300">
-                      Reversal
-                    </span>
-                  ) : detailRow.returnRole === "replacement" ? (
-                    <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
-                      Reissued
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => { setGivingHistoryName(detailRow.name); setGivingHistoryFuzzy(false); setGivingHistoryNames(null); }}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  >
-                    <History className="h-3 w-3" />
-                    History
-                  </button>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={closeDetailDrawer}
-                aria-label="Close donation details"
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="my-4 h-px bg-border" />
-
-            {editingId === detailRow.id && editDraft ? (
-              <>
-                <form className="grid gap-3" onSubmit={(event) => event.preventDefault()}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    Date
-                    <button
-                      type="button"
-                      onClick={() => editDonationDateInputRef.current?.showPicker()}
-                      className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
-                    >
-                      <span className={`flex-1 text-left ${editDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
-                        {editDraft.date ? tableDate(editDraft.date) : "Select date"}
-                      </span>
-                      <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </button>
-                    <input
-                      ref={editDonationDateInputRef}
-                      type="date"
-                      value={editDraft.date}
-                      onChange={(event) =>
-                        setEditDraft((current) => (current ? { ...current, date: event.target.value } : current))
-                      }
-                      tabIndex={-1}
-                      className="sr-only"
-                    />
-                  </div>
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Name
-                    <Input
-                      type="text"
-                      value={editDraft.name}
-                      onChange={(event) =>
-                        setEditDraft((current) => (current ? { ...current, name: event.target.value } : current))
-                      }
-                      className="mt-1 h-10 rounded-lg"
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Amount
-                    <AmountInput
-                      min={0}
-                      step="0.01"
-                      value={editDraft.amount}
-                      onChange={(event) =>
-                        setEditDraft((current) => (current ? { ...current, amount: event.target.value } : current))
-                      }
-                      className="mt-1 h-10 rounded-lg"
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Status
-                    <select
-                      value={editDraft.status}
-                      onChange={(event) =>
-                        setEditDraft((current) => (current ? { ...current, status: event.target.value } : current))
-                      }
-                      className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 w-full rounded-lg border px-3 py-1 text-base outline-none sm:text-sm mt-1"
-                    >
-                      {DONATION_STATUSES.map((statusOption) => (
-                        <option key={statusOption} value={statusOption}>
-                          {statusOption}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  Notes / Description
-                  <Input
-                    type="text"
-                    value={editDraft.memo}
-                    onChange={(event) =>
-                      setEditDraft((current) => (current ? { ...current, memo: event.target.value } : current))
-                    }
-                    className="mt-1 h-10 rounded-lg"
-                  />
-                </label>
-                <div className="flex items-center gap-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="prominent"
-                    className="flex-1 sm:flex-none"
-                    onClick={() => void saveEdit()}
-                    disabled={savingRowId === detailRow.id}
-                  >
-                    {savingRowId === detailRow.id ? "Saving..." : "Save"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1 sm:flex-none"
-                    onClick={cancelEdit}
-                    disabled={savingRowId === detailRow.id}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-                </form>
-              </>
-            ) : (
-              <dl className="grid gap-3 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Date
-                    </dt>
-                    <dd className="mt-0.5 font-medium">{tableDate(detailRow.date)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Source
-                    </dt>
-                    <dd className="mt-0.5 font-medium">
-                      {detailRow.source === "children" ? "Children" : "Frank & Deenie"}
-                    </dd>
-                  </div>
-                </div>
-                <div>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Proposed by
-                  </dt>
-                  <dd className="mt-0.5 font-medium">{byDisplay(detailRow)}</dd>
-                </div>
-                {editingNotesId === detailRow.id ? (
-                  <div>
-                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Notes
-                    </dt>
-                    <div className="mt-1 space-y-2">
-                      <Input
-                        type="text"
-                        value={editingNotesValue}
-                        onChange={(event) => setEditingNotesValue(event.target.value)}
-                        placeholder="Add notes..."
-                        className="h-9 rounded-lg text-sm"
-                        autoFocus
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") { event.preventDefault(); void saveNotesEdit(); }
-                          if (event.key === "Escape") cancelNotesEdit();
-                        }}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="prominent"
-                          onClick={() => void saveNotesEdit()}
-                          disabled={savingNotesId === detailRow.id}
-                        >
-                          {savingNotesId === detailRow.id ? "Saving..." : "Save"}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={cancelNotesEdit} disabled={savingNotesId === detailRow.id}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : detailRow.memo || isAdmin ? (
-                  <div>
-                    <dt className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Notes
-                      {isAdmin && editingId !== detailRow.id ? (
-                        <button
-                          type="button"
-                          onClick={() => beginNotesEdit(detailRow)}
-                          className="inline-flex items-center rounded-md p-0.5 text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
-                          aria-label="Edit notes"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                      ) : null}
-                    </dt>
-                    <dd className="mt-0.5 whitespace-pre-wrap font-medium text-muted-foreground">
-                      {detailRow.memo || <span className="italic text-muted-foreground/50">No notes</span>}
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-            )}
-
-        </ResponsiveModalContent>
-        ) : null}
-      </ResponsiveModal>
+      <DonationDetailDrawer
+        row={detailRow}
+        isAdmin={isAdmin}
+        deletingRowId={deletingRowId}
+        initialMode={detailMode}
+        onClose={closeDetailDrawer}
+        onMutate={handleDetailMutate}
+        onBeginReturn={handleDetailBeginReturn}
+        onRequestDelete={handleDetailRequestDelete}
+        onViewHistory={handleDetailViewHistory}
+      />
 
       <AddDonationForm
         open={showAddForm}
@@ -2498,171 +2007,17 @@ export default function FrankDeenieClient() {
         ) : null}
       </ResponsiveModal>
 
-      <ResponsiveModal
-        open={returnRow !== null}
-        onOpenChange={(open) => { if (!open && !isReturning) setReturnRow(null); }}
-      >
-        {returnRow ? (
-          <ResponsiveModalContent
-            aria-labelledby="return-check-title"
-            dialogClassName="max-w-md rounded-3xl p-5"
-            showCloseButton={false}
-            onInteractOutside={(e) => { if (isReturning) e.preventDefault(); }}
-            footer={
-              <div className="flex items-center gap-2 pt-3">
-                <Button
-                  className="flex-1 sm:flex-none"
-                  onClick={() => void submitReturn()}
-                  disabled={isReturning}
-                >
-                  {isReturning ? "Processing..." : "Mark as Returned"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 sm:flex-none"
-                  onClick={() => setReturnRow(null)}
-                  disabled={isReturning}
-                >
-                  Cancel
-                </Button>
-              </div>
-            }
-          >
-            <div className="space-y-4">
-              <div>
-                <h2 id="return-check-title" className="text-lg font-bold text-foreground">
-                  Mark Check as Returned
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  The original {currency(returnRow.amount)} donation to <span className="font-semibold text-foreground">&ldquo;{returnRow.name}&rdquo;</span> will be flagged as returned. A reversal entry and a new replacement donation will be created.
-                </p>
-              </div>
+      <ReturnCheckForm
+        row={returnRow}
+        onClose={handleReturnClose}
+        onReturned={handleReturnDone}
+      />
 
-              <div className="grid gap-3">
-                <div className="text-xs font-semibold text-muted-foreground">
-                  Date Returned
-                  <button
-                    type="button"
-                    onClick={() => returnDateInputRef.current?.showPicker()}
-                    className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
-                  >
-                    <span className={`flex-1 text-left ${returnDraft.returnedDate ? "text-foreground" : "text-muted-foreground"}`}>
-                      {returnDraft.returnedDate ? tableDate(returnDraft.returnedDate) : "Select date"}
-                    </span>
-                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
-                  <input
-                    ref={returnDateInputRef}
-                    type="date"
-                    value={returnDraft.returnedDate}
-                    onChange={(e) => setReturnDraft((d) => ({ ...d, returnedDate: e.target.value }))}
-                    tabIndex={-1}
-                    className="sr-only"
-                  />
-                </div>
-                <div className="text-xs font-semibold text-muted-foreground">
-                  New Check Date
-                  <button
-                    type="button"
-                    onClick={() => newDonationDateInputRef.current?.showPicker()}
-                    className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
-                  >
-                    <span className={`flex-1 text-left ${returnDraft.newDonationDate ? "text-foreground" : "text-muted-foreground"}`}>
-                      {returnDraft.newDonationDate ? tableDate(returnDraft.newDonationDate) : "Select date"}
-                    </span>
-                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
-                  <input
-                    ref={newDonationDateInputRef}
-                    type="date"
-                    value={returnDraft.newDonationDate}
-                    onChange={(e) => setReturnDraft((d) => ({ ...d, newDonationDate: e.target.value }))}
-                    tabIndex={-1}
-                    className="sr-only"
-                  />
-                </div>
-                <label className="text-xs font-semibold text-muted-foreground">
-                  New Amount
-                  <AmountInput
-                    min={0}
-                    step="0.01"
-                    value={returnDraft.newAmount}
-                    onChange={(e) => setReturnDraft((d) => ({ ...d, newAmount: e.target.value }))}
-                    className="mt-1 h-10 rounded-lg"
-                  />
-                </label>
-              </div>
-            </div>
-          </ResponsiveModalContent>
-        ) : null}
-      </ResponsiveModal>
-
-      <ResponsiveModal open={!!foundationEventType} onOpenChange={(open) => { if (!open) setFoundationEventType(null); }}>
-        {foundationEventType ? (
-          <ResponsiveModalContent
-            aria-labelledby="foundation-event-title"
-            dialogClassName="max-w-md rounded-3xl p-4 sm:p-5"
-            showCloseButton
-          >
-            <h2 id="foundation-event-title" className="text-base font-bold">
-              {foundationEventType === "fund_foundation" ? "Fund Foundation" : "Transfer into Foundation"}
-            </h2>
-            <form onSubmit={submitFoundationEvent} className="space-y-4 pt-2">
-              <div className="text-xs font-semibold text-muted-foreground">
-                Date
-                <button
-                  type="button"
-                  onClick={() => foundationEventDateInputRef.current?.showPicker()}
-                  className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
-                >
-                  <span className={`flex-1 text-left ${foundationEventDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
-                    {foundationEventDraft.date ? tableDate(foundationEventDraft.date) : "Select date"}
-                  </span>
-                  <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </button>
-                <input
-                  ref={foundationEventDateInputRef}
-                  type="date"
-                  value={foundationEventDraft.date}
-                  onChange={(e) => setFoundationEventDraft((d) => ({ ...d, date: e.target.value }))}
-                  tabIndex={-1}
-                  className="sr-only"
-                />
-              </div>
-              <label className="block text-xs font-semibold text-muted-foreground">
-                Amount
-                <AmountInput
-                  min={0}
-                  step="0.01"
-                  value={foundationEventDraft.amount}
-                  onChange={(e) => setFoundationEventDraft((d) => ({ ...d, amount: e.target.value }))}
-                  placeholder="0.00"
-                  className="mt-1 h-10 rounded-lg"
-                  required
-                />
-              </label>
-              <label className="block text-xs font-semibold text-muted-foreground">
-                Memo <span className="font-normal text-muted-foreground">(optional)</span>
-                <Input
-                  value={foundationEventDraft.memo}
-                  onChange={(e) => setFoundationEventDraft((d) => ({ ...d, memo: e.target.value }))}
-                  placeholder="Optional note"
-                  className="mt-1 h-10 rounded-lg"
-                  maxLength={800}
-                />
-              </label>
-              <Button
-                type="submit"
-                variant="prominent"
-                className="w-full"
-                disabled={isCreatingFoundationEvent}
-              >
-                {isCreatingFoundationEvent ? "Saving\u2026" : foundationEventType === "fund_foundation" ? "Record Funding" : "Record Transfer"}
-              </Button>
-            </form>
-          </ResponsiveModalContent>
-        ) : null}
-      </ResponsiveModal>
+      <FoundationEventForm
+        eventType={foundationEventType}
+        onClose={handleFoundationEventClose}
+        onCreated={handleFoundationEventCreated}
+      />
     </div>
   );
 }
