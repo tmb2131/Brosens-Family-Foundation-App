@@ -194,13 +194,18 @@ async function fetchProfileEmailsById(admin: AdminClient, userIds: string[]): Pr
 
 function mapFrankDeenieDonationRow(
   row: FrankDeenieDonationDbRow,
-  profileEmailById: Map<string, string>
+  profileEmailById: Map<string, string>,
+  proposerBySourceId: Map<string, string> = new Map(),
 ): FrankDeenieDonationRow {
   const returnRole = row.return_role ?? null;
   const lockedByReturn = returnRole === "original" || returnRole === "reversal";
+  const isChildrenReturn = row.return_source_id !== null;
+  const proposerId = isChildrenReturn
+    ? proposerBySourceId.get(row.return_source_id!) ?? row.created_by
+    : row.created_by;
   return {
-    id: row.id,
-    source: "frank_deenie",
+    id: isChildrenReturn ? `children:${row.return_source_id}` : row.id,
+    source: isChildrenReturn ? "children" : "frank_deenie",
     date: row.donation_date,
     type: row.donation_type,
     name: row.recipient_name,
@@ -209,7 +214,7 @@ function mapFrankDeenieDonationRow(
     amount: toNumber(row.amount),
     status: row.status,
     editable: !lockedByReturn,
-    proposedBy: row.created_by ? profileEmailById.get(row.created_by) ?? "" : "",
+    proposedBy: proposerId ? profileEmailById.get(proposerId) ?? "" : "",
     returnGroupId: row.return_group_id ?? null,
     returnRole,
     returnedAt: row.returned_at ?? null,
@@ -281,10 +286,26 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
   }
 
   const rows = data ?? [];
-  const creatorIds = [...new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id))];
-  const profileEmailById = await fetchProfileEmailsById(admin, creatorIds);
 
-  return rows.map((row) => mapFrankDeenieDonationRow(row, profileEmailById));
+  const returnSourceIds = [...new Set(rows.map((r) => r.return_source_id).filter((id): id is string => !!id))];
+  const proposerBySourceId = new Map<string, string>();
+  if (returnSourceIds.length > 0) {
+    const { data: proposals } = await admin
+      .from("grant_proposals")
+      .select("id, proposer_id")
+      .in("id", returnSourceIds)
+      .returns<Array<{ id: string; proposer_id: string }>>();
+    for (const p of proposals ?? []) {
+      proposerBySourceId.set(p.id, p.proposer_id);
+    }
+  }
+
+  const proposerIds = [...proposerBySourceId.values()];
+  const creatorIds = [...new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id))];
+  const allProfileIds = [...new Set([...creatorIds, ...proposerIds])];
+  const profileEmailById = await fetchProfileEmailsById(admin, allProfileIds);
+
+  return rows.map((row) => mapFrankDeenieDonationRow(row, profileEmailById, proposerBySourceId));
 }
 
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
@@ -759,6 +780,7 @@ async function markChildrenDonationReturned(
     .update({
       returned_at: returnedDate,
       return_group_id: returnGroupId,
+      sent_at: newDonationDate,
     })
     .eq("id", input.sourceId);
 
