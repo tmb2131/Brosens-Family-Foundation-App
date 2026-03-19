@@ -400,29 +400,35 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
 }
 
 async function loadAvailableYears(admin: AdminClient, yearMode: YearMode = "calendar") {
-  const fdRpc = yearMode === "giving" ? "get_distinct_frank_deenie_giving_years" : "get_distinct_frank_deenie_years";
-  const chRpc = yearMode === "giving" ? "get_distinct_children_giving_years" : "get_distinct_children_years";
-
   const [frankDeenieResult, childrenResult] = await Promise.all([
-    admin.rpc(fdRpc),
-    admin.rpc(chRpc),
+    admin.rpc("get_distinct_frank_deenie_years"),
+    admin.rpc("get_distinct_children_years"),
   ]);
 
-  const years = new Set<number>();
+  const calendarYears = new Set<number>();
 
   const fdRows = (frankDeenieResult.data ?? []) as Array<{ year: number }>;
   const chRows = (childrenResult.data ?? []) as Array<{ year: number }>;
 
   for (const row of fdRows) {
-    if (Number.isInteger(row.year) && row.year > 0) years.add(row.year);
+    if (Number.isInteger(row.year) && row.year > 0) calendarYears.add(row.year);
   }
   for (const row of chRows) {
-    if (Number.isInteger(row.year) && row.year > 0) years.add(row.year);
+    if (Number.isInteger(row.year) && row.year > 0) calendarYears.add(row.year);
   }
 
-  years.add(yearMode === "giving" ? currentGivingYear() : currentYear());
+  if (yearMode === "giving") {
+    const givingYears = new Set<number>();
+    for (const y of calendarYears) {
+      givingYears.add(y);
+      givingYears.add(y - 1);
+    }
+    givingYears.add(currentGivingYear());
+    return [...givingYears].filter((y) => y > 0).sort((a, b) => b - a);
+  }
 
-  return [...years].sort((a, b) => b - a);
+  calendarYears.add(currentYear());
+  return [...calendarYears].sort((a, b) => b - a);
 }
 
 export async function getFrankDeenieSnapshot(
