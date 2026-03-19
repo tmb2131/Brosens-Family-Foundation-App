@@ -27,7 +27,7 @@ import { DonationDetailDrawer, DetailMode } from "./donation-detail-drawer";
 import { ReturnCheckForm } from "./return-check-form";
 import { FoundationEventForm } from "./foundation-event-form";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
-import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
+import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, YearMode } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
@@ -60,6 +60,31 @@ const DEFAULT_FILTERS: DonationFilters = {
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = false;
 const EXPORT_HEADERS = ["Date", "Name", "Notes", "Amount", "Status", "Source", "Proposed by", "Return Status"] as const;
+const YEAR_MODE_KEY = "frank-deenie-year-mode";
+
+function givingYearFromDate(isoDate: string): number {
+  const month = Number(isoDate.slice(5, 7));
+  const year = Number(isoDate.slice(0, 4));
+  return month <= 1 ? year - 1 : year;
+}
+
+function yearFromDate(isoDate: string, mode: YearMode): number {
+  return mode === "giving" ? givingYearFromDate(isoDate) : Number(isoDate.slice(0, 4));
+}
+
+function givingYearLabel(year: number): string {
+  return `${year}\u2013${String(year + 1).slice(2)}`;
+}
+
+function yearLabel(year: number, mode: YearMode): string {
+  return mode === "giving" ? givingYearLabel(year) : String(year);
+}
+
+function readStoredYearMode(): YearMode {
+  if (typeof window === "undefined") return "calendar";
+  const stored = localStorage.getItem(YEAR_MODE_KEY);
+  return stored === "giving" ? "giving" : "calendar";
+}
 
 function proposerName(email: string) {
   return getProposerDisplayName(email);
@@ -211,6 +236,7 @@ export default function FrankDeenieClient() {
   const isAdmin = user?.role === "admin";
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [yearMode, setYearModeRaw] = useState<YearMode>(readStoredYearMode);
   const [includeChildren, setIncludeChildren] = useState(false);
   const [filters, setFilters] = useState<DonationFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -239,6 +265,12 @@ export default function FrankDeenieClient() {
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
+  const setYearMode = useCallback((mode: YearMode) => {
+    setYearModeRaw(mode);
+    localStorage.setItem(YEAR_MODE_KEY, mode);
+    setSelectedYear(null);
+  }, []);
+
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
     canAccess ? "/api/frank-deenie/name-suggestions" : null
   );
@@ -251,11 +283,14 @@ export default function FrankDeenieClient() {
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("includeChildren", includeChildren ? "1" : "0");
+    if (yearMode !== "calendar") {
+      params.set("yearMode", yearMode);
+    }
     if (selectedYear !== null) {
       params.set("year", String(selectedYear));
     }
     return params.toString();
-  }, [includeChildren, selectedYear]);
+  }, [includeChildren, yearMode, selectedYear]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<FrankDeenieSnapshot>(
     canAccess ? `/api/frank-deenie?${queryString}` : null,
@@ -397,7 +432,7 @@ export default function FrankDeenieClient() {
     () => filteredRows.reduce((sum, row) => sum + row.amount, 0),
     [filteredRows]
   );
-  const selectedYearLabel = selectedYear === null ? "all years" : String(selectedYear);
+  const selectedYearLabel = selectedYear === null ? "all years" : yearLabel(selectedYear, yearMode);
   const exportRows = useMemo<DonationExportRow[]>(
     () =>
       filteredRows.map((row) => ({
@@ -413,13 +448,19 @@ export default function FrankDeenieClient() {
     [filteredRows]
   );
   const exportFilenameBase = useMemo(() => {
-    const yearPart = selectedYear === null ? "all-years" : `year-${selectedYear}`;
+    const modePart = yearMode === "giving" ? "giving" : "calendar";
+    const yearPart = selectedYear === null ? "all-years" : `${modePart}-${selectedYear}`;
     const childrenPart = includeChildren ? "with-children" : "frank-deenie-only";
     return `frank-deenie-${yearPart}-${childrenPart}-${toISODate(new Date())}`;
-  }, [includeChildren, selectedYear]);
+  }, [includeChildren, yearMode, selectedYear]);
+  const chartYearFormatter = useCallback(
+    (yr: number) => yearLabel(yr, yearMode),
+    [yearMode]
+  );
   const exportTitle = "Frank & Deenie Donation Ledger";
+  const yearModeLabel = yearMode === "giving" ? "Giving Year" : "Calendar Year";
   const exportSubtitle = `${
-    selectedYear === null ? "All years" : `Year ${selectedYear}`
+    selectedYear === null ? "All years" : `${yearModeLabel} ${yearLabel(selectedYear, yearMode)}`
   } | ${includeChildren ? "Includes Children" : "Frank & Deenie only"} | ${formatNumber(exportRows.length)} rows`;
   const yearSplitChartData = useMemo(() => {
     if (!filteredRows.length) {
@@ -429,11 +470,11 @@ export default function FrankDeenieClient() {
     const byYear = new Map<number, { frankDeenie: number; children: number }>();
 
     for (const row of filteredRows) {
-      const year = Number(row.date.slice(0, 4));
-      if (!byYear.has(year)) {
-        byYear.set(year, { frankDeenie: 0, children: 0 });
+      const yr = yearFromDate(row.date, yearMode);
+      if (!byYear.has(yr)) {
+        byYear.set(yr, { frankDeenie: 0, children: 0 });
       }
-      const bucket = byYear.get(year)!;
+      const bucket = byYear.get(yr)!;
       if (row.source === "children") {
         bucket.children += row.amount;
       } else {
@@ -443,12 +484,12 @@ export default function FrankDeenieClient() {
 
     return Array.from(byYear.entries())
       .sort(([a], [b]) => a - b)
-      .map(([year, totals]) => ({ year, ...totals }));
-  }, [filteredRows]);
+      .map(([yr, totals]) => ({ year: yr, ...totals }));
+  }, [filteredRows, yearMode]);
 
   const chartDrilldownRows = useMemo(() => {
     if (chartDrilldownYear === null) return [];
-    const rows = filteredRows.filter((row) => Number(row.date.slice(0, 4)) === chartDrilldownYear);
+    const rows = filteredRows.filter((row) => yearFromDate(row.date, yearMode) === chartDrilldownYear);
     return [...rows].sort((a, b) => {
       let cmp = 0;
       if (drilldownSortKey === "date") cmp = a.date.localeCompare(b.date);
@@ -458,7 +499,7 @@ export default function FrankDeenieClient() {
       if (cmp === 0) cmp = b.date.localeCompare(a.date);
       return drilldownSortDir === "asc" ? cmp : -cmp;
     });
-  }, [filteredRows, chartDrilldownYear, drilldownSortKey, drilldownSortDir]);
+  }, [filteredRows, yearMode, chartDrilldownYear, drilldownSortKey, drilldownSortDir]);
 
   const toggleSort = (nextKey: SortKey) => {
     if (sortKey === nextKey) {
@@ -843,12 +884,30 @@ export default function FrankDeenieClient() {
           <div>
             <span className="flex items-center gap-1.5"><CardLabel>F&amp;D Ledger</CardLabel><RevalidatingDot isValidating={isValidating} hasData={!!data} /></span>
             <p className="text-xs text-muted-foreground">
-              {selectedYear === null ? "All years" : selectedYear} &middot; {formatNumber(filteredRows.length)} donations
+              {selectedYear === null ? "All years" : yearLabel(selectedYear, yearMode)} &middot; {formatNumber(filteredRows.length)} donations
             </p>
           </div>
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
         </div>
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-2 flex items-center">
+          <div className="inline-flex h-8 rounded-lg border border-border text-xs font-medium">
+            <button
+              type="button"
+              className={`rounded-l-lg px-2.5 transition-colors ${yearMode === "calendar" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+              onClick={() => setYearMode("calendar")}
+            >
+              Calendar
+            </button>
+            <button
+              type="button"
+              className={`rounded-r-lg border-l border-border px-2.5 transition-colors ${yearMode === "giving" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+              onClick={() => setYearMode("giving")}
+            >
+              Giving Year
+            </button>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
           <select
             aria-label="Year"
             className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 flex-1 rounded-lg border px-2.5 py-1.5 text-sm outline-none"
@@ -858,9 +917,9 @@ export default function FrankDeenieClient() {
             }
           >
             <option value="all">All years</option>
-            {data.availableYears.map((year) => (
-              <option key={year} value={year}>
-                {year}
+            {data.availableYears.map((yr) => (
+              <option key={yr} value={yr}>
+                {yearLabel(yr, yearMode)}
               </option>
             ))}
           </select>
@@ -906,10 +965,28 @@ export default function FrankDeenieClient() {
             <CardValue>Donation Ledger</CardValue>
             <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              Track Frank &amp; Deenie giving, with optional Children donations from this app.
+              {yearMode === "giving"
+                ? "Giving year: Feb 1 \u2013 Jan 31. For tax accounting periods."
+                : "Track Frank & Deenie giving, with optional Children donations from this app."}
             </p>
           </div>
           <div className="flex w-auto flex-row items-end gap-2">
+            <div className="inline-flex h-10 rounded-md border border-border text-sm font-medium">
+              <button
+                type="button"
+                className={`rounded-l-md px-3 transition-colors ${yearMode === "calendar" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+                onClick={() => setYearMode("calendar")}
+              >
+                Calendar Year
+              </button>
+              <button
+                type="button"
+                className={`rounded-r-md border-l border-border px-3 transition-colors ${yearMode === "giving" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+                onClick={() => setYearMode("giving")}
+              >
+                Giving Year
+              </button>
+            </div>
             <select
               aria-label="Year"
               className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-10 rounded-md border px-3 py-2 text-sm outline-none"
@@ -919,9 +996,9 @@ export default function FrankDeenieClient() {
               }
             >
               <option value="all">All years</option>
-              {data.availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
+              {data.availableYears.map((yr) => (
+                <option key={yr} value={yr}>
+                  {yearLabel(yr, yearMode)}
                 </option>
               ))}
             </select>
@@ -998,7 +1075,7 @@ export default function FrankDeenieClient() {
             {filters.search.trim() || "All orgs"}
           </p>
         </div>
-        <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={handleYearClick} />
+        <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={handleYearClick} yearFormatter={chartYearFormatter} />
       </GlassCard>
 
       {data.foundationEvents.length > 0 ? (
@@ -1069,7 +1146,7 @@ export default function FrankDeenieClient() {
                   </p>
                 </div>
               </div>
-              <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={handleYearClick} />
+              <FrankDeenieYearSplitChart data={yearSplitChartData} onYearClick={handleYearClick} yearFormatter={chartYearFormatter} />
             </GlassCard>
 
             <section className="hidden sm:grid gap-2 sm:grid-cols-3 2xl:grid-cols-1">
@@ -1894,7 +1971,7 @@ export default function FrankDeenieClient() {
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 id="chart-drilldown-title" className="text-base font-bold text-foreground">
-                {chartDrilldownYear} Donations
+                {chartDrilldownYear !== null ? yearLabel(chartDrilldownYear, yearMode) : ""} Donations
               </h3>
               <button
                 type="button"

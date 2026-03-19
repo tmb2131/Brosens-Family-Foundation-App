@@ -3,6 +3,7 @@ import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
 import { createFrankDeenieDonation, getFrankDeenieSnapshot } from "@/lib/frank-deenie-data";
 import { HttpError, PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
+import { YearMode } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
@@ -45,7 +46,9 @@ export async function GET(request: NextRequest) {
 
     const year = parseYear(request.nextUrl.searchParams.get("year"));
     const includeChildren = parseIncludeChildren(request.nextUrl.searchParams.get("includeChildren"));
-    const snapshot = await getFrankDeenieSnapshot(admin, { year, includeChildren });
+    const rawYearMode = request.nextUrl.searchParams.get("yearMode")?.trim().toLowerCase();
+    const yearMode: YearMode = rawYearMode === "giving" ? "giving" : "calendar";
+    const snapshot = await getFrankDeenieSnapshot(admin, { year, yearMode, includeChildren });
 
     return NextResponse.json(snapshot, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {

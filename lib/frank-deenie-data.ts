@@ -1,6 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
-import { DonationLedgerSource, DonationReturnRole, FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot } from "@/lib/types";
+import { DonationLedgerSource, DonationReturnRole, FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, YearMode } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
 
@@ -49,6 +49,7 @@ interface GrantMasterRow {
 
 interface FrankDeenieSnapshotInput {
   year?: number | null;
+  yearMode?: YearMode;
   includeChildren?: boolean;
 }
 
@@ -91,6 +92,11 @@ const DONATION_STATUSES = ["Gave", "Planned"] as const;
 
 function currentYear() {
   return new Date().getFullYear();
+}
+
+function currentGivingYear() {
+  const now = new Date();
+  return now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
 }
 
 function toNumber(value: unknown) {
@@ -167,7 +173,13 @@ function normalizeOptionalText(value: string | null | undefined, fieldName: stri
   return trimmed;
 }
 
-function toYearWindow(year: number) {
+function toYearWindow(year: number, yearMode: YearMode = "calendar") {
+  if (yearMode === "giving") {
+    return {
+      startDate: `${year}-02-01`,
+      endDate: `${year + 1}-01-31`
+    };
+  }
   return {
     startDate: `${year}-01-01`,
     endDate: `${year}-12-31`
@@ -270,7 +282,7 @@ function sortLedgerRows(rows: FrankDeenieDonationRow[]) {
   });
 }
 
-async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number | null) {
+async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number | null, yearMode: YearMode = "calendar") {
   let query = admin
     .from("frank_deenie_donations")
     .select(DONATION_SELECT)
@@ -278,7 +290,7 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
     .order("created_at", { ascending: false });
 
   if (year !== null) {
-    const { startDate, endDate } = toYearWindow(year);
+    const { startDate, endDate } = toYearWindow(year, yearMode);
     query = query.gte("donation_date", startDate).lte("donation_date", endDate);
   }
 
@@ -311,7 +323,7 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
   return rows.map((row) => mapFrankDeenieDonationRow(row, profileEmailById, proposerBySourceId));
 }
 
-async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
+async function listChildrenDonationsByYear(admin: AdminClient, year: number | null, yearMode: YearMode = "calendar") {
   let query = admin
     .from("grant_proposals")
     .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, original_sent_at, created_at, returned_at, return_group_id")
@@ -319,7 +331,7 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
     .order("created_at", { ascending: false });
 
   if (year !== null) {
-    const { startDate, endDate } = toYearWindow(year);
+    const { startDate, endDate } = toYearWindow(year, yearMode);
     query = query.or(
       `and(status.eq.sent,sent_at.gte.${startDate},sent_at.lte.${endDate}),` +
       `and(status.eq.sent,sent_at.is.null,created_at.gte.${startDate},created_at.lte.${endDate}),` +
@@ -387,10 +399,13 @@ async function listChildrenDonationsByYear(admin: AdminClient, year: number | nu
   );
 }
 
-async function loadAvailableYears(admin: AdminClient) {
+async function loadAvailableYears(admin: AdminClient, yearMode: YearMode = "calendar") {
+  const fdRpc = yearMode === "giving" ? "get_distinct_frank_deenie_giving_years" : "get_distinct_frank_deenie_years";
+  const chRpc = yearMode === "giving" ? "get_distinct_children_giving_years" : "get_distinct_children_years";
+
   const [frankDeenieResult, childrenResult] = await Promise.all([
-    admin.rpc("get_distinct_frank_deenie_years"),
-    admin.rpc("get_distinct_children_years"),
+    admin.rpc(fdRpc),
+    admin.rpc(chRpc),
   ]);
 
   const years = new Set<number>();
@@ -405,7 +420,7 @@ async function loadAvailableYears(admin: AdminClient) {
     if (Number.isInteger(row.year) && row.year > 0) years.add(row.year);
   }
 
-  years.add(currentYear());
+  years.add(yearMode === "giving" ? currentGivingYear() : currentYear());
 
   return [...years].sort((a, b) => b - a);
 }
@@ -415,14 +430,15 @@ export async function getFrankDeenieSnapshot(
   input: FrankDeenieSnapshotInput = {}
 ): Promise<FrankDeenieSnapshot> {
   const includeChildren = input.includeChildren ?? false;
+  const yearMode = input.yearMode ?? "calendar";
   const requestedYear = input.year ?? null;
   const year = requestedYear === null ? null : normalizeYear(requestedYear);
 
   const [frankDeenieRows, childrenRows, availableYears, foundationEvents] = await Promise.all([
-    listFrankDeenieDonationsByYear(admin, year),
-    includeChildren ? listChildrenDonationsByYear(admin, year) : Promise.resolve([]),
-    loadAvailableYears(admin),
-    listFoundationEvents(admin, year)
+    listFrankDeenieDonationsByYear(admin, year, yearMode),
+    includeChildren ? listChildrenDonationsByYear(admin, year, yearMode) : Promise.resolve([]),
+    loadAvailableYears(admin, yearMode),
+    listFoundationEvents(admin, year, yearMode)
   ]);
 
   const pureFdRows = frankDeenieRows.filter((row) => row.source !== "children");
@@ -443,6 +459,7 @@ export async function getFrankDeenieSnapshot(
 
   return {
     year,
+    yearMode,
     includeChildren,
     availableYears: years,
     totals: {
@@ -867,7 +884,7 @@ function mapFoundationEventRow(row: FoundationEventDbRow): FoundationEvent {
   };
 }
 
-async function listFoundationEvents(admin: AdminClient, year: number | null): Promise<FoundationEvent[]> {
+async function listFoundationEvents(admin: AdminClient, year: number | null, yearMode: YearMode = "calendar"): Promise<FoundationEvent[]> {
   let query = admin
     .from("foundation_events")
     .select(FOUNDATION_EVENT_SELECT)
@@ -875,7 +892,7 @@ async function listFoundationEvents(admin: AdminClient, year: number | null): Pr
     .order("created_at", { ascending: false });
 
   if (year !== null) {
-    const { startDate, endDate } = toYearWindow(year);
+    const { startDate, endDate } = toYearWindow(year, yearMode);
     query = query.gte("event_date", startDate).lte("event_date", endDate);
   }
 

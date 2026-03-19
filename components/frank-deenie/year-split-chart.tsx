@@ -14,10 +14,12 @@ export interface FrankDeenieYearSplitPoint {
 
 export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart({
   data,
-  onYearClick
+  onYearClick,
+  yearFormatter
 }: {
   data: FrankDeenieYearSplitPoint[];
   onYearClick?: (year: number) => void;
+  yearFormatter?: (year: number) => string;
 }) {
   const chartData = useMemo(
     () => data.map((entry) => ({ ...entry, total: entry.frankDeenie + entry.children })),
@@ -61,10 +63,12 @@ export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart
               dataKey="year" 
               tick={{ fill: chartText.axis, fontSize: 12 }}
               axisLine={{ stroke: chartText.axis, opacity: 0.3 }}
+              tickFormatter={yearFormatter}
             />
             <Tooltip
               cursor={{ fill: 'hsl(var(--muted) / 0.3)', radius: 4 }}
               formatter={(value: number) => currency(value)}
+              labelFormatter={yearFormatter ? (label: number) => yearFormatter(label) : undefined}
               contentStyle={{
                 ...chartTooltip.contentStyle,
                 borderRadius: 8,

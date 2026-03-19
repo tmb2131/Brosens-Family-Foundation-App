@@ -197,8 +197,11 @@ export interface FrankDeenieDonationRow {
   returnedAt: string | null;
 }
 
+export type YearMode = "calendar" | "giving";
+
 export interface FrankDeenieSnapshot {
   year: number | null;
+  yearMode: YearMode;
   availableYears: number[];
   includeChildren: boolean;
   totals: {
