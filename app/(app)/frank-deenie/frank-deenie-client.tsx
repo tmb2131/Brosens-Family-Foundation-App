@@ -60,6 +60,15 @@ const DEFAULT_FILTERS: DonationFilters = {
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
 const SHOW_FRANK_DEENIE_IMPORT = false;
 const EXPORT_HEADERS = ["Date", "Name", "Notes", "Amount", "Status", "Source", "Proposed by", "Return Status"] as const;
+
+interface FoundationEventExportRow {
+  date: string;
+  type: string;
+  amount: number;
+  memo: string;
+}
+
+const FOUNDATION_EVENT_HEADERS = ["Date", "Type", "Amount", "Memo"] as const;
 const YEAR_MODE_KEY = "frank-deenie-year-mode";
 
 function givingYearFromDate(isoDate: string): number {
@@ -137,20 +146,36 @@ function rowToExportValues(row: DonationExportRow) {
   ];
 }
 
-function buildCsv(rows: DonationExportRow[]) {
-  const headerLine = EXPORT_HEADERS.join(",");
-  const dataLines = rows.map((row) => rowToExportValues(row).map(escapeCsvField).join(","));
-  return [headerLine, ...dataLines].join("\n");
+function eventRowToExportValues(row: FoundationEventExportRow) {
+  return [row.date, row.type, row.amount.toFixed(2), row.memo];
 }
 
-function buildTsv(rows: DonationExportRow[]) {
+function buildCsv(rows: DonationExportRow[], eventRows: FoundationEventExportRow[]) {
+  const headerLine = EXPORT_HEADERS.join(",");
+  const dataLines = rows.map((row) => rowToExportValues(row).map(escapeCsvField).join(","));
+  const parts = [headerLine, ...dataLines];
+  if (eventRows.length > 0) {
+    const eventHeaderLine = FOUNDATION_EVENT_HEADERS.join(",");
+    const eventDataLines = eventRows.map((row) => eventRowToExportValues(row).map(escapeCsvField).join(","));
+    parts.push("", "Foundation Events", eventHeaderLine, ...eventDataLines);
+  }
+  return parts.join("\n");
+}
+
+function buildTsv(rows: DonationExportRow[], eventRows: FoundationEventExportRow[]) {
   const sanitize = (value: string) => value.replace(/\t/g, " ").replace(/\r?\n/g, " ");
   const headerLine = EXPORT_HEADERS.join("\t");
   const dataLines = rows.map((row) => rowToExportValues(row).map(sanitize).join("\t"));
-  return [headerLine, ...dataLines].join("\n");
+  const parts = [headerLine, ...dataLines];
+  if (eventRows.length > 0) {
+    const eventHeaderLine = FOUNDATION_EVENT_HEADERS.join("\t");
+    const eventDataLines = eventRows.map((row) => eventRowToExportValues(row).map(sanitize).join("\t"));
+    parts.push("", "Foundation Events", eventHeaderLine, ...eventDataLines);
+  }
+  return parts.join("\n");
 }
 
-function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: string) {
+function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: string, eventRows: FoundationEventExportRow[]) {
   const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
   const body = rows
     .map((row) => {
@@ -159,6 +184,23 @@ function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: stri
     })
     .join("");
 
+  let eventsHtml = "";
+  if (eventRows.length > 0) {
+    const eventHead = FOUNDATION_EVENT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+    const eventBody = eventRows
+      .map((row) => {
+        const cells = eventRowToExportValues(row).map((v) => `<td>${escapeHtml(v)}</td>`).join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
+    eventsHtml = `
+    <h2 style="margin: 24px 0 8px; font-size: 16px;">Foundation Events</h2>
+    <table>
+      <thead><tr>${eventHead}</tr></thead>
+      <tbody>${eventBody}</tbody>
+    </table>`;
+  }
+
   return `<!doctype html>
 <html>
   <head>
@@ -166,6 +208,7 @@ function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: stri
     <style>
       body { font-family: Arial, sans-serif; padding: 16px; }
       h1 { margin: 0 0 6px; font-size: 18px; }
+      h2 { margin: 24px 0 8px; font-size: 16px; }
       p { margin: 0 0 12px; color: #555; font-size: 12px; }
       table { border-collapse: collapse; width: 100%; }
       th, td { border: 1px solid #d4d4d8; padding: 6px 8px; font-size: 12px; text-align: left; }
@@ -178,12 +221,12 @@ function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: stri
     <table>
       <thead><tr>${head}</tr></thead>
       <tbody>${body}</tbody>
-    </table>
+    </table>${eventsHtml}
   </body>
 </html>`;
 }
 
-function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: string) {
+function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: string, eventRows: FoundationEventExportRow[]) {
   const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
   const body = rows
     .map((row) => {
@@ -191,6 +234,23 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
       return `<tr>${cells}</tr>`;
     })
     .join("");
+
+  let eventsHtml = "";
+  if (eventRows.length > 0) {
+    const eventHead = FOUNDATION_EVENT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+    const eventBody = eventRows
+      .map((row) => {
+        const cells = eventRowToExportValues(row).map((v) => `<td>${escapeHtml(v)}</td>`).join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
+    eventsHtml = `
+    <h2 style="margin: 24px 0 8px; font-size: 15px;">Foundation Events</h2>
+    <table>
+      <thead><tr>${eventHead}</tr></thead>
+      <tbody>${eventBody}</tbody>
+    </table>`;
+  }
 
   return `<!doctype html>
 <html>
@@ -201,6 +261,7 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
       @page { margin: 0.5in; }
       body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
       h1 { margin: 0 0 6px; font-size: 18px; }
+      h2 { margin: 24px 0 8px; font-size: 15px; }
       p { margin: 0 0 12px; color: #475569; font-size: 12px; }
       table { border-collapse: collapse; width: 100%; }
       th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
@@ -213,7 +274,7 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
     <table>
       <thead><tr>${head}</tr></thead>
       <tbody>${body}</tbody>
-    </table>
+    </table>${eventsHtml}
   </body>
 </html>`;
 }
@@ -447,6 +508,16 @@ export default function FrankDeenieClient() {
         returnStatus: row.returnRole === "original" ? "Returned" : row.returnRole === "reversal" ? "Reversal" : row.returnRole === "replacement" ? "Reissued" : ""
       })),
     [filteredRows]
+  );
+  const foundationEventExportRows = useMemo<FoundationEventExportRow[]>(
+    () =>
+      (data?.foundationEvents ?? []).map((evt) => ({
+        date: evt.eventDate,
+        type: evt.eventType === "fund_foundation" ? "Fund Foundation" : "Transfer into Foundation",
+        amount: evt.amount,
+        memo: evt.memo.trim()
+      })),
+    [data?.foundationEvents]
   );
   const exportFilenameBase = useMemo(() => {
     const modePart = yearMode === "giving" ? "giving" : "calendar";
@@ -694,7 +765,7 @@ export default function FrankDeenieClient() {
       return;
     }
 
-    downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+    downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows, foundationEventExportRows), "text/csv;charset=utf-8");
     toast.success(`CSV exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
@@ -706,7 +777,7 @@ export default function FrankDeenieClient() {
 
     downloadFile(
       `${exportFilenameBase}.xls`,
-      buildExcelHtml(exportRows, exportTitle, exportSubtitle),
+      buildExcelHtml(exportRows, exportTitle, exportSubtitle, foundationEventExportRows),
       "application/vnd.ms-excel;charset=utf-8"
     );
     toast.success(`Excel file exported (${formatNumber(exportRows.length)} rows).`);
@@ -724,7 +795,7 @@ export default function FrankDeenieClient() {
       return;
     }
 
-    printWindow.document.write(buildPrintableHtml(exportRows, exportTitle, exportSubtitle));
+    printWindow.document.write(buildPrintableHtml(exportRows, exportTitle, exportSubtitle, foundationEventExportRows));
     printWindow.document.close();
     printWindow.focus();
     window.setTimeout(() => {
@@ -744,14 +815,14 @@ export default function FrankDeenieClient() {
       if (!navigator.clipboard?.writeText) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(buildTsv(exportRows));
+      await navigator.clipboard.writeText(buildTsv(exportRows, foundationEventExportRows));
 
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
 
       toast.success("Copied rows for Google Sheets. Paste into cell A1 in the new sheet.");
       setIsExportMenuOpen(false);
     } catch {
-      downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+      downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows, foundationEventExportRows), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
       toast.error("Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets.");
       setIsExportMenuOpen(false);
