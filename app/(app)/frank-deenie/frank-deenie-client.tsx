@@ -301,8 +301,9 @@ function downloadFile(filename: string, content: string, mimeType: string) {
 
 export default function FrankDeenieClient() {
   const { user } = useAuth();
-  const canAccess = user ? ["oversight", "admin", "manager"].includes(user.role) : false;
+  const canAccess = user ? ["oversight", "admin", "manager", "member"].includes(user.role) : false;
   const isAdmin = user?.role === "admin";
+  const readOnly = user?.role === "member";
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [yearMode, setYearModeRaw] = useState<YearMode>(readStoredYearMode);
@@ -1027,38 +1028,42 @@ export default function FrankDeenieClient() {
             Children
           </label>
         </div>
-        <div className="mt-2 flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setFoundationEventType("fund_foundation")}
-            className="flex-1 text-xs"
-          >
-            <Landmark className="h-3.5 w-3.5" />
-            Fund Foundation
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setFoundationEventType("transfer_to_foundation")}
-            className="flex-1 text-xs"
-          >
-            <Banknote className="h-3.5 w-3.5" />
-            Transfer
-          </Button>
-        </div>
-        <Button
-          type="button"
-          variant="prominent"
-          size="sm"
-          onClick={openAddForm}
-          className="mt-2 w-full"
-        >
-          <Plus className="h-4 w-4" />
-          Add Donation
-        </Button>
+        {!readOnly ? (
+          <>
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFoundationEventType("fund_foundation")}
+                className="flex-1 text-xs"
+              >
+                <Landmark className="h-3.5 w-3.5" />
+                Fund Foundation
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFoundationEventType("transfer_to_foundation")}
+                className="flex-1 text-xs"
+              >
+                <Banknote className="h-3.5 w-3.5" />
+                Transfer
+              </Button>
+            </div>
+            <Button
+              type="button"
+              variant="prominent"
+              size="sm"
+              onClick={openAddForm}
+              className="mt-2 w-full"
+            >
+              <Plus className="h-4 w-4" />
+              Add Donation
+            </Button>
+          </>
+        ) : null}
       </GlassCard>
 
       {/* Desktop hero: full header */}
@@ -1115,33 +1120,37 @@ export default function FrankDeenieClient() {
               />
               Include Children
             </label>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setFoundationEventType("fund_foundation")}
-              className="min-h-10"
-            >
-              <Landmark className="h-4 w-4" />
-              Fund Foundation
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setFoundationEventType("transfer_to_foundation")}
-              className="min-h-10"
-            >
-              <Banknote className="h-4 w-4" />
-              Transfer into Foundation
-            </Button>
-            <Button
-              type="button"
-              variant="prominent"
-              onClick={showAddForm ? closeAddForm : openAddForm}
-              className="min-h-10"
-            >
-              {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {showAddForm ? "Close" : "Add Donation"}
-            </Button>
+            {!readOnly ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFoundationEventType("fund_foundation")}
+                  className="min-h-10"
+                >
+                  <Landmark className="h-4 w-4" />
+                  Fund Foundation
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFoundationEventType("transfer_to_foundation")}
+                  className="min-h-10"
+                >
+                  <Banknote className="h-4 w-4" />
+                  Transfer into Foundation
+                </Button>
+                <Button
+                  type="button"
+                  variant="prominent"
+                  onClick={showAddForm ? closeAddForm : openAddForm}
+                  className="min-h-10"
+                >
+                  {showAddForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {showAddForm ? "Close" : "Add Donation"}
+                </Button>
+              </>
+            ) : null}
           </div>
         </div>
       </GlassCard>
@@ -1212,25 +1221,27 @@ export default function FrankDeenieClient() {
                           <p className="truncate text-xs text-muted-foreground">{evt.memo}</p>
                         ) : null}
                       </div>
-                      <div className="ml-2 flex shrink-0 items-center gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setEditingFoundationEvent(evt)}
-                          className="rounded p-1 text-muted-foreground hover:text-foreground"
-                          aria-label="Edit event"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteFoundationEvent(evt.id)}
-                          disabled={deletingEventId === evt.id}
-                          className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                          aria-label="Delete event"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      {!readOnly ? (
+                        <div className="ml-2 flex shrink-0 items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingFoundationEvent(evt)}
+                            className="rounded p-1 text-muted-foreground hover:text-foreground"
+                            aria-label="Edit event"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteFoundationEvent(evt.id)}
+                            disabled={deletingEventId === evt.id}
+                            className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                            aria-label="Delete event"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -1317,25 +1328,27 @@ export default function FrankDeenieClient() {
                                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{evt.memo}</p>
                               ) : null}
                             </div>
-                            <div className="ml-2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                              <button
-                                type="button"
-                                onClick={() => setEditingFoundationEvent(evt)}
-                                className="rounded p-1 text-muted-foreground hover:text-foreground"
-                                aria-label="Edit event"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => deleteFoundationEvent(evt.id)}
-                                disabled={deletingEventId === evt.id}
-                                className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                                aria-label="Delete event"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                            {!readOnly ? (
+                              <div className="ml-2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingFoundationEvent(evt)}
+                                  className="rounded p-1 text-muted-foreground hover:text-foreground"
+                                  aria-label="Edit event"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteFoundationEvent(evt.id)}
+                                  disabled={deletingEventId === evt.id}
+                                  className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                                  aria-label="Delete event"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ) : null}
                           </li>
                         ))}
                       </ul>
@@ -2004,7 +2017,7 @@ export default function FrankDeenieClient() {
                                   >
                                     View details
                                   </DropdownMenuItem>
-                                  {row.editable ? (
+                                  {!readOnly && row.editable ? (
                                     <DropdownMenuItem
                                       className="text-xs font-semibold transition-colors hover:bg-muted"
                                       onSelect={() => {
@@ -2015,7 +2028,7 @@ export default function FrankDeenieClient() {
                                       Edit
                                     </DropdownMenuItem>
                                   ) : null}
-                                  {isAdmin && !row.editable ? (
+                                  {!readOnly && isAdmin && !row.editable ? (
                                     <DropdownMenuItem
                                       className="text-xs font-semibold transition-colors hover:bg-muted"
                                       onSelect={() => {
@@ -2026,7 +2039,7 @@ export default function FrankDeenieClient() {
                                       Edit notes
                                     </DropdownMenuItem>
                                   ) : null}
-                                  {row.editable && !row.returnRole ? (
+                                  {!readOnly && row.editable && !row.returnRole ? (
                                     <DropdownMenuItem
                                       className="text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors"
                                       onSelect={() => requestDelete(row)}
@@ -2052,6 +2065,7 @@ export default function FrankDeenieClient() {
       <DonationDetailDrawer
         row={detailRow}
         isAdmin={isAdmin}
+        readOnly={readOnly}
         deletingRowId={deletingRowId}
         initialMode={detailMode}
         onClose={closeDetailDrawer}
@@ -2061,13 +2075,15 @@ export default function FrankDeenieClient() {
         onViewHistory={handleDetailViewHistory}
       />
 
-      <AddDonationForm
-        open={showAddForm}
-        onClose={closeAddForm}
-        selectedYear={selectedYear}
-        nameSuggestions={allNameSuggestions}
-        onCreated={handleDonationCreated}
-      />
+      {!readOnly ? (
+        <AddDonationForm
+          open={showAddForm}
+          onClose={closeAddForm}
+          selectedYear={selectedYear}
+          nameSuggestions={allNameSuggestions}
+          onCreated={handleDonationCreated}
+        />
+      ) : null}
 
       <ResponsiveModal
         open={!!givingHistoryName}
@@ -2157,63 +2173,67 @@ export default function FrankDeenieClient() {
         </ResponsiveModalContent>
       </ResponsiveModal>
 
-      <ResponsiveModal
-        open={deleteConfirmRow !== null}
-        onOpenChange={(open) => { if (!open) setDeleteConfirmRow(null); }}
-      >
-        {deleteConfirmRow ? (
-          <ResponsiveModalContent
-            aria-labelledby="delete-confirm-title"
-            dialogClassName="max-w-md rounded-3xl p-5"
-            showCloseButton={false}
+      {!readOnly ? (
+        <>
+          <ResponsiveModal
+            open={deleteConfirmRow !== null}
+            onOpenChange={(open) => { if (!open) setDeleteConfirmRow(null); }}
           >
-            <div className="space-y-4">
-              <div>
-                <h2 id="delete-confirm-title" className="text-lg font-bold text-foreground">
-                  Delete Donation
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Are you sure you want to delete the donation to{" "}
-                  <span className="font-semibold text-foreground">&ldquo;{deleteConfirmRow.name}&rdquo;</span>{" "}
-                  on {tableDate(deleteConfirmRow.date)}?
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  This action cannot be undone.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="destructive"
-                  className="flex-1 sm:flex-none"
-                  onClick={() => void executeDelete()}
-                >
-                  Delete
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 sm:flex-none"
-                  onClick={() => setDeleteConfirmRow(null)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </ResponsiveModalContent>
-        ) : null}
-      </ResponsiveModal>
+            {deleteConfirmRow ? (
+              <ResponsiveModalContent
+                aria-labelledby="delete-confirm-title"
+                dialogClassName="max-w-md rounded-3xl p-5"
+                showCloseButton={false}
+              >
+                <div className="space-y-4">
+                  <div>
+                    <h2 id="delete-confirm-title" className="text-lg font-bold text-foreground">
+                      Delete Donation
+                    </h2>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Are you sure you want to delete the donation to{" "}
+                      <span className="font-semibold text-foreground">&ldquo;{deleteConfirmRow.name}&rdquo;</span>{" "}
+                      on {tableDate(deleteConfirmRow.date)}?
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="destructive"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => void executeDelete()}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => setDeleteConfirmRow(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </ResponsiveModalContent>
+            ) : null}
+          </ResponsiveModal>
 
-      <ReturnCheckForm
-        row={returnRow}
-        onClose={handleReturnClose}
-        onReturned={handleReturnDone}
-      />
+          <ReturnCheckForm
+            row={returnRow}
+            onClose={handleReturnClose}
+            onReturned={handleReturnDone}
+          />
 
-      <FoundationEventForm
-        eventType={foundationEventType}
-        editingEvent={editingFoundationEvent}
-        onClose={handleFoundationEventClose}
-        onSaved={handleFoundationEventSaved}
-      />
+          <FoundationEventForm
+            eventType={foundationEventType}
+            editingEvent={editingFoundationEvent}
+            onClose={handleFoundationEventClose}
+            onSaved={handleFoundationEventSaved}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

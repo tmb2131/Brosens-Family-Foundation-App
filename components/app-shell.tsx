@@ -107,7 +107,7 @@ const fullNavItems: NavItem[] = [
     href: "/frank-deenie" as Route,
     label: "Frank & Deenie",
     icon: HandCoins,
-    roles: ["oversight", "admin", "manager"]
+    roles: ["oversight", "admin", "manager", "member"]
   },
   {
     href: "/mandate" as Route,
@@ -136,7 +136,7 @@ const focusNavItems: NavItem[] = [
     href: "/frank-deenie" as Route,
     label: "F&D",
     icon: HandCoins,
-    roles: ["oversight"]
+    roles: ["oversight", "member"]
   }
 ];
 

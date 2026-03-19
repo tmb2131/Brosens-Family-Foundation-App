@@ -32,6 +32,7 @@ export type DetailMode = "view" | "edit" | "edit-notes" | "edit-return";
 interface DonationDetailDrawerProps {
   row: FrankDeenieDonationRow | null;
   isAdmin: boolean;
+  readOnly?: boolean;
   deletingRowId: string | null;
   initialMode: DetailMode;
   onClose: () => void;
@@ -66,6 +67,7 @@ function rowToDraft(row: FrankDeenieDonationRow): DonationDraft {
 export const DonationDetailDrawer = memo(function DonationDetailDrawer({
   row,
   isAdmin,
+  readOnly,
   deletingRowId,
   initialMode,
   onClose,
@@ -295,7 +297,7 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
           aria-labelledby="donation-details-title"
           dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5"
           showCloseButton={false}
-          footer={row.editable || isAdmin || (row.returnRole === null && row.status === "Gave") || row.returnRole !== null ? (
+          footer={!readOnly && (row.editable || isAdmin || (row.returnRole === null && row.status === "Gave") || row.returnRole !== null) ? (
             <div className="flex flex-wrap items-center gap-3 pt-3">
               {row.editable && !isEditing ? (
                 <Button variant="outline" className="flex-1 sm:flex-none" onClick={beginEdit}>

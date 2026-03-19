@@ -7,6 +7,7 @@ import { YearMode } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
+const FRANK_DEENIE_READ_ROLES = [...FRANK_DEENIE_ALLOWED_ROLES, "member"] as const;
 
 function parseIncludeChildren(value: string | null) {
   if (value === null) {
@@ -42,7 +43,7 @@ function parseYear(value: string | null) {
 export async function GET(request: NextRequest) {
   try {
     const { admin, profile } = await requireAuthContext();
-    assertRole(profile, [...FRANK_DEENIE_ALLOWED_ROLES]);
+    assertRole(profile, [...FRANK_DEENIE_READ_ROLES]);
 
     const year = parseYear(request.nextUrl.searchParams.get("year"));
     const includeChildren = parseIncludeChildren(request.nextUrl.searchParams.get("includeChildren"));
