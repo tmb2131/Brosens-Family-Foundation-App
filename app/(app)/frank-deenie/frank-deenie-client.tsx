@@ -335,6 +335,9 @@ export default function FrankDeenieClient() {
         if (!row.name.toLowerCase().includes(search)) {
           return false;
         }
+        if (excludedFilterNames.size > 0 && excludedFilterNames.has(row.name.trim())) {
+          return false;
+        }
       }
 
       return true;
@@ -361,7 +364,7 @@ export default function FrankDeenieClient() {
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [data, filters, sortDirection, sortKey]);
+  }, [data, filters, excludedFilterNames, sortDirection, sortKey]);
   const detailRow = useMemo(() => {
     if (!data || !detailRowId) {
       return null;
