@@ -1708,9 +1708,9 @@ export default function FrankDeenieClient() {
           >
             <table className="w-full table-fixed text-left text-xs">
               <colgroup>
-                <col className="w-[10%]" />
+                <col className="w-[13%]" />
                 <col className="w-[28%]" />
-                <col className="w-[22%]" />
+                <col className="w-[19%]" />
                 <col className="w-[10%]" />
                 <col className="w-[8%]" />
                 <col className="w-[8%]" />
@@ -1793,7 +1793,7 @@ export default function FrankDeenieClient() {
                             setDetailRowId(row.id);
                           }}
                         >
-                          <td className="px-2 py-2 text-muted-foreground align-middle">{tableDate(row.date)}</td>
+                          <td className="whitespace-nowrap px-2 py-2 text-muted-foreground align-middle">{tableDate(row.date)}</td>
                           <td className="px-2 py-2 align-middle">
                             <div className="flex min-w-0 items-center gap-1.5">
                               <p
