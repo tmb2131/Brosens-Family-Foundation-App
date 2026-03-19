@@ -58,7 +58,7 @@ const DEFAULT_FILTERS: DonationFilters = {
 };
 
 const DONATION_STATUSES = ["Gave", "Planned"] as const;
-const SHOW_FRANK_DEENIE_IMPORT = true;
+const SHOW_FRANK_DEENIE_IMPORT = false;
 const EXPORT_HEADERS = ["Date", "Name", "Notes", "Amount", "Status", "Source", "Proposed by", "Return Status"] as const;
 
 function proposerName(email: string) {
