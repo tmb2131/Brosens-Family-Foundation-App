@@ -176,30 +176,34 @@ function buildTsv(rows: DonationExportRow[], eventRows: FoundationEventExportRow
 }
 
 function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: string, eventRows: FoundationEventExportRow[]) {
-  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-  const body = rows
-    .map((row) => {
-      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("");
+  const donCols = EXPORT_HEADERS.length;
+  const hasEvents = eventRows.length > 0;
+  const totalCols = hasEvents ? donCols + 1 + FOUNDATION_EVENT_HEADERS.length : donCols;
 
-  let eventsHtml = "";
-  if (eventRows.length > 0) {
-    const eventHead = FOUNDATION_EVENT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
-    const eventBody = eventRows
-      .map((row) => {
-        const cells = eventRowToExportValues(row).map((v) => `<td>${escapeHtml(v)}</td>`).join("");
-        return `<tr>${cells}</tr>`;
-      })
-      .join("");
-    eventsHtml = `
-    <h2 style="margin: 24px 0 8px; font-size: 16px;">Foundation Events</h2>
-    <table>
-      <thead><tr>${eventHead}</tr></thead>
-      <tbody>${eventBody}</tbody>
-    </table>`;
-  }
+  const titleRow = `<tr><td colspan="${totalCols}" style="font-size: 18px; font-weight: 700; border: none;">${escapeHtml(title)}</td></tr>`;
+  const subtitleRow = `<tr><td colspan="${totalCols}" style="font-size: 12px; color: #555; border: none;">${escapeHtml(subtitle)}</td></tr>`;
+  const spacerRow = `<tr><td colspan="${totalCols}" style="border: none;">&nbsp;</td></tr>`;
+
+  const donHeaders = EXPORT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+  const eventHeaders = hasEvents
+    ? `<td style="border: none;"></td>` + FOUNDATION_EVENT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join("")
+    : "";
+  const headerRow = `<tr>${donHeaders}${eventHeaders}</tr>`;
+
+  const maxRows = Math.max(rows.length, eventRows.length);
+  const emptyDonCells = `<td style="border: none;"></td>`.repeat(donCols);
+  const emptyEventCells = hasEvents ? `<td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td><td style="border: none;"></td>` : "";
+  const dataRows = Array.from({ length: maxRows }, (_, i) => {
+    const donCells = i < rows.length
+      ? rowToExportValues(rows[i]).map((v) => `<td>${escapeHtml(v)}</td>`).join("")
+      : emptyDonCells;
+    const evtCells = hasEvents
+      ? (i < eventRows.length
+        ? `<td style="border: none;"></td>` + eventRowToExportValues(eventRows[i]).map((v) => `<td>${escapeHtml(v)}</td>`).join("")
+        : emptyEventCells)
+      : "";
+    return `<tr>${donCells}${evtCells}</tr>`;
+  }).join("");
 
   return `<!doctype html>
 <html>
@@ -207,21 +211,19 @@ function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: stri
     <meta charset="utf-8" />
     <style>
       body { font-family: Arial, sans-serif; padding: 16px; }
-      h1 { margin: 0 0 6px; font-size: 18px; }
-      h2 { margin: 24px 0 8px; font-size: 16px; }
-      p { margin: 0 0 12px; color: #555; font-size: 12px; }
-      table { border-collapse: collapse; width: 100%; }
+      table { border-collapse: collapse; }
       th, td { border: 1px solid #d4d4d8; padding: 6px 8px; font-size: 12px; text-align: left; }
       th { background: #f4f4f5; font-weight: 700; }
     </style>
   </head>
   <body>
-    <h1>${escapeHtml(title)}</h1>
-    <p>${escapeHtml(subtitle)}</p>
     <table>
-      <thead><tr>${head}</tr></thead>
-      <tbody>${body}</tbody>
-    </table>${eventsHtml}
+      ${titleRow}
+      ${subtitleRow}
+      ${spacerRow}
+      ${headerRow}
+      ${dataRows}
+    </table>
   </body>
 </html>`;
 }
@@ -245,11 +247,13 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
       })
       .join("");
     eventsHtml = `
-    <h2 style="margin: 24px 0 8px; font-size: 15px;">Foundation Events</h2>
-    <table>
-      <thead><tr>${eventHead}</tr></thead>
-      <tbody>${eventBody}</tbody>
-    </table>`;
+      <div>
+        <h2 style="margin: 0 0 8px; font-size: 15px;">Foundation Events</h2>
+        <table>
+          <thead><tr>${eventHead}</tr></thead>
+          <tbody>${eventBody}</tbody>
+        </table>
+      </div>`;
   }
 
   return `<!doctype html>
@@ -258,23 +262,27 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
     <meta charset="utf-8" />
     <title>${escapeHtml(title)}</title>
     <style>
-      @page { margin: 0.5in; }
+      @page { margin: 0.5in; size: landscape; }
       body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
       h1 { margin: 0 0 6px; font-size: 18px; }
-      h2 { margin: 24px 0 8px; font-size: 15px; }
       p { margin: 0 0 12px; color: #475569; font-size: 12px; }
-      table { border-collapse: collapse; width: 100%; }
+      table { border-collapse: collapse; }
       th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
       th { background: #e2e8f0; font-weight: 700; }
+      .tables { display: flex; gap: 24px; align-items: flex-start; }
     </style>
   </head>
   <body>
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(subtitle)}</p>
-    <table>
-      <thead><tr>${head}</tr></thead>
-      <tbody>${body}</tbody>
-    </table>${eventsHtml}
+    <div class="tables">
+      <div>
+        <table>
+          <thead><tr>${head}</tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>${eventsHtml}
+    </div>
   </body>
 </html>`;
 }
