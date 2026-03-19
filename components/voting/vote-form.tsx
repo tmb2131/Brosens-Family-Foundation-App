@@ -158,7 +158,6 @@ function useVoteFormState(
     try {
       navigator.vibrate?.(10);
       setIsReviewing(false);
-      onSuccess();
 
       const workspaceUpdater = (ws: WorkspaceSnapshot): WorkspaceSnapshot => ({
         ...ws,
@@ -210,6 +209,7 @@ function useVoteFormState(
           { key: (key) => typeof key === "string" && /^\/api\/foundation(\?|$)/.test(key), updater: foundationUpdater },
         ],
         doFetch,
+        { onOptimisticApplied: onSuccess },
       );
       void globalMutate((k) => typeof k === "string" && k.startsWith("/api/foundation/"));
     } catch (err) {
@@ -670,7 +670,6 @@ function VoteFormStandalone({
     try {
       navigator.vibrate?.(10);
       setIsReviewing(false);
-      onSuccess();
 
       const workspaceUpdater = (ws: WorkspaceSnapshot): WorkspaceSnapshot => ({
         ...ws,
@@ -722,6 +721,7 @@ function VoteFormStandalone({
           { key: (key) => typeof key === "string" && /^\/api\/foundation(\?|$)/.test(key), updater: foundationUpdater },
         ],
         doFetch,
+        { onOptimisticApplied: onSuccess },
       );
       void globalMutate((k) => typeof k === "string" && k.startsWith("/api/foundation/"));
     } catch (err) {

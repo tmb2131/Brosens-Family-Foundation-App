@@ -97,11 +97,14 @@ export async function optimisticMutate<T>(
   key: string,
   fetcher: () => Promise<unknown>,
   updater: (current: T) => T,
+  options?: { onOptimisticApplied?: () => void },
 ): Promise<void> {
   const entries = collectMatchingEntries(key, updater);
   if (entries.length > 0) {
     await setEntries(entries, "nextData");
   }
+
+  options?.onOptimisticApplied?.();
 
   try {
     await fetcher();
@@ -122,8 +125,9 @@ export async function optimisticMutate<T>(
 export function optimisticMutateAllFoundation<T>(
   fetcher: () => Promise<unknown>,
   updater: (current: T) => T,
+  options?: { onOptimisticApplied?: () => void },
 ): Promise<void> {
-  return optimisticMutateMany([{ key: FOUNDATION_KEY_MATCHER, updater }], fetcher);
+  return optimisticMutateMany([{ key: FOUNDATION_KEY_MATCHER, updater }], fetcher, options);
 }
 
 /**
@@ -133,6 +137,7 @@ export function optimisticMutateAllFoundation<T>(
 export async function optimisticMutateMany(
   mutations: OptimisticMutation[],
   fetcher: () => Promise<unknown>,
+  options?: { onOptimisticApplied?: () => void },
 ): Promise<void> {
   const entriesByCacheKey = new Map<string, MatchedCacheEntry<unknown>>();
 
@@ -156,6 +161,8 @@ export async function optimisticMutateMany(
   if (entries.length > 0) {
     await setEntries(entries, "nextData");
   }
+
+  options?.onOptimisticApplied?.();
 
   try {
     await fetcher();
