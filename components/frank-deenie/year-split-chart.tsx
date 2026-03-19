@@ -1,10 +1,18 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
+import type { SVGProps } from "react";
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, Cell } from "recharts";
 import { ChartLegend } from "@/components/ui/chart-legend";
 import { chartPalette, chartGradients, chartText, chartTooltip } from "@/lib/chart-styles";
 import { compactCurrency, currency } from "@/lib/utils";
+
+type LabelRenderProps = Omit<SVGProps<SVGTextElement>, "viewBox"> & {
+  value?: number | string;
+  index?: number;
+};
+
+const SELECTIVE_LABEL_THRESHOLD = 5;
 
 export interface FrankDeenieYearSplitPoint {
   year: number;
@@ -24,6 +32,43 @@ export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart
   const chartData = useMemo(
     () => data.map((entry) => ({ ...entry, total: entry.frankDeenie + entry.children })),
     [data]
+  );
+
+  const labelIndices = useMemo(() => {
+    if (chartData.length <= SELECTIVE_LABEL_THRESHOLD) return null;
+
+    let minIdx = 0;
+    let maxIdx = 0;
+    for (let i = 1; i < chartData.length; i++) {
+      if (chartData[i].total < chartData[minIdx].total) minIdx = i;
+      if (chartData[i].total > chartData[maxIdx].total) maxIdx = i;
+    }
+    const lastIdx = chartData.length - 1;
+    return new Set([minIdx, maxIdx, lastIdx]);
+  }, [chartData]);
+
+  const renderLabel = useCallback(
+    ({ x: rawX, y: rawY, width: rawW, value, index }: LabelRenderProps) => {
+      if (value == null || index == null) return null;
+      if (labelIndices && !labelIndices.has(index)) return null;
+
+      const cx = Number(rawX ?? 0) + Number(rawW ?? 0) / 2;
+      const cy = Number(rawY ?? 0) - 6;
+      const isLatest = index === chartData.length - 1;
+      return (
+        <text
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          fill={isLatest && labelIndices ? chartText.label : chartText.axis}
+          fontSize={11}
+          fontWeight={isLatest && labelIndices ? 700 : 600}
+        >
+          {compactCurrency(Number(value))}
+        </text>
+      );
+    },
+    [labelIndices, chartData.length]
   );
 
   return (
@@ -106,11 +151,8 @@ export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart
               ))}
               <LabelList
                 position="top"
-                fill={chartText.axis}
-                fontSize={11}
-                fontWeight={600}
                 dataKey="total"
-                formatter={(value: number) => compactCurrency(Number(value))}
+                content={renderLabel}
               />
             </Bar>
           </BarChart>
