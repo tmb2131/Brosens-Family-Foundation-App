@@ -30,6 +30,7 @@ interface ChildrenProposalRow {
   status: string;
   notes: string | null;
   sent_at: string | null;
+  original_sent_at: string | null;
   created_at: string;
   returned_at: string | null;
   return_group_id: string | null;
@@ -204,7 +205,7 @@ function mapFrankDeenieDonationRow(
     ? proposerBySourceId.get(row.return_source_id!) ?? row.created_by
     : row.created_by;
   return {
-    id: isChildrenReturn ? `children:${row.return_source_id}` : row.id,
+    id: row.id,
     source: isChildrenReturn ? "children" : "frank_deenie",
     date: row.donation_date,
     type: row.donation_type,
@@ -241,7 +242,9 @@ function mapChildrenDonationRow(
   return {
     id: `children:${row.id}`,
     source: "children",
-    date: isSent ? row.sent_at ?? row.created_at.slice(0, 10) : row.created_at.slice(0, 10),
+    date: isSent
+      ? (isReturned ? row.original_sent_at : null) ?? row.sent_at ?? row.created_at.slice(0, 10)
+      : row.created_at.slice(0, 10),
     type: "donation",
     name: organizationName || proposalTitle,
     memo: proposalNotes || proposalDescription,
@@ -311,7 +314,7 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null) {
   let query = admin
     .from("grant_proposals")
-    .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, created_at, returned_at, return_group_id")
+    .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, original_sent_at, created_at, returned_at, return_group_id")
     .in("status", ["sent", "approved"])
     .order("created_at", { ascending: false });
 
@@ -422,15 +425,21 @@ export async function getFrankDeenieSnapshot(
     listFoundationEvents(admin, year)
   ]);
 
+  const pureFdRows = frankDeenieRows.filter((row) => row.source !== "children");
+  const childrenReturnRows = frankDeenieRows.filter((row) => row.source === "children");
+
   const years =
     year === null
       ? availableYears
       : availableYears.includes(year)
         ? availableYears
         : [...availableYears, year].sort((a, b) => b - a);
-  const rows = sortLedgerRows(includeChildren ? [...frankDeenieRows, ...childrenRows] : frankDeenieRows);
-  const frankDeenieTotal = frankDeenieRows.reduce((sum, row) => sum + row.amount, 0);
-  const childrenTotal = childrenRows.reduce((sum, row) => sum + row.amount, 0);
+  const rows = sortLedgerRows(
+    includeChildren ? [...pureFdRows, ...childrenReturnRows, ...childrenRows] : pureFdRows
+  );
+  const frankDeenieTotal = pureFdRows.reduce((sum, row) => sum + row.amount, 0);
+  const childrenReturnTotal = childrenReturnRows.reduce((sum, row) => sum + row.amount, 0);
+  const childrenTotal = childrenRows.reduce((sum, row) => sum + row.amount, 0) + childrenReturnTotal;
 
   return {
     year,
@@ -516,8 +525,8 @@ export async function updateFrankDeenieDonation(
 
   if (input.amount !== undefined) {
     const amount = Number(input.amount);
-    if (!Number.isFinite(amount) || amount < 0) {
-      throw new HttpError(400, "amount must be a non-negative number.");
+    if (!Number.isFinite(amount)) {
+      throw new HttpError(400, "amount must be a finite number.");
     }
     updatePayload.amount = roundCurrency(amount);
   }
@@ -734,7 +743,7 @@ async function markChildrenDonationReturned(
 ) {
   const { data: proposal, error: fetchError } = await admin
     .from("grant_proposals")
-    .select("id, organization_id, final_amount, status, returned_at")
+    .select("id, organization_id, final_amount, status, returned_at, sent_at")
     .eq("id", input.sourceId)
     .maybeSingle<{
       id: string;
@@ -742,6 +751,7 @@ async function markChildrenDonationReturned(
       final_amount: number | string;
       status: string;
       returned_at: string | null;
+      sent_at: string | null;
     }>();
 
   if (fetchError) {
@@ -780,6 +790,7 @@ async function markChildrenDonationReturned(
     .update({
       returned_at: returnedDate,
       return_group_id: returnGroupId,
+      original_sent_at: proposal.sent_at,
       sent_at: newDonationDate,
     })
     .eq("id", input.sourceId);

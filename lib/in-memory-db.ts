@@ -369,8 +369,11 @@ function withProgress(proposal: GrantProposal, userId?: string, revealOverride =
     : false;
   const masked = !(revealOverride || proposal.revealVotes || hasCurrentUserVoted);
 
+  const proposer = db().users.find((u) => u.id === proposal.proposerId);
+
   return {
     ...proposal,
+    proposerDisplayName: proposer?.name ?? "—",
     organizationName: org?.name ?? "Unknown Organization",
     organizationWebsite: org?.website ?? null,
     charityNavigatorUrl: org?.charityNavigatorUrl ?? null,

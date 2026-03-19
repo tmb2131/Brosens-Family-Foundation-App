@@ -141,6 +141,7 @@ export interface FoundationSnapshot {
   proposals: Array<
     GrantProposal & {
       progress: ProposalProgress;
+      proposerDisplayName: string;
       organizationName: string;
       organizationWebsite?: string | null;
       charityNavigatorUrl?: string | null;

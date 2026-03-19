@@ -27,7 +27,7 @@ function byDisplay(row: FrankDeenieDonationRow): string {
   return "F&D";
 }
 
-export type DetailMode = "view" | "edit" | "edit-notes";
+export type DetailMode = "view" | "edit" | "edit-notes" | "edit-return";
 
 interface DonationDetailDrawerProps {
   row: FrankDeenieDonationRow | null;
@@ -82,7 +82,12 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
   const [notesValue, setNotesValue] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
 
+  const [isEditingReturn, setIsEditingReturn] = useState(false);
+  const [returnDraft, setReturnDraft] = useState<{ date: string; amount: string } | null>(null);
+  const [savingReturn, setSavingReturn] = useState(false);
+
   const editDateRef = useRef<HTMLInputElement | null>(null);
+  const returnDateRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!row) {
@@ -90,6 +95,8 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
       setEditDraft(null);
       setIsEditingNotes(false);
       setNotesValue("");
+      setIsEditingReturn(false);
+      setReturnDraft(null);
       return;
     }
 
@@ -97,16 +104,30 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
       setIsEditing(true);
       setEditDraft(rowToDraft(row));
       setIsEditingNotes(false);
+      setIsEditingReturn(false);
+      setReturnDraft(null);
     } else if (initialMode === "edit-notes") {
       setIsEditingNotes(true);
       setNotesValue(row.memo);
       setIsEditing(false);
       setEditDraft(null);
+      setIsEditingReturn(false);
+      setReturnDraft(null);
+    } else if (initialMode === "edit-return" && row.returnRole !== null) {
+      setIsEditingReturn(true);
+      const absAmount = Math.abs(row.amount);
+      setReturnDraft({ date: row.date, amount: Number.isInteger(absAmount) ? String(absAmount) : absAmount.toFixed(2) });
+      setIsEditing(false);
+      setEditDraft(null);
+      setIsEditingNotes(false);
+      setNotesValue("");
     } else {
       setIsEditing(false);
       setEditDraft(null);
       setIsEditingNotes(false);
       setNotesValue("");
+      setIsEditingReturn(false);
+      setReturnDraft(null);
     }
   }, [row, initialMode]);
 
@@ -119,6 +140,65 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
   const cancelEdit = () => {
     setIsEditing(false);
     setEditDraft(null);
+  };
+
+  const beginReturnEdit = () => {
+    if (!row || row.returnRole === null) return;
+    const absAmount = Math.abs(row.amount);
+    setIsEditingReturn(true);
+    setReturnDraft({ date: row.date, amount: Number.isInteger(absAmount) ? String(absAmount) : absAmount.toFixed(2) });
+  };
+
+  const cancelReturnEdit = () => {
+    setIsEditingReturn(false);
+    setReturnDraft(null);
+  };
+
+  const saveReturnEdit = async () => {
+    if (!row || !returnDraft) return;
+    const parsedAmount = parseNumberInput(returnDraft.amount);
+    if (parsedAmount === null || parsedAmount < 0) {
+      toast.error("Amount must be a non-negative number.");
+      return;
+    }
+
+    setSavingReturn(true);
+    try {
+      const isChildrenOriginal = row.source === "children" && row.returnRole === "original";
+
+      if (isChildrenOriginal) {
+        const proposalId = row.id.startsWith("children:") ? row.id.slice("children:".length) : row.id;
+        const response = await fetch("/api/frank-deenie/children-original", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ proposalId, date: returnDraft.date, amount: parsedAmount }),
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload.error ?? "Failed to update donation."));
+        }
+      } else {
+        const apiAmount = row.returnRole === "reversal" ? -parsedAmount : parsedAmount;
+        const response = await fetch(`/api/frank-deenie/${row.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ date: returnDraft.date, amount: apiAmount }),
+        });
+        const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+        if (!response.ok) {
+          throw new Error(String(payload.error ?? "Failed to update donation."));
+        }
+      }
+
+      toast.success("Donation updated.");
+      setIsEditingReturn(false);
+      setReturnDraft(null);
+      onMutate();
+    } catch (saveError) {
+      toast.error(saveError instanceof Error ? saveError.message : "Failed to update donation.");
+    } finally {
+      setSavingReturn(false);
+    }
   };
 
   const saveEdit = async () => {
@@ -203,6 +283,8 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
     setEditDraft(null);
     setIsEditingNotes(false);
     setNotesValue("");
+    setIsEditingReturn(false);
+    setReturnDraft(null);
     onClose();
   };
 
@@ -213,14 +295,20 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
           aria-labelledby="donation-details-title"
           dialogClassName="max-w-3xl rounded-3xl p-4 sm:p-5"
           showCloseButton={false}
-          footer={row.editable || isAdmin || (row.returnRole === null && row.status === "Gave") ? (
+          footer={row.editable || isAdmin || (row.returnRole === null && row.status === "Gave") || row.returnRole !== null ? (
             <div className="flex flex-wrap items-center gap-3 pt-3">
               {row.editable && !isEditing ? (
                 <Button variant="outline" className="flex-1 sm:flex-none" onClick={beginEdit}>
                   Edit donation
                 </Button>
               ) : null}
-              {isAdmin && !row.editable && !isEditingNotes ? (
+              {!row.editable && row.returnRole !== null && !isEditingReturn ? (
+                <Button variant="outline" className="flex-1 sm:flex-none" onClick={beginReturnEdit}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                  Edit
+                </Button>
+              ) : null}
+              {isAdmin && !row.editable && !row.returnRole && !isEditingNotes ? (
                 <Button variant="outline" className="flex-1 sm:flex-none" onClick={beginNotesEdit}>
                   <Pencil className="mr-1.5 h-3.5 w-3.5" />
                   Edit notes
@@ -406,6 +494,65 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
                 </div>
               </form>
             </>
+          ) : isEditingReturn && returnDraft ? (
+            <form className="grid gap-3" onSubmit={(event) => event.preventDefault()}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="text-xs font-semibold text-muted-foreground">
+                  Date
+                  <button
+                    type="button"
+                    onClick={() => returnDateRef.current?.showPicker()}
+                    className="mt-1 flex h-10 w-full cursor-pointer items-center rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-colors hover:bg-muted/40"
+                  >
+                    <span className={`flex-1 text-left ${returnDraft.date ? "text-foreground" : "text-muted-foreground"}`}>
+                      {returnDraft.date ? formatDate(returnDraft.date) : "Select date"}
+                    </span>
+                    <Calendar className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                  <input
+                    ref={returnDateRef}
+                    type="date"
+                    value={returnDraft.date}
+                    onChange={(event) =>
+                      setReturnDraft((current) => (current ? { ...current, date: event.target.value } : current))
+                    }
+                    tabIndex={-1}
+                    className="sr-only"
+                  />
+                </div>
+                <label className="text-xs font-semibold text-muted-foreground">
+                  Amount
+                  <AmountInput
+                    min={0}
+                    step="0.01"
+                    value={returnDraft.amount}
+                    onChange={(event) =>
+                      setReturnDraft((current) => (current ? { ...current, amount: event.target.value } : current))
+                    }
+                    className="mt-1 h-10 rounded-lg"
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="prominent"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => void saveReturnEdit()}
+                  disabled={savingReturn}
+                >
+                  {savingReturn ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={cancelReturnEdit}
+                  disabled={savingReturn}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
           ) : (
             <dl className="grid gap-3 text-sm">
               <div className="grid grid-cols-2 gap-3">

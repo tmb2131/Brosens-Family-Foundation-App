@@ -53,7 +53,8 @@ export async function PATCH(
 
     const existing = await getFrankDeenieDonationById(admin, donationId);
     if (existing && (existing.returnRole === "original" || existing.returnRole === "reversal")) {
-      if (!(isMemoOnly && profile.role === "admin")) {
+      const isDateAmountOnly = (hasDate || hasAmount) && !hasType && !hasName && !hasMemo && !hasSplit && !hasStatus;
+      if (!(isMemoOnly && profile.role === "admin") && !isDateAmountOnly) {
         throw new HttpError(400, "Returned or reversal donations cannot be edited.");
       }
     }
@@ -73,6 +74,24 @@ export async function PATCH(
       ...(hasStatus ? { status: String(body.status ?? "") } : {}),
       requesterId: profile.id
     });
+
+    if (hasAmount || hasDate) {
+      const { data: rawRow } = await admin
+        .from("frank_deenie_donations")
+        .select("return_source_id, return_role")
+        .eq("id", donationId)
+        .maybeSingle<{ return_source_id: string | null; return_role: string | null }>();
+
+      if (rawRow?.return_source_id && rawRow.return_role === "replacement") {
+        const proposalUpdate: Record<string, unknown> = {};
+        if (hasAmount) proposalUpdate.final_amount = donation.amount;
+        if (hasDate) proposalUpdate.sent_at = donation.date;
+        await admin
+          .from("grant_proposals")
+          .update(proposalUpdate)
+          .eq("id", rawRow.return_source_id);
+      }
+    }
 
     if (profile.role !== "oversight") {
       queueFrankDeenieDonationChangeNotification(admin, {

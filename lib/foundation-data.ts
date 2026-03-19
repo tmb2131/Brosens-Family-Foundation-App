@@ -61,6 +61,7 @@ interface ProposalRow {
   final_amount: number | string;
   notes: string | null;
   sent_at: string | null;
+  returned_at: string | null;
   proposal_title: string | null;
   proposal_description: string | null;
   proposal_website: string | null;
@@ -99,7 +100,7 @@ interface OrganizationRow {
 }
 
 const PROPOSAL_SELECT =
-  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
+  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, returned_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
 
 const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
@@ -661,14 +662,17 @@ function buildProposalViews(input: {
     const masked = !(proposal.revealVotes || hasCurrentUserVoted);
     const hasRawVotes = votes.length > 0;
     const computedFromVotes = computeFinalAmount(proposal, votes);
+    const isReturned = row.returned_at !== null;
     const shouldUseStoredJointAmount =
       proposal.proposalType === "joint" &&
       proposal.budgetYear < currentYear() &&
       !hasRawVotes &&
       ["approved", "sent"].includes(row.status);
-    const computedFinalAmount = shouldUseStoredJointAmount
+    const computedFinalAmount = isReturned
       ? toNumber(row.final_amount)
-      : computedFromVotes;
+      : shouldUseStoredJointAmount
+        ? toNumber(row.final_amount)
+        : computedFromVotes;
 
     return {
       ...proposal,
@@ -812,9 +816,13 @@ export async function getFoundationSnapshot(
   const proposalRows = includeAllYears
     ? await loadAllProposalRows(admin)
     : await loadProposalRowsByYear(admin, budget.budget_year);
-  const deps = await loadProposalsWithDependencies(admin, proposalRows);
+  const proposerIds = unique(proposalRows.map((row) => row.proposer_id));
+  const [deps, proposerEmailById] = await Promise.all([
+    loadProposalsWithDependencies(admin, proposalRows),
+    loadProposerEmailsById(admin, proposerIds)
+  ]);
 
-  const proposals = buildProposalViews({
+  const proposalViews = buildProposalViews({
     proposals: proposalRows,
     grantById: deps.grantById,
     organizationById: deps.organizationById,
@@ -823,6 +831,11 @@ export async function getFoundationSnapshot(
     currentUserId,
     votingMemberIds
   });
+
+  const proposals = proposalViews.map((p) => ({
+    ...p,
+    proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId))
+  }));
 
   let jointAllocated = 0;
   let discretionaryAllocated = 0;

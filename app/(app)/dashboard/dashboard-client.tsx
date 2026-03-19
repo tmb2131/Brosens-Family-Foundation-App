@@ -2437,6 +2437,12 @@ export default function DashboardClient() {
                     : "—"}
                 </dd>
               </div>
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Proposed By</dt>
+                <dd className="mt-1.5 font-semibold text-foreground">
+                  {detailProposal.proposerDisplayName}
+                </dd>
+              </div>
               <div className="md:col-span-2">
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Description</dt>
                 <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">
