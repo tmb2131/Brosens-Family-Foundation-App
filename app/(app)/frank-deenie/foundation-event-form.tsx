@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
-import { FoundationEventType } from "@/lib/types";
+import { FoundationEvent, FoundationEventType } from "@/lib/types";
 import { parseNumberInput, toISODate } from "@/lib/utils";
 
 function formatDate(value: string) {
@@ -19,24 +19,40 @@ function formatDate(value: string) {
 
 interface FoundationEventFormProps {
   eventType: FoundationEventType | null;
+  editingEvent?: FoundationEvent | null;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 }
 
-export const FoundationEventForm = memo(function FoundationEventForm({ eventType, onClose, onCreated }: FoundationEventFormProps) {
+export const FoundationEventForm = memo(function FoundationEventForm({
+  eventType,
+  editingEvent,
+  onClose,
+  onSaved,
+}: FoundationEventFormProps) {
+  const isEditing = !!editingEvent;
+  const resolvedEventType = editingEvent?.eventType ?? eventType;
+  const isOpen = !!resolvedEventType;
+
   const [draft, setDraft] = useState({ date: "", amount: "", memo: "" });
-  const [isCreating, setIsCreating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const dateRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (eventType) {
+    if (editingEvent) {
+      setDraft({
+        date: editingEvent.eventDate,
+        amount: String(editingEvent.amount),
+        memo: editingEvent.memo,
+      });
+    } else if (eventType) {
       setDraft({ date: toISODate(new Date()), amount: "", memo: "" });
     }
-  }, [eventType]);
+  }, [editingEvent, eventType]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!eventType) return;
+    if (!resolvedEventType) return;
 
     const parsedAmount = parseNumberInput(draft.amount);
     if (parsedAmount === null || parsedAmount <= 0) {
@@ -48,43 +64,65 @@ export const FoundationEventForm = memo(function FoundationEventForm({ eventType
       return;
     }
 
-    setIsCreating(true);
+    setIsSaving(true);
     try {
-      const response = await fetch("/api/frank-deenie/foundation-events", {
-        method: "POST",
+      const payload = {
+        eventType: resolvedEventType,
+        date: draft.date,
+        amount: parsedAmount,
+        memo: draft.memo.trim() || null,
+      };
+
+      const url = isEditing
+        ? `/api/frank-deenie/foundation-events/${editingEvent.id}`
+        : "/api/frank-deenie/foundation-events";
+
+      const response = await fetch(url, {
+        method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventType,
-          date: draft.date,
-          amount: parsedAmount,
-          memo: draft.memo.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error ?? "Failed to create foundation event.");
+        throw new Error(errorData?.error ?? `Failed to ${isEditing ? "update" : "create"} foundation event.`);
       }
 
-      toast.success(eventType === "fund_foundation" ? "Foundation funded." : "Transfer recorded.");
-      onCreated();
+      if (isEditing) {
+        toast.success("Event updated.");
+      } else {
+        toast.success(resolvedEventType === "fund_foundation" ? "Foundation funded." : "Transfer recorded.");
+      }
+      onSaved();
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : "Failed to create foundation event.");
+      toast.error(submitError instanceof Error ? submitError.message : `Failed to ${isEditing ? "update" : "create"} foundation event.`);
     } finally {
-      setIsCreating(false);
+      setIsSaving(false);
     }
   };
 
+  const title = isEditing
+    ? `Edit ${resolvedEventType === "fund_foundation" ? "Funding" : "Transfer"}`
+    : resolvedEventType === "fund_foundation"
+      ? "Fund Foundation"
+      : "Transfer into Foundation";
+
+  const submitLabel = isEditing
+    ? "Save Changes"
+    : resolvedEventType === "fund_foundation"
+      ? "Record Funding"
+      : "Record Transfer";
+
   return (
-    <ResponsiveModal open={!!eventType} onOpenChange={(open) => { if (!open) onClose(); }}>
-      {eventType ? (
+    <ResponsiveModal open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      {isOpen ? (
         <ResponsiveModalContent
           aria-labelledby="foundation-event-title"
           dialogClassName="max-w-md rounded-3xl p-4 sm:p-5"
           showCloseButton
         >
           <h2 id="foundation-event-title" className="text-base font-bold">
-            {eventType === "fund_foundation" ? "Fund Foundation" : "Transfer into Foundation"}
+            {title}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="text-xs font-semibold text-muted-foreground">
@@ -134,9 +172,9 @@ export const FoundationEventForm = memo(function FoundationEventForm({ eventType
               type="submit"
               variant="prominent"
               className="w-full"
-              disabled={isCreating}
+              disabled={isSaving}
             >
-              {isCreating ? "Saving\u2026" : eventType === "fund_foundation" ? "Record Funding" : "Record Transfer"}
+              {isSaving ? "Saving\u2026" : submitLabel}
             </Button>
           </form>
         </ResponsiveModalContent>

@@ -956,6 +956,65 @@ export async function createFoundationEvent(
   return mapFoundationEventRow(data);
 }
 
+interface UpdateFoundationEventInput {
+  eventType?: FoundationEventType;
+  date?: string;
+  amount?: number;
+  memo?: string | null;
+}
+
+export async function updateFoundationEvent(
+  admin: AdminClient,
+  eventId: string,
+  input: UpdateFoundationEventInput
+) {
+  const updates: Record<string, unknown> = {};
+
+  if (input.eventType !== undefined) {
+    if (!VALID_EVENT_TYPES.includes(input.eventType)) {
+      throw new HttpError(400, "eventType must be fund_foundation or transfer_to_foundation.");
+    }
+    updates.event_type = input.eventType;
+  }
+
+  if (input.date !== undefined) {
+    updates.event_date = normalizeDateString(input.date);
+  }
+
+  if (input.amount !== undefined) {
+    const amount = Number(input.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new HttpError(400, "amount must be a positive number.");
+    }
+    updates.amount = roundCurrency(amount);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, "memo")) {
+    updates.memo = normalizeOptionalText(input.memo, "memo", 800);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new HttpError(400, "No fields to update.");
+  }
+
+  const { data, error } = await admin
+    .from("foundation_events")
+    .update(updates)
+    .eq("id", eventId)
+    .select(FOUNDATION_EVENT_SELECT)
+    .maybeSingle<FoundationEventDbRow>();
+
+  if (error) {
+    throw new HttpError(500, `Could not update foundation event: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new HttpError(404, "Foundation event not found.");
+  }
+
+  return mapFoundationEventRow(data);
+}
+
 export async function deleteFoundationEvent(admin: AdminClient, eventId: string) {
   const { data, error } = await admin
     .from("foundation_events")

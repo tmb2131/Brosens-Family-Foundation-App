@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { ArrowDownAZ, ArrowUpAZ, Banknote, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
+import { ArrowDownAZ, ArrowUpAZ, Banknote, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 
 const FrankDeenieYearSplitChart = dynamic(
@@ -262,6 +262,7 @@ export default function FrankDeenieClient() {
   const [excludedFilterNames, setExcludedFilterNames] = useState<Set<string>>(new Set());
   const [returnRow, setReturnRow] = useState<FrankDeenieDonationRow | null>(null);
   const [foundationEventType, setFoundationEventType] = useState<FoundationEventType | null>(null);
+  const [editingFoundationEvent, setEditingFoundationEvent] = useState<FoundationEvent | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -592,9 +593,13 @@ export default function FrankDeenieClient() {
     void mutate();
   }, [mutate]);
 
-  const handleFoundationEventClose = useCallback(() => setFoundationEventType(null), []);
-  const handleFoundationEventCreated = useCallback(() => {
+  const handleFoundationEventClose = useCallback(() => {
     setFoundationEventType(null);
+    setEditingFoundationEvent(null);
+  }, []);
+  const handleFoundationEventSaved = useCallback(() => {
+    setFoundationEventType(null);
+    setEditingFoundationEvent(null);
     void mutate();
   }, [mutate]);
 
@@ -1108,15 +1113,25 @@ export default function FrankDeenieClient() {
                           <p className="truncate text-xs text-muted-foreground">{evt.memo}</p>
                         ) : null}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => deleteFoundationEvent(evt.id)}
-                        disabled={deletingEventId === evt.id}
-                        className="ml-2 shrink-0 rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                        aria-label="Delete event"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="ml-2 flex shrink-0 items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingFoundationEvent(evt)}
+                          className="rounded p-1 text-muted-foreground hover:text-foreground"
+                          aria-label="Edit event"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteFoundationEvent(evt.id)}
+                          disabled={deletingEventId === evt.id}
+                          className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                          aria-label="Delete event"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1203,15 +1218,25 @@ export default function FrankDeenieClient() {
                                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{evt.memo}</p>
                               ) : null}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => deleteFoundationEvent(evt.id)}
-                              disabled={deletingEventId === evt.id}
-                              className="ml-2 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 disabled:opacity-50"
-                              aria-label="Delete event"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="ml-2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                              <button
+                                type="button"
+                                onClick={() => setEditingFoundationEvent(evt)}
+                                className="rounded p-1 text-muted-foreground hover:text-foreground"
+                                aria-label="Edit event"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteFoundationEvent(evt.id)}
+                                disabled={deletingEventId === evt.id}
+                                className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                                aria-label="Delete event"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </li>
                         ))}
                       </ul>
@@ -2080,8 +2105,9 @@ export default function FrankDeenieClient() {
 
       <FoundationEventForm
         eventType={foundationEventType}
+        editingEvent={editingFoundationEvent}
         onClose={handleFoundationEventClose}
-        onCreated={handleFoundationEventCreated}
+        onSaved={handleFoundationEventSaved}
       />
     </div>
   );
