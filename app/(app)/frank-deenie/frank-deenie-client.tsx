@@ -325,6 +325,8 @@ export default function FrankDeenieClient() {
   const [foundationEventType, setFoundationEventType] = useState<FoundationEventType | null>(null);
   const [editingFoundationEvent, setEditingFoundationEvent] = useState<FoundationEvent | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const MOBILE_PAGE_SIZE = 50;
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_PAGE_SIZE);
   const filterNameInputRef = useRef<HTMLInputElement | null>(null);
 
   const setYearMode = useCallback((mode: YearMode) => {
@@ -460,6 +462,14 @@ export default function FrankDeenieClient() {
       return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [data, filters, excludedFilterNames, sortDirection, sortKey]);
+
+  useEffect(() => {
+    setMobileVisibleCount(MOBILE_PAGE_SIZE);
+  }, [filters, selectedYear, sortKey, sortDirection]);
+
+  const mobileRows = filteredRows.slice(0, mobileVisibleCount);
+  const hasMoreMobileRows = filteredRows.length > mobileVisibleCount;
+
   const detailRow = useMemo(() => {
     if (!data || !detailRowId) {
       return null;
@@ -1031,6 +1041,16 @@ export default function FrankDeenieClient() {
             Transfer
           </Button>
         </div>
+        <Button
+          type="button"
+          variant="prominent"
+          size="sm"
+          onClick={openAddForm}
+          className="mt-2 w-full"
+        >
+          <Plus className="h-4 w-4" />
+          Add Donation
+        </Button>
       </GlassCard>
 
       {/* Desktop hero: full header */}
@@ -1260,7 +1280,7 @@ export default function FrankDeenieClient() {
             </section>
 
             {data.foundationEvents.length > 0 ? (
-              <GlassCard>
+              <GlassCard className="hidden sm:block">
                 <CardLabel>Foundation Events</CardLabel>
                 {(["fund_foundation", "transfer_to_foundation"] as const).map((type) => {
                   const events = data.foundationEvents.filter((e) => e.eventType === type);
@@ -1724,7 +1744,7 @@ export default function FrankDeenieClient() {
                 </Button>
               </div>
             ) : (
-              filteredRows.map((row) => {
+              mobileRows.map((row) => {
                 const notesText = row.memo.trim();
                 const isChildren = row.source === "children";
                 const isReturnedOriginal = row.returnRole === "original";
@@ -1794,6 +1814,22 @@ export default function FrankDeenieClient() {
               })
             )}
           </div>
+
+          {hasMoreMobileRows ? (
+            <div className="flex flex-col items-center gap-2 py-4 md:hidden">
+              <p className="text-xs text-muted-foreground">
+                Showing {mobileVisibleCount} of {filteredRows.length}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setMobileVisibleCount((c) => c + MOBILE_PAGE_SIZE)}>
+                  Show {Math.min(MOBILE_PAGE_SIZE, filteredRows.length - mobileVisibleCount)} more
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setMobileVisibleCount(filteredRows.length)}>
+                  Show all
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           {/* Desktop table */}
           <div
@@ -2004,16 +2040,6 @@ export default function FrankDeenieClient() {
         </GlassCard>
 
       </PageWithSidebar>
-
-      {/* Mobile FAB: Add Donation */}
-      <button
-        type="button"
-        onClick={openAddForm}
-        className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[hsl(var(--accent))] text-white shadow-lg shadow-emerald-500/25 transition-transform active:scale-90 sm:hidden"
-        aria-label="Add donation"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
 
       <DonationDetailDrawer
         row={detailRow}
