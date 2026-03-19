@@ -1636,8 +1636,8 @@ export default function FrankDeenieClient() {
             <table className="w-full table-fixed text-left text-xs">
               <colgroup>
                 <col className="w-[10%]" />
-                <col className="w-[20%]" />
-                <col />
+                <col className="w-[28%]" />
+                <col className="w-[22%]" />
                 <col className="w-[10%]" />
                 <col className="w-[8%]" />
                 <col className="w-[8%]" />
