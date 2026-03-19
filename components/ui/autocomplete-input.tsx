@@ -44,6 +44,7 @@ export function AutocompleteInput({
   const listboxId = `${baseId}-suggestions`;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
+  const justSelectedRef = useRef(false);
 
   const normalized = value.trim().toLowerCase();
 
@@ -93,6 +94,7 @@ export function AutocompleteInput({
     }
     setIsOpen(false);
     setActiveIndex(-1);
+    justSelectedRef.current = true;
   };
 
   const activeOptionId =
@@ -118,10 +120,17 @@ export function AutocompleteInput({
         id={id}
         value={value}
         onChange={(e) => {
+          justSelectedRef.current = false;
           onChange(e.target.value);
           setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onFocus={() => {
+          if (justSelectedRef.current) {
+            justSelectedRef.current = false;
+            return;
+          }
+          setIsOpen(true);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             setIsOpen(false);
@@ -151,14 +160,25 @@ export function AutocompleteInput({
             return;
           }
 
-          if (e.key === "Enter" && showPanel && activeIndex >= 0) {
+          if (e.key === "Enter" && showPanel) {
             e.preventDefault();
-            selectItem(activeIndex);
+            if (activeIndex >= 0) {
+              selectItem(activeIndex);
+            } else if (itemCount > 0) {
+              selectItem(0);
+            } else {
+              setIsOpen(false);
+            }
             return;
           }
 
-          if (e.key === "Tab" && showPanel && activeIndex >= 0) {
-            selectItem(activeIndex);
+          if (e.key === "Tab" && showPanel && itemCount > 0) {
+            if (activeIndex >= 0) {
+              selectItem(activeIndex);
+            } else {
+              e.preventDefault();
+              setActiveIndex(0);
+            }
           }
         }}
         autoComplete="off"

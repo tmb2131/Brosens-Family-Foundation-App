@@ -1248,7 +1248,13 @@ export default function FrankDeenieClient() {
                 }}
                 onFocus={() => setIsFilterNameOpen(true)}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") setIsFilterNameOpen(false);
+                  if (event.key === "Escape" || event.key === "Enter" || event.key === "Tab") {
+                    setIsFilterNameOpen(false);
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      filterNameInputRef.current?.blur();
+                    }
+                  }
                 }}
                 autoComplete="off"
                 placeholder="Search organizations..."
@@ -1288,13 +1294,10 @@ export default function FrankDeenieClient() {
                     <button
                       type="button"
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        setFilter("search", "");
-                        setIsFilterNameOpen(false);
-                      }}
+                      onClick={() => setIsFilterNameOpen(false)}
                       className="mb-1 block w-full rounded-lg px-2 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
                     >
-                      Show all organizations
+                      Show all organizations matching &ldquo;{filters.search.trim()}&rdquo;
                     </button>
                   ) : null}
                   {filterNameSuggestions.map((name) => (
@@ -1377,7 +1380,13 @@ export default function FrankDeenieClient() {
                   }}
                   onFocus={() => setIsFilterNameOpen(true)}
                   onKeyDown={(event) => {
-                    if (event.key === "Escape") setIsFilterNameOpen(false);
+                    if (event.key === "Escape" || event.key === "Enter" || event.key === "Tab") {
+                      setIsFilterNameOpen(false);
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        (event.target as HTMLInputElement).blur();
+                      }
+                    }
                   }}
                   autoComplete="off"
                   placeholder="Search by name"
@@ -1416,13 +1425,10 @@ export default function FrankDeenieClient() {
                       <button
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => {
-                          setFilter("search", "");
-                          setIsFilterNameOpen(false);
-                        }}
+                        onClick={() => setIsFilterNameOpen(false)}
                         className="mb-1 block w-full rounded-lg px-2 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
                       >
-                        Show all organizations
+                        Show all organizations matching &ldquo;{filters.search.trim()}&rdquo;
                       </button>
                     ) : null}
                     {filterNameSuggestions.map((name) => (
