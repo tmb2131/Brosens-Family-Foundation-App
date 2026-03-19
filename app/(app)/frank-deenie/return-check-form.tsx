@@ -119,7 +119,7 @@ export const ReturnCheckForm = memo(function ReturnCheckForm({ row, onClose, onR
             </div>
 
             <div className="grid gap-3">
-              <div className="text-xs font-semibold text-muted-foreground">
+              <div className="text-xs font-semibold text-rose-700 dark:text-rose-300">
                 Date Returned
                 <button
                   type="button"
@@ -140,7 +140,7 @@ export const ReturnCheckForm = memo(function ReturnCheckForm({ row, onClose, onR
                   className="sr-only"
                 />
               </div>
-              <div className="text-xs font-semibold text-muted-foreground">
+              <div className="text-xs font-semibold text-blue-700 dark:text-blue-300">
                 New Check Date
                 <button
                   type="button"
