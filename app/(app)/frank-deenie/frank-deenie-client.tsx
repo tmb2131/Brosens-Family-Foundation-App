@@ -225,7 +225,6 @@ export default function FrankDeenieClient() {
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<FrankDeenieDonationRow | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [detailMode, setDetailMode] = useState<DetailMode>("view");
-  const [openActionMenuRowId, setOpenActionMenuRowId] = useState<string | null>(null);
   
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [chartDrilldownYear, setChartDrilldownYear] = useState<number | null>(null);
@@ -315,7 +314,6 @@ export default function FrankDeenieClient() {
     const rowStillExists = data?.rows.some((row) => row.id === detailRowId) ?? false;
     if (!rowStillExists) {
       setDetailRowId(null);
-      setOpenActionMenuRowId(null);
     }
   }, [data, detailRowId]);
 
@@ -490,7 +488,6 @@ export default function FrankDeenieClient() {
   const closeDetailDrawer = useCallback(() => {
     setDetailRowId(null);
     setDetailMode("view");
-    setOpenActionMenuRowId(null);
   }, []);
 
   const requestDelete = (row: FrankDeenieDonationRow) => {
@@ -1629,7 +1626,6 @@ export default function FrankDeenieClient() {
           <div
             className="hidden max-h-[62vh] overflow-auto rounded-xl border border-border md:block"
             onClick={() => {
-              setOpenActionMenuRowId(null);
               setIsExportMenuOpen(false);
             }}
           >
@@ -1771,74 +1767,58 @@ export default function FrankDeenieClient() {
                           </td>
                           <td className="px-2 py-2 text-muted-foreground align-middle">{byDisplay(row)}</td>
                           <td className="px-2 py-2 align-middle">
-                            <div className="relative flex justify-end">
-                              <Button
-                                variant="outline"
-                                size="icon-sm"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenActionMenuRowId((current) => (current === row.id ? null : row.id));
-                                }}
-                                aria-label="Open actions"
-                                className="transition-colors hover:bg-muted"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                              {openActionMenuRowId === row.id ? (
-                                <div
-                                  className="absolute right-0 top-9 z-30 w-36 rounded-lg border border-border bg-card p-1 shadow-xl animate-in fade-in-0 zoom-in-95"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setDetailRowId(row.id);
-                                      setOpenActionMenuRowId(null);
-                                    }}
-                                    className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                            <div className="flex justify-end">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    onClick={(event) => event.stopPropagation()}
+                                    aria-label="Open actions"
+                                    className="transition-colors hover:bg-muted"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-36 animate-in fade-in-0 zoom-in-95">
+                                  <DropdownMenuItem
+                                    className="text-xs font-semibold transition-colors hover:bg-muted"
+                                    onSelect={() => setDetailRowId(row.id)}
                                   >
                                     View details
-                                  </button>
+                                  </DropdownMenuItem>
                                   {row.editable ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
+                                    <DropdownMenuItem
+                                      className="text-xs font-semibold transition-colors hover:bg-muted"
+                                      onSelect={() => {
                                         setDetailMode("edit");
                                         setDetailRowId(row.id);
-                                        setOpenActionMenuRowId(null);
                                       }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                                     >
                                       Edit
-                                    </button>
+                                    </DropdownMenuItem>
                                   ) : null}
                                   {isAdmin && !row.editable ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
+                                    <DropdownMenuItem
+                                      className="text-xs font-semibold transition-colors hover:bg-muted"
+                                      onSelect={() => {
                                         setDetailMode("edit-notes");
                                         setDetailRowId(row.id);
-                                        setOpenActionMenuRowId(null);
                                       }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                                     >
                                       Edit notes
-                                    </button>
+                                    </DropdownMenuItem>
                                   ) : null}
                                   {row.editable && !row.returnRole ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setOpenActionMenuRowId(null);
-                                        requestDelete(row);
-                                      }}
-                                      className="w-full rounded-md px-2 py-1.5 text-left text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors"
+                                    <DropdownMenuItem
+                                      className="text-xs font-semibold text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors"
+                                      onSelect={() => requestDelete(row)}
                                     >
                                       Delete
-                                    </button>
+                                    </DropdownMenuItem>
                                   ) : null}
-                                </div>
-                              ) : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </td>
                         </DataTableRow>
