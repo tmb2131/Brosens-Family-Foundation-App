@@ -26,17 +26,17 @@ const colsClass: Record<Breakpoint, Record<Variant, string>> = {
   lg: {
     fixed: "lg:grid-cols-[1fr_320px]",
     "wide-sidebar": "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]",
-    "narrow-sidebar": "lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]",
+    "narrow-sidebar": "lg:grid-cols-[minmax(0,2fr)_minmax(16rem,0.75fr)]",
   },
   xl: {
     fixed: "xl:grid-cols-[1fr_320px]",
     "wide-sidebar": "xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]",
-    "narrow-sidebar": "xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]",
+    "narrow-sidebar": "xl:grid-cols-[minmax(0,2fr)_minmax(16rem,0.75fr)]",
   },
   "2xl": {
     fixed: "2xl:grid-cols-[1fr_320px]",
     "wide-sidebar": "2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]",
-    "narrow-sidebar": "2xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]",
+    "narrow-sidebar": "2xl:grid-cols-[minmax(0,2fr)_minmax(16rem,0.75fr)]",
   },
 };
 

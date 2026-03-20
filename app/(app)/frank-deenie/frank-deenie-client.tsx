@@ -1861,13 +1861,13 @@ export default function FrankDeenieClient() {
           >
             <table className="w-full table-fixed text-left text-xs">
               <colgroup>
-                <col className="w-[13%]" />
-                <col className="w-[28%]" />
-                <col className="w-[19%]" />
+                <col className="w-[11%]" />
+                <col className="w-[32%]" />
+                <col className="w-[24%]" />
                 <col className="w-[10%]" />
-                <col className="w-[8%]" />
-                <col className="w-[8%]" />
                 <col className="w-[7%]" />
+                <col className="w-[6%]" />
+                <col className="w-[5%]" />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-card">
                 <DataTableHeadRow>
