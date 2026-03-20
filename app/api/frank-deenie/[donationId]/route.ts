@@ -3,9 +3,22 @@ import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
 import { deleteFrankDeenieDonation, getFrankDeenieDonationById, updateChildrenDonationNotes, updateFrankDeenieDonation } from "@/lib/frank-deenie-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
+import { FrankDeenieDonationRow } from "@/lib/types";
 import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
+
+function buildUpdateDescription(before: FrankDeenieDonationRow, after: FrankDeenieDonationRow): string {
+  const changes: string[] = [];
+  if (before.date !== after.date) changes.push(`Date changed from ${before.date} to ${after.date}`);
+  if (before.amount !== after.amount) changes.push(`Amount changed from ${currency(before.amount)} to ${currency(after.amount)}`);
+  if (before.name !== after.name) changes.push(`Name changed from '${before.name}' to '${after.name}'`);
+  if (before.status !== after.status) changes.push(`Status changed from ${before.status} to ${after.status}`);
+  if (before.type !== after.type) changes.push(`Type changed from ${before.type} to ${after.type}`);
+  if (before.split !== after.split) changes.push(`Split changed from '${before.split || "(none)"}' to '${after.split || "(none)"}'`);
+  if (before.memo !== after.memo) changes.push(`Notes changed from '${before.memo || "(none)"}' to '${after.memo || "(none)"}'`);
+  return changes.join("; ");
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -93,17 +106,17 @@ export async function PATCH(
       }
     }
 
-    if (profile.role !== "oversight") {
-      queueFrankDeenieDonationChangeNotification(admin, {
-        userId: profile.id,
-        userEmail: profile.email ?? "",
-        action: "updated",
-        donationId: donation.id,
-        recipientName: donation.name,
-        amount: currency(donation.amount),
-        donationDate: donation.date
-      }).catch(() => {});
-    }
+    const changeDescription = existing ? buildUpdateDescription(existing, donation) : undefined;
+    queueFrankDeenieDonationChangeNotification(admin, {
+      userId: profile.id,
+      userEmail: profile.email ?? "",
+      action: "updated",
+      donationId: donation.id,
+      recipientName: donation.name,
+      amount: currency(donation.amount),
+      donationDate: donation.date,
+      changeDescription: changeDescription || undefined
+    }).catch(() => {});
 
     return NextResponse.json({ donation });
   } catch (error) {
@@ -128,17 +141,19 @@ export async function DELETE(
 
     await deleteFrankDeenieDonation(admin, donationId);
 
-    if (profile.role !== "oversight") {
-      queueFrankDeenieDonationChangeNotification(admin, {
-        userId: profile.id,
-        userEmail: profile.email ?? "",
-        action: "deleted",
-        donationId,
-        recipientName: donationBeforeDelete?.name ?? "",
-        amount: currency(donationBeforeDelete?.amount ?? 0),
-        donationDate: donationBeforeDelete?.date ?? ""
-      }).catch(() => {});
-    }
+    const name = donationBeforeDelete?.name ?? "";
+    const amount = donationBeforeDelete?.amount ?? 0;
+    const date = donationBeforeDelete?.date ?? "";
+    queueFrankDeenieDonationChangeNotification(admin, {
+      userId: profile.id,
+      userEmail: profile.email ?? "",
+      action: "deleted",
+      donationId,
+      recipientName: name,
+      amount: currency(amount),
+      donationDate: date,
+      changeDescription: `Deleted donation to '${name}' for ${currency(amount)} dated ${date}`
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {

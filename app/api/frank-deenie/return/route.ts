@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import { queueFrankDeenieDonationChangeNotification } from "@/lib/email-notifications";
-import { markDonationReturned } from "@/lib/frank-deenie-data";
+import { getFrankDeenieDonationById, markDonationReturned } from "@/lib/frank-deenie-data";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
 import { DonationLedgerSource } from "@/lib/types";
+import { currency } from "@/lib/utils";
 
 const FRANK_DEENIE_ALLOWED_ROLES = ["oversight", "admin", "manager"] as const;
 const VALID_SOURCES: DonationLedgerSource[] = ["frank_deenie", "children"];
@@ -36,26 +37,64 @@ export async function POST(request: NextRequest) {
       throw new HttpError(400, "newDonationDate is required.");
     }
 
+    let originalName = "";
+    let originalAmount = 0;
+    if (source === "frank_deenie") {
+      const original = await getFrankDeenieDonationById(admin, sourceId);
+      if (original) {
+        originalName = original.name;
+        originalAmount = original.amount;
+      }
+    } else {
+      const { data: proposal } = await admin
+        .from("grant_proposals")
+        .select("organization_id, final_amount")
+        .eq("id", sourceId)
+        .maybeSingle<{ organization_id: string | null; final_amount: number | string }>();
+      if (proposal) {
+        originalAmount = Number(proposal.final_amount) || 0;
+        if (proposal.organization_id) {
+          const { data: org } = await admin
+            .from("organizations")
+            .select("name")
+            .eq("id", proposal.organization_id)
+            .maybeSingle<{ name: string }>();
+          originalName = org?.name ?? "";
+        }
+      }
+    }
+
+    const returnedDate = String(body.returnedDate);
+    const newDonationDate = String(body.newDonationDate);
+    const newAmount = body.newAmount !== undefined ? Number(body.newAmount) : undefined;
+
     const result = await markDonationReturned(admin, {
       sourceId,
       source,
-      returnedDate: String(body.returnedDate),
-      newDonationDate: String(body.newDonationDate),
-      newAmount: body.newAmount !== undefined ? Number(body.newAmount) : undefined,
+      returnedDate,
+      newDonationDate,
+      newAmount,
       requesterId: profile.id,
     });
 
-    if (profile.role !== "oversight") {
-      queueFrankDeenieDonationChangeNotification(admin, {
-        userId: profile.id,
-        userEmail: profile.email ?? "",
-        action: "updated",
-        donationId: sourceId,
-        recipientName: "returned check",
-        amount: "",
-        donationDate: String(body.returnedDate),
-      }).catch(() => {});
+    const reissuedAmount = newAmount !== undefined ? newAmount : originalAmount;
+    let changeDescription = `Returned check for '${originalName}' (${currency(originalAmount)}).`;
+    if (reissuedAmount !== originalAmount) {
+      changeDescription += ` Reissued on ${newDonationDate} for ${currency(reissuedAmount)} (was ${currency(originalAmount)}).`;
+    } else {
+      changeDescription += ` Reissued on ${newDonationDate} for ${currency(reissuedAmount)}.`;
     }
+
+    queueFrankDeenieDonationChangeNotification(admin, {
+      userId: profile.id,
+      userEmail: profile.email ?? "",
+      action: "returned",
+      donationId: sourceId,
+      recipientName: originalName || "returned check",
+      amount: currency(originalAmount),
+      donationDate: returnedDate,
+      changeDescription,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, returnGroupId: result.returnGroupId }, { status: 201 });
   } catch (error) {

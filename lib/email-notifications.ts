@@ -827,7 +827,7 @@ function buildUserAccessNotificationContent(input: {
   };
 }
 
-export type FrankDeenieDonationChangeAction = "created" | "updated" | "deleted";
+export type FrankDeenieDonationChangeAction = "created" | "updated" | "deleted" | "returned";
 
 function buildFrankDeenieDonationChangeContent(input: {
   userEmail: string;
@@ -835,23 +835,29 @@ function buildFrankDeenieDonationChangeContent(input: {
   recipientName: string;
   amount: string;
   donationDate: string;
+  changeDescription?: string;
 }) {
   const actionLabel = input.action === "created" ? "added" : input.action;
   const subject = `F&D donation ${actionLabel}: ${input.recipientName}`;
   const openUrl = buildOpenUrl("/frank-deenie");
 
-  const textBody = [
+  const textLines = [
     `A Frank & Deenie donation has been ${actionLabel} by ${input.userEmail}.`,
     "",
     `Recipient: ${input.recipientName}`,
     `Amount: ${input.amount}`,
     `Date: ${input.donationDate}`,
     `Action: ${actionLabel}`,
-    "",
-    openUrl,
-    "",
-    "Brosens Family Foundation"
-  ].join("\n");
+  ];
+  if (input.changeDescription) {
+    textLines.push("", `Details: ${input.changeDescription}`);
+  }
+  textLines.push("", openUrl, "", "Brosens Family Foundation");
+  const textBody = textLines.join("\n");
+
+  const detailsHtml = input.changeDescription
+    ? `<p style="margin:8px 0 0 0;color:#374151;font-size:14px;line-height:1.5;"><strong>Details:</strong> ${escapeHtml(input.changeDescription)}</p>`
+    : "";
 
   const contentHtml = `
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">A Frank &amp; Deenie donation has been ${escapeHtml(actionLabel)} by <strong>${escapeHtml(input.userEmail)}</strong>.</p>
@@ -861,6 +867,7 @@ function buildFrankDeenieDonationChangeContent(input: {
 <p style="margin:0 0 4px 0;font-size:15px;color:#111827;"><strong>Amount:</strong> ${escapeHtml(input.amount)}</p>
 <p style="margin:0 0 4px 0;color:#4b5563;font-size:14px;"><strong>Date:</strong> ${escapeHtml(input.donationDate)}</p>
 <p style="margin:0;color:#4b5563;font-size:14px;"><strong>Action:</strong> ${escapeHtml(actionLabel)}</p>
+${detailsHtml}
 </td></tr>
 </table>
 ${emailButton("Open Frank & Deenie", openUrl)}`;
@@ -1714,12 +1721,20 @@ export async function queueFrankDeenieDonationChangeNotification(
     recipientName: string;
     amount: string;
     donationDate: string;
+    changeDescription?: string;
   }
 ) {
-  const oversightUsers = await loadUsersByRoles(admin, ["oversight"]);
-  const oversightIds = oversightUsers.map((u) => u.id).filter(Boolean);
-  if (!oversightIds.length) {
-    return { enqueued: false, reason: "no_oversight_users" as const };
+  const stakeholderUsers = await loadUsersByRoles(admin, ["oversight", "admin", "manager"]);
+  const stakeholderIds = stakeholderUsers.map((u) => u.id).filter(Boolean);
+  if (!stakeholderIds.length) {
+    return { enqueued: false, reason: "no_fd_stakeholder_users" as const };
+  }
+
+  const recipientUserIds = uniqueIds(
+    stakeholderIds.filter((id) => id !== input.userId)
+  );
+  if (!recipientUserIds.length) {
+    return { enqueued: false, reason: "no_recipients_after_excluding_actor" as const };
   }
 
   const content = buildFrankDeenieDonationChangeContent({
@@ -1727,7 +1742,8 @@ export async function queueFrankDeenieDonationChangeNotification(
     action: input.action,
     recipientName: input.recipientName,
     amount: input.amount,
-    donationDate: input.donationDate
+    donationDate: input.donationDate,
+    changeDescription: input.changeDescription
   });
 
   const idempotencyKey = `fd-donation-change:${input.action}:${input.donationId}:${Date.now()}`;
@@ -1748,7 +1764,7 @@ export async function queueFrankDeenieDonationChangeNotification(
       amount: input.amount,
       donationDate: input.donationDate
     },
-    recipientUserIds: oversightIds
+    recipientUserIds
   });
 
   return result;

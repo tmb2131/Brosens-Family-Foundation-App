@@ -91,17 +91,16 @@ export async function POST(request: NextRequest) {
       requesterId: profile.id
     });
 
-    if (profile.role !== "oversight") {
-      queueFrankDeenieDonationChangeNotification(admin, {
-        userId: profile.id,
-        userEmail: profile.email ?? "",
-        action: "created",
-        donationId: donation.id,
-        recipientName: donation.name,
-        amount: currency(donation.amount),
-        donationDate: donation.date
-      }).catch(() => {});
-    }
+    queueFrankDeenieDonationChangeNotification(admin, {
+      userId: profile.id,
+      userEmail: profile.email ?? "",
+      action: "created",
+      donationId: donation.id,
+      recipientName: donation.name,
+      amount: currency(donation.amount),
+      donationDate: donation.date,
+      changeDescription: `New donation to '${donation.name}' for ${currency(donation.amount)} dated ${donation.date}`
+    }).catch(() => {});
 
     return NextResponse.json({ donation }, { status: 201 });
   } catch (error) {
