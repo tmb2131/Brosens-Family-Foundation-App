@@ -1724,14 +1724,18 @@ export async function queueFrankDeenieDonationChangeNotification(
     changeDescription?: string;
   }
 ) {
+  const FD_EXCLUDED_EMAILS = ["deeniebrosens@hotmail.com"];
+
   const stakeholderUsers = await loadUsersByRoles(admin, ["oversight", "admin", "manager"]);
-  const stakeholderIds = stakeholderUsers.map((u) => u.id).filter(Boolean);
-  if (!stakeholderIds.length) {
+  const eligibleUsers = stakeholderUsers.filter(
+    (u) => u.id && !FD_EXCLUDED_EMAILS.includes(u.email.toLowerCase())
+  );
+  if (!eligibleUsers.length) {
     return { enqueued: false, reason: "no_fd_stakeholder_users" as const };
   }
 
   const recipientUserIds = uniqueIds(
-    stakeholderIds.filter((id) => id !== input.userId)
+    eligibleUsers.map((u) => u.id).filter((id) => id !== input.userId)
   );
   if (!recipientUserIds.length) {
     return { enqueued: false, reason: "no_recipients_after_excluding_actor" as const };
