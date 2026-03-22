@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
 import {
   fetchFoundationPageData,
@@ -31,29 +29,12 @@ export default async function DashboardPage() {
   perf.done();
 
   return (
-    <Suspense
-      fallback={
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            <SkeletonChart />
-            <SkeletonChart />
-          </div>
-        </div>
-      }
-    >
-      <DashboardClient
-        profile={profile}
-        initialFoundation={foundation}
-        initialHistory={{ historyByYear }}
-        initialWorkspace={workspace}
-        initialPending={pendingProposals ? { proposals: pendingProposals as FoundationSnapshot["proposals"] } : null}
-      />
-    </Suspense>
+    <DashboardClient
+      profile={profile}
+      initialFoundation={foundation}
+      initialHistory={{ historyByYear }}
+      initialWorkspace={workspace}
+      initialPending={pendingProposals ? { proposals: pendingProposals as FoundationSnapshot["proposals"] } : null}
+    />
   );
 }

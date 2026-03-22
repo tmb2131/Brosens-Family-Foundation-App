@@ -1,19 +1,8 @@
-import { Suspense } from "react";
-import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
 import { getBudgetSnapshot } from "@/lib/foundation-data";
 import { listOrganizationsWithDirectionalCategory } from "@/lib/organization-categorization";
 import { startPagePerf } from "@/lib/perf-logger";
 import SettingsClient from "./settings-client";
-
-function SettingsFallback() {
-  return (
-    <div className="space-y-3">
-      <SkeletonCard />
-      <SkeletonCard />
-    </div>
-  );
-}
 
 export default async function SettingsPage() {
   const perf = startPagePerf("/settings");
@@ -34,12 +23,10 @@ export default async function SettingsPage() {
   perf.done();
 
   return (
-    <Suspense fallback={<SettingsFallback />}>
-      <SettingsClient
-        profile={profile}
-        initialBudget={budget}
-        initialOrgCategories={orgCategories}
-      />
-    </Suspense>
+    <SettingsClient
+      profile={profile}
+      initialBudget={budget}
+      initialOrgCategories={orgCategories}
+    />
   );
 }

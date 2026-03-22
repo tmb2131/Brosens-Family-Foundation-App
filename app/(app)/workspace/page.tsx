@@ -1,6 +1,4 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
 import {
   fetchFoundationPageData,
@@ -28,17 +26,5 @@ export default async function WorkspacePage() {
   perf.step("buildSnapshots");
   perf.done();
 
-  return (
-    <Suspense
-      fallback={
-        <div className="page-stack pb-4">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      }
-    >
-      <WorkspaceClient initialWorkspace={workspace} />
-    </Suspense>
-  );
+  return <WorkspaceClient initialWorkspace={workspace} />;
 }
