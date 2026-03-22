@@ -3,6 +3,7 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
 import { getBudgetSnapshot } from "@/lib/foundation-data";
 import { listOrganizationsWithDirectionalCategory } from "@/lib/organization-categorization";
+import { startPagePerf } from "@/lib/perf-logger";
 import SettingsClient from "./settings-client";
 
 function SettingsFallback() {
@@ -15,7 +16,10 @@ function SettingsFallback() {
 }
 
 export default async function SettingsPage() {
+  const perf = startPagePerf("/settings");
+
   const { profile, admin } = await requirePageAuth();
+  perf.step("auth");
 
   const canManageBudget = ["oversight", "manager"].includes(profile.role);
   const canManageOrgCategories = profile.role === "oversight";
@@ -26,6 +30,8 @@ export default async function SettingsPage() {
       ? listOrganizationsWithDirectionalCategory(admin).then((o) => ({ organizations: o }))
       : Promise.resolve(null)
   ]);
+  perf.step("fetchSettingsData");
+  perf.done();
 
   return (
     <Suspense fallback={<SettingsFallback />}>

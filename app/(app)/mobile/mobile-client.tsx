@@ -27,6 +27,7 @@ import { MobileProfileSheet } from "./mobile-profile-sheet";
 import { MobileNudgeCard } from "./mobile-nudge-card";
 import { MobileActionItems } from "./mobile-action-items";
 import { MobileVoteModal } from "./mobile-vote-modal";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 const WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -60,6 +61,7 @@ interface MobileFocusClientProps {
 }
 
 export default function MobileFocusClient({ initialWorkspace }: MobileFocusClientProps) {
+  usePagePerf("/mobile");
   const searchParams = useSearchParams();
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {

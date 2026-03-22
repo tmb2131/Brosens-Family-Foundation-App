@@ -46,6 +46,7 @@ import { VoteForm } from "@/components/voting/vote-form";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 const DASHBOARD_WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -473,6 +474,7 @@ export default function DashboardClient({
   initialPending
 }: DashboardClientProps) {
   const isOversight = profile.role === "oversight";
+  usePagePerf("/dashboard");
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});

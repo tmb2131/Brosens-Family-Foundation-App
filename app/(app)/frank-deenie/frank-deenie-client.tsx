@@ -30,6 +30,7 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 type SortKey = "date" | "name" | "memo" | "amount" | "status";
 type SortDirection = "asc" | "desc";
@@ -303,6 +304,7 @@ interface FrankDeenieClientProps {
 }
 
 export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDeenieClientProps) {
+  usePagePerf("/frank-deenie");
   const isAdmin = profile.role === "admin";
   const readOnly = profile.role === "member";
 

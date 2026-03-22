@@ -33,6 +33,7 @@ import {
 } from "@/lib/types";
 import { compactCurrency, currency, formatNumber, titleCase } from "@/lib/utils";
 import { chartPalette } from "@/lib/chart-styles";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 type StatusFilterState = Record<ProposalStatus, boolean>;
@@ -80,6 +81,7 @@ interface ReportsClientProps {
 }
 
 export default function ReportsClient({ initialFoundation }: ReportsClientProps) {
+  usePagePerf("/reports");
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");

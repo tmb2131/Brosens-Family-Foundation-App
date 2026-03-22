@@ -15,6 +15,7 @@ import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLa
 import { FoundationSnapshot, UserProfile } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 type MeetingProposal = FoundationSnapshot["proposals"][number];
 type MeetingSegment = "ready" | "pending" | "needs_discussion";
@@ -54,6 +55,7 @@ interface MeetingClientProps {
 }
 
 export default function MeetingClient({ profile, initialMeeting }: MeetingClientProps) {
+  usePagePerf("/meeting");
   const { data, mutate, isLoading, isValidating, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000,
     fallbackData: initialMeeting,

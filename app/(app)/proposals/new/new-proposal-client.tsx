@@ -30,6 +30,7 @@ import { useDraftPersistence, type ProposalDraft } from "@/lib/hooks/use-draft-p
 import { UserProfile, WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 const CharityGivingHistory = dynamic(
   () =>
@@ -74,6 +75,7 @@ interface NewProposalClientProps {
 }
 
 export default function NewProposalClient({ profile, initialWorkspace, initialTitleSuggestions }: NewProposalClientProps) {
+  usePagePerf("/proposals/new");
   const router = useRouter();
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,

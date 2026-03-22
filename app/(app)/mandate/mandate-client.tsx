@@ -29,6 +29,7 @@ import {
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { cn, formatNumber } from "@/lib/utils";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 const STATUS_STYLES: Record<PolicyChangeNotification["status"], string> = {
   pending: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-200",
@@ -513,6 +514,7 @@ interface MandateClientProps {
 }
 
 export default function MandateClient({ profile, initialMandate }: MandateClientProps) {
+  usePagePerf("/mandate");
   const canEdit = profile.role === "oversight";
 
   const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>("/api/policy/mandate", {

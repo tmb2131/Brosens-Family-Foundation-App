@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
 import { getMandatePolicyPageData } from "@/lib/policy-data";
+import { startPagePerf } from "@/lib/perf-logger";
 import MandateClient from "./mandate-client";
 
 function MandateFallback() {
@@ -14,8 +15,14 @@ function MandateFallback() {
 }
 
 export default async function MandatePage() {
+  const perf = startPagePerf("/mandate");
+
   const { profile, admin } = await requirePageAuth();
+  perf.step("auth");
+
   const mandate = await getMandatePolicyPageData(admin, profile);
+  perf.step("getMandatePolicyPageData");
+  perf.done();
 
   return (
     <Suspense fallback={<MandateFallback />}>

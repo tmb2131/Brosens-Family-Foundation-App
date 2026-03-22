@@ -17,6 +17,7 @@ import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { cn, currency, formatNumber, toISODate, titleCase } from "@/lib/utils";
 import { AdminQueueProposal } from "@/lib/foundation-data";
 import { UserProfile } from "@/lib/types";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 interface AdminQueueResponse {
   proposals: AdminQueueProposal[];
@@ -28,6 +29,7 @@ interface AdminClientProps {
 }
 
 export default function AdminClient({ profile, initialQueue }: AdminClientProps) {
+  usePagePerf("/admin");
   const { signOut } = useAuth();
   const searchParams = useSearchParams();
   const proposalIdFromUrl = searchParams.get("proposalId")?.trim() ?? null;

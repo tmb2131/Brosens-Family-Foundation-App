@@ -27,6 +27,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 const WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -86,6 +87,7 @@ interface WorkspaceClientProps {
 }
 
 export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientProps) {
+  usePagePerf("/workspace");
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
