@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Input } from "@/components/ui/input";
-import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { cn, currency, formatNumber, toISODate, titleCase } from "@/lib/utils";
@@ -72,14 +71,7 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
     );
   }
 
-  if (isLoading || !data) {
-    return (
-      <div className="page-stack pb-4">
-        <SkeletonCard />
-        <SkeletonCard />
-      </div>
-    );
-  }
+  if (isLoading || !data) return null;
 
   const markSent = async (proposalId: string) => {
     if (savingRef.current) return;

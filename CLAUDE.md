@@ -72,7 +72,7 @@ app/
     reports/           # Reports and historical analysis
     settings/          # User preferences and settings
     workspace/         # Personal "My Workspace" dashboard
-  api/                 # API routes (16 feature groups, ~41 endpoints)
+  api/                 # API routes (16 feature groups, ~45 endpoints)
     admin/             auth/            budgets/
     charity-navigator/ foundation/      frank-deenie/
     health/            meeting/         navigation/
@@ -88,7 +88,8 @@ components/
                        #   dropdown-menu, input, label, progress, separator, textarea) +
                        #   app wrappers (responsive-modal, metric-card, status-pill, role-pill,
                        #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar,
-                       #   password-input, collapsible-section, theme-toggle)
+                       #   password-input, collapsible-section, theme-toggle, autocomplete-input,
+                       #   page-with-sidebar, revalidating-dot)
   auth/                # AuthProvider, Guard component, LastAccessedTouch
   dashboard/           # Charts and dashboard widgets (budget-split, historical-impact, reports-charts)
   voting/              # Voting interface components (vote-form)
@@ -100,22 +101,26 @@ components/
   charity-giving-history.tsx             # Historical giving display for a charity/org
   dashboard-walkthrough-context.tsx      # Contextual walkthrough guide for Dashboard
   workspace-walkthrough-context.tsx      # Contextual walkthrough guide for Workspace
+  mobile-walkthrough-context.tsx         # Contextual walkthrough guide for Mobile
   pwa-ios-install-banner.tsx             # iOS PWA install prompt banner
   scroll-to-top.tsx                      # Scroll restoration on route change
 
 lib/
   supabase/            # Supabase client configs (browser, server, admin)
+  hooks/               # Custom hooks (use-draft-persistence for proposal form drafts)
   types.ts             # Shared TypeScript types and interfaces
   auth-server.ts       # requireAuthContext(), assertRole(), isVotingRole()
   http-error.ts        # HttpError class, toErrorResponse(), cache header constants
   utils.ts             # General utilities: cn(), currency formatting, number parsing
   foundation-data.ts   # Foundation data access utilities (proposals, voting, budget, workspace)
-  frank-deenie-data.ts # Frank & Deenie donation data access
+  frank-deenie-data.ts # Frank & Deenie donation data access (donations, foundation events, returns)
   policy-data.ts       # Mandate policy data access
   mandate-policy.ts    # Mandate policy business logic (versioning, diffing)
   navigation-summary.ts # Navigation badge counts (getNavigationSummary)
   organization-giving-history.ts  # Historical giving analysis by org
   proposer-display-names.ts       # Proposer name formatting utilities
+  perf-logger.ts       # Server-side page performance timing (startPagePerf)
+  perf-logger-client.ts # Client-side page performance hooks (usePagePerf)
   in-memory-db.ts      # In-memory seeded database for dev/prototype mode
   push-notifications.ts
   email-notifications.ts
@@ -133,7 +138,7 @@ scripts/
   fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
 
 supabase/
-  migrations/          # 23 SQL migration files (schema versioning, date-prefixed)
+  migrations/          # 31 SQL migration files (schema versioning, date-prefixed)
   functions/           # Edge functions (currently empty)
   config.toml          # Supabase CLI config
 
@@ -173,6 +178,10 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `PATCH|DELETE /api/frank-deenie/[donationId]` — Update/delete single donation
 - `POST /api/frank-deenie/import` — Bulk import donations
 - `GET /api/frank-deenie/name-suggestions` — Name autocomplete
+- `POST /api/frank-deenie/foundation-events` — Create foundation event (fund/transfer)
+- `PATCH|DELETE /api/frank-deenie/foundation-events/[eventId]` — Update/delete foundation event
+- `PATCH /api/frank-deenie/children-original` — Update original sent date/amount on Children proposal
+- `POST /api/frank-deenie/return` — Record returned check and create replacement
 
 ### Health
 - `GET /api/health` — Health check (returns `{ status: "ok", timestamp }`)
@@ -252,8 +261,21 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - **Admin client** (service role key) for server-side elevated operations
 - **User client** respects RLS policies for row-level data isolation
 - **In-memory DB** (`lib/in-memory-db.ts`) — a seeded, process-global state store used for dev/prototype mode. Exposes the same shape as the real Supabase data
+- **Server RPCs** — performance-critical pages use Postgres RPCs (e.g., `get_foundation_page_data()`) to fetch all page data in a single round-trip instead of many sequential queries
 - No ORM — raw SQL via Supabase JS client
 - SWR on the client with polling intervals for real-time-ish UI updates
+
+### Performance Instrumentation
+
+- **Server-side:** `startPagePerf(pageName)` from `lib/perf-logger.ts` tracks server component timing with named steps; outputs via `console.info` (preserved in production)
+- **Client-side:** `usePagePerf(pageName, isReady)` from `lib/perf-logger-client.ts` logs mount time, content-ready time, and warns on stalls
+- Route-level `loading.tsx` files have been removed — loading states are handled by SWR skeleton patterns in client components
+
+### Layout Patterns
+
+- `PageWithSidebar` (`components/ui/page-with-sidebar.tsx`) — responsive two-column layout (main + sidebar) with variants (`fixed`, `wide-sidebar`, `narrow-sidebar`), breakpoints, sticky sidebar, and collapsible modes. Used on Dashboard, Workspace, Meeting, Frank & Deenie
+- `RevalidatingDot` (`components/ui/revalidating-dot.tsx`) — small pulsing indicator shown next to page titles during SWR revalidation when existing data is present
+- `AutocompleteInput` (`components/ui/autocomplete-input.tsx`) — accessible combobox with suggestion list and "Add as new" option
 
 ### Authentication Flow
 
@@ -271,7 +293,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (24 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (31 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -286,7 +308,8 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `proposal_detail_snapshots` | Immutable snapshot of proposal state at submission time |
 | `votes` | Blind votes with allocation amounts and optional flag comments |
 | `audit_log` | Immutable audit trail for all mutations |
-| `frank_deenie_donations` | Frank & Deenie donation ledger |
+| `frank_deenie_donations` | Frank & Deenie donation ledger (with return tracking) |
+| `foundation_events` | Fund-foundation and transfer-to-foundation events |
 | `push_subscriptions` | Web Push subscription endpoints |
 | `email_notifications` | Email notification queue |
 | `policy_documents` | Versioned mandate policy content |
@@ -294,7 +317,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
 
-### Database Migrations (24 total)
+### Database Migrations (31 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -322,6 +345,13 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260219100000_user_access_notification` | user_access_notification email type |
 | `20260307000000_frank_deenie_donation_change_notification` | frank_deenie_donation_change email type |
 | `20260308000000_mandate_oversight_wording` | In-place wording fix in mandate rolesAndResponsibilities (no new version) |
+| `20260318000000_check_returns` | Return tracking: `return_group_id`, `return_role`, `returned_at`, `return_source_id` on frank_deenie_donations; `returned_at`, `return_group_id` on grant_proposals |
+| `20260318100000_foundation_events` | `foundation_events` table for fund/transfer events with RLS |
+| `20260318200000_available_years_rpc` | RPCs `get_distinct_frank_deenie_years()` and `get_distinct_children_years()` |
+| `20260319000000_original_sent_at` | `original_sent_at` on grant_proposals |
+| `20260319100000_giving_year_rpcs` | Giving-year RPCs (Feb 1–Jan 31 fiscal year boundaries) |
+| `20260322000000_wrap_rls_auth_calls` | Wrap `auth.uid()`/`auth.role()` in `(select ...)` for RLS performance |
+| `20260322100000_get_foundation_page_data` | `get_foundation_page_data()` RPC — single round-trip for Dashboard data |
 
 ## Coding Conventions
 
@@ -341,6 +371,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - shadcn/ui components in `components/ui/` — use these as the base for new UI
 - `ResponsiveModal` (`components/ui/responsive-modal.tsx`) wraps Radix Dialog/Drawer for responsive modal/sheet pattern
 - Dynamic imports for heavy components (e.g., recharts charts)
+- `useDraftPersistence` hook (`lib/hooks/use-draft-persistence.ts`) for saving/restoring form drafts in localStorage (7-day expiry)
 
 ### Design Tokens (app/globals.css)
 
@@ -371,8 +402,9 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
 - `reactStrictMode: true`
 - `poweredByHeader: false`
 - `compress: true`
-- `compiler.removeConsole: true` in production (console.* stripped from bundles)
+- `compiler.removeConsole: { exclude: ['info'] }` in production (strips console.* except `console.info` for perf logging)
 - `experimental.optimizePackageImports`: lucide-react, recharts, @supabase/supabase-js, radix-ui, sonner
+- `experimental.staleTimes.dynamic: 30` — 30s client-side router cache for dynamic pages
 - Images: webp + avif formats enabled; SVG allowed with sandbox CSP
 
 ## Security

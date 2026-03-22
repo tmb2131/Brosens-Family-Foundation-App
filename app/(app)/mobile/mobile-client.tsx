@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { GlassCard, CardLabel } from "@/components/ui/card";
-import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency } from "@/lib/utils";
@@ -154,14 +153,7 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
   }, [workspaceQuery.data]);
 
   // ── Loading / Error ──────────────────────────────────────────────
-  if (workspaceQuery.isLoading) {
-    return (
-      <div className="page-stack pb-4">
-        <SkeletonCard />
-        <SkeletonCard />
-      </div>
-    );
-  }
+  if (workspaceQuery.isLoading) return null;
 
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
