@@ -56,7 +56,8 @@ interface MeetingClientProps {
 export default function MeetingClient({ profile, initialMeeting }: MeetingClientProps) {
   const { data, mutate, isLoading, isValidating, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000,
-    fallbackData: initialMeeting
+    fallbackData: initialMeeting,
+    revalidateOnMount: false
   });
   const [activeSegment, setActiveSegment] = useState<MeetingSegment>("ready");
   const [meetingDialogProposalId, setMeetingDialogProposalId] = useState<string | null>(null);

@@ -347,7 +347,8 @@ export default function FrankDeenieClient({ profile, initialSnapshot, initialNam
   }, []);
 
   const nameSuggestionsQuery = useSWR<{ names: string[] }>("/api/frank-deenie/name-suggestions", {
-    fallbackData: { names: initialNameSuggestions }
+    fallbackData: { names: initialNameSuggestions },
+    revalidateOnMount: false
   });
   const allNameSuggestions = useMemo(
     () => nameSuggestionsQuery.data?.names ?? [],
@@ -368,11 +369,13 @@ export default function FrankDeenieClient({ profile, initialSnapshot, initialNam
   }, [includeChildren, yearMode, selectedYear]);
 
   const defaultQueryString = "includeChildren=0";
+  const hasSnapshotFallback = queryString === defaultQueryString;
   const { data, error, isLoading, isValidating, mutate } = useSWR<FrankDeenieSnapshot>(
     `/api/frank-deenie?${queryString}`,
     {
       refreshInterval: 120_000,
-      fallbackData: queryString === defaultQueryString ? initialSnapshot : undefined
+      fallbackData: hasSnapshotFallback ? initialSnapshot : undefined,
+      revalidateOnMount: !hasSnapshotFallback
     }
   );
 

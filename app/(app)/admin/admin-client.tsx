@@ -33,7 +33,8 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
   const proposalIdFromUrl = searchParams.get("proposalId")?.trim() ?? null;
   const { data, mutate, isLoading, isValidating, error } = useSWR<AdminQueueResponse>("/api/admin", {
     refreshInterval: 45_000,
-    fallbackData: initialQueue
+    fallbackData: initialQueue,
+    revalidateOnMount: false
   });
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightProposalId, setHighlightProposalId] = useState<string | null>(null);

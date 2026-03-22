@@ -91,12 +91,15 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
   const { changePassword } = useAuth();
   const canManageBudget = ["oversight", "manager"].includes(profile.role);
   const canManageOrganizationCategories = profile.role === "oversight";
+  const hasBudgetFallback = (initialBudget ?? undefined) !== undefined;
   const { data, mutate, isLoading, error } = useSWR<BudgetResponse>(canManageBudget ? "/api/budgets" : null, {
-    fallbackData: initialBudget ?? undefined
+    fallbackData: initialBudget ?? undefined,
+    revalidateOnMount: !hasBudgetFallback
   });
+  const hasOrgCategoriesFallback = (initialOrgCategories ?? undefined) !== undefined;
   const organizationCategoriesQuery = useSWR<OrganizationCategoriesResponse>(
     canManageOrganizationCategories ? "/api/organizations/categories" : null,
-    { fallbackData: initialOrgCategories ?? undefined }
+    { fallbackData: initialOrgCategories ?? undefined, revalidateOnMount: !hasOrgCategoriesFallback }
   );
 
   const [year, setYear] = useState("");

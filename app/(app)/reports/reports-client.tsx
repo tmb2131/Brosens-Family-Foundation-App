@@ -98,8 +98,10 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     return `/api/foundation?budgetYear=${selectedYear}`;
   }, [selectedYear]);
 
+  const hasFoundationFallback = selectedYear === null;
   const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey, {
-    fallbackData: selectedYear === null ? initialFoundation : undefined
+    fallbackData: hasFoundationFallback ? initialFoundation : undefined,
+    revalidateOnMount: !hasFoundationFallback
   });
 
   const availableYears = useMemo(() => {

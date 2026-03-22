@@ -65,6 +65,7 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
+    revalidateOnMount: false,
   });
   const deepLinkTarget = useMemo(() => {
     const value = searchParams.get("next")?.trim() ?? "";

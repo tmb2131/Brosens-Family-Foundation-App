@@ -205,7 +205,8 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
-    fallbackData: initialWorkspace
+    fallbackData: initialWorkspace,
+    revalidateOnMount: false
   });
 
   useEffect(() => {

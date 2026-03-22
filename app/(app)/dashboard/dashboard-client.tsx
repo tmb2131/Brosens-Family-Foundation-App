@@ -583,17 +583,21 @@ export default function DashboardClient({
     return `/api/foundation?budgetYear=${selectedYear}`;
   }, [selectedYear]);
 
+  const hasFoundationFallback = selectedYear === null;
   const { data, isLoading, error, mutate, isValidating } = useSWR<FoundationSnapshot>(foundationKey, {
     refreshInterval: 30_000,
-    fallbackData: selectedYear === null ? initialFoundation : undefined
+    fallbackData: hasFoundationFallback ? initialFoundation : undefined,
+    revalidateOnMount: !hasFoundationFallback
   });
   const {
     data: historyData,
     error: historyError,
     isLoading: isHistoryLoading
   } = useSWR<FoundationHistorySnapshot>("/api/foundation/history", {
-    fallbackData: initialHistory
+    fallbackData: initialHistory,
+    revalidateOnMount: false
   });
+  const hasPendingFallback = (initialPending ?? undefined) !== undefined;
   const {
     data: pendingData,
     isLoading: isPendingLoading,
@@ -601,11 +605,13 @@ export default function DashboardClient({
     mutate: mutatePending
   } = useSWR<PendingResponse>(isOversight ? "/api/foundation/pending" : null, {
     refreshInterval: 30_000,
-    fallbackData: initialPending ?? undefined
+    fallbackData: initialPending ?? undefined,
+    revalidateOnMount: !hasPendingFallback
   });
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
-    fallbackData: initialWorkspace
+    fallbackData: initialWorkspace,
+    revalidateOnMount: false
   });
   const workspace = workspaceQuery.data;
 

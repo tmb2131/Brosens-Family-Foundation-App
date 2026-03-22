@@ -77,10 +77,12 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
   const router = useRouter();
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
-    fallbackData: initialWorkspace
+    fallbackData: initialWorkspace,
+    revalidateOnMount: false
   });
   const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>("/api/proposals/titles", {
-    fallbackData: { titles: initialTitleSuggestions }
+    fallbackData: { titles: initialTitleSuggestions },
+    revalidateOnMount: false
   });
 
   const [organizationName, setOrganizationName] = useState("");
