@@ -58,7 +58,8 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
   const { data, mutate, isLoading, isValidating, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000,
     fallbackData: initialMeeting,
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
 
   usePagePerf("/meeting", !isLoading, {

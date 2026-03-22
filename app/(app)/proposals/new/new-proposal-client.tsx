@@ -79,11 +79,13 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
   const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>("/api/proposals/titles", {
     fallbackData: { titles: initialTitleSuggestions },
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
 
   usePagePerf("/proposals/new", !workspaceQuery.isLoading, {

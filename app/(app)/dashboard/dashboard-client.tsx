@@ -599,7 +599,8 @@ export default function DashboardClient({
     isLoading: isHistoryLoading
   } = useSWR<FoundationHistorySnapshot>("/api/foundation/history", {
     fallbackData: initialHistory,
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
   const hasPendingFallback = (initialPending ?? undefined) !== undefined;
   const {
@@ -614,7 +615,8 @@ export default function DashboardClient({
   });
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     fallbackData: initialWorkspace,
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
   const workspace = workspaceQuery.data;
 

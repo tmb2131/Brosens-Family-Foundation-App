@@ -519,7 +519,8 @@ export default function MandateClient({ profile, initialMandate }: MandateClient
   const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>("/api/policy/mandate", {
     refreshInterval: 300_000,
     fallbackData: initialMandate,
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
 
   usePagePerf("/mandate", !isLoading, {

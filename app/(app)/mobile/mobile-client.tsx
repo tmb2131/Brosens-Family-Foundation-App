@@ -67,6 +67,7 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
     revalidateOnMount: false,
+    revalidateIfStale: false,
   });
 
   usePagePerf("/mobile", !workspaceQuery.isLoading, {

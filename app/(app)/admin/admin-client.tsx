@@ -35,7 +35,8 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
   const { data, mutate, isLoading, isValidating, error } = useSWR<AdminQueueResponse>("/api/admin", {
     refreshInterval: 45_000,
     fallbackData: initialQueue,
-    revalidateOnMount: false
+    revalidateOnMount: false,
+    revalidateIfStale: false
   });
 
   usePagePerf("/admin", !isLoading, {
