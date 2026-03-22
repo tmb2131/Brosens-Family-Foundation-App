@@ -22,7 +22,12 @@ import { Card, GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
-import { VoteForm } from "@/components/voting/vote-form";
+import dynamic from "next/dynamic";
+
+const VoteForm = dynamic(
+  () => import("@/components/voting/vote-form").then((m) => m.VoteForm),
+  { ssr: false }
+);
 import { StatusPill } from "@/components/ui/status-pill";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";

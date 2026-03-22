@@ -20,10 +20,23 @@ import { FilterPanel } from "@/components/ui/filter-panel";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AddDonationForm } from "./add-donation-form";
-import { DonationDetailDrawer, DetailMode } from "./donation-detail-drawer";
-import { ReturnCheckForm } from "./return-check-form";
-import { FoundationEventForm } from "./foundation-event-form";
+import type { DetailMode } from "./donation-detail-drawer";
+const AddDonationForm = dynamic(
+  () => import("./add-donation-form").then((m) => m.AddDonationForm),
+  { ssr: false }
+);
+const DonationDetailDrawer = dynamic(
+  () => import("./donation-detail-drawer").then((m) => m.DonationDetailDrawer),
+  { ssr: false }
+);
+const ReturnCheckForm = dynamic(
+  () => import("./return-check-form").then((m) => m.ReturnCheckForm),
+  { ssr: false }
+);
+const FoundationEventForm = dynamic(
+  () => import("./foundation-event-form").then((m) => m.FoundationEventForm),
+  { ssr: false }
+);
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, UserProfile, YearMode } from "@/lib/types";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";

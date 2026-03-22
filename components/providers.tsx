@@ -23,7 +23,7 @@ export function Providers({ children }: PropsWithChildren) {
               }),
             revalidateOnFocus: false,
             refreshWhenOffline: false,
-            dedupingInterval: 5000
+            dedupingInterval: 10_000
           }}
         >
           <TooltipProvider>

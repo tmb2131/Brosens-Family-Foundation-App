@@ -42,7 +42,10 @@ const HistoricalImpactChart = dynamic(
   { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-muted" /></div> }
 );
 import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, UserProfile, WorkspaceSnapshot } from "@/lib/types";
-import { VoteForm } from "@/components/voting/vote-form";
+const VoteForm = dynamic(
+  () => import("@/components/voting/vote-form").then((m) => m.VoteForm),
+  { ssr: false }
+);
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
@@ -610,7 +613,6 @@ export default function DashboardClient({
     revalidateOnMount: !hasPendingFallback
   });
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
-    refreshInterval: 30_000,
     fallbackData: initialWorkspace,
     revalidateOnMount: false
   });
