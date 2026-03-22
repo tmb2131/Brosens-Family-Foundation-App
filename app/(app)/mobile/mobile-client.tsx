@@ -61,13 +61,18 @@ interface MobileFocusClientProps {
 }
 
 export default function MobileFocusClient({ initialWorkspace }: MobileFocusClientProps) {
-  usePagePerf("/mobile");
   const searchParams = useSearchParams();
 
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
     revalidateOnMount: false,
+  });
+
+  usePagePerf("/mobile", !workspaceQuery.isLoading, {
+    isLoading: workspaceQuery.isLoading,
+    hasData: workspaceQuery.data !== undefined,
+    error: workspaceQuery.error?.message ?? null,
   });
   const deepLinkTarget = useMemo(() => {
     const value = searchParams.get("next")?.trim() ?? "";

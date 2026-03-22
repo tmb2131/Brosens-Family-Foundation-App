@@ -474,7 +474,6 @@ export default function DashboardClient({
   initialPending
 }: DashboardClientProps) {
   const isOversight = profile.role === "oversight";
-  usePagePerf("/dashboard");
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
@@ -616,6 +615,15 @@ export default function DashboardClient({
     revalidateOnMount: false
   });
   const workspace = workspaceQuery.data;
+
+  usePagePerf("/dashboard", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
+    isValidating,
+    selectedYear,
+    hasFoundationFallback,
+  });
 
   const availableYears = useMemo(() => {
     if (!data) {

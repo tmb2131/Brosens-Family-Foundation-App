@@ -24,6 +24,7 @@ import {
 } from "@/lib/types";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { cn, currency, formatNumber, parseNumberInput } from "@/lib/utils";
+import { usePagePerf } from "@/lib/perf-logger-client";
 
 interface BudgetResponse {
   budget: {
@@ -101,6 +102,12 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
     canManageOrganizationCategories ? "/api/organizations/categories" : null,
     { fallbackData: initialOrgCategories ?? undefined, revalidateOnMount: !hasOrgCategoriesFallback }
   );
+
+  usePagePerf("/settings", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
+  });
 
   const [year, setYear] = useState("");
   const [totalAmount, setTotalAmount] = useState("");

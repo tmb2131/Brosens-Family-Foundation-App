@@ -81,7 +81,6 @@ interface ReportsClientProps {
 }
 
 export default function ReportsClient({ initialFoundation }: ReportsClientProps) {
-  usePagePerf("/reports");
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
@@ -104,6 +103,12 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
   const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey, {
     fallbackData: hasFoundationFallback ? initialFoundation : undefined,
     revalidateOnMount: !hasFoundationFallback
+  });
+
+  usePagePerf("/reports", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
   });
 
   const availableYears = useMemo(() => {

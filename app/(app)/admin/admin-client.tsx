@@ -29,7 +29,6 @@ interface AdminClientProps {
 }
 
 export default function AdminClient({ profile, initialQueue }: AdminClientProps) {
-  usePagePerf("/admin");
   const { signOut } = useAuth();
   const searchParams = useSearchParams();
   const proposalIdFromUrl = searchParams.get("proposalId")?.trim() ?? null;
@@ -37,6 +36,12 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
     refreshInterval: 45_000,
     fallbackData: initialQueue,
     revalidateOnMount: false
+  });
+
+  usePagePerf("/admin", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
   });
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightProposalId, setHighlightProposalId] = useState<string | null>(null);

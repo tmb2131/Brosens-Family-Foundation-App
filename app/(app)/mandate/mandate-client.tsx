@@ -514,13 +514,18 @@ interface MandateClientProps {
 }
 
 export default function MandateClient({ profile, initialMandate }: MandateClientProps) {
-  usePagePerf("/mandate");
   const canEdit = profile.role === "oversight";
 
   const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>("/api/policy/mandate", {
     refreshInterval: 300_000,
     fallbackData: initialMandate,
     revalidateOnMount: false
+  });
+
+  usePagePerf("/mandate", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
   });
 
   const [isEditing, setIsEditing] = useState(false);

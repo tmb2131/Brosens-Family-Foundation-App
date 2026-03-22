@@ -87,7 +87,6 @@ interface WorkspaceClientProps {
 }
 
 export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientProps) {
-  usePagePerf("/workspace");
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
@@ -209,6 +208,12 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
     revalidateOnMount: false
+  });
+
+  usePagePerf("/workspace", !workspaceQuery.isLoading, {
+    isLoading: workspaceQuery.isLoading,
+    hasData: workspaceQuery.data !== undefined,
+    error: workspaceQuery.error?.message ?? null,
   });
 
   useEffect(() => {

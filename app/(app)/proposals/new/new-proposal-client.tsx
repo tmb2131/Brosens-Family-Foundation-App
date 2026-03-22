@@ -75,7 +75,6 @@ interface NewProposalClientProps {
 }
 
 export default function NewProposalClient({ profile, initialWorkspace, initialTitleSuggestions }: NewProposalClientProps) {
-  usePagePerf("/proposals/new");
   const router = useRouter();
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
@@ -85,6 +84,12 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
   const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>("/api/proposals/titles", {
     fallbackData: { titles: initialTitleSuggestions },
     revalidateOnMount: false
+  });
+
+  usePagePerf("/proposals/new", !workspaceQuery.isLoading, {
+    isLoading: workspaceQuery.isLoading,
+    hasData: workspaceQuery.data !== undefined,
+    error: workspaceQuery.error?.message ?? null,
   });
 
   const [organizationName, setOrganizationName] = useState("");

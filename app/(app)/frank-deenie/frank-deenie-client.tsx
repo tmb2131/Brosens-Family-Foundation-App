@@ -304,7 +304,6 @@ interface FrankDeenieClientProps {
 }
 
 export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDeenieClientProps) {
-  usePagePerf("/frank-deenie");
   const isAdmin = profile.role === "admin";
   const readOnly = profile.role === "member";
 
@@ -384,6 +383,12 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
       revalidateOnMount: !hasSnapshotFallback
     }
   );
+
+  usePagePerf("/frank-deenie", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
+  });
 
   const filterableNames = useMemo(() => {
     if (!data) return [];

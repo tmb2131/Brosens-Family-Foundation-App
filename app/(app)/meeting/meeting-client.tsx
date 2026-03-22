@@ -55,12 +55,18 @@ interface MeetingClientProps {
 }
 
 export default function MeetingClient({ profile, initialMeeting }: MeetingClientProps) {
-  usePagePerf("/meeting");
   const { data, mutate, isLoading, isValidating, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000,
     fallbackData: initialMeeting,
     revalidateOnMount: false
   });
+
+  usePagePerf("/meeting", !isLoading, {
+    isLoading,
+    hasData: data !== undefined,
+    error: error?.message ?? null,
+  });
+
   const [activeSegment, setActiveSegment] = useState<MeetingSegment>("ready");
   const [meetingDialogProposalId, setMeetingDialogProposalId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
