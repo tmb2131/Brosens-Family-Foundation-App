@@ -94,13 +94,15 @@ export async function requireAuthContext(): Promise<AuthContext> {
   }
 
   const {
-    data: { user },
+    data: { session },
     error
-  } = await serverSupabase.auth.getUser();
+  } = await serverSupabase.auth.getSession();
 
   if (error) {
     throw new HttpError(401, `Auth session error: ${error.message}`);
   }
+
+  const user = session?.user ?? null;
 
   if (!user) {
     throw new HttpError(401, "Not authenticated.");
