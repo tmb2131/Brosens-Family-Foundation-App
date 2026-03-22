@@ -47,13 +47,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){var w=window,n=['$RS','$RC','$RX'];n.forEach(function(k){var orig;Object.defineProperty(w,k,{configurable:true,get:function(){return orig},set:function(fn){orig=function(){try{return fn.apply(this,arguments)}catch(e){}}}})})})();`
-          }}
-        />
-      </head>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
