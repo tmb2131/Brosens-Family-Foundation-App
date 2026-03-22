@@ -90,8 +90,9 @@ components/
                        #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar,
                        #   password-input, collapsible-section, theme-toggle, autocomplete-input,
                        #   page-with-sidebar, revalidating-dot)
-  auth/                # AuthProvider, Guard component, LastAccessedTouch
+  auth/                # AuthProvider, Guard component, LastAccessedTouch, ServerAuthSeed
   dashboard/           # Charts and dashboard widgets (budget-split, historical-impact, reports-charts)
+  meeting/             # Meeting components (meeting-proposal-card)
   voting/              # Voting interface components (vote-form)
   workspace/           # Personal workspace components (personal-budget-bars, budget-preview-card)
   notifications/       # Push notification components (push-settings-card)
@@ -263,7 +264,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - **In-memory DB** (`lib/in-memory-db.ts`) — a seeded, process-global state store used for dev/prototype mode. Exposes the same shape as the real Supabase data
 - **Server RPCs** — performance-critical pages use Postgres RPCs (e.g., `get_foundation_page_data()`) to fetch all page data in a single round-trip instead of many sequential queries
 - No ORM — raw SQL via Supabase JS client
-- SWR on the client with polling intervals for real-time-ish UI updates
+- SWR on the client with polling intervals for real-time-ish UI updates; client components use `revalidateIfStale: false` to prevent redundant revalidation on mount when fresh data is already present
 
 ### Performance Instrumentation
 
@@ -370,7 +371,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `cn()` utility (clsx + tailwind-merge) from `lib/utils.ts` for conditional class composition with conflict resolution
 - shadcn/ui components in `components/ui/` — use these as the base for new UI
 - `ResponsiveModal` (`components/ui/responsive-modal.tsx`) wraps Radix Dialog/Drawer for responsive modal/sheet pattern
-- Dynamic imports for heavy components (e.g., recharts charts)
+- Dynamic imports (`next/dynamic` with `ssr: false`) for heavy or interaction-only components (e.g., recharts charts, VoteForm)
 - `useDraftPersistence` hook (`lib/hooks/use-draft-persistence.ts`) for saving/restoring form drafts in localStorage (7-day expiry)
 
 ### Design Tokens (app/globals.css)
