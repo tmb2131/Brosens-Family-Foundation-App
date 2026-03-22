@@ -832,26 +832,6 @@ export function AppShell({ children }: PropsWithChildren) {
     }
   }, [pathname]);
 
-  // Prefetch nav routes when the browser is idle so navigations feel instant.
-  useEffect(() => {
-    if (!user) return;
-    const hrefs = [
-      ...new Set([
-        ...availableFullNav.map((item) => item.href),
-        ...availableFocusNav.map((item) => item.href),
-        "/settings" as Route
-      ])
-    ].filter((href) => href !== pathname);
-    if (hrefs.length === 0) return;
-    const prefetch = () => hrefs.forEach((href) => router.prefetch(href));
-    if (typeof requestIdleCallback !== "undefined") {
-      const id = requestIdleCallback(prefetch, { timeout: 2000 });
-      return () => cancelIdleCallback(id);
-    }
-    const id = setTimeout(prefetch, 500);
-    return () => clearTimeout(id);
-  }, [user, pathname, router, availableFullNav, availableFocusNav]);
-
   const outstandingByHref = useMemo(
     () =>
       ({
