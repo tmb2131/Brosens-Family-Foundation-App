@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -82,7 +83,7 @@ async function getOrCreateProfile(
   return mapProfile(inserted);
 }
 
-export async function requireAuthContext(): Promise<AuthContext> {
+export const requireAuthContext = cache(async (): Promise<AuthContext> => {
   const serverSupabase = await createServerClient();
   const admin = createAdminClient();
 
@@ -113,7 +114,7 @@ export async function requireAuthContext(): Promise<AuthContext> {
     authUserId: user.id,
     admin
   };
-}
+});
 
 /**
  * Page-level auth: redirects to /login instead of throwing on 401.

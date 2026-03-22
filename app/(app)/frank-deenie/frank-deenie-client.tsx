@@ -300,10 +300,9 @@ function downloadFile(filename: string, content: string, mimeType: string) {
 interface FrankDeenieClientProps {
   profile: UserProfile;
   initialSnapshot: FrankDeenieSnapshot;
-  initialNameSuggestions: string[];
 }
 
-export default function FrankDeenieClient({ profile, initialSnapshot, initialNameSuggestions }: FrankDeenieClientProps) {
+export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDeenieClientProps) {
   const isAdmin = profile.role === "admin";
   const readOnly = profile.role === "member";
 
@@ -350,10 +349,11 @@ export default function FrankDeenieClient({ profile, initialSnapshot, initialNam
     setSelectedYear(null);
   }, []);
 
-  const nameSuggestionsQuery = useSWR<{ names: string[] }>("/api/frank-deenie/name-suggestions", {
-    fallbackData: { names: initialNameSuggestions },
-    revalidateOnMount: false
-  });
+  const nameSuggestionsNeeded = useRef(false);
+  if (showAddForm) nameSuggestionsNeeded.current = true;
+  const nameSuggestionsQuery = useSWR<{ names: string[] }>(
+    nameSuggestionsNeeded.current ? "/api/frank-deenie/name-suggestions" : null
+  );
   const allNameSuggestions = useMemo(
     () => nameSuggestionsQuery.data?.names ?? [],
     [nameSuggestionsQuery.data]

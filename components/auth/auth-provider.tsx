@@ -29,6 +29,8 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+const SeedProfileContext = createContext<((profile: UserProfile) => void) | null>(null);
+
 async function fetchCurrentProfile() {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await fetch("/api/auth/me", {
@@ -51,13 +53,24 @@ async function fetchCurrentProfile() {
   return null;
 }
 
+export function useSeedProfile() {
+  return useContext(SeedProfileContext);
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const supabase = useMemo(() => createClient(), []);
   const syncedTimezoneRef = useRef<string | null>(null);
+  const serverSeededRef = useRef(false);
 
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const seedProfile = useCallback((profile: UserProfile) => {
+    serverSeededRef.current = true;
+    setUser(profile);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +88,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
 
       setSession(data.session);
+      if (serverSeededRef.current) {
+        return;
+      }
       if (data.session) {
         const profile = await fetchCurrentProfile();
         if (mounted) {
@@ -95,11 +111,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       setSession(nextSession);
       if (nextSession) {
+        if (serverSeededRef.current) {
+          serverSeededRef.current = false;
+          return;
+        }
         const profile = await fetchCurrentProfile();
         if (mounted) {
           setUser(profile);
         }
       } else {
+        serverSeededRef.current = false;
         setUser(null);
       }
     });
@@ -255,7 +276,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [session, user, loading, supabase, signIn, signOut, refreshProfile, sendPasswordReset, updatePassword, changePassword]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <SeedProfileContext.Provider value={seedProfile}>
+        {children}
+      </SeedProfileContext.Provider>
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

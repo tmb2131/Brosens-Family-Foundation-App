@@ -323,28 +323,6 @@ async function loadProposerEmailsById(
   return map;
 }
 
-async function loadVoterDisplayNames(
-  admin: AdminClient,
-  voterIds: string[]
-): Promise<Map<string, string>> {
-  if (voterIds.length === 0) return new Map();
-  const uniqueIds = [...new Set(voterIds)];
-  const { data, error } = await admin
-    .from("user_profiles")
-    .select("id, full_name, email")
-    .in("id", uniqueIds)
-    .returns<Array<{ id: string; full_name: string; email: string }>>();
-  if (error) {
-    throw new HttpError(500, `Could not load voter profiles: ${error.message}`);
-  }
-  const map = new Map<string, string>();
-  for (const row of data ?? []) {
-    const displayName = getProposerDisplayName(row.email);
-    map.set(row.id, displayName !== "—" ? displayName : row.full_name || "Unknown");
-  }
-  return map;
-}
-
 async function getCurrentBudget(admin: AdminClient): Promise<BudgetRow> {
   const year = currentYear();
 
@@ -618,6 +596,44 @@ async function loadVotesByProposalIds(admin: AdminClient, proposalIds: string[])
   return (data ?? []).map(mapVote);
 }
 
+interface VoteWithVoterRow extends VoteRow {
+  voter: { full_name: string; email: string } | null;
+}
+
+async function loadVotesWithVoterProfiles(
+  admin: AdminClient,
+  proposalIds: string[]
+): Promise<{ votes: Vote[]; voterDisplayNames: Map<string, string> }> {
+  if (!proposalIds.length) {
+    return { votes: [], voterDisplayNames: new Map() };
+  }
+
+  const { data, error } = await admin
+    .from("votes")
+    .select("id, proposal_id, voter_id, choice, allocation_amount, created_at, flag_comment, voter:user_profiles!voter_id(full_name, email)")
+    .in("proposal_id", proposalIds)
+    .returns<VoteWithVoterRow[]>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load votes with profiles: ${error.message}`);
+  }
+
+  const rows = data ?? [];
+  const votes = rows.map(mapVote);
+  const voterDisplayNames = new Map<string, string>();
+  for (const row of rows) {
+    if (row.voter && !voterDisplayNames.has(row.voter_id)) {
+      const displayName = getProposerDisplayName(row.voter.email);
+      voterDisplayNames.set(
+        row.voter_id,
+        displayName !== "—" ? displayName : row.voter.full_name || "Unknown"
+      );
+    }
+  }
+
+  return { votes, voterDisplayNames };
+}
+
 function groupVotes(votes: Vote[]) {
   const grouped = new Map<string, Vote[]>();
   for (const vote of votes) {
@@ -714,14 +730,11 @@ async function loadProposalsWithDependencies(admin: AdminClient, proposalRows: P
     proposalRows.map((row) => row.organization_id).filter((value): value is string => Boolean(value))
   );
 
-  const [grantRows, organizationRows, votes] = await Promise.all([
+  const [grantRows, organizationRows, { votes, voterDisplayNames }] = await Promise.all([
     loadGrantMasterRows(admin, grantIds),
     loadOrganizationRows(admin, organizationIds),
-    loadVotesByProposalIds(admin, proposalIds)
+    loadVotesWithVoterProfiles(admin, proposalIds)
   ]);
-
-  const allVoterIds = unique(votes.map((v) => v.userId));
-  const voterDisplayNames = await loadVoterDisplayNames(admin, allVoterIds);
 
   return {
     grantById: new Map(grantRows.map((row) => [row.id, row])),
@@ -816,10 +829,27 @@ export interface FoundationPageData {
   userVotedProposals: ProposalRow[];
 }
 
+const FOUNDATION_CACHE_TTL_MS = 15_000;
+const foundationPageDataCache = new Map<string, { data: FoundationPageData; expiresAt: number }>();
+
+function foundationCacheKey(opts: { budgetYear?: number; userId?: string; includeAllYears?: boolean }): string {
+  return `${opts.userId ?? ""}:${opts.budgetYear ?? ""}:${opts.includeAllYears ? "1" : "0"}`;
+}
+
+export function invalidateFoundationCache() {
+  foundationPageDataCache.clear();
+}
+
 export async function fetchFoundationPageData(
   admin: AdminClient,
   opts: { budgetYear?: number; userId?: string; includeAllYears?: boolean } = {}
 ): Promise<FoundationPageData> {
+  const key = foundationCacheKey(opts);
+  const cached = foundationPageDataCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+
   const { data, error } = await admin.rpc("get_foundation_page_data", {
     p_budget_year: opts.budgetYear ?? null,
     p_user_id: opts.userId ?? null,
@@ -829,7 +859,7 @@ export async function fetchFoundationPageData(
   if (error) throw new HttpError(500, `RPC error: ${error.message}`);
 
   const raw = (data ?? {}) as Record<string, unknown>;
-  return {
+  const result: FoundationPageData = {
     budget: (raw.budget as BudgetRow) ?? null,
     availableBudgetYears: (raw.availableBudgetYears as number[]) ?? [],
     votingMemberIds: (raw.votingMemberIds as string[]) ?? [],
@@ -845,6 +875,17 @@ export async function fetchFoundationPageData(
     userSubmittedProposals: (raw.userSubmittedProposals as ProposalRow[]) ?? [],
     userVotedProposals: (raw.userVotedProposals as ProposalRow[]) ?? [],
   };
+
+  foundationPageDataCache.set(key, { data: result, expiresAt: Date.now() + FOUNDATION_CACHE_TTL_MS });
+
+  if (foundationPageDataCache.size > 100) {
+    const now = Date.now();
+    for (const [k, v] of foundationPageDataCache) {
+      if (now >= v.expiresAt) foundationPageDataCache.delete(k);
+    }
+  }
+
+  return result;
 }
 
 function buildVoterDisplayNamesFromProfiles(
@@ -1235,7 +1276,8 @@ export async function getWorkspaceSnapshot(
   user: UserProfile,
   prefetchedFoundation?: FoundationSnapshot
 ): Promise<WorkspaceSnapshot> {
-  const [foundation, votingMemberIds, userVotesResult] = await Promise.all([
+  // Wave 1: all independent queries in parallel
+  const [foundation, votingMemberIds, userVotesResult, submittedResult] = await Promise.all([
     prefetchedFoundation ?? getFoundationSnapshot(admin, user.id),
     getVotingMemberIds(admin),
     admin
@@ -1243,7 +1285,13 @@ export async function getWorkspaceSnapshot(
       .select("id, proposal_id, voter_id, choice, allocation_amount, created_at, flag_comment")
       .eq("voter_id", user.id)
       .order("created_at", { ascending: false })
-      .returns<VoteRow[]>()
+      .returns<VoteRow[]>(),
+    admin
+      .from("grant_proposals")
+      .select(PROPOSAL_SELECT)
+      .eq("proposer_id", user.id)
+      .order("created_at", { ascending: false })
+      .returns<ProposalRow[]>()
   ]);
 
   const { data: userVoteRows, error: userVoteError } = userVotesResult;
@@ -1251,11 +1299,24 @@ export async function getWorkspaceSnapshot(
     throw new HttpError(500, `Could not load user votes: ${userVoteError.message}`);
   }
 
+  const { data: submittedProposalRows, error: submittedError } = submittedResult;
+  if (submittedError) {
+    throw new HttpError(500, `Could not load submitted proposals: ${submittedError.message}`);
+  }
+
   const userVotes = (userVoteRows ?? []).map(mapVote);
   const votedProposalIds = unique(userVotes.map((vote) => vote.proposalId));
-  const votedProposalRows = await loadProposalRowsByIds(admin, votedProposalIds);
-  const votedProposalById = new Map(votedProposalRows.map((row) => [row.id, row]));
+  const submittedRows = submittedProposalRows ?? [];
 
+  // Wave 2: voted proposal rows + submitted grant rows in parallel
+  const [votedProposalRows, submittedGrantRows] = await Promise.all([
+    loadProposalRowsByIds(admin, votedProposalIds),
+    loadGrantMasterRows(admin, unique(submittedRows.map((row) => row.grant_master_id)))
+  ]);
+  const votedProposalById = new Map(votedProposalRows.map((row) => [row.id, row]));
+  const submittedGrantById = new Map(submittedGrantRows.map((row) => [row.id, row]));
+
+  // Wave 3: voted grant rows (depends on votedProposalRows from wave 2)
   const votedGrantRows = await loadGrantMasterRows(
     admin,
     unique(votedProposalRows.map((row) => row.grant_master_id))
@@ -1331,24 +1392,6 @@ export async function getWorkspaceSnapshot(
       at: vote.createdAt
     };
   });
-
-  const { data: submittedProposalRows, error: submittedError } = await admin
-    .from("grant_proposals")
-    .select(PROPOSAL_SELECT)
-    .eq("proposer_id", user.id)
-    .order("created_at", { ascending: false })
-    .returns<ProposalRow[]>();
-
-  if (submittedError) {
-    throw new HttpError(500, `Could not load submitted proposals: ${submittedError.message}`);
-  }
-
-  const submittedRows = submittedProposalRows ?? [];
-  const submittedGrantRows = await loadGrantMasterRows(
-    admin,
-    unique(submittedRows.map((row) => row.grant_master_id))
-  );
-  const submittedGrantById = new Map(submittedGrantRows.map((row) => [row.id, row]));
 
   const submittedGifts = submittedRows.map((row) =>
     mapProposal(row, submittedGrantById.get(row.grant_master_id))
@@ -1754,6 +1797,7 @@ export async function submitProposal(
     logNotificationError("submitProposal enqueue confirmation email", error);
   });
 
+  invalidateFoundationCache();
   return insertedProposal;
 }
 
@@ -1898,6 +1942,7 @@ export async function submitVote(
     }
   }
 
+  invalidateFoundationCache();
   return { ok: true };
 }
 
@@ -1976,6 +2021,7 @@ export async function setMeetingReveal(
     throw new HttpError(500, `Could not update reveal state: ${error.message}`);
   }
 
+  invalidateFoundationCache();
   return getProposalViewById(admin, proposalId, currentUserId);
 }
 
@@ -2076,6 +2122,7 @@ export async function setMeetingDecision(
       });
   }
 
+  invalidateFoundationCache();
   return updatedProposal;
 }
 
@@ -2307,6 +2354,7 @@ export async function updateProposalRecord(
     });
   }
 
+  invalidateFoundationCache();
   return getProposalViewById(admin, input.proposalId, input.currentUserId);
 }
 
@@ -2735,6 +2783,7 @@ export async function importHistoricalProposals(
     logNotificationError("importHistoricalProposals enqueue organization categorization", error);
   });
 
+  invalidateFoundationCache();
   return {
     insertedCount: proposalRowsToInsert.length,
     skippedCount
@@ -2774,5 +2823,6 @@ export async function updateBudget(
     throw new HttpError(500, `Could not save budget: ${error?.message ?? "missing row"}`);
   }
 
+  invalidateFoundationCache();
   return data;
 }

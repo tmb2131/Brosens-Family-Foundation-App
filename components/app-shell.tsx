@@ -819,7 +819,7 @@ export function AppShell({ children }: PropsWithChildren) {
           : availableFullNav;
   const { data: navigationSummary, isValidating: isNavValidating } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
-    { refreshInterval: navPollInterval, refreshWhenHidden: false }
+    { refreshInterval: navPollInterval, refreshWhenHidden: false, dedupingInterval: 10_000 }
   );
 
   // Revalidate navigation badges on every client-side route change so the

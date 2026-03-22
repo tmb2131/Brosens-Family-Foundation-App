@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
-import { getFrankDeenieSnapshot, listDonationNameSuggestions } from "@/lib/frank-deenie-data";
+import { getFrankDeenieSnapshot } from "@/lib/frank-deenie-data";
 import FrankDeenieClient from "./frank-deenie-client";
 
 function FrankDeenieFallback() {
@@ -16,17 +16,13 @@ function FrankDeenieFallback() {
 export default async function FrankDeeniePage() {
   const { profile, admin } = await requirePageAuth();
 
-  const [snapshot, names] = await Promise.all([
-    getFrankDeenieSnapshot(admin),
-    listDonationNameSuggestions(admin)
-  ]);
+  const snapshot = await getFrankDeenieSnapshot(admin);
 
   return (
     <Suspense fallback={<FrankDeenieFallback />}>
       <FrankDeenieClient
         profile={profile}
         initialSnapshot={snapshot}
-        initialNameSuggestions={names}
       />
     </Suspense>
   );

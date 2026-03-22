@@ -21,7 +21,7 @@ export function Providers({ children }: PropsWithChildren) {
                 }
                 return response.json();
               }),
-            revalidateOnFocus: true,
+            revalidateOnFocus: false,
             refreshWhenOffline: false,
             dedupingInterval: 5000
           }}

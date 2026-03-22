@@ -205,6 +205,23 @@ async function fetchProfileEmailsById(admin: AdminClient, userIds: string[]): Pr
   return map;
 }
 
+async function fetchProposersBySourceIds(admin: AdminClient, returnSourceIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (returnSourceIds.length === 0) return map;
+
+  const { data: proposals } = await admin
+    .from("grant_proposals")
+    .select("id, proposer_id")
+    .in("id", returnSourceIds)
+    .returns<Array<{ id: string; proposer_id: string }>>();
+
+  for (const p of proposals ?? []) {
+    map.set(p.id, p.proposer_id);
+  }
+
+  return map;
+}
+
 function mapFrankDeenieDonationRow(
   row: FrankDeenieDonationDbRow,
   profileEmailById: Map<string, string>,
@@ -303,22 +320,20 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
   const rows = data ?? [];
 
   const returnSourceIds = [...new Set(rows.map((r) => r.return_source_id).filter((id): id is string => !!id))];
-  const proposerBySourceId = new Map<string, string>();
-  if (returnSourceIds.length > 0) {
-    const { data: proposals } = await admin
-      .from("grant_proposals")
-      .select("id, proposer_id")
-      .in("id", returnSourceIds)
-      .returns<Array<{ id: string; proposer_id: string }>>();
-    for (const p of proposals ?? []) {
-      proposerBySourceId.set(p.id, p.proposer_id);
-    }
-  }
+  const creatorIds = [...new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id))];
+
+  const [proposerBySourceId, creatorEmailMap] = await Promise.all([
+    fetchProposersBySourceIds(admin, returnSourceIds),
+    fetchProfileEmailsById(admin, creatorIds),
+  ]);
 
   const proposerIds = [...proposerBySourceId.values()];
-  const creatorIds = [...new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id))];
-  const allProfileIds = [...new Set([...creatorIds, ...proposerIds])];
-  const profileEmailById = await fetchProfileEmailsById(admin, allProfileIds);
+  const missingProposerIds = proposerIds.filter((id) => !creatorEmailMap.has(id));
+  const extraEmails = missingProposerIds.length > 0
+    ? await fetchProfileEmailsById(admin, missingProposerIds)
+    : new Map<string, string>();
+
+  const profileEmailById = new Map([...creatorEmailMap, ...extraEmails]);
 
   return rows.map((row) => mapFrankDeenieDonationRow(row, profileEmailById, proposerBySourceId));
 }
