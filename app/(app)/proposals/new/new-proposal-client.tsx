@@ -7,7 +7,6 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { AlertCircle, AlertTriangle } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -28,7 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
 import { useDraftPersistence, type ProposalDraft } from "@/lib/hooks/use-draft-persistence";
-import { WorkspaceSnapshot } from "@/lib/types";
+import { UserProfile, WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
 
@@ -68,16 +67,21 @@ interface CharityNavigatorPreviewResponse {
 
 type ProposalTypeOption = "" | "joint" | "discretionary";
 
-export default function NewProposalClient() {
+interface NewProposalClientProps {
+  profile: UserProfile;
+  initialWorkspace: WorkspaceSnapshot;
+  initialTitleSuggestions: string[];
+}
+
+export default function NewProposalClient({ profile, initialWorkspace, initialTitleSuggestions }: NewProposalClientProps) {
   const router = useRouter();
-  const { user } = useAuth();
-  const workspaceQuery = useSWR<WorkspaceSnapshot>(
-    user ? "/api/workspace" : null,
-    { refreshInterval: 30_000 }
-  );
-  const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>(
-    user ? "/api/proposals/titles" : null
-  );
+  const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
+    refreshInterval: 30_000,
+    fallbackData: initialWorkspace
+  });
+  const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>("/api/proposals/titles", {
+    fallbackData: { titles: initialTitleSuggestions }
+  });
 
   const [organizationName, setOrganizationName] = useState("");
   const [description, setDescription] = useState("");
@@ -96,7 +100,7 @@ export default function NewProposalClient() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const savingRef = useRef(false);
-  const isVotingMember = user?.role === "member" || user?.role === "oversight";
+  const isVotingMember = profile.role === "member" || profile.role === "oversight";
   const discretionaryLimit = workspaceQuery.data
     ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
     : null;
@@ -110,7 +114,7 @@ export default function NewProposalClient() {
         (suggestion) => suggestion.trim().toLowerCase() === normalizedOrganizationName
       )
     : false;
-  const isManager = user?.role === "manager" || user?.role === "admin";
+  const isManager = profile.role === "manager" || profile.role === "admin";
 
   const jointRemaining = workspaceQuery.data?.personalBudget.jointRemaining ?? 0;
   const discretionaryRemaining = workspaceQuery.data?.personalBudget.discretionaryRemaining ?? 0;
@@ -240,9 +244,6 @@ export default function NewProposalClient() {
     }
   };
 
-  if (!user) {
-    return null;
-  }
 
   const confirmSubmit = async () => {
     if (savingRef.current) return;

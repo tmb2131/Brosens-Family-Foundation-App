@@ -8,7 +8,6 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, History, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
@@ -42,7 +41,7 @@ const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
   { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-muted" /></div> }
 );
-import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, WorkspaceSnapshot } from "@/lib/types";
+import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, UserProfile, WorkspaceSnapshot } from "@/lib/types";
 import { VoteForm } from "@/components/voting/vote-form";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
@@ -458,9 +457,22 @@ function downloadFile(filename: string, content: string, mimeType: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export default function DashboardClient() {
-  const { user } = useAuth();
-  const isOversight = user?.role === "oversight";
+interface DashboardClientProps {
+  profile: UserProfile;
+  initialFoundation: FoundationSnapshot;
+  initialHistory: FoundationHistorySnapshot;
+  initialWorkspace: WorkspaceSnapshot;
+  initialPending: PendingResponse | null;
+}
+
+export default function DashboardClient({
+  profile,
+  initialFoundation,
+  initialHistory,
+  initialWorkspace,
+  initialPending
+}: DashboardClientProps) {
+  const isOversight = profile.role === "oversight";
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
@@ -560,10 +572,6 @@ export default function DashboardClient() {
   }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
   const foundationKey = useMemo(() => {
-    if (!user) {
-      return null;
-    }
-
     if (selectedYear === null) {
       return "/api/foundation";
     }
@@ -573,26 +581,31 @@ export default function DashboardClient() {
     }
 
     return `/api/foundation?budgetYear=${selectedYear}`;
-  }, [selectedYear, user]);
+  }, [selectedYear]);
 
   const { data, isLoading, error, mutate, isValidating } = useSWR<FoundationSnapshot>(foundationKey, {
-    refreshInterval: 30_000
+    refreshInterval: 30_000,
+    fallbackData: selectedYear === null ? initialFoundation : undefined
   });
   const {
     data: historyData,
     error: historyError,
     isLoading: isHistoryLoading
-  } = useSWR<FoundationHistorySnapshot>(user ? "/api/foundation/history" : null);
+  } = useSWR<FoundationHistorySnapshot>("/api/foundation/history", {
+    fallbackData: initialHistory
+  });
   const {
     data: pendingData,
     isLoading: isPendingLoading,
     error: pendingError,
     mutate: mutatePending
   } = useSWR<PendingResponse>(isOversight ? "/api/foundation/pending" : null, {
-    refreshInterval: 30_000
+    refreshInterval: 30_000,
+    fallbackData: initialPending ?? undefined
   });
-  const workspaceQuery = useSWR<WorkspaceSnapshot>(user ? "/api/workspace" : null, {
-    refreshInterval: 30_000
+  const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
+    refreshInterval: 30_000,
+    fallbackData: initialWorkspace
   });
   const workspace = workspaceQuery.data;
 
@@ -659,12 +672,12 @@ export default function DashboardClient() {
       }
 
       if (filters.myActions) {
-        const requiredAction = buildRequiredActionSummary(proposal, user?.role);
+        const requiredAction = buildRequiredActionSummary(proposal, profile.role);
         const viewerMustAct =
           requiredAction.tone === "attention" &&
           (requiredAction.openDetail ||
-            (requiredAction.href === "/meeting" && (user?.role === "oversight" || user?.role === "manager")) ||
-            (requiredAction.href === "/admin" && user?.role === "admin"));
+            (requiredAction.href === "/meeting" && (profile.role === "oversight" || profile.role === "manager")) ||
+            (requiredAction.href === "/admin" && profile.role === "admin"));
         if (!viewerMustAct) {
           return false;
         }
@@ -700,7 +713,7 @@ export default function DashboardClient() {
     });
 
     return sorted;
-  }, [data, filters, sortDirection, sortKey, user?.role]);
+  }, [data, filters, sortDirection, sortKey, profile.role]);
 
   const pendingProposals = useMemo(() => {
     if (!pendingData) {
@@ -724,9 +737,9 @@ export default function DashboardClient() {
   const selectedBudgetYearLabel = isAllYearsView ? "all budget years" : `budget year ${selectedBudgetYear}`;
   const selectedYearFilterValue =
     selectedYear === "all" ? "all" : String(selectedYear ?? selectedBudgetYear);
-  const canVote = Boolean(user && ["member", "oversight"].includes(user.role));
+  const canVote = ["member", "oversight"].includes(profile.role);
   const isHistoricalView = !isAllYearsView && selectedBudgetYear < currentCalendarYear;
-  const canEditHistorical = Boolean(user?.role === "oversight" && isHistoricalView);
+  const canEditHistorical = Boolean(profile.role === "oversight" && isHistoricalView);
   const allowHistoricalBulkEdit = false;
   const isHistoricalBulkEditEnabled = allowHistoricalBulkEdit && canEditHistorical && isBulkEditMode;
   const showPendingTab = isOversight && activeTab === "pending";
@@ -907,7 +920,7 @@ export default function DashboardClient() {
   };
   const exportRows: ProposalExportRow[] = filteredAndSortedProposals.map((proposal) => {
     const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
-    const requiredAction = buildRequiredActionSummary(proposal, user?.role);
+    const requiredAction = buildRequiredActionSummary(proposal, profile.role);
     const requiredActionLabel =
       requiredAction.owner === "None"
         ? requiredAction.detail
@@ -1386,15 +1399,14 @@ export default function DashboardClient() {
   const detailDraft = detailProposal ? drafts[detailProposal.id] ?? toProposalDraft(detailProposal) : null;
   const detailMasked = Boolean(detailProposal?.progress.masked && detailProposal.status === "to_review" && detailProposal.proposalType !== "discretionary");
   const detailRequiredAction = detailProposal
-    ? buildRequiredActionSummary(detailProposal, user?.role)
+    ? buildRequiredActionSummary(detailProposal, profile.role)
     : null;
   const detailShowVoteForm =
-    !!user &&
     canVote &&
     detailProposal?.status === "to_review" &&
     !detailProposal?.progress.hasCurrentUserVoted;
   const detailCanOversightEditProposal = Boolean(isOversight && detailProposal);
-  const detailIsOwnProposal = Boolean(user && detailProposal && detailProposal.proposerId === user.id);
+  const detailIsOwnProposal = Boolean(detailProposal && detailProposal.proposerId === profile.id);
   const detailIsVoteLocked = Boolean(
     detailCanOversightEditProposal &&
       detailProposal &&
@@ -1539,7 +1551,7 @@ export default function DashboardClient() {
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
-          {user && !["admin", "manager"].includes(user.role) && (
+          {!["admin", "manager"].includes(profile.role) && (
             <Button variant="proposal" size="sm" asChild className="h-8 min-h-8">
               <Link href="/proposals/new">
                 <Plus className="h-3 w-3" /> New Proposal
@@ -1595,7 +1607,7 @@ export default function DashboardClient() {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
-            {user && !["admin", "manager"].includes(user.role) && (
+            {!["admin", "manager"].includes(profile.role) && (
               <Button variant="proposal" asChild className="sm:min-h-11 sm:px-4 sm:text-sm">
                 <Link href="/proposals/new" title="New Proposal (⇧N)">
                   <Plus className="h-4 w-4" /> New Proposal
@@ -2093,7 +2105,7 @@ export default function DashboardClient() {
           ) : (
             filteredAndSortedProposals.map((proposal) => {
               const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
-              const requiredAction = buildRequiredActionSummary(proposal, user?.role);
+              const requiredAction = buildRequiredActionSummary(proposal, profile.role);
               const isJoint = proposal.proposalType === "joint";
               const requiredActionToneClass =
                 requiredAction.tone === "attention"
@@ -2202,7 +2214,7 @@ export default function DashboardClient() {
                   const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
                   const rowState = rowMessage[proposal.id];
                   const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
-                  const requiredAction = buildRequiredActionSummary(proposal, user?.role);
+                  const requiredAction = buildRequiredActionSummary(proposal, profile.role);
                   const requiredActionToneClass =
                     requiredAction.tone === "attention"
                       ? "text-amber-700 dark:text-amber-300"
@@ -2239,8 +2251,8 @@ export default function DashboardClient() {
                   const viewerMustAct =
                     requiredAction.tone === "attention" &&
                     (requiredAction.openDetail ||
-                      (requiredAction.href === "/meeting" && (user?.role === "oversight" || user?.role === "manager")) ||
-                      (requiredAction.href === "/admin" && user?.role === "admin"));
+                      (requiredAction.href === "/meeting" && (profile.role === "oversight" || profile.role === "manager")) ||
+                      (requiredAction.href === "/admin" && profile.role === "admin"));
 
                   return (
                     <DataTableRow
@@ -2364,7 +2376,7 @@ export default function DashboardClient() {
                 proposalType={detailProposal.proposalType}
                 proposedAmount={detailProposal.proposedAmount}
                 totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                userId={user!.id}
+                userId={profile.id}
                 proposalTitle={detailProposal.title}
                 onSuccess={() => {}}
                 maxJointAllocation={
@@ -2762,7 +2774,7 @@ export default function DashboardClient() {
                   proposalType={detailProposal.proposalType}
                   proposedAmount={detailProposal.proposedAmount}
                   totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                  userId={user!.id}
+                  userId={profile.id}
                   proposalTitle={detailProposal.title}
                   onSuccess={() => {}}
                   maxJointAllocation={

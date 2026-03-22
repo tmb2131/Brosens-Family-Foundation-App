@@ -3,10 +3,8 @@
 import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -83,16 +81,11 @@ interface CharityNavigatorPreviewResponse {
   message?: string;
 }
 
-export default function WorkspaceClient() {
-  const { user } = useAuth();
-  const router = useRouter();
+interface WorkspaceClientProps {
+  initialWorkspace: WorkspaceSnapshot;
+}
 
-  useEffect(() => {
-    if (user?.role === "manager") {
-      router.replace("/dashboard");
-    }
-  }, [user?.role, router]);
-
+export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientProps) {
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
@@ -210,10 +203,10 @@ export default function WorkspaceClient() {
     return () => window.removeEventListener("resize", handleResize);
   }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
 
-  const workspaceQuery = useSWR<WorkspaceSnapshot>(
-    user && user.role !== "manager" ? "/api/workspace" : null,
-    { refreshInterval: 30_000 }
-  );
+  const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
+    refreshInterval: 30_000,
+    fallbackData: initialWorkspace
+  });
 
   useEffect(() => {
     if (!voteDialogProposalId || !workspaceQuery.data) {
@@ -261,9 +254,7 @@ export default function WorkspaceClient() {
     };
   }, [voteDialogProposalId, workspaceQuery.data]);
 
-  if (user?.role === "manager") {
-    return null;
-  }
+
 
   if (workspaceQuery.isLoading) {
     return (
@@ -829,9 +820,6 @@ export default function WorkspaceClient() {
                 </div>
               ) : (
                 workspace.actionItems.map((item) => {
-                  if (!user) {
-                    return null;
-                  }
 
                   return (
                     <article

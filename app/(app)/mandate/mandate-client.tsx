@@ -5,7 +5,6 @@ import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "re
 import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
 import { CheckCircle, ChevronRight, MessageSquare, MessageSquarePlus, RefreshCw, X } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import {
@@ -24,7 +23,8 @@ import {
   MandatePolicyPageData,
   MandateSectionKey,
   PolicyChangeNotification,
-  PolicyVersionWithReviews
+  PolicyVersionWithReviews,
+  UserProfile
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -507,14 +507,18 @@ function OversightVersionCard({ versionReview }: { versionReview: PolicyVersionW
   );
 }
 
-export default function MandateClient() {
-  const { user } = useAuth();
-  const canEdit = user?.role === "oversight";
+interface MandateClientProps {
+  profile: UserProfile;
+  initialMandate: MandatePolicyPageData;
+}
 
-  const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>(
-    user ? "/api/policy/mandate" : null,
-    { refreshInterval: 300_000 }
-  );
+export default function MandateClient({ profile, initialMandate }: MandateClientProps) {
+  const canEdit = profile.role === "oversight";
+
+  const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>("/api/policy/mandate", {
+    refreshInterval: 300_000,
+    fallbackData: initialMandate
+  });
 
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<MandatePolicyContent | null>(null);
@@ -624,15 +628,6 @@ export default function MandateClient() {
     window.getSelection()?.removeAllRanges();
     setAddCommentOpen(true);
   }, []);
-
-  if (!user) {
-    return (
-      <div className="space-y-3">
-        <SkeletonCard />
-        <SkeletonCard />
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -769,7 +764,7 @@ export default function MandateClient() {
                   ...current,
                   mandateComments: current.mandateComments.map((c) =>
                     c.id === commentId
-                      ? { ...c, resolvedAt: new Date().toISOString(), resolvedById: user?.id ?? null }
+                      ? { ...c, resolvedAt: new Date().toISOString(), resolvedById: profile.id }
                       : c
                   ),
                 }

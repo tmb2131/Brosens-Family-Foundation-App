@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HttpError } from "@/lib/http-error";
@@ -112,6 +113,21 @@ export async function requireAuthContext(): Promise<AuthContext> {
     authUserId: user.id,
     admin
   };
+}
+
+/**
+ * Page-level auth: redirects to /login instead of throwing on 401.
+ * Use in async Server Component page.tsx files.
+ */
+export async function requirePageAuth(): Promise<AuthContext> {
+  try {
+    return await requireAuthContext();
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 401) {
+      redirect("/login");
+    }
+    throw err;
+  }
 }
 
 export function assertRole(profile: UserProfile, roles: AppRole[]) {

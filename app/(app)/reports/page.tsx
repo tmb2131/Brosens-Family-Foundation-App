@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
+import { requirePageAuth } from "@/lib/auth-server";
+import { getFoundationSnapshot } from "@/lib/foundation-data";
 import ReportsClient from "./reports-client";
 
 function ReportsFallback() {
@@ -15,10 +17,13 @@ function ReportsFallback() {
   );
 }
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  const { profile, admin } = await requirePageAuth();
+  const foundation = await getFoundationSnapshot(admin, profile.id);
+
   return (
     <Suspense fallback={<ReportsFallback />}>
-      <ReportsClient />
+      <ReportsClient initialFoundation={foundation} />
     </Suspense>
   );
 }

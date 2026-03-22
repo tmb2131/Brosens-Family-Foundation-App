@@ -1,8 +1,26 @@
 import { Suspense } from "react";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
+import { requirePageAuth } from "@/lib/auth-server";
+import {
+  getFoundationHistory,
+  getFoundationSnapshot,
+  getPendingProposalsForOversight,
+  getWorkspaceSnapshot
+} from "@/lib/foundation-data";
+import { FoundationSnapshot } from "@/lib/types";
 import DashboardClient from "@/app/(app)/dashboard/dashboard-client";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { profile, admin } = await requirePageAuth();
+  const isOversight = profile.role === "oversight";
+
+  const [foundation, historyByYear, workspace, pendingProposals] = await Promise.all([
+    getFoundationSnapshot(admin, profile.id),
+    getFoundationHistory(admin),
+    getWorkspaceSnapshot(admin, profile),
+    isOversight ? getPendingProposalsForOversight(admin, profile.id) : Promise.resolve(null)
+  ]);
+
   return (
     <Suspense
       fallback={
@@ -20,7 +38,13 @@ export default function DashboardPage() {
         </div>
       }
     >
-      <DashboardClient />
+      <DashboardClient
+        profile={profile}
+        initialFoundation={foundation}
+        initialHistory={{ historyByYear }}
+        initialWorkspace={workspace}
+        initialPending={pendingProposals ? { proposals: pendingProposals as FoundationSnapshot["proposals"] } : null}
+      />
     </Suspense>
   );
 }

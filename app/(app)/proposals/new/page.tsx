@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { SkeletonCard } from "@/components/ui/skeleton";
+import { requirePageAuth } from "@/lib/auth-server";
+import { getWorkspaceSnapshot, listProposalTitleSuggestions } from "@/lib/foundation-data";
 import NewProposalClient from "./new-proposal-client";
 
 function NewProposalFallback() {
@@ -11,10 +13,21 @@ function NewProposalFallback() {
   );
 }
 
-export default function NewProposalPage() {
+export default async function NewProposalPage() {
+  const { profile, admin } = await requirePageAuth();
+
+  const [workspace, titles] = await Promise.all([
+    getWorkspaceSnapshot(admin, profile),
+    listProposalTitleSuggestions(admin)
+  ]);
+
   return (
     <Suspense fallback={<NewProposalFallback />}>
-      <NewProposalClient />
+      <NewProposalClient
+        profile={profile}
+        initialWorkspace={workspace}
+        initialTitleSuggestions={titles}
+      />
     </Suspense>
   );
 }

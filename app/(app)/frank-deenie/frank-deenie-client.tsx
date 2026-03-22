@@ -5,8 +5,6 @@ import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { ArrowDownAZ, ArrowUpAZ, Banknote, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
-
 const FrankDeenieYearSplitChart = dynamic(
   () => import("@/components/frank-deenie/year-split-chart").then((mod) => mod.FrankDeenieYearSplitChart),
   { ssr: false, loading: () => <div className="h-[180px] w-full animate-pulse rounded-2xl bg-muted" /> }
@@ -27,7 +25,7 @@ import { DonationDetailDrawer, DetailMode } from "./donation-detail-drawer";
 import { ReturnCheckForm } from "./return-check-form";
 import { FoundationEventForm } from "./foundation-event-form";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
-import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, YearMode } from "@/lib/types";
+import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, UserProfile, YearMode } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
@@ -299,11 +297,15 @@ function downloadFile(filename: string, content: string, mimeType: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export default function FrankDeenieClient() {
-  const { user } = useAuth();
-  const canAccess = user ? ["oversight", "admin", "manager", "member"].includes(user.role) : false;
-  const isAdmin = user?.role === "admin";
-  const readOnly = user?.role === "member";
+interface FrankDeenieClientProps {
+  profile: UserProfile;
+  initialSnapshot: FrankDeenieSnapshot;
+  initialNameSuggestions: string[];
+}
+
+export default function FrankDeenieClient({ profile, initialSnapshot, initialNameSuggestions }: FrankDeenieClientProps) {
+  const isAdmin = profile.role === "admin";
+  const readOnly = profile.role === "member";
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [yearMode, setYearModeRaw] = useState<YearMode>(readStoredYearMode);
@@ -344,9 +346,9 @@ export default function FrankDeenieClient() {
     setSelectedYear(null);
   }, []);
 
-  const nameSuggestionsQuery = useSWR<{ names: string[] }>(
-    canAccess ? "/api/frank-deenie/name-suggestions" : null
-  );
+  const nameSuggestionsQuery = useSWR<{ names: string[] }>("/api/frank-deenie/name-suggestions", {
+    fallbackData: { names: initialNameSuggestions }
+  });
   const allNameSuggestions = useMemo(
     () => nameSuggestionsQuery.data?.names ?? [],
     [nameSuggestionsQuery.data]
@@ -365,9 +367,13 @@ export default function FrankDeenieClient() {
     return params.toString();
   }, [includeChildren, yearMode, selectedYear]);
 
+  const defaultQueryString = "includeChildren=0";
   const { data, error, isLoading, isValidating, mutate } = useSWR<FrankDeenieSnapshot>(
-    canAccess ? `/api/frank-deenie?${queryString}` : null,
-    { refreshInterval: 120_000 }
+    `/api/frank-deenie?${queryString}`,
+    {
+      refreshInterval: 120_000,
+      fallbackData: queryString === defaultQueryString ? initialSnapshot : undefined
+    }
   );
 
   const filterableNames = useMemo(() => {
@@ -848,23 +854,12 @@ export default function FrankDeenieClient() {
     }
   };
 
-  if (!user) {
+  if (!data && isLoading) {
     return (
       <div className="space-y-3">
         <SkeletonCard />
         <SkeletonCard />
       </div>
-    );
-  }
-
-  if (!canAccess) {
-    return (
-      <GlassCard>
-        <CardLabel>Frank &amp; Deenie</CardLabel>
-        <p className="mt-2 text-sm text-rose-600">
-          This page is available only to Oversight, Admin, and Manager users.
-        </p>
-      </GlassCard>
     );
   }
 
@@ -1358,7 +1353,7 @@ export default function FrankDeenieClient() {
               </GlassCard>
             ) : null}
 
-            {SHOW_FRANK_DEENIE_IMPORT && user.role === "oversight" ? (
+            {SHOW_FRANK_DEENIE_IMPORT && profile.role === "oversight" ? (
               <GlassCard>
                 {/* Mobile: collapsible toggle */}
                 <button

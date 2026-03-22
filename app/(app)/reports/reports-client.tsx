@@ -18,7 +18,6 @@ const ReportsCharts = dynamic(
     )
   }
 );
-import { useAuth } from "@/components/auth/auth-provider";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -76,21 +75,18 @@ function sumAmount(rows: FoundationSnapshot["proposals"]) {
   return rows.reduce((sum, row) => sum + row.progress.computedFinalAmount, 0);
 }
 
-export default function ReportsClient() {
-  const { user } = useAuth();
+interface ReportsClientProps {
+  initialFoundation: FoundationSnapshot;
+}
+
+export default function ReportsClient({ initialFoundation }: ReportsClientProps) {
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [sortKey, setSortKey] = useState<ReportSortKey>("proposal");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const canAccess = !!user;
-
   const foundationKey = useMemo(() => {
-    if (!canAccess) {
-      return null;
-    }
-
     if (selectedYear === null) {
       return "/api/foundation";
     }
@@ -100,9 +96,11 @@ export default function ReportsClient() {
     }
 
     return `/api/foundation?budgetYear=${selectedYear}`;
-  }, [canAccess, selectedYear]);
+  }, [selectedYear]);
 
-  const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey);
+  const { data, isLoading, error, mutate } = useSWR<FoundationSnapshot>(foundationKey, {
+    fallbackData: selectedYear === null ? initialFoundation : undefined
+  });
 
   const availableYears = useMemo(() => {
     if (!data) {
@@ -276,7 +274,7 @@ export default function ReportsClient() {
     }, 200);
   };
 
-  if (!user || isLoading) {
+  if (isLoading) {
     return (
       <div className="page-stack pb-6">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

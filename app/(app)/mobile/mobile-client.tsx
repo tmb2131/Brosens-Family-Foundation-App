@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { RefreshCw, Wallet } from "lucide-react";
-import { useAuth } from "@/components/auth/auth-provider";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,12 +55,16 @@ const WALKTHROUGH_STEPS: Array<{
   },
 ];
 
-export default function MobileFocusClient() {
-  const { user } = useAuth();
+interface MobileFocusClientProps {
+  initialWorkspace: WorkspaceSnapshot;
+}
+
+export default function MobileFocusClient({ initialWorkspace }: MobileFocusClientProps) {
   const searchParams = useSearchParams();
 
-  const workspaceQuery = useSWR<WorkspaceSnapshot>(user ? "/api/workspace" : null, {
+  const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
+    fallbackData: initialWorkspace,
   });
   const deepLinkTarget = useMemo(() => {
     const value = searchParams.get("next")?.trim() ?? "";
