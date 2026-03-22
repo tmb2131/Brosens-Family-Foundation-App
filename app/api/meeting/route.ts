@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
 import {
-  getMeetingProposals,
+  fetchFoundationPageData,
+  buildMeetingProposalsFromData,
   setMeetingDecision,
   setMeetingReveal
 } from "@/lib/foundation-data";
@@ -14,7 +15,8 @@ export async function GET() {
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, ["oversight", "manager"]);
 
-    const proposals = await getMeetingProposals(admin, profile.id);
+    const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
+    const proposals = buildMeetingProposalsFromData(pageData, profile.id);
     return NextResponse.json({ proposals }, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);

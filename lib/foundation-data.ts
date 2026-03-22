@@ -794,6 +794,356 @@ async function computeHistoryByYear(admin: AdminClient, votingMemberIds: string[
     });
 }
 
+// ---------------------------------------------------------------------------
+// Single-RPC data layer: one Postgres call returns all raw data, then pure
+// assembler functions reshape it into the same snapshots the app already uses.
+// ---------------------------------------------------------------------------
+
+export interface FoundationPageData {
+  budget: BudgetRow | null;
+  availableBudgetYears: number[];
+  votingMemberIds: string[];
+  proposals: ProposalRow[];
+  pendingProposals: ProposalRow[];
+  grants: GrantMasterRow[];
+  organizations: OrganizationRow[];
+  votes: VoteRow[];
+  voterProfiles: Array<{ id: string; full_name: string; email: string }>;
+  proposerProfiles: Array<{ id: string; email: string }>;
+  historyProposals: ProposalRow[];
+  userVotes: VoteRow[];
+  userSubmittedProposals: ProposalRow[];
+  userVotedProposals: ProposalRow[];
+}
+
+export async function fetchFoundationPageData(
+  admin: AdminClient,
+  opts: { budgetYear?: number; userId?: string; includeAllYears?: boolean } = {}
+): Promise<FoundationPageData> {
+  const { data, error } = await admin.rpc("get_foundation_page_data", {
+    p_budget_year: opts.budgetYear ?? null,
+    p_user_id: opts.userId ?? null,
+    p_include_all_years: opts.includeAllYears ?? false,
+  });
+
+  if (error) throw new HttpError(500, `RPC error: ${error.message}`);
+
+  const raw = (data ?? {}) as Record<string, unknown>;
+  return {
+    budget: (raw.budget as BudgetRow) ?? null,
+    availableBudgetYears: (raw.availableBudgetYears as number[]) ?? [],
+    votingMemberIds: (raw.votingMemberIds as string[]) ?? [],
+    proposals: (raw.proposals as ProposalRow[]) ?? [],
+    pendingProposals: (raw.pendingProposals as ProposalRow[]) ?? [],
+    grants: (raw.grants as GrantMasterRow[]) ?? [],
+    organizations: (raw.organizations as OrganizationRow[]) ?? [],
+    votes: (raw.votes as VoteRow[]) ?? [],
+    voterProfiles: (raw.voterProfiles as FoundationPageData["voterProfiles"]) ?? [],
+    proposerProfiles: (raw.proposerProfiles as FoundationPageData["proposerProfiles"]) ?? [],
+    historyProposals: (raw.historyProposals as ProposalRow[]) ?? [],
+    userVotes: (raw.userVotes as VoteRow[]) ?? [],
+    userSubmittedProposals: (raw.userSubmittedProposals as ProposalRow[]) ?? [],
+    userVotedProposals: (raw.userVotedProposals as ProposalRow[]) ?? [],
+  };
+}
+
+function buildVoterDisplayNamesFromProfiles(
+  profiles: Array<{ id: string; full_name: string; email: string }>
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const row of profiles) {
+    const displayName = getProposerDisplayName(row.email);
+    map.set(row.id, displayName !== "—" ? displayName : row.full_name || "Unknown");
+  }
+  return map;
+}
+
+export function buildFoundationSnapshotFromData(
+  data: FoundationPageData,
+  currentUserId?: string
+): FoundationSnapshot {
+  if (!data.budget) {
+    const year = data.availableBudgetYears[0] ?? currentYear();
+    return emptyFoundationSnapshot(year, data.availableBudgetYears);
+  }
+
+  const grantById = new Map(data.grants.map((r) => [r.id, r]));
+  const organizationById = new Map(data.organizations.map((r) => [r.id, r]));
+  const votes = data.votes.map(mapVote);
+  const votesByProposalId = groupVotes(votes);
+  const voterDisplayNames = buildVoterDisplayNamesFromProfiles(data.voterProfiles);
+  const proposerEmailById = new Map(data.proposerProfiles.map((r) => [r.id, r.email]));
+
+  const proposalViews = buildProposalViews({
+    proposals: data.proposals,
+    grantById,
+    organizationById,
+    votesByProposalId,
+    voterDisplayNames,
+    currentUserId,
+    votingMemberIds: data.votingMemberIds,
+  });
+
+  const proposals = proposalViews.map((p) => ({
+    ...p,
+    proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId))
+  }));
+
+  let jointAllocated = 0;
+  let discretionaryAllocated = 0;
+
+  const budgetYearProposals = proposals.filter(
+    (proposal) => proposal.budgetYear === data.budget!.budget_year && proposal.status !== "declined"
+  );
+  for (const proposal of budgetYearProposals) {
+    if (proposal.proposalType === "joint") {
+      jointAllocated += proposal.progress.computedFinalAmount;
+    } else {
+      discretionaryAllocated += proposal.progress.computedFinalAmount;
+    }
+  }
+
+  const total = toNumber(data.budget.annual_fund_size) + toNumber(data.budget.rollover_from_previous_year);
+  const jointPool = Math.round(total * toNumber(data.budget.joint_ratio));
+  const discretionaryPool = Math.round(total * toNumber(data.budget.discretionary_ratio));
+
+  return {
+    budget: {
+      year: data.budget.budget_year,
+      total,
+      jointPool,
+      discretionaryPool,
+      jointAllocated,
+      discretionaryAllocated,
+      jointRemaining: Math.max(0, jointPool - jointAllocated),
+      discretionaryRemaining: Math.max(0, discretionaryPool - discretionaryAllocated),
+      rolloverFromPreviousYear: toNumber(data.budget.rollover_from_previous_year)
+    },
+    proposals,
+    historyByYear: [],
+    availableBudgetYears: data.availableBudgetYears,
+    annualCycle: buildAnnualCycle()
+  };
+}
+
+export function buildHistoryFromData(data: FoundationPageData): HistoryByYearPoint[] {
+  const proposals = data.historyProposals;
+  if (!proposals.length) return [];
+
+  const historyProposalIds = new Set(proposals.map((p) => p.id));
+  const allVotes = data.votes.map(mapVote);
+  const historyVotes = allVotes.filter((v) => historyProposalIds.has(v.proposalId));
+  const votesByProposalId = groupVotes(historyVotes);
+  const votingMemberIds = data.votingMemberIds;
+
+  const totalsByYear = new Map<number, { jointSent: number; discretionarySent: number }>();
+
+  for (const row of proposals) {
+    const proposal = mapProposal(row, undefined);
+    const rawProposalVotes = votesByProposalId.get(proposal.id) ?? [];
+    const relevantVotes = getEligibleVotesForProposal(proposal, rawProposalVotes, votingMemberIds);
+    const hasRecordedRelevantVotes = relevantVotes.length > 0;
+
+    const shouldUseStoredJointAmount =
+      proposal.proposalType === "joint" &&
+      proposal.budgetYear < currentYear() &&
+      !hasRecordedRelevantVotes;
+    const total = shouldUseStoredJointAmount
+      ? toNumber(row.final_amount)
+      : computeFinalAmount(proposal, relevantVotes);
+    const existingYearTotals = totalsByYear.get(proposal.budgetYear) ?? {
+      jointSent: 0,
+      discretionarySent: 0
+    };
+
+    if (proposal.proposalType === "joint") {
+      existingYearTotals.jointSent += total;
+    } else {
+      existingYearTotals.discretionarySent += total;
+    }
+
+    totalsByYear.set(proposal.budgetYear, existingYearTotals);
+  }
+
+  return [...totalsByYear.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([year, yearTotals]): HistoryByYearPoint => {
+      const jointSent = Math.round(yearTotals.jointSent);
+      const discretionarySent = Math.round(yearTotals.discretionarySent);
+      return {
+        year,
+        jointSent,
+        discretionarySent,
+        totalDonated: jointSent + discretionarySent
+      };
+    });
+}
+
+export function buildWorkspaceSnapshotFromData(
+  data: FoundationPageData,
+  user: UserProfile,
+  foundation: FoundationSnapshot
+): WorkspaceSnapshot {
+  const votingMemberIds = data.votingMemberIds;
+  const grantById = new Map(data.grants.map((r) => [r.id, r]));
+  const userVotes = data.userVotes.map(mapVote);
+  const votedProposalById = new Map(data.userVotedProposals.map((r) => [r.id, r]));
+
+  const jointTarget = Math.round(foundation.budget.jointPool / Math.max(votingMemberIds.length, 1));
+  const discretionaryCap = Math.min(
+    5_000_000,
+    Math.round(foundation.budget.discretionaryPool / Math.max(votingMemberIds.length, 1))
+  );
+
+  const totalJointVoteAmount = userVotes
+    .filter((vote) => {
+      const proposal = votedProposalById.get(vote.proposalId);
+      return (
+        proposal?.budget_year === foundation.budget.year &&
+        proposal.proposal_type === "joint" &&
+        proposal.status !== "declined"
+      );
+    })
+    .reduce((sum, vote) => sum + vote.allocationAmount, 0);
+
+  const jointAllocated = Math.min(totalJointVoteAmount, jointTarget);
+  const jointOverflowToDiscretionary = Math.max(0, totalJointVoteAmount - jointTarget);
+
+  const discretionaryProposed = foundation.proposals
+    .filter(
+      (proposal) =>
+        proposal.budgetYear === foundation.budget.year &&
+        proposal.proposalType === "discretionary" &&
+        proposal.proposerId === user.id &&
+        proposal.status !== "declined"
+    )
+    .reduce((sum, proposal) => sum + proposal.progress.computedFinalAmount, 0);
+
+  const discretionaryAllocated = discretionaryProposed + jointOverflowToDiscretionary;
+
+  const actionItems = isVotingRole(user.role)
+    ? foundation.proposals
+        .filter((proposal) => proposal.status === "to_review")
+        .filter((proposal) => !proposal.progress.hasCurrentUserVoted)
+        .map((proposal) => ({
+          proposalId: proposal.id,
+          title: proposal.title,
+          description: proposal.description,
+          proposalType: proposal.proposalType,
+          status: proposal.status,
+          proposedAmount: proposal.proposedAmount,
+          totalRequiredVotes: proposal.progress.totalRequiredVotes,
+          voteProgressLabel: `${proposal.progress.votesSubmitted} of ${proposal.progress.totalRequiredVotes} votes in`,
+          sentAt: proposal.sentAt,
+          organizationWebsite: proposal.organizationWebsite,
+          charityNavigatorUrl: proposal.charityNavigatorUrl,
+          charityNavigatorScore: proposal.charityNavigatorScore,
+          notes: proposal.notes,
+          progress: {
+            masked: proposal.progress.masked,
+            computedFinalAmount: proposal.progress.computedFinalAmount
+          }
+        }))
+    : [];
+
+  const voteHistory = userVotes.map((vote) => {
+    const proposal = votedProposalById.get(vote.proposalId);
+    const grant = proposal ? grantById.get(proposal.grant_master_id) : undefined;
+
+    return {
+      proposalId: vote.proposalId,
+      proposalTitle: grant?.title ?? "Unknown Proposal",
+      choice: vote.choice,
+      amount: vote.allocationAmount,
+      at: vote.createdAt
+    };
+  });
+
+  const submittedGifts = data.userSubmittedProposals.map((row) =>
+    mapProposal(row, grantById.get(row.grant_master_id))
+  );
+
+  const hasIndividualBudget = user.role !== "manager";
+  const personalBudget = hasIndividualBudget
+    ? {
+        jointTarget,
+        jointAllocated,
+        jointRemaining: Math.max(0, jointTarget - jointAllocated),
+        discretionaryCap,
+        discretionaryAllocated,
+        discretionaryRemaining: Math.max(0, discretionaryCap - discretionaryAllocated)
+      }
+    : {
+        jointTarget: 0,
+        jointAllocated: 0,
+        jointRemaining: 0,
+        discretionaryCap: 0,
+        discretionaryAllocated: 0,
+        discretionaryRemaining: 0
+      };
+
+  return {
+    user,
+    currentBudgetYear: foundation.budget.year,
+    votingMemberCount: votingMemberIds.length,
+    personalBudget,
+    actionItems,
+    voteHistory,
+    submittedGifts
+  };
+}
+
+export function buildPendingProposalsFromData(
+  data: FoundationPageData,
+  currentUserId?: string
+) {
+  const grantById = new Map(data.grants.map((r) => [r.id, r]));
+  const organizationById = new Map(data.organizations.map((r) => [r.id, r]));
+  const votes = data.votes.map(mapVote);
+  const votesByProposalId = groupVotes(votes);
+  const voterDisplayNames = buildVoterDisplayNamesFromProfiles(data.voterProfiles);
+
+  return buildProposalViews({
+    proposals: data.pendingProposals,
+    grantById,
+    organizationById,
+    votesByProposalId,
+    voterDisplayNames,
+    currentUserId,
+    votingMemberIds: data.votingMemberIds,
+  });
+}
+
+export function buildMeetingProposalsFromData(
+  data: FoundationPageData,
+  currentUserId: string
+) {
+  if (!data.budget) return [];
+
+  const toReviewRows = data.proposals.filter((r) => r.status === "to_review");
+
+  const grantById = new Map(data.grants.map((r) => [r.id, r]));
+  const organizationById = new Map(data.organizations.map((r) => [r.id, r]));
+  const votes = data.votes.map(mapVote);
+  const votesByProposalId = groupVotes(votes);
+  const voterDisplayNames = buildVoterDisplayNamesFromProfiles(data.voterProfiles);
+
+  return buildProposalViews({
+    proposals: toReviewRows,
+    grantById,
+    organizationById,
+    votesByProposalId,
+    voterDisplayNames,
+    currentUserId,
+    votingMemberIds: data.votingMemberIds,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Legacy data-loading functions (kept for mutation flows that reload single
+// proposals after writes — these are not on the hot path).
+// ---------------------------------------------------------------------------
+
 export async function getFoundationSnapshot(
   admin: AdminClient,
   currentUserId?: string,

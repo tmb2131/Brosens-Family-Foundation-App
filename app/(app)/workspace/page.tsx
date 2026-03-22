@@ -2,7 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
-import { getWorkspaceSnapshot } from "@/lib/foundation-data";
+import {
+  fetchFoundationPageData,
+  buildFoundationSnapshotFromData,
+  buildWorkspaceSnapshotFromData
+} from "@/lib/foundation-data";
 import WorkspaceClient from "@/app/(app)/workspace/workspace-client";
 
 export default async function WorkspacePage() {
@@ -12,7 +16,9 @@ export default async function WorkspacePage() {
     redirect("/dashboard");
   }
 
-  const workspace = await getWorkspaceSnapshot(admin, profile);
+  const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
+  const foundation = buildFoundationSnapshotFromData(pageData, profile.id);
+  const workspace = buildWorkspaceSnapshotFromData(pageData, profile, foundation);
 
   return (
     <Suspense

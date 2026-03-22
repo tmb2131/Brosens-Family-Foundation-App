@@ -2,10 +2,11 @@ import { Suspense } from "react";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
 import {
-  getFoundationHistory,
-  getFoundationSnapshot,
-  getPendingProposalsForOversight,
-  getWorkspaceSnapshot
+  fetchFoundationPageData,
+  buildFoundationSnapshotFromData,
+  buildHistoryFromData,
+  buildPendingProposalsFromData,
+  buildWorkspaceSnapshotFromData
 } from "@/lib/foundation-data";
 import { FoundationSnapshot } from "@/lib/types";
 import DashboardClient from "@/app/(app)/dashboard/dashboard-client";
@@ -14,13 +15,11 @@ export default async function DashboardPage() {
   const { profile, admin } = await requirePageAuth();
   const isOversight = profile.role === "oversight";
 
-  const [foundation, historyByYear, pendingProposals] = await Promise.all([
-    getFoundationSnapshot(admin, profile.id),
-    getFoundationHistory(admin),
-    isOversight ? getPendingProposalsForOversight(admin, profile.id) : Promise.resolve(null)
-  ]);
-
-  const workspace = await getWorkspaceSnapshot(admin, profile, foundation);
+  const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
+  const foundation = buildFoundationSnapshotFromData(pageData, profile.id);
+  const historyByYear = buildHistoryFromData(pageData);
+  const pendingProposals = isOversight ? buildPendingProposalsFromData(pageData, profile.id) : null;
+  const workspace = buildWorkspaceSnapshotFromData(pageData, profile, foundation);
 
   return (
     <Suspense

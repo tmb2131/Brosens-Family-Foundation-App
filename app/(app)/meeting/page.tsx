@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 import { GlassCard } from "@/components/ui/card";
 import { requirePageAuth, assertRole } from "@/lib/auth-server";
-import { getMeetingProposals } from "@/lib/foundation-data";
+import {
+  fetchFoundationPageData,
+  buildMeetingProposalsFromData
+} from "@/lib/foundation-data";
 import { FoundationSnapshot } from "@/lib/types";
 import MeetingClient from "./meeting-client";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
@@ -42,7 +45,8 @@ export default async function MeetingPage() {
   const { profile, admin } = await requirePageAuth();
   assertRole(profile, ["oversight", "manager"]);
 
-  const proposals = await getMeetingProposals(admin, profile.id);
+  const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
+  const proposals = buildMeetingProposalsFromData(pageData, profile.id);
 
   return (
     <Suspense fallback={<MeetingFallback />}>

@@ -1,12 +1,18 @@
 import { Suspense } from "react";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { requirePageAuth } from "@/lib/auth-server";
-import { getWorkspaceSnapshot } from "@/lib/foundation-data";
+import {
+  fetchFoundationPageData,
+  buildFoundationSnapshotFromData,
+  buildWorkspaceSnapshotFromData
+} from "@/lib/foundation-data";
 import MobileFocusClient from "@/app/(app)/mobile/mobile-client";
 
 export default async function MobilePage() {
   const { profile, admin } = await requirePageAuth();
-  const workspace = await getWorkspaceSnapshot(admin, profile);
+  const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
+  const foundation = buildFoundationSnapshotFromData(pageData, profile.id);
+  const workspace = buildWorkspaceSnapshotFromData(pageData, profile, foundation);
 
   return (
     <Suspense

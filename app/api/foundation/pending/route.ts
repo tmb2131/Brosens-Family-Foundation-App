@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertRole, requireAuthContext } from "@/lib/auth-server";
-import { getPendingProposalsForOversight } from "@/lib/foundation-data";
+import { fetchFoundationPageData, buildPendingProposalsFromData } from "@/lib/foundation-data";
 import { PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 
 export async function GET() {
@@ -8,7 +8,8 @@ export async function GET() {
     const { admin, profile } = await requireAuthContext();
     assertRole(profile, ["oversight"]);
 
-    const proposals = await getPendingProposalsForOversight(admin, profile.id);
+    const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
+    const proposals = buildPendingProposalsFromData(pageData, profile.id);
     return NextResponse.json({ proposals }, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);

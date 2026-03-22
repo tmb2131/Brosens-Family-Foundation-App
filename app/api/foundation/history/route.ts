@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth-server";
-import { getFoundationHistory } from "@/lib/foundation-data";
+import { fetchFoundationPageData, buildHistoryFromData } from "@/lib/foundation-data";
 import { STALE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 
 export async function GET() {
   try {
     const { admin } = await requireAuthContext();
-    const historyByYear = await getFoundationHistory(admin);
+    const pageData = await fetchFoundationPageData(admin);
+    const historyByYear = buildHistoryFromData(pageData);
     return NextResponse.json({ historyByYear }, { headers: STALE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);

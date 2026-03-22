@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext } from "@/lib/auth-server";
-import { getFoundationSnapshot } from "@/lib/foundation-data";
+import {
+  fetchFoundationPageData,
+  buildFoundationSnapshotFromData,
+  buildHistoryFromData
+} from "@/lib/foundation-data";
 import { PRIVATE_CACHE_HEADERS, toErrorResponse } from "@/lib/http-error";
 
 export async function GET(request: NextRequest) {
@@ -12,13 +16,17 @@ export async function GET(request: NextRequest) {
     const budgetYear = budgetYearParam ? Number(budgetYearParam) : undefined;
     const includeAllYears = allYearsParam === "1" || allYearsParam === "true";
     const includeHistory = includeHistoryParam === "1" || includeHistoryParam === "true";
-    const snapshot = await getFoundationSnapshot(
-      admin,
-      profile.id,
+
+    const pageData = await fetchFoundationPageData(admin, {
       budgetYear,
+      userId: profile.id,
       includeAllYears,
-      includeHistory
-    );
+    });
+    const snapshot = buildFoundationSnapshotFromData(pageData, profile.id);
+    if (includeHistory) {
+      snapshot.historyByYear = buildHistoryFromData(pageData);
+    }
+
     return NextResponse.json(snapshot, { headers: PRIVATE_CACHE_HEADERS });
   } catch (error) {
     const response = toErrorResponse(error);
