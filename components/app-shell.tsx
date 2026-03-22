@@ -210,7 +210,10 @@ interface SidebarHeaderProps {
 }
 
 function SidebarHeader({ isOpen, onToggle }: SidebarHeaderProps) {
-  const shortcutHint = typeof navigator !== "undefined" && !/Mac/.test(navigator.platform) ? "Ctrl+B" : "⌘B";
+  const [shortcutHint, setShortcutHint] = useState("⌘B");
+  useEffect(() => {
+    if (!/Mac/.test(navigator.platform)) setShortcutHint("Ctrl+B");
+  }, []);
 
   const brandMark = (
     <span aria-hidden="true" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.625rem] bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))] transition-[background-color] duration-200 hover:bg-[hsl(var(--accent)/0.18)]">

@@ -469,7 +469,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                     <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
                     <dd className="mt-1.5 font-semibold text-foreground">
                       {voteDialogItem.sentAt
-                        ? new Date(voteDialogItem.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                        ? new Date(voteDialogItem.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
                         : "—"}
                     </dd>
                   </div>

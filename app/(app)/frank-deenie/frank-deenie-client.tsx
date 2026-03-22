@@ -308,7 +308,11 @@ export default function FrankDeenieClient({ profile, initialSnapshot, initialNam
   const readOnly = profile.role === "member";
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [yearMode, setYearModeRaw] = useState<YearMode>(readStoredYearMode);
+  const [yearMode, setYearModeRaw] = useState<YearMode>("calendar");
+  useEffect(() => {
+    const stored = readStoredYearMode();
+    if (stored !== "calendar") setYearModeRaw(stored);
+  }, []);
   const [includeChildren, setIncludeChildren] = useState(false);
   const [filters, setFilters] = useState<DonationFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("date");

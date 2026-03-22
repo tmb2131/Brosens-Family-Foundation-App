@@ -544,7 +544,7 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
                     </td>
                     <td className="px-2 py-2 text-xs text-muted-foreground">
                       {proposal.sentAt
-                        ? new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                        ? new Date(proposal.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
                         : "—"}
                     </td>
                     <td className="px-2 py-2 text-xs text-muted-foreground">

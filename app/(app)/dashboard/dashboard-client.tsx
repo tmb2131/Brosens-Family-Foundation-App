@@ -2154,7 +2154,7 @@ export default function DashboardClient({
                   <p className="mt-1 text-xs text-muted-foreground">
                     {titleCase(proposal.proposalType)}
                     {proposal.sentAt ? (
-                      <><span className="mx-1.5">&middot;</span>{new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</>
+                      <><span className="mx-1.5">&middot;</span>{new Date(proposal.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}</>
                     ) : null}
                     <span className="mx-1.5">&middot;</span>
                     <span className={requiredActionToneClass}>{requiredAction.detail}</span>
@@ -2251,7 +2251,7 @@ export default function DashboardClient({
                       : "text-muted-foreground";
                   const statusDisplay = isHistoricalBulkEditEnabled ? draft.status : proposal.status;
                   const sentAtDisplay = isHistoricalBulkEditEnabled ? draft.sentAt || "—" : proposal.sentAt
-                    ? new Date(proposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                    ? new Date(proposal.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
                     : "—";
 
                   const viewerMustAct =
@@ -2451,7 +2451,7 @@ export default function DashboardClient({
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
                 <dd className="mt-1.5 font-semibold text-foreground">
                   {detailProposal.sentAt
-                    ? new Date(detailProposal.sentAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                    ? new Date(detailProposal.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
                     : "—"}
                 </dd>
               </div>
