@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -24,40 +23,8 @@ const STATIC_ASSET_HEADERS = {
   "Cache-Control": "public, max-age=31536000, immutable",
 };
 
-function getAuthCookieNameForPort(port: string | null): string | undefined {
-  if (port && port !== "3000") return `sb-auth-token-${port}`;
-  return undefined;
-}
-
-async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return;
-
-  const host = request.headers.get("host") ?? "";
-  const port = host.startsWith("localhost:") ? host.split(":")[1] ?? null : null;
-  const cookieName = getAuthCookieNameForPort(port);
-
-  const supabase = createServerClient(url, key, {
-    ...(cookieName ? { cookieOptions: { name: cookieName } } : {}),
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          request.cookies.set(name, value);
-          response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
-        });
-      },
-    },
-  });
-
-  await supabase.auth.getUser();
-}
-
-export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({ request });
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next();
   const url = request.nextUrl;
 
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
@@ -69,8 +36,6 @@ export async function middleware(request: NextRequest) {
       response.headers.set(key, value);
     }
   }
-
-  await refreshSupabaseSession(request, response);
 
   return response;
 }
