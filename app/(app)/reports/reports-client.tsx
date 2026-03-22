@@ -22,6 +22,7 @@ import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
+import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   DirectionalCategory,
@@ -282,7 +283,24 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     }, 200);
   };
 
-  if (isLoading) return null;
+  if (!data) {
+    return (
+      <div className="page-stack pb-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <div className="grid gap-3 lg:grid-cols-3">
+          <SkeletonChart />
+          <SkeletonChart />
+          <SkeletonChart />
+        </div>
+        <SkeletonCard />
+      </div>
+    );
+  }
 
   if (error || !data) {
     return (

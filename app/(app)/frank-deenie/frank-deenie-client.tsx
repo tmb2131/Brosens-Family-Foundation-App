@@ -867,7 +867,80 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     }
   };
 
-  if (isLoading) return null;
+  if (!data) {
+    return (
+      <div className="page-stack pb-6">
+        {/* Mobile skeleton */}
+        <div className="sm:hidden space-y-4">
+          <GlassCard className="rounded-3xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-3 w-40 animate-pulse rounded bg-muted" />
+              </div>
+              <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <div className="h-9 flex-1 animate-pulse rounded-lg bg-muted" />
+              <div className="h-9 w-28 animate-pulse rounded-lg bg-muted" />
+            </div>
+          </GlassCard>
+          <div className="grid grid-cols-3 gap-2">
+            {[...Array(3)].map((_, i) => (
+              <GlassCard key={i} className="p-3.5">
+                <div className="h-2 w-10 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-5 w-16 animate-pulse rounded bg-muted" />
+              </GlassCard>
+            ))}
+          </div>
+          <GlassCard>
+            <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+            <div className="mt-3 h-[176px] animate-pulse rounded-2xl bg-muted" />
+          </GlassCard>
+          <GlassCard>
+            <div className="h-9 animate-pulse rounded-lg bg-muted" />
+            <div className="mt-3 space-y-0 divide-y divide-border/40">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="py-3.5">
+                  <div className="h-5 w-24 animate-pulse rounded bg-muted" />
+                  <div className="mt-1.5 h-3.5 w-40 animate-pulse rounded bg-muted" />
+                  <div className="mt-1.5 h-3 w-32 animate-pulse rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </div>
+
+        {/* Desktop skeleton */}
+        <div className="hidden sm:block space-y-6">
+          <GlassCard className="rounded-3xl">
+            <div className="flex items-center gap-3">
+              <div className="h-3 w-3 animate-pulse rounded-full bg-emerald-500" />
+              <CardLabel>Frank &amp; Deenie</CardLabel>
+            </div>
+            <CardValue className="mt-1">Donation Ledger</CardValue>
+            <div className="mt-3 h-4 w-48 animate-pulse rounded-lg bg-muted" />
+          </GlassCard>
+          <GlassCard className="min-h-0">
+            <div className="mb-3 h-6 w-32 animate-pulse rounded-lg bg-muted" />
+            <div className="space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
+              ))}
+            </div>
+          </GlassCard>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[...Array(3)].map((_, i) => (
+              <GlassCard key={i}>
+                <div className="h-4 w-24 animate-pulse rounded-lg bg-muted" />
+                <div className="mt-2 h-8 w-32 animate-pulse rounded-lg bg-muted" />
+              </GlassCard>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error || !data) {
     return (

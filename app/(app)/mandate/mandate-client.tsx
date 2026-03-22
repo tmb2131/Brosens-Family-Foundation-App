@@ -27,6 +27,7 @@ import {
   UserProfile
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { cn, formatNumber } from "@/lib/utils";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
@@ -650,7 +651,14 @@ export default function MandateClient({ profile, initialMandate }: MandateClient
     );
   }
 
-  if (isLoading || !data) return null;
+  if (!data) {
+    return (
+      <div className="space-y-3">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
+  }
 
   const updateDraftField = (key: MandateSectionKey, value: string) => {
     setDraft((current) => (current ? { ...current, [key]: value } : current));

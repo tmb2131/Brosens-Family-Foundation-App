@@ -19,6 +19,7 @@ import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/componen
 import { cn } from "@/lib/utils";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { Card, GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { VoteForm } from "@/components/voting/vote-form";
@@ -263,7 +264,15 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
 
 
 
-  if (workspaceQuery.isLoading) return null;
+  if (!workspaceQuery.data) {
+    return (
+      <div className="page-stack pb-4">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
+  }
 
   if (workspaceQuery.error || !workspaceQuery.data) {
     return (
