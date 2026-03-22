@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
@@ -266,7 +267,7 @@ function getEligibleVotesForProposal(proposal: GrantProposal, votes: Vote[], vot
   );
 }
 
-async function getVotingMemberIds(admin: AdminClient) {
+const getVotingMemberIds = cache(async (admin: AdminClient) => {
   const { data, error } = await admin
     .from("user_profiles")
     .select("id, role")
@@ -277,7 +278,7 @@ async function getVotingMemberIds(admin: AdminClient) {
   }
 
   return (data ?? []).map((row) => row.id as string);
-}
+});
 
 type ProfileRow = { id: string; full_name: string; email: string; role: AppRole };
 
@@ -881,10 +882,11 @@ export async function getFoundationHistory(admin: AdminClient): Promise<HistoryB
 
 export async function getWorkspaceSnapshot(
   admin: AdminClient,
-  user: UserProfile
+  user: UserProfile,
+  prefetchedFoundation?: FoundationSnapshot
 ): Promise<WorkspaceSnapshot> {
   const [foundation, votingMemberIds, userVotesResult] = await Promise.all([
-    getFoundationSnapshot(admin, user.id),
+    prefetchedFoundation ?? getFoundationSnapshot(admin, user.id),
     getVotingMemberIds(admin),
     admin
       .from("votes")

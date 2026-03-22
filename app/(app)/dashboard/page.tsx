@@ -14,12 +14,13 @@ export default async function DashboardPage() {
   const { profile, admin } = await requirePageAuth();
   const isOversight = profile.role === "oversight";
 
-  const [foundation, historyByYear, workspace, pendingProposals] = await Promise.all([
+  const [foundation, historyByYear, pendingProposals] = await Promise.all([
     getFoundationSnapshot(admin, profile.id),
     getFoundationHistory(admin),
-    getWorkspaceSnapshot(admin, profile),
     isOversight ? getPendingProposalsForOversight(admin, profile.id) : Promise.resolve(null)
   ]);
+
+  const workspace = await getWorkspaceSnapshot(admin, profile, foundation);
 
   return (
     <Suspense
