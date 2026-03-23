@@ -306,7 +306,7 @@ button:disabled,
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 14mm 12mm;
   }
 
   html,
@@ -321,8 +321,65 @@ button:disabled,
   }
 
   [data-report-print] {
-    gap: 1rem;
+    gap: 0.65rem;
     animation: none;
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #18181b;
+  }
+
+  [data-report-print] [data-report-print-table],
+  [data-report-print] .report-print-summary-table {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  [data-report-print] .text-muted-foreground {
+    color: #404040 !important;
+  }
+
+  [data-report-print] h3.text-sm {
+    font-size: 10.5pt !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    color: #3f3f46 !important;
+  }
+
+  [data-report-print-cover] > p:first-child {
+    font-size: 10.5pt !important;
+    letter-spacing: 0.06em !important;
+    font-weight: 700 !important;
+    color: #262626 !important;
+  }
+
+  [data-report-print-cover] p:not(:first-child) {
+    font-size: 10.5pt !important;
+    line-height: 1.45 !important;
+  }
+
+  [data-report-print-cover] .text-xl {
+    font-size: 24pt !important;
+    line-height: 1.15 !important;
+    font-weight: 700 !important;
+    color: #0a0a0a !important;
+  }
+
+  [data-report-print] [data-report-print-summary] .text-2xl {
+    font-size: 14pt !important;
+    line-height: 1.15 !important;
+    font-weight: 700 !important;
+  }
+
+  [data-report-print] [data-report-print-summary] h3.text-sm {
+    font-size: 7.5pt !important;
+    letter-spacing: 0.04em !important;
+    color: #262626 !important;
+  }
+
+  [data-report-print] .glass-card p.text-xs {
+    font-size: 10pt !important;
+    line-height: 1.45 !important;
+    color: #404040 !important;
   }
 
   [data-report-print] .glass-card {
@@ -333,10 +390,32 @@ button:disabled,
     page-break-inside: avoid;
   }
 
-  [data-report-print] [data-report-print-summary],
-  [data-report-print] [data-report-print-charts] {
+  [data-report-print] [data-report-print-summary] {
+    break-inside: auto;
+    page-break-inside: auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+    align-items: stretch;
+  }
+
+  [data-report-print] [data-report-print-summary] > .glass-card {
     break-inside: avoid-page;
     page-break-inside: avoid;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    min-height: 3.75rem;
+  }
+
+  [data-report-print] [data-report-print-summary] .glass-card > div.flex > span.inline-flex.h-7.w-7 {
+    display: none !important;
+  }
+
+  [data-report-print] [data-report-print-charts] {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   [data-report-print] [data-report-print-table-section] {
@@ -344,6 +423,22 @@ button:disabled,
     page-break-before: always;
     break-inside: auto;
     page-break-inside: auto;
+    padding-top: 0.5rem;
+    border-top: 3px solid #d4d4d8;
+  }
+
+  [data-report-print] [data-report-print-table-section] > div:first-child {
+    margin-bottom: 0.45rem;
+  }
+
+  [data-report-print] [data-report-print-table-section] h3.text-sm {
+    font-size: 9pt !important;
+  }
+
+  [data-report-print] [data-report-print-table-section] .text-xs.text-muted-foreground {
+    font-size: 8.5pt !important;
+    line-height: 1.35 !important;
+    color: #404040 !important;
   }
 
   [data-report-print] .overflow-x-auto {
@@ -355,17 +450,47 @@ button:disabled,
     min-width: 0 !important;
     table-layout: fixed;
     border-collapse: collapse;
+    border: 2px solid #9ca3af;
   }
 
   [data-report-print] [data-report-print-table] th,
   [data-report-print] [data-report-print-table] td {
-    padding: 0.42rem 0.45rem;
-    font-size: 0.68rem;
+    padding: 3.5pt 5pt;
+    font-size: 8.25pt;
     line-height: 1.35;
     vertical-align: top;
-    white-space: nowrap;
-    overflow-wrap: normal;
-    word-break: normal;
+    white-space: normal;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    border: 1px solid #c4c4c4;
+    color: #0a0a0a;
+  }
+
+  /* Theme-independent: status/type/date/category must stay dark on paper (dark-mode foreground is too faint). */
+  [data-report-print] [data-report-print-table] tbody td,
+  [data-report-print] [data-report-print-table] tbody td span {
+    color: #0a0a0a !important;
+  }
+
+  [data-report-print] [data-report-print-table] tbody td:nth-child(3) {
+    font-weight: 600;
+  }
+
+  [data-report-print] [data-report-print-table] tbody tr:nth-child(even) td {
+    background: #f4f4f5;
+  }
+
+  [data-report-print] [data-report-print-table] th button {
+    all: unset;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: default;
+    color: inherit;
+  }
+
+  [data-report-print] [data-report-print-table] thead th svg {
+    display: none !important;
   }
 
   [data-report-print] [data-report-print-table] thead {
@@ -376,81 +501,136 @@ button:disabled,
     display: table-footer-group;
   }
 
-  [data-report-print] [data-report-print-table] tr {
+  [data-report-print] [data-report-print-table] thead tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  [data-report-print] [data-report-print-table] th {
-    font-size: 0.64rem;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+  [data-report-print] [data-report-print-table] tbody tr {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
+  [data-report-print] [data-report-print-table] th {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #e8e8ea;
+    color: #18181b;
+    line-height: 1.25;
+    vertical-align: top;
+  }
+
+  /* Column % must match YEAR_PROPOSALS_COLUMN_WIDTHS_PCT in reports-client.tsx */
   [data-report-print] [data-report-print-table] th:nth-child(1),
   [data-report-print] [data-report-print-table] td:nth-child(1) {
-    width: 31%;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    width: 24%;
+    hyphens: auto;
+    -webkit-hyphens: auto;
   }
 
   [data-report-print] [data-report-print-table] th:nth-child(2),
   [data-report-print] [data-report-print-table] td:nth-child(2) {
-    width: 11%;
+    width: 16%;
   }
 
   [data-report-print] [data-report-print-table] th:nth-child(3),
   [data-report-print] [data-report-print-table] td:nth-child(3) {
-    width: 12%;
+    width: 13%;
   }
 
   [data-report-print] [data-report-print-table] th:nth-child(4),
   [data-report-print] [data-report-print-table] td:nth-child(4) {
     width: 12%;
+    white-space: nowrap;
     text-align: right;
+    font-variant-numeric: tabular-nums;
   }
 
   [data-report-print] [data-report-print-table] th:nth-child(5),
   [data-report-print] [data-report-print-table] td:nth-child(5) {
-    width: 12%;
+    width: 14%;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
   [data-report-print] [data-report-print-table] th:nth-child(6),
   [data-report-print] [data-report-print-table] td:nth-child(6) {
-    width: 22%;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+    width: 21%;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+
+  [data-report-print] [data-report-print-table] tfoot td,
+  [data-report-print] [data-report-print-table] tfoot th {
+    font-weight: 700;
+    background: #e8e8ea;
+    border-top: 2px solid #9ca3af;
+    color: #0a0a0a !important;
   }
 
   [data-report-print] [data-report-print-table] td > p {
     margin: 0;
+    font-weight: 600;
+    color: #0a0a0a !important;
   }
 
-  [data-report-print] [data-report-print-charts] > section {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 0.75rem;
+  [data-report-print] [data-report-print-summary-tables] .glass-card h3.text-sm {
+    font-size: 8pt !important;
+    letter-spacing: 0.04em !important;
+    color: #262626 !important;
   }
 
-  [data-report-print] [data-report-print-charts] .glass-card {
-    min-width: 0;
+  [data-report-print] [data-report-print-summary-tables] .report-print-summary-card {
+    break-inside: auto;
+    page-break-inside: auto;
+    margin-bottom: 0.25rem;
   }
 
-  [data-report-print] [data-report-print-charts] .h-\[260px\],
-  [data-report-print] [data-report-print-charts] .sm\:h-\[280px\] {
-    height: 198px !important;
+  [data-report-print] [data-report-print-summary-tables] .report-print-summary-card table {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
   }
 
-  [data-report-print] [data-report-print-charts] .h-\[200px\],
-  [data-report-print] [data-report-print-charts] .sm\:h-\[220px\] {
-    height: 170px !important;
+  [data-report-print] .report-print-summary-table {
+    border-collapse: collapse;
+    font-size: 9pt;
+    line-height: 1.3;
+    color: #0a0a0a;
+    border: 1px solid #9ca3af;
   }
 
-  [data-report-print] [data-report-print-charts] .recharts-wrapper,
-  [data-report-print] [data-report-print-charts] .recharts-surface {
-    max-width: 100%;
+  [data-report-print] .report-print-summary-table th,
+  [data-report-print] .report-print-summary-table td {
+    border: 1px solid #c4c4c4;
+    padding: 4pt 6pt;
+    vertical-align: top;
+    text-align: left;
+    color: #0a0a0a !important;
+  }
+
+  [data-report-print] .report-print-summary-table .report-print-summary-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-report-print] .report-print-summary-table tbody tr:nth-child(even) td {
+    background: #f4f4f5;
+  }
+
+  [data-report-print] .report-print-summary-table thead th {
+    background: #e8e8ea;
+    font-size: 8.5pt;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #18181b;
+  }
+
+  [data-report-print] .report-print-summary-table tbody th[scope="row"] {
+    font-weight: 600;
+    text-align: left;
   }
 }
 

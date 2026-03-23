@@ -71,7 +71,8 @@ export function ReportsCharts({
   totalAmount: number;
 }) {
   return (
-    <section className="grid gap-3 lg:grid-cols-3">
+    <section className="grid gap-3 lg:grid-cols-3 print:flex print:flex-col print:gap-4">
+      <div className="contents print:hidden">
       <GlassCard>
         <CardLabel>Proposals by Status</CardLabel>
         <div className="h-[260px] w-full sm:h-[280px]">
@@ -256,6 +257,104 @@ export function ReportsCharts({
           </ResponsiveContainer>
         </div>
       </GlassCard>
+      </div>
+
+      <div className="hidden print:contents" data-report-print-summary-tables>
+        <GlassCard className="report-print-summary-card">
+          <CardLabel>Proposals by Status</CardLabel>
+          <table className="report-print-summary-table mt-2 w-full">
+            <thead>
+              <tr>
+                <th scope="col">Status</th>
+                <th scope="col" className="report-print-summary-num text-right">
+                  Count
+                </th>
+                <th scope="col" className="report-print-summary-num text-right">
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {statusCounts.map((row) => (
+                <tr key={row.status}>
+                  <td>{row.label}</td>
+                  <td className="report-print-summary-num text-right tabular-nums">{formatNumber(row.count)}</td>
+                  <td className="report-print-summary-num text-right tabular-nums">{currency(row.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </GlassCard>
+
+        <GlassCard className="report-print-summary-card">
+          <CardLabel>Proposals by Category</CardLabel>
+          <table className="report-print-summary-table mt-2 w-full">
+            <thead>
+              <tr>
+                <th scope="col">Category</th>
+                <th scope="col" className="report-print-summary-num text-right">
+                  Count
+                </th>
+                <th scope="col" className="report-print-summary-num text-right">
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {categoryCounts.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="text-muted-foreground">
+                    No proposals in the selected filters.
+                  </td>
+                </tr>
+              ) : (
+                categoryCounts.map((row) => (
+                  <tr key={row.category}>
+                    <td>{row.label}</td>
+                    <td className="report-print-summary-num text-right tabular-nums">{formatNumber(row.count)}</td>
+                    <td className="report-print-summary-num text-right tabular-nums">{currency(row.amount)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </GlassCard>
+
+        <GlassCard className="report-print-summary-card">
+          <CardLabel>Amount by Proposal Type</CardLabel>
+          <table className="report-print-summary-table mt-2 w-full">
+            <thead>
+              <tr>
+                <th scope="col">Type</th>
+                <th scope="col" className="report-print-summary-num text-right">
+                  Amount
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {typeSplit.map((row) => (
+                <tr key={row.name}>
+                  <td>
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ backgroundColor: row.color }}
+                        aria-hidden
+                      />
+                      {row.name}
+                    </span>
+                  </td>
+                  <td className="report-print-summary-num text-right tabular-nums">{currency(row.value)}</td>
+                </tr>
+              ))}
+              <tr className="font-semibold">
+                <th scope="row">Total</th>
+                <td className="report-print-summary-num text-right tabular-nums">{currency(totalAmount)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </GlassCard>
+      </div>
     </section>
   );
 }

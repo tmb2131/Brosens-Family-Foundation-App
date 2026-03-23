@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { useSort } from "@/lib/hooks/use-sort";
@@ -84,6 +84,7 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const printGeneratedRef = useRef<HTMLParagraphElement>(null);
   const { sortKey, sortDirection, toggleSort } = useSort<ReportSortKey>("proposal", "asc");
 
   const foundationKey = useMemo(() => {
@@ -132,6 +133,20 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     }
   }, [availableYears, data, selectedYear]);
 
+  useEffect(() => {
+    const onBeforePrint = () => {
+      const el = printGeneratedRef.current;
+      if (el) {
+        el.textContent = `Generated ${new Date().toLocaleString("en-US", {
+          dateStyle: "long",
+          timeStyle: "short"
+        })}`;
+      }
+    };
+    window.addEventListener("beforeprint", onBeforePrint);
+    return () => window.removeEventListener("beforeprint", onBeforePrint);
+  }, []);
+
   const activeStatuses = useMemo(
     () => STATUS_OPTIONS.filter((status) => statusFilters[status]),
     [statusFilters]
@@ -177,13 +192,18 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     });
   }, [categoryFilter, data, sortDirection, sortKey, statusFilters]);
 
+  const proposalsExcludingDeclined = useMemo(
+    () => filteredProposals.filter((proposal) => proposal.status !== "declined"),
+    [filteredProposals]
+  );
 
-  const SortIcon = ({ k }: { k: ReportSortKey }) => {
-    if (sortKey !== k) return null;
-    return sortDirection === "asc"
-      ? <ChevronUp className="inline h-3 w-3 ml-0.5" aria-hidden="true" />
-      : <ChevronDown className="inline h-3 w-3 ml-0.5" aria-hidden="true" />;
-  };
+  const proposalsDeclinedOnly = useMemo(
+    () => filteredProposals.filter((proposal) => proposal.status === "declined"),
+    [filteredProposals]
+  );
+
+  const primaryProposalTableRows =
+    proposalsDeclinedOnly.length > 0 ? proposalsExcludingDeclined : filteredProposals;
 
   const statusCounts = useMemo<StatusCountDatum[]>(
     () =>
@@ -347,16 +367,30 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
             </Button>
           </div>
           <p className="w-full text-[10px] text-muted-foreground sm:text-right">
-            For cleaner PDFs, disable browser print option: Headers and footers.
+            In the print dialog, turn off <span className="font-semibold">Headers and footers</span> for a clean PDF
+            (removes page numbers and the site URL).
           </p>
         </div>
 
-        <div className="hidden print:block">
+        <div className="hidden print:block border-b border-border pb-3" data-report-print-cover>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground print:tracking-normal">
+            Brosens Family Foundation
+          </p>
           <CardLabel>Annual Proposal Report</CardLabel>
           <CardValue>{selectedYearLabel}</CardValue>
           <p className="mt-1 text-xs text-muted-foreground">
-            Included statuses: {activeStatuses.map((status) => titleCase(status)).join(", ")}
+            Table filter: {activeStatuses.map((status) => titleCase(status)).join(", ")}
+            {" · "}
+            {categoryFilter === "all" ? "All categories" : DIRECTIONAL_CATEGORY_LABELS[categoryFilter]}
           </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Summary metrics and breakdowns use the same status and category filters as above.
+          </p>
+          <p
+            ref={printGeneratedRef}
+            className="mt-1 text-xs text-muted-foreground"
+            aria-live="polite"
+          />
         </div>
 
         <div className="mt-4 print:hidden">
@@ -429,16 +463,24 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
           icon={ClipboardList}
           tone="emerald"
         />
-        <MetricCard title="TOTAL AMOUNT" value={currency(totalAmount)} icon={DollarSign} tone="sky" />
+        <MetricCard
+          title="TOTAL AMOUNT"
+          value={currency(totalAmount)}
+          icon={DollarSign}
+          tone="sky"
+        />
         <MetricCard title="SENT AMOUNT" value={currency(sentAmount)} icon={Send} tone="amber" />
         <MetricCard
           title="APPROVED AMOUNT"
           value={currency(approvedAmount)}
           icon={PieChartIcon}
           tone="indigo"
-          subtitle="Approved, not yet sent"
+          subtitle={<span className="print:hidden">Approved, not yet sent</span>}
         />
       </section>
+      <p className="-mt-1 text-xs text-muted-foreground print:hidden">
+        Proposal count and total amount match your selected status and category filters.
+      </p>
 
       <div data-report-print-charts>
         <ReportsCharts
@@ -453,11 +495,16 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
         <div className="mb-2 flex items-center justify-between gap-2">
           <div>
             <CardLabel>Year Proposals</CardLabel>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground print:hidden">
               Compact report table for {isAllYearsView ? "all years" : `budget year ${selectedYearLabel}`} and statuses.
             </p>
+            <p className="hidden text-xs text-muted-foreground print:block">
+              {isAllYearsView ? "All budget years" : `Budget year ${selectedYearLabel}`} —{" "}
+              {formatNumber(filteredProposals.length)} proposal
+              {filteredProposals.length === 1 ? "" : "s"} (of {formatNumber(data.proposals.length)} loaded).
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground print:hidden">
             Showing {formatNumber(filteredProposals.length)} of {formatNumber(data.proposals.length)}
           </p>
         </div>
@@ -468,93 +515,297 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
               No proposals match the selected status filters.
             </p>
           ) : (
-            filteredProposals.map((proposal) => (
-              <article
-                key={proposal.id}
-                className={`rounded-xl border border-t-2 p-4 ${
-                  proposal.proposalType === "joint"
-                    ? "border-t-indigo-400 dark:border-t-indigo-500"
-                    : "border-t-amber-400 dark:border-t-amber-500"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-medium">{proposal.title}</p>
-                  <StatusPill status={proposal.status} />
+            <>
+              {(proposalsExcludingDeclined.length > 0 || proposalsDeclinedOnly.length === 0) && (
+                <div className="space-y-2">
+                  {proposalsDeclinedOnly.length > 0 && proposalsExcludingDeclined.length > 0 ? (
+                    <p className="text-xs font-semibold text-muted-foreground">Excluding declined</p>
+                  ) : null}
+                  {(proposalsDeclinedOnly.length === 0 ? filteredProposals : proposalsExcludingDeclined).map(
+                    (proposal) => (
+                      <article
+                        key={proposal.id}
+                        className={`rounded-xl border border-t-2 p-4 ${
+                          proposal.proposalType === "joint"
+                            ? "border-t-indigo-400 dark:border-t-indigo-500"
+                            : "border-t-amber-400 dark:border-t-amber-500"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-sm font-medium">{proposal.title}</p>
+                          <StatusPill status={proposal.status} />
+                        </div>
+                        <p className="mt-2 text-lg font-semibold text-foreground">
+                          {currency(proposal.progress.computedFinalAmount)}
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <p>Type: {titleCase(proposal.proposalType)}</p>
+                          <p>Sent: {proposal.sentAt ?? "—"}</p>
+                          <p className="col-span-2">
+                            Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
+                          </p>
+                        </div>
+                      </article>
+                    )
+                  )}
                 </div>
-                <p className="mt-2 text-lg font-semibold text-foreground">
-                  {currency(proposal.progress.computedFinalAmount)}
-                </p>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <p>Type: {titleCase(proposal.proposalType)}</p>
-                  <p>Sent: {proposal.sentAt ?? "—"}</p>
-                  <p className="col-span-2">Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}</p>
+              )}
+              {proposalsDeclinedOnly.length > 0 ? (
+                <div className="space-y-2 border-t border-border pt-4 mt-4">
+                  <p className="text-xs font-semibold text-muted-foreground">Declined</p>
+                  {proposalsDeclinedOnly.map((proposal) => (
+                    <article
+                      key={proposal.id}
+                      className={`rounded-xl border border-t-2 p-4 ${
+                        proposal.proposalType === "joint"
+                          ? "border-t-indigo-400 dark:border-t-indigo-500"
+                          : "border-t-amber-400 dark:border-t-amber-500"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 truncate text-sm font-medium">{proposal.title}</p>
+                        <StatusPill status={proposal.status} />
+                      </div>
+                      <p className="mt-2 text-lg font-semibold text-foreground">
+                        {currency(proposal.progress.computedFinalAmount)}
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <p>Type: {titleCase(proposal.proposalType)}</p>
+                        <p>Sent: {proposal.sentAt ?? "—"}</p>
+                        <p className="col-span-2">
+                          Category: {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
+                        </p>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              </article>
-            ))
+              ) : null}
+            </>
           )}
         </div>
 
-        <div className="hidden overflow-x-auto md:block print:block">
-          <table className="min-w-[860px] table-auto text-left text-sm" data-report-print-table>
-            <thead>
-              <DataTableHeadRow>
-                <th className="px-2 py-2">
-                  <DataTableSortButton aria-label="Sort by proposal name" onClick={() => toggleSort("proposal")}>Proposal<SortIcon k="proposal" /></DataTableSortButton>
-                </th>
-                <th className="px-2 py-2">
-                  <DataTableSortButton aria-label="Sort by type" onClick={() => toggleSort("type")}>Type<SortIcon k="type" /></DataTableSortButton>
-                </th>
-                <th className="px-2 py-2">
-                  <DataTableSortButton aria-label="Sort by status" onClick={() => toggleSort("status")}>Status<SortIcon k="status" /></DataTableSortButton>
-                </th>
-                <th className="px-2 py-2">
-                  <DataTableSortButton aria-label="Sort by amount" onClick={() => toggleSort("amount")}>Amount<SortIcon k="amount" /></DataTableSortButton>
-                </th>
-                <th className="px-2 py-2">
-                  <DataTableSortButton aria-label="Sort by sent date" onClick={() => toggleSort("sentAt")}>Sent Date<SortIcon k="sentAt" /></DataTableSortButton>
-                </th>
-                <th className="px-2 py-2">
-                  <DataTableSortButton aria-label="Sort by category" onClick={() => toggleSort("category")}>Category<SortIcon k="category" /></DataTableSortButton>
-                </th>
-              </DataTableHeadRow>
-            </thead>
-            <tbody>
-              {filteredProposals.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-2 py-6 text-center text-sm text-muted-foreground">
-                    No proposals match the selected status filters.
-                  </td>
-                </tr>
-              ) : (
-                filteredProposals.map((proposal) => (
-                  <DataTableRow key={proposal.id}>
-                    <td className="px-2 py-2">
-                      <p className="font-medium">{proposal.title}</p>
-                    </td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground">
-                      {titleCase(proposal.proposalType)}
-                    </td>
-                    <td className="px-2 py-2">
-                      <StatusPill status={proposal.status} />
-                    </td>
-                    <td className="px-2 py-2 text-xs font-semibold text-foreground">
-                      {currency(proposal.progress.computedFinalAmount)}
-                    </td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground">
-                      {proposal.sentAt
-                        ? new Date(proposal.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
-                        : "—"}
-                    </td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground">
-                      {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
-                    </td>
-                  </DataTableRow>
-                ))
+        <div className="hidden md:block print:block space-y-8">
+          {filteredProposals.length === 0 ? (
+            <p className="rounded-xl border p-4 text-center text-sm text-muted-foreground">
+              No proposals match the selected status filters.
+            </p>
+          ) : (
+            <>
+              {(proposalsExcludingDeclined.length > 0 || proposalsDeclinedOnly.length === 0) && (
+                <div>
+                  {proposalsDeclinedOnly.length > 0 && proposalsExcludingDeclined.length > 0 ? (
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Excluding declined
+                    </p>
+                  ) : null}
+                  <div className="overflow-x-auto">
+                    <table
+                      className="w-full min-w-[860px] table-fixed text-left text-sm"
+                      data-report-print-table
+                    >
+                      <ReportYearProposalsColgroup />
+                      <ReportYearProposalsTableThead
+                        sortDirection={sortDirection}
+                        sortKey={sortKey}
+                        toggleSort={toggleSort}
+                      />
+                      <ReportYearProposalsTableBody proposals={primaryProposalTableRows} />
+                      <ReportYearProposalsTableFooter proposals={primaryProposalTableRows} />
+                    </table>
+                  </div>
+                </div>
               )}
-            </tbody>
-          </table>
+              {proposalsDeclinedOnly.length > 0 ? (
+                <div
+                  className="border-t border-border pt-6 mt-2 print:mt-6 print:border-t print:pt-4"
+                  data-report-print-declined-block
+                >
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Declined
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table
+                      className="w-full min-w-[860px] table-fixed text-left text-sm"
+                      data-report-print-table
+                    >
+                      <ReportYearProposalsColgroup />
+                      <ReportYearProposalsTableThead
+                        sortDirection={sortDirection}
+                        sortKey={sortKey}
+                        toggleSort={toggleSort}
+                      />
+                      <ReportYearProposalsTableBody proposals={proposalsDeclinedOnly} />
+                      <ReportYearProposalsTableFooter proposals={proposalsDeclinedOnly} />
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </GlassCard>
     </div>
+  );
+}
+
+type ReportProposalRow = FoundationSnapshot["proposals"][number];
+
+/** Aligns non-declined and declined tables; keep in sync with print nth-child widths in app/globals.css */
+const YEAR_PROPOSALS_COLUMN_WIDTHS_PCT = ["24%", "16%", "13%", "12%", "14%", "21%"] as const;
+
+function ReportYearProposalsColgroup() {
+  return (
+    <colgroup>
+      {YEAR_PROPOSALS_COLUMN_WIDTHS_PCT.map((pct, index) => (
+        <col key={index} style={{ width: pct }} />
+      ))}
+    </colgroup>
+  );
+}
+
+function ReportYearProposalsTableThead({
+  toggleSort,
+  sortKey,
+  sortDirection
+}: {
+  toggleSort: (key: ReportSortKey) => void;
+  sortKey: ReportSortKey;
+  sortDirection: "asc" | "desc";
+}) {
+  const SortIcon = ({ k }: { k: ReportSortKey }) => {
+    if (sortKey !== k) return null;
+    return sortDirection === "asc" ? (
+      <ChevronUp className="inline h-3 w-3 ml-0.5 print:hidden" aria-hidden="true" />
+    ) : (
+      <ChevronDown className="inline h-3 w-3 ml-0.5 print:hidden" aria-hidden="true" />
+    );
+  };
+
+  return (
+    <thead>
+      <DataTableHeadRow>
+        <th className="px-2 py-2">
+          <span className="print:hidden">
+            <DataTableSortButton aria-label="Sort by proposal name" onClick={() => toggleSort("proposal")}>
+              Proposal
+              <SortIcon k="proposal" />
+            </DataTableSortButton>
+          </span>
+          <span className="hidden print:inline">Proposal</span>
+        </th>
+        <th className="px-2 py-2">
+          <span className="print:hidden">
+            <DataTableSortButton aria-label="Sort by type" onClick={() => toggleSort("type")}>
+              Type
+              <SortIcon k="type" />
+            </DataTableSortButton>
+          </span>
+          <span className="hidden print:inline">Type</span>
+        </th>
+        <th className="px-2 py-2">
+          <span className="print:hidden">
+            <DataTableSortButton aria-label="Sort by status" onClick={() => toggleSort("status")}>
+              Status
+              <SortIcon k="status" />
+            </DataTableSortButton>
+          </span>
+          <span className="hidden print:inline">Status</span>
+        </th>
+        <th className="px-2 py-2">
+          <span className="print:hidden">
+            <DataTableSortButton aria-label="Sort by amount" onClick={() => toggleSort("amount")}>
+              Amount
+              <SortIcon k="amount" />
+            </DataTableSortButton>
+          </span>
+          <span className="hidden print:inline">Amount</span>
+        </th>
+        <th className="px-2 py-2">
+          <span className="print:hidden">
+            <DataTableSortButton aria-label="Sort by sent date" onClick={() => toggleSort("sentAt")}>
+              Sent Date
+              <SortIcon k="sentAt" />
+            </DataTableSortButton>
+          </span>
+          <span className="hidden print:inline">Date</span>
+        </th>
+        <th className="px-2 py-2">
+          <span className="print:hidden">
+            <DataTableSortButton aria-label="Sort by category" onClick={() => toggleSort("category")}>
+              Category
+              <SortIcon k="category" />
+            </DataTableSortButton>
+          </span>
+          <span className="hidden print:inline">Category</span>
+        </th>
+      </DataTableHeadRow>
+    </thead>
+  );
+}
+
+function ReportYearProposalsTableBody({ proposals }: { proposals: ReportProposalRow[] }) {
+  return (
+    <tbody>
+      {proposals.length === 0 ? (
+        <tr>
+          <td colSpan={6} className="px-2 py-6 text-center text-sm text-muted-foreground">
+            No proposals in this section.
+          </td>
+        </tr>
+      ) : (
+        proposals.map((proposal) => (
+          <DataTableRow key={proposal.id}>
+            <td className="px-2 py-2">
+              <p className="font-medium">{proposal.title}</p>
+            </td>
+            <td className="px-2 py-2 text-xs text-muted-foreground">{titleCase(proposal.proposalType)}</td>
+            <td className="px-2 py-2">
+              <span className="hidden font-medium text-foreground print:inline">
+                {titleCase(proposal.status)}
+              </span>
+              <span className="print:hidden">
+                <StatusPill status={proposal.status} />
+              </span>
+            </td>
+            <td className="px-2 py-2 text-right text-xs font-semibold text-foreground tabular-nums">
+              {currency(proposal.progress.computedFinalAmount)}
+            </td>
+            <td className="px-2 py-2 text-xs text-muted-foreground">
+              {proposal.sentAt
+                ? new Date(proposal.sentAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    timeZone: "UTC"
+                  })
+                : "—"}
+            </td>
+            <td className="px-2 py-2 text-xs text-muted-foreground">
+              {DIRECTIONAL_CATEGORY_LABELS[proposal.organizationDirectionalCategory]}
+            </td>
+          </DataTableRow>
+        ))
+      )}
+    </tbody>
+  );
+}
+
+function ReportYearProposalsTableFooter({ proposals }: { proposals: ReportProposalRow[] }) {
+  if (proposals.length === 0) {
+    return null;
+  }
+
+  return (
+    <tfoot>
+      <tr>
+        <td colSpan={3} className="px-2 py-2 font-semibold text-foreground">
+          Total
+        </td>
+        <td className="px-2 py-2 text-right text-xs font-semibold tabular-nums text-foreground">
+          {currency(sumAmount(proposals))}
+        </td>
+        <td colSpan={2} className="px-2 py-2" aria-hidden />
+      </tr>
+    </tfoot>
   );
 }
