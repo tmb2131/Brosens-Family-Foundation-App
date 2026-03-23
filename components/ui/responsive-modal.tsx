@@ -30,19 +30,27 @@ function useIsMobile() {
 // result instead of each creating their own listener.
 const IsMobileContext = React.createContext<boolean>(false)
 
+/** Subset of Vaul drawer props (avoids snap-point discriminated unions from `ComponentProps<typeof Drawer>`). */
+type ResponsiveModalDrawerProps = Pick<
+  React.ComponentProps<typeof Drawer>,
+  "disablePreventScroll" | "fixed" | "repositionInputs"
+>
+
 interface ResponsiveModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
+  /** Forwarded to Vaul `Drawer.Root` when the modal renders as a bottom sheet (viewports below the mobile breakpoint). */
+  drawerProps?: ResponsiveModalDrawerProps
 }
 
-function ResponsiveModal({ open, onOpenChange, children }: ResponsiveModalProps) {
+function ResponsiveModal({ open, onOpenChange, children, drawerProps }: ResponsiveModalProps) {
   const isMobile = useIsMobile()
 
   if (isMobile) {
     return (
       <IsMobileContext.Provider value={true}>
-        <Drawer open={open} onOpenChange={onOpenChange}>
+        <Drawer open={open} onOpenChange={onOpenChange} {...drawerProps}>
           {children}
         </Drawer>
       </IsMobileContext.Provider>
@@ -129,4 +137,10 @@ function ResponsiveModalClose(props: React.ComponentProps<"button">) {
   return <DialogClose {...props} />
 }
 
-export { ResponsiveModal, ResponsiveModalContent, ResponsiveModalClose, useIsMobile }
+export {
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalClose,
+  useIsMobile,
+  type ResponsiveModalDrawerProps,
+}

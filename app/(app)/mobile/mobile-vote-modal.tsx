@@ -68,6 +68,7 @@ export function MobileVoteModal({
           onClose();
         }
       }}
+      drawerProps={{ disablePreventScroll: false }}
     >
       {voteDialogItem ? (
         <VoteFormProvider
@@ -86,7 +87,7 @@ export function MobileVoteModal({
           }
           maxJointAllocation={
             voteDialogItem.proposalType === "joint" && !isManager
-              ? budget.totalBudgetRemaining + budget.pendingJointTotal
+              ? budget.totalBudgetRemaining
               : undefined
           }
           onSavingChange={onSavingChange}

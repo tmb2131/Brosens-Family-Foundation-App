@@ -265,6 +265,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
             }
           }
         }}
+        drawerProps={{ disablePreventScroll: false }}
       >
         {voteDialogItem ? (
           <ResponsiveModalContent
