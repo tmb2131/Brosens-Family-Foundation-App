@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { cn, currency } from "@/lib/utils";
 
 interface PersonalBudgetBarsProps {
@@ -42,15 +43,25 @@ export function PersonalBudgetBars({
         ? "You've committed your full share"
         : `${committedPct}% committed of your share (${currency(total)})`;
 
+  const barAriaLabel =
+    total === 0
+      ? `${title}. No budget.`
+      : `${title}. ${currency(remaining)} left to allocate. Allocated ${currency(allocated)}${
+          pendingAllocation > 0 ? `. Your input ${currency(pendingAllocation)}` : ""
+        }. Budget cap ${currency(total)}.`;
+
   return (
     <div
       className={cn(
         "rounded-xl",
-        compact ? "bg-muted/30 p-2" : "p-3",
+        compact ? "p-2" : "p-3",
         emphasizeBorder
-          ? "border-2 border-foreground/20"
+          ? cn(
+              "border-[3px] border-foreground/40 shadow-sm",
+              compact ? "bg-muted/40" : "bg-muted/20"
+            )
           : compact
-            ? "border border-border/80"
+            ? "border border-border/80 bg-muted/30"
             : "border"
       )}
     >
@@ -74,17 +85,14 @@ export function PersonalBudgetBars({
           <span className="font-normal text-muted-foreground">left to allocate</span>
         </p>
       )}
-      <p className={compact ? "text-[10px] text-muted-foreground" : "text-xs text-muted-foreground"}>
-        {isFullShare ? (
-          <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {subtitle}
-          </span>
-        ) : (
-          <>{subtitle}</>
+      <div
+        className={cn(
+          "mt-2 w-full touch-manipulation rounded-full bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          compact ? "h-1.5" : "h-2"
         )}
-      </p>
-      <div className={compact ? "mt-2 h-1.5 rounded-full bg-muted" : "mt-2 h-2 rounded-full bg-muted"}>
+        tabIndex={0}
+        aria-label={barAriaLabel}
+      >
         <div className="flex h-full overflow-hidden rounded-full">
           {allocatedRatio > 0 ? (
             <div
@@ -102,6 +110,34 @@ export function PersonalBudgetBars({
           ) : null}
         </div>
       </div>
+      {compact ? (
+        <div className="mt-2 border-t border-border/60 pt-2">
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            {isFullShare ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />
+                {subtitle}
+              </span>
+            ) : (
+              subtitle
+            )}
+          </p>
+        </div>
+      ) : (
+        <>
+          <Separator className="my-2" />
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            {isFullShare ? (
+              <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                {subtitle}
+              </span>
+            ) : (
+              subtitle
+            )}
+          </p>
+        </>
+      )}
     </div>
   );
 }

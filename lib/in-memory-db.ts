@@ -283,25 +283,33 @@ const seedState: DataState = {
       year: currentYear() - 3,
       totalDonated: 16_800_000,
       jointSent: 12_600_000,
-      discretionarySent: 4_200_000
+      discretionarySent: 4_200_000,
+      jointAllocatedNotSent: 0,
+      discretionaryAllocatedNotSent: 0
     },
     {
       year: currentYear() - 2,
       totalDonated: 18_200_000,
       jointSent: 13_650_000,
-      discretionarySent: 4_550_000
+      discretionarySent: 4_550_000,
+      jointAllocatedNotSent: 0,
+      discretionaryAllocatedNotSent: 0
     },
     {
       year: currentYear() - 1,
       totalDonated: 20_000_000,
       jointSent: 15_000_000,
-      discretionarySent: 5_000_000
+      discretionarySent: 5_000_000,
+      jointAllocatedNotSent: 0,
+      discretionaryAllocatedNotSent: 0
     },
     {
       year: currentYear(),
       totalDonated: 17_500_000,
       jointSent: 13_125_000,
-      discretionarySent: 4_375_000
+      discretionarySent: 4_375_000,
+      jointAllocatedNotSent: 0,
+      discretionaryAllocatedNotSent: 0
     }
   ]
 };

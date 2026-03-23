@@ -1,6 +1,10 @@
 export const chartPalette = {
   joint: "hsl(154 61% 37%)",
+  /** Muted joint for allocated-but-not-sent segment */
+  jointMuted: "hsl(154 42% 72%)",
   discretionary: "hsl(30 93% 52%)",
+  /** Muted discretionary for allocated-but-not-sent segment */
+  discretionaryMuted: "hsl(30 55% 72%)",
   sent: "hsl(199 94% 38%)",
   children: "hsl(38 92% 50%)",
   approved: "hsl(154 61% 37%)",

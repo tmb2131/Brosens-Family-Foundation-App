@@ -121,9 +121,12 @@ export interface ProposalProgress {
 
 export interface HistoryByYearPoint {
   year: number;
+  /** Sum of joint + discretionary, sent + not-yet-sent (matches budget “used” for that year when data is complete). */
   totalDonated: number;
   jointSent: number;
   discretionarySent: number;
+  jointAllocatedNotSent: number;
+  discretionaryAllocatedNotSent: number;
 }
 
 export interface FoundationSnapshot {

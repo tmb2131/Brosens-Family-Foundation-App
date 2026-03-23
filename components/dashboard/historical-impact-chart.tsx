@@ -20,7 +20,11 @@ export function HistoricalImpactChart({
 }) {
   const chartData = data.map((entry) => ({
     ...entry,
-    totalSent: entry.jointSent + entry.discretionarySent
+    totalBar:
+      entry.jointSent +
+      entry.discretionarySent +
+      entry.jointAllocatedNotSent +
+      entry.discretionaryAllocatedNotSent
   }));
 
   const needsRotation = chartData.length > 4;
@@ -30,7 +34,9 @@ export function HistoricalImpactChart({
       <ChartLegend
         items={[
           { label: "Joint sent", color: chartPalette.joint },
-          { label: "Discretionary sent", color: chartPalette.discretionary }
+          { label: "Discretionary sent", color: chartPalette.discretionary },
+          { label: "Joint (not sent yet)", color: chartPalette.jointMuted },
+          { label: "Discretionary (not sent yet)", color: chartPalette.discretionaryMuted }
         ]}
       />
       <div className="h-[220px] w-full">
@@ -55,12 +61,24 @@ export function HistoricalImpactChart({
               offset={chartTooltip.offset}
               allowEscapeViewBox={chartTooltip.allowEscapeViewBox}
             />
-            <Bar stackId="sent" dataKey="jointSent" name="Joint sent" fill={chartPalette.joint} />
+            <Bar stackId="impact" dataKey="jointSent" name="Joint sent" fill={chartPalette.joint} />
             <Bar
-              stackId="sent"
+              stackId="impact"
               dataKey="discretionarySent"
               name="Discretionary sent"
               fill={chartPalette.discretionary}
+            />
+            <Bar
+              stackId="impact"
+              dataKey="jointAllocatedNotSent"
+              name="Joint (not sent yet)"
+              fill={chartPalette.jointMuted}
+            />
+            <Bar
+              stackId="impact"
+              dataKey="discretionaryAllocatedNotSent"
+              name="Discretionary (not sent yet)"
+              fill={chartPalette.discretionaryMuted}
               radius={[6, 6, 0, 0]}
             >
               <LabelList
@@ -68,7 +86,7 @@ export function HistoricalImpactChart({
                 fill={chartText.axis}
                 fontSize={11}
                 fontWeight={600}
-                dataKey="totalSent"
+                dataKey="totalBar"
                 formatter={(value: number) => compactCurrency(Number(value))}
               />
             </Bar>

@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { useIsMobile } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -53,6 +55,51 @@ import {
   buildHistoricalUpdatePayload,
 } from "./dashboard-utils";
 
+function DashboardBudgetBarWithTooltip({
+  usedAmount,
+  pct,
+  progressValue,
+  wrapperClassName,
+  progressClassName,
+  indicatorClassName
+}: {
+  usedAmount: number;
+  pct: number;
+  progressValue: number;
+  wrapperClassName?: string;
+  progressClassName: string;
+  indicatorClassName: string;
+}) {
+  const pctRounded = Math.round(pct);
+  const a11yLabel = `Used ${currency(usedAmount)}, ${pctRounded}% of budget`;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={cn(
+            "w-full cursor-help touch-manipulation rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            wrapperClassName
+          )}
+          tabIndex={0}
+          aria-label={a11yLabel}
+        >
+          <Progress
+            value={progressValue}
+            className={progressClassName}
+            indicatorClassName={indicatorClassName}
+          />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4}>
+        <div className="space-y-0.5 tabular-nums">
+          <p>Used {currency(usedAmount)}</p>
+          <p className="text-background/85">{pctRounded}% of budget</p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 const DASHBOARD_WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
     target: "dashboard-intro",
@@ -66,7 +113,7 @@ const DASHBOARD_WALKTHROUGH_STEPS: WalkthroughStep[] = [
     targetFallback: "dashboard-budget-mobile",
     title: "Foundation budget",
     body:
-      "View the Foundation's total budget, Joint pool remaining, and Discretionary remaining for the selected year. Progress bars show how much has been allocated."
+      "Each card leads with what's left, then the bar. The budget cap sits below the bar. Hover or focus the bar to see used dollars and percent of budget."
   },
   {
     target: "dashboard-history",
@@ -383,6 +430,9 @@ export default function DashboardClient({
     : 0;
   const totalUtilization = data && data.budget.total > 0
     ? (totalAllocatedForYear / data.budget.total) * 100
+    : 0;
+  const foundationRemaining = data
+    ? Math.max(0, data.budget.total - totalAllocatedForYear)
     : 0;
 
   useEffect(() => {
@@ -1037,18 +1087,26 @@ export default function DashboardClient({
       </GlassCard>
 
       <div className="grid grid-cols-3 gap-2 lg:hidden" data-walkthrough="dashboard-budget-mobile">
-        <GlassCard className="p-3.5">
+        <GlassCard className="border-2 border-foreground/20 p-3.5 shadow-sm">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Foundation</p>
           </div>
-          <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.total)}</p>
-          <Progress
-            value={Math.min(totalUtilization, 100)}
-            className="mt-1.5 h-1 bg-muted"
+          <p className="mt-1 text-base font-bold tabular-nums">{currency(foundationRemaining)}</p>
+          <p className="text-[10px] leading-tight text-muted-foreground">left to allocate</p>
+          <DashboardBudgetBarWithTooltip
+            usedAmount={totalAllocatedForYear}
+            pct={totalUtilization}
+            progressValue={Math.min(totalUtilization, 100)}
+            wrapperClassName="mt-1.5"
+            progressClassName="h-1 w-full bg-muted"
             indicatorClassName={totalUtilization > 100 ? "bg-rose-500" : "bg-emerald-500 dark:bg-emerald-400"}
           />
-          <p className="mt-0.5 text-[10px] text-muted-foreground">{Math.round(totalUtilization)}% used</p>
+          <div className="mt-1.5 border-t border-border/60 pt-1.5">
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Annual budget: {currency(data.budget.total)}
+            </p>
+          </div>
         </GlassCard>
         <GlassCard className="p-3.5">
           <div className="flex items-center gap-1.5">
@@ -1056,12 +1114,19 @@ export default function DashboardClient({
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Joint</p>
           </div>
           <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.jointRemaining)}</p>
-          <Progress
-            value={Math.min(jointUtilization, 100)}
-            className="mt-1.5 h-1 bg-muted"
+          <DashboardBudgetBarWithTooltip
+            usedAmount={data.budget.jointAllocated}
+            pct={jointUtilization}
+            progressValue={Math.min(jointUtilization, 100)}
+            wrapperClassName="mt-1.5"
+            progressClassName="h-1 w-full bg-muted"
             indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
           />
-          <p className="mt-0.5 text-[10px] text-muted-foreground">of {currency(data.budget.jointPool)}</p>
+          <div className="mt-1.5 border-t border-border/60 pt-1.5">
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Budget: {currency(data.budget.jointPool)}
+            </p>
+          </div>
         </GlassCard>
         <GlassCard className="p-3.5">
           <div className="flex items-center gap-1.5">
@@ -1069,12 +1134,19 @@ export default function DashboardClient({
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Disc.</p>
           </div>
           <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.discretionaryRemaining)}</p>
-          <Progress
-            value={Math.min(discretionaryUtilization, 100)}
-            className="mt-1.5 h-1 bg-muted"
+          <DashboardBudgetBarWithTooltip
+            usedAmount={data.budget.discretionaryAllocated}
+            pct={discretionaryUtilization}
+            progressValue={Math.min(discretionaryUtilization, 100)}
+            wrapperClassName="mt-1.5"
+            progressClassName="h-1 w-full bg-muted"
             indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
           />
-          <p className="mt-0.5 text-[10px] text-muted-foreground">of {currency(data.budget.discretionaryPool)}</p>
+          <div className="mt-1.5 border-t border-border/60 pt-1.5">
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Budget: {currency(data.budget.discretionaryPool)}
+            </p>
+          </div>
         </GlassCard>
       </div>
 
@@ -1124,47 +1196,67 @@ export default function DashboardClient({
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:auto-rows-fr" data-walkthrough="dashboard-budget">
           <MetricCard
-            title={<>FOUNDATION TOTAL <span className="font-semibold">BUDGET</span></>}
-            value={currency(data.budget.total)}
-            subtitle={`Allocated: ${currency(totalAllocatedForYear)}`}
+            title="Foundation"
+            value={
+              <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
+                <span className="tabular-nums">{currency(foundationRemaining)}</span>
+                <span className="text-sm font-normal text-muted-foreground">left to allocate</span>
+              </span>
+            }
             icon={DollarSign}
             tone="emerald"
-            className="sm:col-span-2"
+            className="border-2 border-foreground/20 shadow-sm sm:col-span-2"
           >
-            <Progress
-              value={Math.min(totalUtilization, 100)}
-              className="mt-2 h-1.5 bg-muted"
+            <DashboardBudgetBarWithTooltip
+              usedAmount={totalAllocatedForYear}
+              pct={totalUtilization}
+              progressValue={Math.min(totalUtilization, 100)}
+              wrapperClassName="mt-2"
+              progressClassName="h-1.5 w-full bg-muted"
               indicatorClassName={totalUtilization > 100 ? "bg-rose-500" : "bg-emerald-500 dark:bg-emerald-400"}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(totalUtilization)}% utilized</p>
+            <Separator className="my-2" />
+            <p className="text-sm font-normal leading-snug text-muted-foreground">
+              Annual budget: {currency(data.budget.total)}
+            </p>
           </MetricCard>
           <MetricCard
-            title={<>JOINT POOL <span className="font-semibold">REMAINING</span></>}
-            value={currency(data.budget.jointRemaining)}
-            subtitle={`Allocated: ${currency(data.budget.jointAllocated)}`}
+            title="Joint pool"
+            value={<span className="block tabular-nums">{currency(data.budget.jointRemaining)}</span>}
             icon={Users}
             tone="indigo"
           >
-            <Progress
-              value={Math.min(jointUtilization, 100)}
-              className="mt-2 h-1.5 bg-muted"
+            <DashboardBudgetBarWithTooltip
+              usedAmount={data.budget.jointAllocated}
+              pct={jointUtilization}
+              progressValue={Math.min(jointUtilization, 100)}
+              wrapperClassName="mt-2"
+              progressClassName="h-1.5 w-full bg-muted"
               indicatorClassName={jointUtilization > 100 ? "bg-rose-500" : "bg-indigo-500 dark:bg-indigo-400"}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(jointUtilization)}% utilized</p>
+            <Separator className="my-2" />
+            <p className="text-sm font-normal leading-snug text-muted-foreground">
+              Budget: {currency(data.budget.jointPool)}
+            </p>
           </MetricCard>
           <MetricCard
-            title={<>DISCRETIONARY <span className="font-semibold">REMAINING</span></>}
-            value={currency(data.budget.discretionaryRemaining)}
-            subtitle={`Allocated: ${currency(data.budget.discretionaryAllocated)}`}
+            title="Discretionary pool"
+            value={<span className="block tabular-nums">{currency(data.budget.discretionaryRemaining)}</span>}
             icon={Wallet}
             tone="amber"
           >
-            <Progress
-              value={Math.min(discretionaryUtilization, 100)}
-              className="mt-2 h-1.5 bg-muted"
+            <DashboardBudgetBarWithTooltip
+              usedAmount={data.budget.discretionaryAllocated}
+              pct={discretionaryUtilization}
+              progressValue={Math.min(discretionaryUtilization, 100)}
+              wrapperClassName="mt-2"
+              progressClassName="h-1.5 w-full bg-muted"
               indicatorClassName={discretionaryUtilization > 100 ? "bg-rose-500" : "bg-amber-500 dark:bg-amber-400"}
             />
-            <p className="mt-1 text-[11px] text-muted-foreground">{Math.round(discretionaryUtilization)}% utilized</p>
+            <Separator className="my-2" />
+            <p className="text-sm font-normal leading-snug text-muted-foreground">
+              Budget: {currency(data.budget.discretionaryPool)}
+            </p>
           </MetricCard>
         </div>
       </PageWithSidebar>

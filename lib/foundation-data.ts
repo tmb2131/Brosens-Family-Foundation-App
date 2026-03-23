@@ -644,6 +644,104 @@ function groupVotes(votes: Vote[]) {
   return grouped;
 }
 
+/** Matches `buildProposalViews` `computedFinalAmount` so Historical Impact aligns with budget "Used". */
+function historyChartAmountForProposalRow(
+  row: ProposalRow,
+  votesByProposalId: Map<string, Vote[]>,
+  votingMemberIds: string[]
+): number {
+  const proposal = mapProposal(row, undefined);
+  const rawProposalVotes = votesByProposalId.get(proposal.id) ?? [];
+  const votes = getEligibleVotesForProposal(proposal, rawProposalVotes, votingMemberIds);
+  const computedFromVotes = computeFinalAmount(proposal, votes);
+  const isReturned = row.returned_at !== null;
+  const shouldUseStoredJointAmount =
+    proposal.proposalType === "joint" &&
+    proposal.budgetYear < currentYear() &&
+    votes.length === 0 &&
+    ["approved", "sent"].includes(row.status);
+  if (isReturned) {
+    return toNumber(row.final_amount);
+  }
+  if (shouldUseStoredJointAmount) {
+    return toNumber(row.final_amount);
+  }
+  return computedFromVotes;
+}
+
+type HistoryYearTotalsAgg = {
+  jointSent: number;
+  discretionarySent: number;
+  jointAllocatedNotSent: number;
+  discretionaryAllocatedNotSent: number;
+};
+
+function aggregateHistoryByYearFromRows(
+  sentRows: ProposalRow[],
+  pendingRows: ProposalRow[],
+  votesByProposalId: Map<string, Vote[]>,
+  votingMemberIds: string[]
+): HistoryByYearPoint[] {
+  const totalsByYear = new Map<number, HistoryYearTotalsAgg>();
+
+  const bump = (
+    year: number,
+    amount: number,
+    kind: "joint" | "discretionary",
+    bucket: "sent" | "notSent"
+  ) => {
+    const e = totalsByYear.get(year) ?? {
+      jointSent: 0,
+      discretionarySent: 0,
+      jointAllocatedNotSent: 0,
+      discretionaryAllocatedNotSent: 0
+    };
+    if (bucket === "sent") {
+      if (kind === "joint") {
+        e.jointSent += amount;
+      } else {
+        e.discretionarySent += amount;
+      }
+    } else if (kind === "joint") {
+      e.jointAllocatedNotSent += amount;
+    } else {
+      e.discretionaryAllocatedNotSent += amount;
+    }
+    totalsByYear.set(year, e);
+  };
+
+  for (const row of sentRows) {
+    if (row.status !== "sent") continue;
+    const amount = historyChartAmountForProposalRow(row, votesByProposalId, votingMemberIds);
+    const kind: "joint" | "discretionary" = row.proposal_type === "joint" ? "joint" : "discretionary";
+    bump(row.budget_year, amount, kind, "sent");
+  }
+
+  for (const row of pendingRows) {
+    const amount = historyChartAmountForProposalRow(row, votesByProposalId, votingMemberIds);
+    const kind: "joint" | "discretionary" = row.proposal_type === "joint" ? "joint" : "discretionary";
+    bump(row.budget_year, amount, kind, "notSent");
+  }
+
+  return [...totalsByYear.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([year, t]): HistoryByYearPoint => {
+      const jointSent = Math.round(t.jointSent);
+      const discretionarySent = Math.round(t.discretionarySent);
+      const jointAllocatedNotSent = Math.round(t.jointAllocatedNotSent);
+      const discretionaryAllocatedNotSent = Math.round(t.discretionaryAllocatedNotSent);
+      return {
+        year,
+        jointSent,
+        discretionarySent,
+        jointAllocatedNotSent,
+        discretionaryAllocatedNotSent,
+        totalDonated:
+          jointSent + discretionarySent + jointAllocatedNotSent + discretionaryAllocatedNotSent
+      };
+    });
+}
+
 function buildProposalViews(input: {
   proposals: ProposalRow[];
   grantById: Map<string, GrantMasterRow>;
@@ -745,66 +843,33 @@ async function loadProposalsWithDependencies(admin: AdminClient, proposalRows: P
 }
 
 async function computeHistoryByYear(admin: AdminClient, votingMemberIds: string[]) {
-  const { data: approvedRows, error } = await admin
-    .from("grant_proposals")
-    .select(PROPOSAL_SELECT)
-    .in("status", ["approved", "sent"])
-    .returns<ProposalRow[]>();
+  const [sentResult, pendingResult] = await Promise.all([
+    admin.from("grant_proposals").select(PROPOSAL_SELECT).eq("status", "sent").returns<ProposalRow[]>(),
+    admin
+      .from("grant_proposals")
+      .select(PROPOSAL_SELECT)
+      .in("status", ["to_review", "approved"])
+      .returns<ProposalRow[]>()
+  ]);
 
-  if (error) {
-    throw new HttpError(500, `Could not compute history: ${error.message}`);
+  if (sentResult.error) {
+    throw new HttpError(500, `Could not compute history: ${sentResult.error.message}`);
+  }
+  if (pendingResult.error) {
+    throw new HttpError(500, `Could not compute history: ${pendingResult.error.message}`);
   }
 
-  const proposals = approvedRows ?? [];
-  if (!proposals.length) {
+  const sentRows = sentResult.data ?? [];
+  const pendingRows = pendingResult.data ?? [];
+  const proposalIds = unique([...sentRows.map((row) => row.id), ...pendingRows.map((row) => row.id)]);
+  if (!proposalIds.length) {
     return [];
   }
 
-  const proposalIds = proposals.map((row) => row.id);
   const votes = await loadVotesByProposalIds(admin, proposalIds);
   const votesByProposalId = groupVotes(votes);
 
-  const totalsByYear = new Map<number, { jointSent: number; discretionarySent: number }>();
-
-  for (const row of proposals) {
-    const proposal = mapProposal(row, undefined);
-    const rawProposalVotes = votesByProposalId.get(proposal.id) ?? [];
-    const relevantVotes = getEligibleVotesForProposal(proposal, rawProposalVotes, votingMemberIds);
-    const hasRecordedRelevantVotes = relevantVotes.length > 0;
-
-    const shouldUseStoredJointAmount =
-      proposal.proposalType === "joint" &&
-      proposal.budgetYear < currentYear() &&
-      !hasRecordedRelevantVotes;
-    const total = shouldUseStoredJointAmount
-      ? toNumber(row.final_amount)
-      : computeFinalAmount(proposal, relevantVotes);
-    const existingYearTotals = totalsByYear.get(proposal.budgetYear) ?? {
-      jointSent: 0,
-      discretionarySent: 0
-    };
-
-    if (proposal.proposalType === "joint") {
-      existingYearTotals.jointSent += total;
-    } else {
-      existingYearTotals.discretionarySent += total;
-    }
-
-    totalsByYear.set(proposal.budgetYear, existingYearTotals);
-  }
-
-  return [...totalsByYear.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([year, yearTotals]): HistoryByYearPoint => {
-      const jointSent = Math.round(yearTotals.jointSent);
-      const discretionarySent = Math.round(yearTotals.discretionarySent);
-      return {
-        year,
-        jointSent,
-        discretionarySent,
-        totalDonated: jointSent + discretionarySent
-      };
-    });
+  return aggregateHistoryByYearFromRows(sentRows, pendingRows, votesByProposalId, votingMemberIds);
 }
 
 // ---------------------------------------------------------------------------
@@ -968,56 +1033,22 @@ export function buildFoundationSnapshotFromData(
 }
 
 export function buildHistoryFromData(data: FoundationPageData): HistoryByYearPoint[] {
-  const proposals = data.historyProposals;
-  if (!proposals.length) return [];
-
-  const historyProposalIds = new Set(proposals.map((p) => p.id));
-  const allVotes = data.votes.map(mapVote);
-  const historyVotes = allVotes.filter((v) => historyProposalIds.has(v.proposalId));
-  const votesByProposalId = groupVotes(historyVotes);
-  const votingMemberIds = data.votingMemberIds;
-
-  const totalsByYear = new Map<number, { jointSent: number; discretionarySent: number }>();
-
-  for (const row of proposals) {
-    const proposal = mapProposal(row, undefined);
-    const rawProposalVotes = votesByProposalId.get(proposal.id) ?? [];
-    const relevantVotes = getEligibleVotesForProposal(proposal, rawProposalVotes, votingMemberIds);
-    const hasRecordedRelevantVotes = relevantVotes.length > 0;
-
-    const shouldUseStoredJointAmount =
-      proposal.proposalType === "joint" &&
-      proposal.budgetYear < currentYear() &&
-      !hasRecordedRelevantVotes;
-    const total = shouldUseStoredJointAmount
-      ? toNumber(row.final_amount)
-      : computeFinalAmount(proposal, relevantVotes);
-    const existingYearTotals = totalsByYear.get(proposal.budgetYear) ?? {
-      jointSent: 0,
-      discretionarySent: 0
-    };
-
-    if (proposal.proposalType === "joint") {
-      existingYearTotals.jointSent += total;
-    } else {
-      existingYearTotals.discretionarySent += total;
-    }
-
-    totalsByYear.set(proposal.budgetYear, existingYearTotals);
+  const sentRows = data.historyProposals.filter((r) => r.status === "sent");
+  const pendingRows = data.pendingProposals;
+  const idSet = new Set([...sentRows.map((r) => r.id), ...pendingRows.map((r) => r.id)]);
+  if (idSet.size === 0) {
+    return [];
   }
 
-  return [...totalsByYear.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([year, yearTotals]): HistoryByYearPoint => {
-      const jointSent = Math.round(yearTotals.jointSent);
-      const discretionarySent = Math.round(yearTotals.discretionarySent);
-      return {
-        year,
-        jointSent,
-        discretionarySent,
-        totalDonated: jointSent + discretionarySent
-      };
-    });
+  const chartVotes = data.votes.map(mapVote).filter((v) => idSet.has(v.proposalId));
+  const votesByProposalId = groupVotes(chartVotes);
+
+  return aggregateHistoryByYearFromRows(
+    sentRows,
+    pendingRows,
+    votesByProposalId,
+    data.votingMemberIds
+  );
 }
 
 export function buildWorkspaceSnapshotFromData(
