@@ -4,7 +4,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { useSearchParams } from "next/navigation";
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { mutateAllFoundation } from "@/lib/swr-helpers";
+import { mutateAllFoundation, PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import { AlertCircle, CheckCircle2, ClipboardList, ExternalLink, Inbox, LogOut, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,7 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
   const { data, mutate, isLoading, isValidating, error } = useSWR<AdminQueueResponse>("/api/admin", {
     refreshInterval: 45_000,
     fallbackData: initialQueue,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
 
   usePagePerf("/admin", !isLoading, {

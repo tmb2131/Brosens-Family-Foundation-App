@@ -1,4 +1,14 @@
 import { cache, mutate } from "swr/_internal";
+import type { SWRConfiguration } from "swr";
+
+/**
+ * SWR options for pages that receive server-side `fallbackData`.
+ * Prevents redundant revalidation on mount when fresh data is already present.
+ */
+export const PRELOADED_SWR_CONFIG = {
+  revalidateOnMount: false,
+  revalidateIfStale: false,
+} as const satisfies SWRConfiguration;
 
 type SwrCacheRecord<T> = {
   _k?: unknown;

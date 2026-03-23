@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
-import { mutateAllFoundation } from "@/lib/swr-helpers";
+import { mutateAllFoundation, PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
 import { useDraftPersistence, type ProposalDraft } from "@/lib/hooks/use-draft-persistence";
-import { UserProfile, WorkspaceSnapshot } from "@/lib/types";
+import { UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { usePagePerf } from "@/lib/perf-logger-client";
@@ -50,22 +50,6 @@ interface ProposalTitleSuggestionsResponse {
   titles: string[];
 }
 
-type CharityNavigatorPreviewState =
-  | "preview_available"
-  | "missing_ein"
-  | "no_score"
-  | "config_missing"
-  | "upstream_error";
-
-interface CharityNavigatorPreviewResponse {
-  state: CharityNavigatorPreviewState;
-  normalizedUrl: string | null;
-  ein: string | null;
-  score: number | null;
-  organizationName: string | null;
-  message?: string;
-}
-
 type ProposalTypeOption = "" | "joint" | "discretionary";
 
 interface NewProposalClientProps {
@@ -79,13 +63,11 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
   const titleSuggestionsQuery = useSWR<ProposalTitleSuggestionsResponse>("/api/proposals/titles", {
     fallbackData: { titles: initialTitleSuggestions },
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
 
   usePagePerf("/proposals/new", !workspaceQuery.isLoading, {

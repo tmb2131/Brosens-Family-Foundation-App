@@ -69,3 +69,73 @@ export function buildTsv(sections: CsvSection[]): string {
   }
   return parts.join("\n");
 }
+
+function buildHtmlTable(headers: readonly string[], rows: string[][]): string {
+  const head = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
+  const body = rows
+    .map((row) => {
+      const cells = row.map((v) => `<td>${escapeHtml(v)}</td>`).join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+export function buildExcelHtml(
+  headers: readonly string[],
+  rows: string[][],
+  title: string,
+  subtitle: string
+): string {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Arial, sans-serif; padding: 16px; }
+      h1 { margin: 0 0 6px; font-size: 18px; }
+      p { margin: 0 0 12px; color: #555; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #d4d4d8; padding: 6px 8px; font-size: 12px; text-align: left; vertical-align: top; }
+      th { background: #f4f4f5; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    ${buildHtmlTable(headers, rows)}
+  </body>
+</html>`;
+}
+
+export function buildPrintableHtml(
+  headers: readonly string[],
+  rows: string[][],
+  title: string,
+  subtitle: string,
+  options?: { extraStyle?: string; bodyContent?: string }
+): string {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      @page { margin: 0.5in; }
+      body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
+      h1 { margin: 0 0 6px; font-size: 18px; }
+      p { margin: 0 0 12px; color: #475569; font-size: 12px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
+      th { background: #e2e8f0; font-weight: 700; }
+      ${options?.extraStyle ?? ""}
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    ${buildHtmlTable(headers, rows)}
+    ${options?.bodyContent ?? ""}
+  </body>
+</html>`;
+}

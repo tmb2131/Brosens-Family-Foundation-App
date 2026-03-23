@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import useSWR from "swr";
+import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
+import { useWalkthrough, type WalkthroughStep } from "@/lib/hooks/use-walkthrough";
 import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
 import { cn } from "@/lib/utils";
 import { WorkspaceSnapshot } from "@/lib/types";
+import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
 import { Card, GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
@@ -34,12 +37,7 @@ import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
-const WALKTHROUGH_STEPS: Array<{
-  target: string;
-  targetFallback?: string;
-  title: string;
-  body: string;
-}> = [
+const WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
     target: "workspace-intro",
     title: "My Workspace",
@@ -71,21 +69,6 @@ const WALKTHROUGH_STEPS: Array<{
   }
 ];
 
-type CharityNavigatorPreviewState =
-  | "preview_available"
-  | "missing_ein"
-  | "no_score"
-  | "config_missing"
-  | "upstream_error";
-
-interface CharityNavigatorPreviewResponse {
-  state: CharityNavigatorPreviewState;
-  normalizedUrl: string | null;
-  ein: string | null;
-  score: number | null;
-  organizationName: string | null;
-  message?: string;
-}
 
 interface WorkspaceClientProps {
   initialWorkspace: WorkspaceSnapshot;
@@ -104,19 +87,14 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     width: number;
     height: number;
   } | null>(null);
-  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
-  const [walkthroughStep, setWalkthroughStep] = useState(0);
-  const [voteDialogCharityNavigatorPreview, setVoteDialogCharityNavigatorPreview] =
-    useState<CharityNavigatorPreviewResponse | null>(null);
   const { registerStartWalkthrough } = useWorkspaceWalkthrough();
+  const walkthrough = useWalkthrough({ steps: WALKTHROUGH_STEPS });
+  const openWalkthrough = walkthrough.open;
   const isSmallScreen = useIsMobile();
 
   useEffect(() => {
-    return registerStartWalkthrough(() => {
-      setWalkthroughStep(0);
-      setWalkthroughOpen(true);
-    });
-  }, [registerStartWalkthrough]);
+    return registerStartWalkthrough(openWalkthrough);
+  }, [registerStartWalkthrough, openWalkthrough]);
 
   useEffect(() => {
     if (voteDialogProposalId == null) return;
@@ -128,7 +106,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     return () => cancelAnimationFrame(id);
   }, [voteDialogProposalId]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (voteDialogProposalId == null || !window.matchMedia("(min-width: 1024px)").matches) {
       setOverlayCutoutRect(null);
       return;
@@ -151,70 +129,16 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     return () => window.removeEventListener("resize", measure);
   }, [voteDialogProposalId]);
 
-  const closeWalkthrough = useCallback(() => {
-    setWalkthroughOpen(false);
-    setWalkthroughStep(0);
-    setSpotlightRect(null);
-  }, []);
-
-  const [spotlightRect, setSpotlightRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-
-  function getTargetElementForStep(stepIndex: number): HTMLElement | null {
-    const step = WALKTHROUGH_STEPS[stepIndex];
-    if (!step) return null;
-    const primary = document.querySelector<HTMLElement>(`[data-walkthrough="${step.target}"]`);
-    const fallback = step.targetFallback
-      ? document.querySelector<HTMLElement>(`[data-walkthrough="${step.targetFallback}"]`)
-      : null;
-    const hasSize = (el: HTMLElement) => {
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    };
-    if (primary && hasSize(primary)) return primary;
-    if (fallback && hasSize(fallback)) return fallback;
-    return primary ?? fallback ?? null;
-  }
-
-  const measureAndSetRect = useCallback((stepIndex: number) => {
-    const el = getTargetElementForStep(stepIndex);
-    if (el) {
-      const r = el.getBoundingClientRect();
-      setSpotlightRect({ left: r.left, top: r.top, width: r.width, height: r.height });
-    } else {
-      setSpotlightRect(null);
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!walkthroughOpen) return;
-    const el = getTargetElementForStep(walkthroughStep);
-    if (!el) {
-      setSpotlightRect(null);
-      return;
-    }
-    el.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
-    measureAndSetRect(walkthroughStep);
-    const t1 = setTimeout(() => measureAndSetRect(walkthroughStep), 50);
-    const t2 = setTimeout(() => measureAndSetRect(walkthroughStep), 200);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
-
-  useEffect(() => {
-    if (!walkthroughOpen) return;
-    const handleResize = () => measureAndSetRect(walkthroughStep);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
-
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
+
+  const voteDialogCharityNavigatorUrl = voteDialogProposalId && workspaceQuery.data
+    ? workspaceQuery.data.actionItems.find((entry) => entry.proposalId === voteDialogProposalId)?.charityNavigatorUrl ?? null
+    : null;
+  const voteDialogCharityNavigatorPreview = useCharityNavigatorPreview(voteDialogCharityNavigatorUrl);
 
   usePagePerf("/workspace", !workspaceQuery.isLoading, {
     isLoading: workspaceQuery.isLoading,
@@ -222,51 +146,6 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     error: workspaceQuery.error?.message ?? null,
   });
 
-  useEffect(() => {
-    if (!voteDialogProposalId || !workspaceQuery.data) {
-      setVoteDialogCharityNavigatorPreview(null);
-      return;
-    }
-
-    const item = workspaceQuery.data.actionItems.find(
-      (entry) => entry.proposalId === voteDialogProposalId
-    );
-    const charityNavigatorUrl = item?.charityNavigatorUrl?.trim() ?? "";
-    if (!charityNavigatorUrl) {
-      setVoteDialogCharityNavigatorPreview(null);
-      return;
-    }
-
-    let active = true;
-    void (async () => {
-      try {
-        const response = await fetch("/api/charity-navigator/preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ charityNavigatorUrl })
-        });
-        if (!response.ok) {
-          if (active) {
-            setVoteDialogCharityNavigatorPreview(null);
-          }
-          return;
-        }
-
-        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
-        if (active) {
-          setVoteDialogCharityNavigatorPreview(payload);
-        }
-      } catch {
-        if (active) {
-          setVoteDialogCharityNavigatorPreview(null);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [voteDialogProposalId, workspaceQuery.data]);
 
 
 
@@ -596,8 +475,8 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
         ) : null}
       </ResponsiveModal>
 
-      {walkthroughOpen &&
-        spotlightRect &&
+      {walkthrough.isOpen &&
+        walkthrough.spotlightRect &&
         typeof document !== "undefined" &&
         createPortal(
           <>
@@ -606,10 +485,10 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                 className="bg-transparent"
                 style={{
                   position: "fixed",
-                  left: spotlightRect.left,
-                  top: spotlightRect.top,
-                  width: spotlightRect.width,
-                  height: spotlightRect.height,
+                  left: walkthrough.spotlightRect.left,
+                  top: walkthrough.spotlightRect.top,
+                  width: walkthrough.spotlightRect.width,
+                  height: walkthrough.spotlightRect.height,
                   boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
                   outline: "2px solid hsl(var(--accent))",
                   outlineOffset: 4,
@@ -622,10 +501,10 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                 className="pointer-events-none"
                 style={{
                   position: "fixed",
-                  left: spotlightRect.left,
-                  top: spotlightRect.top,
-                  width: spotlightRect.width,
-                  height: spotlightRect.height
+                  left: walkthrough.spotlightRect.left,
+                  top: walkthrough.spotlightRect.top,
+                  width: walkthrough.spotlightRect.width,
+                  height: walkthrough.spotlightRect.height
                 }}
               />
             </div>
@@ -634,61 +513,55 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
         )}
 
       <Dialog
-        open={walkthroughOpen}
+        open={walkthrough.isOpen}
         onOpenChange={(open) => {
-          if (!open) closeWalkthrough();
+          if (!open) walkthrough.close();
         }}
       >
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          {(() => {
-            const step = WALKTHROUGH_STEPS[walkthroughStep];
-            if (!step) return null;
-            const isFirst = walkthroughStep === 0;
-            const isLast = walkthroughStep === WALKTHROUGH_STEPS.length - 1;
-            return (
-              <>
-                <DialogHeader>
-                  <p className="text-xs font-medium text-muted-foreground" aria-hidden>
-                    Step {walkthroughStep + 1} of {WALKTHROUGH_STEPS.length}
-                  </p>
-                  <DialogTitle id="walkthrough-title">{step.title}</DialogTitle>
-                  <DialogDescription id="walkthrough-description" className="mt-1 text-left">
-                    {step.body}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="order-last sm:order-first text-muted-foreground"
-                    onClick={closeWalkthrough}
-                  >
-                    Skip tour
-                  </Button>
-                  <div className="flex gap-2">
-                    {!isFirst && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setWalkthroughStep((s) => s - 1)}
-                      >
-                        Back
-                      </Button>
-                    )}
-                    {isLast ? (
-                      <Button size="sm" onClick={closeWalkthrough}>
-                        Finish
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => setWalkthroughStep((s) => s + 1)}>
-                        Next
-                      </Button>
-                    )}
-                  </div>
-                </DialogFooter>
-              </>
-            );
-          })()}
+          {walkthrough.currentStep && (
+            <>
+              <DialogHeader>
+                <p className="text-xs font-medium text-muted-foreground" aria-hidden>
+                  Step {walkthrough.step + 1} of {walkthrough.totalSteps}
+                </p>
+                <DialogTitle id="walkthrough-title">{walkthrough.currentStep.title}</DialogTitle>
+                <DialogDescription id="walkthrough-description" className="mt-1 text-left">
+                  {walkthrough.currentStep.body}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="order-last sm:order-first text-muted-foreground"
+                  onClick={walkthrough.close}
+                >
+                  Skip tour
+                </Button>
+                <div className="flex gap-2">
+                  {!walkthrough.isFirst && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={walkthrough.back}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  {walkthrough.isLast ? (
+                    <Button size="sm" onClick={walkthrough.close}>
+                      Finish
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={walkthrough.next}>
+                      Next
+                    </Button>
+                  )}
+                </div>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

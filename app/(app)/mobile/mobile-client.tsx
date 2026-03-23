@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import useSWR from "swr";
+import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import { RefreshCw, Wallet } from "lucide-react";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
+import { useWalkthrough, type WalkthroughStep } from "@/lib/hooks/use-walkthrough";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,11 +31,7 @@ import { MobileActionItems } from "./mobile-action-items";
 import { MobileVoteModal } from "./mobile-vote-modal";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
-const WALKTHROUGH_STEPS: Array<{
-  target: string;
-  title: string;
-  body: string;
-}> = [
+const WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
     target: "mobile-header",
     title: "Your Home",
@@ -66,8 +64,7 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
-    revalidateOnMount: false,
-    revalidateIfStale: false,
+    ...PRELOADED_SWR_CONFIG,
   });
 
   usePagePerf("/mobile", !workspaceQuery.isLoading, {
@@ -90,69 +87,25 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
 
   // ── Walkthrough ──────────────────────────────────────────────────
   const { registerStartWalkthrough } = useMobileWalkthrough();
-  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
-  const [walkthroughStep, setWalkthroughStep] = useState(0);
-  const [spotlightRect, setSpotlightRect] = useState<{
-    left: number; top: number; width: number; height: number;
-  } | null>(null);
-
-  useEffect(() => {
-    return registerStartWalkthrough(() => {
-      setWalkthroughStep(0);
-      setWalkthroughOpen(true);
-    });
-  }, [registerStartWalkthrough]);
-
-  const closeWalkthrough = useCallback(() => {
-    setWalkthroughOpen(false);
-    setWalkthroughStep(0);
-    setSpotlightRect(null);
+  const mobileWalkthroughOnClose = useCallback(() => {
     try { localStorage.setItem("mobile-walkthrough-seen", "1"); } catch { /* noop */ }
   }, []);
-
-  const measureAndSetRect = useCallback((stepIndex: number) => {
-    const step = WALKTHROUGH_STEPS[stepIndex];
-    if (!step) { setSpotlightRect(null); return; }
-    const el = document.querySelector<HTMLElement>(`[data-walkthrough="${step.target}"]`);
-    if (el) {
-      const r = el.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        setSpotlightRect({ left: r.left, top: r.top, width: r.width, height: r.height });
-        return;
-      }
-    }
-    setSpotlightRect(null);
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!walkthroughOpen) return;
-    const step = WALKTHROUGH_STEPS[walkthroughStep];
-    if (!step) return;
-    const el = document.querySelector<HTMLElement>(`[data-walkthrough="${step.target}"]`);
-    el?.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
-    measureAndSetRect(walkthroughStep);
-    const t1 = setTimeout(() => measureAndSetRect(walkthroughStep), 50);
-    const t2 = setTimeout(() => measureAndSetRect(walkthroughStep), 200);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
+  const walkthrough = useWalkthrough({ steps: WALKTHROUGH_STEPS, onClose: mobileWalkthroughOnClose });
+  const openWalkthrough = walkthrough.open;
 
   useEffect(() => {
-    if (!walkthroughOpen) return;
-    const handleResize = () => measureAndSetRect(walkthroughStep);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
+    return registerStartWalkthrough(openWalkthrough);
+  }, [registerStartWalkthrough, openWalkthrough]);
 
   // Auto-show walkthrough on first visit
   useEffect(() => {
     if (!workspaceQuery.data) return;
     try {
       if (!localStorage.getItem("mobile-walkthrough-seen")) {
-        setWalkthroughStep(0);
-        setWalkthroughOpen(true);
+        openWalkthrough();
       }
     } catch { /* noop */ }
-  }, [workspaceQuery.data]);
+  }, [workspaceQuery.data, openWalkthrough]);
 
   // ── Loading / Error ──────────────────────────────────────────────
   if (!workspaceQuery.data) {
@@ -370,8 +323,8 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
       />
 
       {/* ── Walkthrough spotlight overlay ──────────────────────────── */}
-      {walkthroughOpen &&
-        spotlightRect &&
+      {walkthrough.isOpen &&
+        walkthrough.spotlightRect &&
         typeof document !== "undefined" &&
         createPortal(
           <>
@@ -380,10 +333,10 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
                 className="bg-transparent"
                 style={{
                   position: "fixed",
-                  left: spotlightRect.left,
-                  top: spotlightRect.top,
-                  width: spotlightRect.width,
-                  height: spotlightRect.height,
+                  left: walkthrough.spotlightRect.left,
+                  top: walkthrough.spotlightRect.top,
+                  width: walkthrough.spotlightRect.width,
+                  height: walkthrough.spotlightRect.height,
                   boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
                   outline: "2px solid hsl(var(--accent))",
                   outlineOffset: 4,
@@ -396,10 +349,10 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
                 className="pointer-events-none"
                 style={{
                   position: "fixed",
-                  left: spotlightRect.left,
-                  top: spotlightRect.top,
-                  width: spotlightRect.width,
-                  height: spotlightRect.height,
+                  left: walkthrough.spotlightRect.left,
+                  top: walkthrough.spotlightRect.top,
+                  width: walkthrough.spotlightRect.width,
+                  height: walkthrough.spotlightRect.height,
                 }}
               />
             </div>
@@ -408,61 +361,55 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
         )}
 
       <Dialog
-        open={walkthroughOpen}
+        open={walkthrough.isOpen}
         onOpenChange={(open) => {
-          if (!open) closeWalkthrough();
+          if (!open) walkthrough.close();
         }}
       >
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          {(() => {
-            const step = WALKTHROUGH_STEPS[walkthroughStep];
-            if (!step) return null;
-            const isFirst = walkthroughStep === 0;
-            const isLast = walkthroughStep === WALKTHROUGH_STEPS.length - 1;
-            return (
-              <>
-                <DialogHeader>
-                  <p className="text-xs font-medium text-muted-foreground" aria-hidden>
-                    Step {walkthroughStep + 1} of {WALKTHROUGH_STEPS.length}
-                  </p>
-                  <DialogTitle id="mobile-walkthrough-title">{step.title}</DialogTitle>
-                  <DialogDescription id="mobile-walkthrough-description" className="mt-1 text-left">
-                    {step.body}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="order-last sm:order-first text-muted-foreground"
-                    onClick={closeWalkthrough}
-                  >
-                    Skip tour
-                  </Button>
-                  <div className="flex gap-2">
-                    {!isFirst && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setWalkthroughStep((s) => s - 1)}
-                      >
-                        Back
-                      </Button>
-                    )}
-                    {isLast ? (
-                      <Button size="sm" onClick={closeWalkthrough}>
-                        Finish
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => setWalkthroughStep((s) => s + 1)}>
-                        Next
-                      </Button>
-                    )}
-                  </div>
-                </DialogFooter>
-              </>
-            );
-          })()}
+          {walkthrough.currentStep && (
+            <>
+              <DialogHeader>
+                <p className="text-xs font-medium text-muted-foreground" aria-hidden>
+                  Step {walkthrough.step + 1} of {walkthrough.totalSteps}
+                </p>
+                <DialogTitle id="mobile-walkthrough-title">{walkthrough.currentStep.title}</DialogTitle>
+                <DialogDescription id="mobile-walkthrough-description" className="mt-1 text-left">
+                  {walkthrough.currentStep.body}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="order-last sm:order-first text-muted-foreground"
+                  onClick={walkthrough.close}
+                >
+                  Skip tour
+                </Button>
+                <div className="flex gap-2">
+                  {!walkthrough.isFirst && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={walkthrough.back}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  {walkthrough.isLast ? (
+                    <Button size="sm" onClick={walkthrough.close}>
+                      Finish
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={walkthrough.next}>
+                      Next
+                    </Button>
+                  )}
+                </div>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

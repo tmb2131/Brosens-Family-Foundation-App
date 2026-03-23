@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
+import { useSort } from "@/lib/hooks/use-sort";
 import { ArrowDownAZ, ArrowUpAZ, Banknote, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
 const FrankDeenieYearSplitChart = dynamic(
   () => import("@/components/frank-deenie/year-split-chart").then((mod) => mod.FrankDeenieYearSplitChart),
@@ -41,12 +42,11 @@ import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, UserProfile, YearMode } from "@/lib/types";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
-import { buildCsv, buildTsv, downloadFile, escapeHtml, type CsvSection } from "@/lib/export-utils";
+import { buildCsv, buildTsv, buildPrintableHtml, downloadFile, escapeHtml, type CsvSection } from "@/lib/export-utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
 type SortKey = "date" | "name" | "memo" | "amount" | "status";
-type SortDirection = "asc" | "desc";
 
 interface DonationFilters {
   search: string;
@@ -201,16 +201,8 @@ function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: stri
 </html>`;
 }
 
-function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: string, eventRows: FoundationEventExportRow[]) {
-  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-  const body = rows
-    .map((row) => {
-      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("");
-
-  let eventsHtml = "";
+function buildFrankDeeniePrintableHtml(rows: DonationExportRow[], title: string, subtitle: string, eventRows: FoundationEventExportRow[]) {
+  let eventsBodyContent = "";
   if (eventRows.length > 0) {
     const eventHead = FOUNDATION_EVENT_HEADERS.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
     const eventBody = eventRows
@@ -219,45 +211,21 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
         return `<tr>${cells}</tr>`;
       })
       .join("");
-    eventsHtml = `
-      <div>
-        <h2 style="margin: 0 0 8px; font-size: 15px;">Foundation Events</h2>
-        <table>
-          <thead><tr>${eventHead}</tr></thead>
-          <tbody>${eventBody}</tbody>
-        </table>
-      </div>`;
+    eventsBodyContent = `
+    <h2 style="margin: 24px 0 8px; font-size: 15px;">Foundation Events</h2>
+    <table><thead><tr>${eventHead}</tr></thead><tbody>${eventBody}</tbody></table>`;
   }
 
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>${escapeHtml(title)}</title>
-    <style>
-      @page { margin: 0.5in; size: landscape; }
-      body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
-      h1 { margin: 0 0 6px; font-size: 18px; }
-      p { margin: 0 0 12px; color: #475569; font-size: 12px; }
-      table { border-collapse: collapse; }
-      th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
-      th { background: #e2e8f0; font-weight: 700; }
-      .tables { display: flex; gap: 24px; align-items: flex-start; }
-    </style>
-  </head>
-  <body>
-    <h1>${escapeHtml(title)}</h1>
-    <p>${escapeHtml(subtitle)}</p>
-    <div class="tables">
-      <div>
-        <table>
-          <thead><tr>${head}</tr></thead>
-          <tbody>${body}</tbody>
-        </table>
-      </div>${eventsHtml}
-    </div>
-  </body>
-</html>`;
+  return buildPrintableHtml(
+    EXPORT_HEADERS,
+    rows.map(rowToExportValues),
+    title,
+    subtitle,
+    {
+      extraStyle: "@page { size: landscape; } table { width: auto; }",
+      bodyContent: eventsBodyContent
+    }
+  );
 }
 
 interface FrankDeenieClientProps {
@@ -277,8 +245,9 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
   }, []);
   const [includeChildren, setIncludeChildren] = useState(false);
   const [filters, setFilters] = useState<DonationFilters>(DEFAULT_FILTERS);
-  const [sortKey, setSortKey] = useState<SortKey>("date");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const { sortKey, sortDirection, toggleSort } = useSort<SortKey>("date", "desc", {
+    getDefaultDirection: (key) => key === "date" ? "desc" : "asc"
+  });
   const [showAddForm, setShowAddForm] = useState(false);
   const [importCsvFile, setImportCsvFile] = useState<File | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
@@ -574,15 +543,6 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     });
   }, [filteredRows, yearMode, chartDrilldownYear, drilldownSortKey, drilldownSortDir]);
 
-  const toggleSort = (nextKey: SortKey) => {
-    if (sortKey === nextKey) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-
-    setSortKey(nextKey);
-    setSortDirection(nextKey === "date" ? "desc" : "asc");
-  };
 
   const sortMarker = (key: SortKey) => {
     if (sortKey !== key) {
@@ -810,7 +770,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
       return;
     }
 
-    printWindow.document.write(buildPrintableHtml(exportRows, exportTitle, exportSubtitle, foundationEventExportRows));
+    printWindow.document.write(buildFrankDeeniePrintableHtml(exportRows, exportTitle, exportSubtitle, foundationEventExportRows));
     printWindow.document.close();
     printWindow.focus();
     window.setTimeout(() => {

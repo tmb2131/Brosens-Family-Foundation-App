@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
-import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { buildCsv, buildTsv, downloadFile, escapeHtml } from "@/lib/export-utils";
+import { mutateAllFoundation, PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
+import { useSort } from "@/lib/hooks/use-sort";
+import { useWalkthrough, type WalkthroughStep } from "@/lib/hooks/use-walkthrough";
+import { buildCsv, buildTsv, buildExcelHtml, buildPrintableHtml, downloadFile, escapeHtml } from "@/lib/export-utils";
 import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -51,12 +53,7 @@ import {
   buildHistoricalUpdatePayload,
 } from "./dashboard-utils";
 
-const DASHBOARD_WALKTHROUGH_STEPS: Array<{
-  target: string;
-  targetFallback?: string;
-  title: string;
-  body: string;
-}> = [
+const DASHBOARD_WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
     target: "dashboard-intro",
     targetFallback: "dashboard-intro-mobile",
@@ -94,7 +91,6 @@ interface PendingResponse {
 }
 
 type SortKey = "proposal" | "type" | "amount" | "status" | "sentAt" | "notes" | "createdAt";
-type SortDirection = "asc" | "desc";
 
 interface TableFilters {
   proposal: string;
@@ -152,73 +148,6 @@ function rowToExportValues(row: ProposalExportRow) {
   ];
 }
 
-function buildExcelHtml(rows: ProposalExportRow[], title: string, subtitle: string) {
-  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-  const body = rows
-    .map((row) => {
-      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("");
-
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      body { font-family: Arial, sans-serif; padding: 16px; }
-      h1 { margin: 0 0 6px; font-size: 18px; }
-      p { margin: 0 0 12px; color: #555; font-size: 12px; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { border: 1px solid #d4d4d8; padding: 6px 8px; font-size: 12px; text-align: left; vertical-align: top; }
-      th { background: #f4f4f5; font-weight: 700; }
-    </style>
-  </head>
-  <body>
-    <h1>${escapeHtml(title)}</h1>
-    <p>${escapeHtml(subtitle)}</p>
-    <table>
-      <thead><tr>${head}</tr></thead>
-      <tbody>${body}</tbody>
-    </table>
-  </body>
-</html>`;
-}
-
-function buildPrintableHtml(rows: ProposalExportRow[], title: string, subtitle: string) {
-  const head = EXPORT_HEADERS.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-  const body = rows
-    .map((row) => {
-      const cells = rowToExportValues(row).map((value) => `<td>${escapeHtml(value)}</td>`).join("");
-      return `<tr>${cells}</tr>`;
-    })
-    .join("");
-
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>${escapeHtml(title)}</title>
-    <style>
-      @page { margin: 0.5in; }
-      body { font-family: Arial, sans-serif; margin: 0; color: #0f172a; }
-      h1 { margin: 0 0 6px; font-size: 18px; }
-      p { margin: 0 0 12px; color: #475569; font-size: 12px; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; text-align: left; vertical-align: top; }
-      th { background: #e2e8f0; font-weight: 700; }
-    </style>
-  </head>
-  <body>
-    <h1>${escapeHtml(title)}</h1>
-    <p>${escapeHtml(subtitle)}</p>
-    <table>
-      <thead><tr>${head}</tr></thead>
-      <tbody>${body}</tbody>
-    </table>
-  </body>
-</html>`;
-}
 
 interface DashboardClientProps {
   profile: UserProfile;
@@ -240,8 +169,7 @@ export default function DashboardClient({
   const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
   const [filters, setFilters] = useState<TableFilters>(DEFAULT_FILTERS);
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const { sortKey, sortDirection, toggleSort } = useSort<SortKey>("createdAt", "desc");
   const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
   const [rowMessage, setRowMessage] = useState<Record<string, RowMessage>>({});
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
@@ -249,79 +177,14 @@ export default function DashboardClient({
   const [detailProposalId, setDetailProposalId] = useState<string | null>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
-  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
-  const [walkthroughStep, setWalkthroughStep] = useState(0);
-  const [spotlightRect, setSpotlightRect] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  } | null>(null);
   const { registerStartWalkthrough } = useDashboardWalkthrough();
+  const walkthrough = useWalkthrough({ steps: DASHBOARD_WALKTHROUGH_STEPS });
+  const openWalkthrough = walkthrough.open;
   const isSmallScreen = useIsMobile();
 
   useEffect(() => {
-    return registerStartWalkthrough(() => {
-      setWalkthroughStep(0);
-      setWalkthroughOpen(true);
-    });
-  }, [registerStartWalkthrough]);
-
-  const closeWalkthrough = useCallback(() => {
-    setWalkthroughOpen(false);
-    setWalkthroughStep(0);
-    setSpotlightRect(null);
-  }, []);
-
-  function getTargetElementForStep(stepIndex: number): HTMLElement | null {
-    const step = DASHBOARD_WALKTHROUGH_STEPS[stepIndex];
-    if (!step) return null;
-    const primary = document.querySelector<HTMLElement>(`[data-walkthrough="${step.target}"]`);
-    const fallback = step.targetFallback
-      ? document.querySelector<HTMLElement>(`[data-walkthrough="${step.targetFallback}"]`)
-      : null;
-    const hasSize = (el: HTMLElement) => {
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    };
-    if (primary && hasSize(primary)) return primary;
-    if (fallback && hasSize(fallback)) return fallback;
-    return primary ?? fallback ?? null;
-  }
-
-  const measureAndSetRect = useCallback((stepIndex: number) => {
-    const el = getTargetElementForStep(stepIndex);
-    if (el) {
-      const r = el.getBoundingClientRect();
-      setSpotlightRect({ left: r.left, top: r.top, width: r.width, height: r.height });
-    } else {
-      setSpotlightRect(null);
-    }
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!walkthroughOpen) return;
-    const el = getTargetElementForStep(walkthroughStep);
-    if (!el) {
-      setSpotlightRect(null);
-      return;
-    }
-    el.scrollIntoView({ behavior: "auto", block: "start", inline: "nearest" });
-    measureAndSetRect(walkthroughStep);
-    const t1 = setTimeout(() => measureAndSetRect(walkthroughStep), 50);
-    const t2 = setTimeout(() => measureAndSetRect(walkthroughStep), 200);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
-
-  useEffect(() => {
-    if (!walkthroughOpen) return;
-    const handleResize = () => measureAndSetRect(walkthroughStep);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [walkthroughOpen, walkthroughStep, measureAndSetRect]);
+    return registerStartWalkthrough(openWalkthrough);
+  }, [registerStartWalkthrough, openWalkthrough]);
 
   const foundationKey = useMemo(() => {
     if (selectedYear === null) {
@@ -347,8 +210,7 @@ export default function DashboardClient({
     isLoading: isHistoryLoading
   } = useSWR<FoundationHistorySnapshot>("/api/foundation/history", {
     fallbackData: initialHistory,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
   const hasPendingFallback = (initialPending ?? undefined) !== undefined;
   const {
@@ -363,8 +225,7 @@ export default function DashboardClient({
   });
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     fallbackData: initialWorkspace,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
   const workspace = workspaceQuery.data;
 
@@ -665,15 +526,6 @@ export default function DashboardClient({
     setIsExportMenuOpen(false);
   };
 
-  const toggleSort = (nextSortKey: SortKey) => {
-    if (sortKey === nextSortKey) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-
-    setSortKey(nextSortKey);
-    setSortDirection("asc");
-  };
 
   const SortIcon = ({ k }: { k: SortKey }) => {
     if (sortKey !== k) return null;
@@ -949,7 +801,7 @@ export default function DashboardClient({
 
     downloadFile(
       `${exportFilenameBase}.xls`,
-      buildExcelHtml(exportRows, exportTitle, exportSubtitle),
+      buildExcelHtml(EXPORT_HEADERS, exportRows.map(rowToExportValues), exportTitle, exportSubtitle),
       "application/vnd.ms-excel;charset=utf-8"
     );
     toast.success(`Excel file exported (${formatNumber(exportRows.length)} rows).`);
@@ -969,7 +821,7 @@ export default function DashboardClient({
       return;
     }
 
-    printWindow.document.write(buildPrintableHtml(exportRows, exportTitle, exportSubtitle));
+    printWindow.document.write(buildPrintableHtml(EXPORT_HEADERS, exportRows.map(rowToExportValues), exportTitle, exportSubtitle));
     printWindow.document.close();
     printWindow.focus();
     window.setTimeout(() => {
@@ -1006,8 +858,8 @@ export default function DashboardClient({
 
   return (
     <div className="page-stack pb-4">
-      {walkthroughOpen &&
-        spotlightRect &&
+      {walkthrough.isOpen &&
+        walkthrough.spotlightRect &&
         typeof document !== "undefined" &&
         createPortal(
           <>
@@ -1016,10 +868,10 @@ export default function DashboardClient({
                 className="bg-transparent"
                 style={{
                   position: "fixed",
-                  left: spotlightRect.left,
-                  top: spotlightRect.top,
-                  width: spotlightRect.width,
-                  height: spotlightRect.height,
+                  left: walkthrough.spotlightRect.left,
+                  top: walkthrough.spotlightRect.top,
+                  width: walkthrough.spotlightRect.width,
+                  height: walkthrough.spotlightRect.height,
                   boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
                   outline: "2px solid hsl(var(--accent))",
                   outlineOffset: 4,
@@ -1032,10 +884,10 @@ export default function DashboardClient({
                 className="pointer-events-none"
                 style={{
                   position: "fixed",
-                  left: spotlightRect.left,
-                  top: spotlightRect.top,
-                  width: spotlightRect.width,
-                  height: spotlightRect.height
+                  left: walkthrough.spotlightRect.left,
+                  top: walkthrough.spotlightRect.top,
+                  width: walkthrough.spotlightRect.width,
+                  height: walkthrough.spotlightRect.height
                 }}
               />
             </div>
@@ -1044,61 +896,55 @@ export default function DashboardClient({
         )}
 
       <Dialog
-        open={walkthroughOpen}
+        open={walkthrough.isOpen}
         onOpenChange={(open) => {
-          if (!open) closeWalkthrough();
+          if (!open) walkthrough.close();
         }}
       >
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          {(() => {
-            const step = DASHBOARD_WALKTHROUGH_STEPS[walkthroughStep];
-            if (!step) return null;
-            const isFirst = walkthroughStep === 0;
-            const isLast = walkthroughStep === DASHBOARD_WALKTHROUGH_STEPS.length - 1;
-            return (
-              <>
-                <DialogHeader>
-                  <p className="text-xs font-medium text-muted-foreground" aria-hidden>
-                    Step {walkthroughStep + 1} of {DASHBOARD_WALKTHROUGH_STEPS.length}
-                  </p>
-                  <DialogTitle id="dashboard-walkthrough-title">{step.title}</DialogTitle>
-                  <DialogDescription id="dashboard-walkthrough-description" className="mt-1 text-left">
-                    {step.body}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="order-last sm:order-first text-muted-foreground"
-                    onClick={closeWalkthrough}
-                  >
-                    Skip tour
-                  </Button>
-                  <div className="flex gap-2">
-                    {!isFirst && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setWalkthroughStep((s) => s - 1)}
-                      >
-                        Back
-                      </Button>
-                    )}
-                    {isLast ? (
-                      <Button size="sm" onClick={closeWalkthrough}>
-                        Finish
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => setWalkthroughStep((s) => s + 1)}>
-                        Next
-                      </Button>
-                    )}
-                  </div>
-                </DialogFooter>
-              </>
-            );
-          })()}
+          {walkthrough.currentStep && (
+            <>
+              <DialogHeader>
+                <p className="text-xs font-medium text-muted-foreground" aria-hidden>
+                  Step {walkthrough.step + 1} of {walkthrough.totalSteps}
+                </p>
+                <DialogTitle id="dashboard-walkthrough-title">{walkthrough.currentStep.title}</DialogTitle>
+                <DialogDescription id="dashboard-walkthrough-description" className="mt-1 text-left">
+                  {walkthrough.currentStep.body}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-4 flex-row flex-wrap gap-2 sm:justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="order-last sm:order-first text-muted-foreground"
+                  onClick={walkthrough.close}
+                >
+                  Skip tour
+                </Button>
+                <div className="flex gap-2">
+                  {!walkthrough.isFirst && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={walkthrough.back}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  {walkthrough.isLast ? (
+                    <Button size="sm" onClick={walkthrough.close}>
+                      Finish
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={walkthrough.next}>
+                      Next
+                    </Button>
+                  )}
+                </div>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

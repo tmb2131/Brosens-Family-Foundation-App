@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import { toast } from "sonner";
 import { CheckCircle, ChevronRight, MessageSquare, MessageSquarePlus, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -519,8 +520,7 @@ export default function MandateClient({ profile, initialMandate }: MandateClient
   const { data, isLoading, error, mutate } = useSWR<MandatePolicyPageData>("/api/policy/mandate", {
     refreshInterval: 300_000,
     fallbackData: initialMandate,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
 
   usePagePerf("/mandate", !isLoading, {

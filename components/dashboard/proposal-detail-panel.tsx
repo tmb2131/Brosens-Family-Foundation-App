@@ -19,6 +19,7 @@ import {
 import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
 import { cn, charityNavigatorRating, currency, parseNumberInput, titleCase } from "@/lib/utils";
 import type { ProposalStatus, UserProfile, WorkspaceSnapshot } from "@/lib/types";
+import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
 import {
   type ProposalView,
   type ProposalDraft,
@@ -43,21 +44,6 @@ export type RowMessage = { tone: "success" | "error"; text: string };
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
-type CharityNavigatorPreviewState =
-  | "preview_available"
-  | "missing_ein"
-  | "no_score"
-  | "config_missing"
-  | "upstream_error";
-
-interface CharityNavigatorPreviewResponse {
-  state: CharityNavigatorPreviewState;
-  normalizedUrl: string | null;
-  ein: string | null;
-  score: number | null;
-  organizationName: string | null;
-  message?: string;
-}
 
 export interface ProposalDetailPanelProps {
   proposalId: string | null;
@@ -123,12 +109,17 @@ export function ProposalDetailPanel({
   const [isDetailEditMode, setIsDetailEditMode] = useState(false);
   const [detailEditDraft, setDetailEditDraft] = useState<ProposalDetailEditDraft | null>(null);
   const [isDetailSaving, setIsDetailSaving] = useState(false);
-  const [detailCharityNavigatorPreview, setDetailCharityNavigatorPreview] =
-    useState<CharityNavigatorPreviewResponse | null>(null);
   const [givingHistoryCharity, setGivingHistoryCharity] = useState<{
     name: string;
     organizationId?: string;
   } | null>(null);
+
+  const currentProposal = proposalId
+    ? proposals.find((proposal) => proposal.id === proposalId) ?? null
+    : null;
+  const detailCharityNavigatorPreview = useCharityNavigatorPreview(
+    currentProposal?.charityNavigatorUrl ?? null
+  );
 
   // Reset edit state when panel closes
   useEffect(() => {
@@ -151,51 +142,6 @@ export function ProposalDetailPanel({
       onClose();
     }
   }, [proposals, proposalId, onClose]);
-
-  // Fetch Charity Navigator preview on open
-  useEffect(() => {
-    if (!proposalId) {
-      setDetailCharityNavigatorPreview(null);
-      return;
-    }
-
-    const currentProposal = proposals.find((proposal) => proposal.id === proposalId);
-    const charityNavigatorUrl = currentProposal?.charityNavigatorUrl?.trim() ?? "";
-    if (!charityNavigatorUrl) {
-      setDetailCharityNavigatorPreview(null);
-      return;
-    }
-
-    let active = true;
-    void (async () => {
-      try {
-        const response = await fetch("/api/charity-navigator/preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ charityNavigatorUrl })
-        });
-        if (!response.ok) {
-          if (active) {
-            setDetailCharityNavigatorPreview(null);
-          }
-          return;
-        }
-
-        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
-        if (active) {
-          setDetailCharityNavigatorPreview(payload);
-        }
-      } catch {
-        if (active) {
-          setDetailCharityNavigatorPreview(null);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [proposals, proposalId]);
 
   // Body scroll lock + Escape key handler
   useEffect(() => {

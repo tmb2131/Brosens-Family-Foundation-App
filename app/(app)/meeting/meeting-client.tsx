@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { mutateAllFoundation, optimisticMutate } from "@/lib/swr-helpers";
+import { mutateAllFoundation, optimisticMutate, PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import { AlertTriangle, CheckCircle2, ClipboardList, DollarSign, Eye, EyeOff, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { MeetingProposalCard } from "@/components/meeting/meeting-proposal-card";
@@ -13,6 +13,7 @@ import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/respons
 import { StatusPill } from "@/components/ui/status-pill";
 import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot, UserProfile } from "@/lib/types";
+import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { usePagePerf } from "@/lib/perf-logger-client";
@@ -33,21 +34,6 @@ interface MeetingResponse {
   proposals: FoundationSnapshot["proposals"];
 }
 
-type CharityNavigatorPreviewState =
-  | "preview_available"
-  | "missing_ein"
-  | "no_score"
-  | "config_missing"
-  | "upstream_error";
-
-interface CharityNavigatorPreviewResponse {
-  state: CharityNavigatorPreviewState;
-  normalizedUrl: string | null;
-  ein: string | null;
-  score: number | null;
-  organizationName: string | null;
-  message?: string;
-}
 
 interface MeetingClientProps {
   profile: UserProfile;
@@ -58,8 +44,7 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
   const { data, mutate, isLoading, isValidating, error } = useSWR<MeetingResponse>("/api/meeting", {
     refreshInterval: 30_000,
     fallbackData: initialMeeting,
-    revalidateOnMount: false,
-    revalidateIfStale: false
+    ...PRELOADED_SWR_CONFIG,
   });
 
   usePagePerf("/meeting", !isLoading, {
@@ -80,8 +65,6 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
     totalRequiredVotes: number;
     status: "approved" | "declined";
   } | null>(null);
-  const [meetingDialogCharityNavigatorPreview, setMeetingDialogCharityNavigatorPreview] =
-    useState<CharityNavigatorPreviewResponse | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -90,45 +73,12 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
       ? data?.proposals.find((p) => p.id === meetingDialogProposalId) ?? null
       : null;
 
+  const meetingDialogCharityNavigatorPreview = useCharityNavigatorPreview(
+    meetingDialogProposal?.charityNavigatorUrl ?? null
+  );
+
   const meetingDialogApiOrganizationName =
     meetingDialogCharityNavigatorPreview?.organizationName?.trim() || null;
-
-  useEffect(() => {
-    if (!meetingDialogProposal?.charityNavigatorUrl) {
-      setMeetingDialogCharityNavigatorPreview(null);
-      return;
-    }
-
-    let active = true;
-    void (async () => {
-      try {
-        const response = await fetch("/api/charity-navigator/preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ charityNavigatorUrl: meetingDialogProposal.charityNavigatorUrl })
-        });
-        if (!response.ok) {
-          if (active) {
-            setMeetingDialogCharityNavigatorPreview(null);
-          }
-          return;
-        }
-
-        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
-        if (active) {
-          setMeetingDialogCharityNavigatorPreview(payload);
-        }
-      } catch {
-        if (active) {
-          setMeetingDialogCharityNavigatorPreview(null);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [meetingDialogProposal?.charityNavigatorUrl]);
 
   if (!["oversight", "manager"].includes(profile.role)) {
     return (

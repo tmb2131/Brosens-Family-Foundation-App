@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import useSWR from "swr";
+import { useSort } from "@/lib/hooks/use-sort";
 import { ChevronDown, ChevronUp, ClipboardList, Download, DollarSign, PieChart as PieChartIcon, RefreshCw, Send } from "lucide-react";
 
 const ReportsCharts = dynamic(
@@ -40,7 +41,6 @@ type StatusFilterState = Record<ProposalStatus, boolean>;
 type SelectedYear = number | "all" | null;
 type CategoryFilter = "all" | DirectionalCategory;
 type ReportSortKey = "proposal" | "type" | "status" | "amount" | "sentAt" | "category";
-type SortDirection = "asc" | "desc";
 
 const STATUS_RANK: Record<ProposalStatus, number> = {
   to_review: 0,
@@ -84,8 +84,7 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
   const [statusFilters, setStatusFilters] = useState<StatusFilterState>(DEFAULT_STATUS_FILTERS);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
-  const [sortKey, setSortKey] = useState<ReportSortKey>("proposal");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const { sortKey, sortDirection, toggleSort } = useSort<ReportSortKey>("proposal", "asc");
 
   const foundationKey = useMemo(() => {
     if (selectedYear === null) {
@@ -178,14 +177,6 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     });
   }, [categoryFilter, data, sortDirection, sortKey, statusFilters]);
 
-  const toggleSort = (nextKey: ReportSortKey) => {
-    if (sortKey === nextKey) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortKey(nextKey);
-    setSortDirection("asc");
-  };
 
   const SortIcon = ({ k }: { k: ReportSortKey }) => {
     if (sortKey !== k) return null;
