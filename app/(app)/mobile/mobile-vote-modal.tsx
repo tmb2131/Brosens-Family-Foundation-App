@@ -68,7 +68,6 @@ export function MobileVoteModal({
           onClose();
         }
       }}
-      drawerProps={{ disablePreventScroll: false }}
     >
       {voteDialogItem ? (
         <VoteFormProvider

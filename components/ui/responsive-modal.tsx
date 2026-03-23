@@ -33,14 +33,25 @@ const IsMobileContext = React.createContext<boolean>(false)
 /** Subset of Vaul drawer props (avoids snap-point discriminated unions from `ComponentProps<typeof Drawer>`). */
 type ResponsiveModalDrawerProps = Pick<
   React.ComponentProps<typeof Drawer>,
-  "disablePreventScroll" | "fixed" | "repositionInputs"
+  "disablePreventScroll" | "fixed" | "repositionInputs" | "noBodyStyles"
 >
+
+/**
+ * Applied to every mobile bottom sheet so iOS keyboard cycles do not leave stale inline
+ * drawer styles or `position:fixed` body hacks that break the app shell’s fixed bottom nav.
+ * Pass `drawerProps` to override any field.
+ */
+const DEFAULT_MOBILE_DRAWER_PROPS: ResponsiveModalDrawerProps = {
+  disablePreventScroll: false,
+  repositionInputs: false,
+  noBodyStyles: true,
+}
 
 interface ResponsiveModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
-  /** Forwarded to Vaul `Drawer.Root` when the modal renders as a bottom sheet (viewports below the mobile breakpoint). */
+  /** Merged after {@link DEFAULT_MOBILE_DRAWER_PROPS} on Vaul `Drawer.Root` when rendering as a bottom sheet. */
   drawerProps?: ResponsiveModalDrawerProps
 }
 
@@ -50,7 +61,12 @@ function ResponsiveModal({ open, onOpenChange, children, drawerProps }: Responsi
   if (isMobile) {
     return (
       <IsMobileContext.Provider value={true}>
-        <Drawer open={open} onOpenChange={onOpenChange} {...drawerProps}>
+        <Drawer
+          open={open}
+          onOpenChange={onOpenChange}
+          {...DEFAULT_MOBILE_DRAWER_PROPS}
+          {...drawerProps}
+        >
           {children}
         </Drawer>
       </IsMobileContext.Provider>
@@ -101,7 +117,14 @@ function ResponsiveModalContent({
         className={cn(drawerClassName, className)}
         aria-labelledby={ariaLabelledby}
       >
-        <div className={cn("overflow-y-auto p-4", footer ? "flex-1 min-h-0" : "pb-[env(safe-area-inset-bottom,16px)]")}>
+        <div
+          className={cn(
+            "overflow-y-auto p-4",
+            footer
+              ? "flex-1 min-h-0 scroll-pb-[calc(7rem+env(safe-area-inset-bottom,0px))]"
+              : "scroll-pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,16px)]",
+          )}
+        >
           {children}
         </div>
         {footer ? (
@@ -138,6 +161,7 @@ function ResponsiveModalClose(props: React.ComponentProps<"button">) {
 }
 
 export {
+  DEFAULT_MOBILE_DRAWER_PROPS,
   ResponsiveModal,
   ResponsiveModalContent,
   ResponsiveModalClose,
