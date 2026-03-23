@@ -111,6 +111,7 @@ export function BudgetPreviewCard({
               proposalType === "joint" ? jointAllocationFromProposer : discretionaryProposedPending
             }
             compact
+            emphasizeBorder
           />
           <PersonalBudgetBars
             title="Joint"

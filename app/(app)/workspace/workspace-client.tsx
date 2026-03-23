@@ -209,6 +209,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
             allocated={totalIndividualAllocated - pendingJointTotal}
             total={totalIndividualTarget}
             pendingAllocation={pendingJointTotal}
+            emphasizeBorder
           />
           <PersonalBudgetBars
             title="Joint Budget"
@@ -489,9 +490,8 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                   top: walkthrough.spotlightRect.top,
                   width: walkthrough.spotlightRect.width,
                   height: walkthrough.spotlightRect.height,
-                  boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
-                  outline: "2px solid hsl(var(--accent))",
-                  outlineOffset: 4,
+                  boxShadow:
+                    "0 0 0 4px hsl(0 0% 0% / 0.45), 0 0 0 6px hsl(var(--accent)), 0 0 0 9999px hsl(0 0% 0% / 0.45)",
                   borderRadius: "0.75rem"
                 }}
               />
@@ -648,6 +648,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                   total={totalIndividualTarget}
                   pendingAllocation={pendingJointTotal}
                   compact
+                  emphasizeBorder
                 />
                 <PersonalBudgetBars
                   title={`Joint${workspace.personalBudget.jointTarget > 0 ? ` · ${Math.round(((workspace.personalBudget.jointAllocated + pendingJointPortion) / workspace.personalBudget.jointTarget) * 100)}% committed` : ""}`}

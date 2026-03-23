@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { currency } from "@/lib/utils";
+import { cn, currency } from "@/lib/utils";
 
 interface PersonalBudgetBarsProps {
   title: string;
@@ -11,6 +11,8 @@ interface PersonalBudgetBarsProps {
   pendingAllocation?: number;
   /** Use smaller bar and tighter typography for compact layouts (e.g. mobile grid). */
   compact?: boolean;
+  /** Stronger border for aggregate rows (e.g. total = joint + discretionary). */
+  emphasizeBorder?: boolean;
 }
 
 const PENDING_BAR_STYLE = { backgroundColor: "rgb(var(--proposal-cta))" } as const;
@@ -20,7 +22,8 @@ export function PersonalBudgetBars({
   allocated,
   total,
   pendingAllocation = 0,
-  compact = false
+  compact = false,
+  emphasizeBorder = false
 }: PersonalBudgetBarsProps) {
   const allocatedRatio =
     total === 0 ? 0 : Math.min(100, Math.round((allocated / total) * 100));
@@ -41,7 +44,15 @@ export function PersonalBudgetBars({
 
   return (
     <div
-      className={compact ? "rounded-xl border border-border/80 bg-muted/30 p-2" : "rounded-xl border p-3"}
+      className={cn(
+        "rounded-xl",
+        compact ? "bg-muted/30 p-2" : "p-3",
+        emphasizeBorder
+          ? "border-2 border-foreground/20"
+          : compact
+            ? "border border-border/80"
+            : "border"
+      )}
     >
       <p
         className={
@@ -52,9 +63,17 @@ export function PersonalBudgetBars({
       >
         {title}
       </p>
-      <p className="mt-1 text-sm font-semibold tabular-nums text-foreground">
-        {currency(remaining)}
-      </p>
+      {compact ? (
+        <div className="mt-1">
+          <p className="text-sm font-semibold tabular-nums text-foreground">{currency(remaining)}</p>
+          <p className="text-[10px] leading-tight text-muted-foreground">left to allocate</p>
+        </div>
+      ) : (
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-1 text-sm">
+          <span className="font-semibold tabular-nums text-foreground">{currency(remaining)}</span>
+          <span className="font-normal text-muted-foreground">left to allocate</span>
+        </p>
+      )}
       <p className={compact ? "text-[10px] text-muted-foreground" : "text-xs text-muted-foreground"}>
         {isFullShare ? (
           <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400">

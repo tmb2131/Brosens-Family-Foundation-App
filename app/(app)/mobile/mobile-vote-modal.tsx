@@ -141,6 +141,7 @@ export function MobileVoteModal({
                       total={budget.totalIndividualTarget}
                       pendingAllocation={budget.pendingJointTotal}
                       compact
+                      emphasizeBorder
                     />
                     <PersonalBudgetBars
                       title="Joint"

@@ -73,7 +73,7 @@ function DialogContent({
       {useCutout ? (
         <div
           aria-hidden
-          className="fixed z-50"
+          className="fixed z-50 rounded-xl"
           style={{
             left: overlayCutoutRect.left,
             top: overlayCutoutRect.top,

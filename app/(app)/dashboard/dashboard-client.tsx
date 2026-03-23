@@ -872,9 +872,8 @@ export default function DashboardClient({
                   top: walkthrough.spotlightRect.top,
                   width: walkthrough.spotlightRect.width,
                   height: walkthrough.spotlightRect.height,
-                  boxShadow: "0 0 0 9999px hsl(0 0% 0% / 0.45)",
-                  outline: "2px solid hsl(var(--accent))",
-                  outlineOffset: 4,
+                  boxShadow:
+                    "0 0 0 4px hsl(0 0% 0% / 0.45), 0 0 0 6px hsl(var(--accent)), 0 0 0 9999px hsl(0 0% 0% / 0.45)",
                   borderRadius: "0.75rem"
                 }}
               />
