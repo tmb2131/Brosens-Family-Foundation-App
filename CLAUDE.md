@@ -30,10 +30,10 @@ npm run dev:1            # Start on port 3000
 npm run dev:2            # Start on port 3001
 npm run dev:3            # Start on port 3002
 npm run dev:4            # Start on port 3003
-npm run dev:test         # Start with test env (NODE_ENV=test, .env.test.local)
+npm run dev:test         # Start with test env (NODE_ENV=test; env-cmd loads .env.test.local)
 npm run build            # Production build
 npm run start            # Start production server
-npm run lint             # ESLint (next/core-web-vitals)
+npm run lint             # ESLint 9 flat config (eslint.config.mjs → next/core-web-vitals)
 npm run typecheck        # TypeScript strict type checking (tsc --noEmit)
 npm run test:mobile-screenshots          # Playwright E2E tests
 npm run test:mobile-screenshots:headed   # Playwright with browser UI
@@ -108,7 +108,8 @@ components/
 
 lib/
   supabase/            # Supabase client configs (browser, server, admin)
-  hooks/               # Custom hooks (use-draft-persistence for proposal form drafts)
+  hooks/               # Custom hooks: use-draft-persistence, use-charity-navigator-preview,
+                       #   use-walkthrough, use-sort
   types.ts             # Shared TypeScript types and interfaces
   auth-server.ts       # requireAuthContext(), assertRole(), isVotingRole()
   http-error.ts        # HttpError class, toErrorResponse(), cache header constants
@@ -133,6 +134,7 @@ lib/
   url-validation.ts    # URL normalization and validation (normalizeOptionalHttpUrl)
   swr-helpers.ts       # SWR invalidation helpers (mutateAllFoundation)
   chart-styles.ts      # Recharts styling utilities
+  export-utils.ts      # CSV/TSV/HTML export helpers and client download utilities
 
 scripts/
   daily-digest-preview.ts          # Preview the daily digest email in the terminal
@@ -362,6 +364,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Path alias: `@/*` maps to project root (e.g., `@/lib/types`, `@/components/ui/card`)
 - Types defined in `lib/types.ts` — use shared types, don't duplicate
 - `allowJs: false` — all source must be TypeScript
+- ESLint: `eslint.config.mjs` (flat config) extends `next/core-web-vitals` via `@eslint/eslintrc` compat
 
 ### Components
 
@@ -416,7 +419,7 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
   - `Referrer-Policy: strict-origin-when-cross-origin`
   - `X-DNS-Prefetch-Control: on`
   - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-  - `Content-Security-Policy` (default-src self, script-src self unsafe-inline unsafe-eval, style-src self unsafe-inline, img-src self data: blob:, connect-src *.supabase.co, frame-ancestors none)
+  - `Content-Security-Policy` (default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co; frame-ancestors 'none')
   - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - Static asset caching: `Cache-Control: public, max-age=31536000, immutable` for images/fonts
 - `poweredByHeader: false` in Next.js config
