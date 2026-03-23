@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
-import { History, X } from "lucide-react";
+import { ChevronDown, History, X } from "lucide-react";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
@@ -30,6 +30,7 @@ import {
   amountsDiffer,
   buildRequiredActionSummary,
 } from "@/app/(app)/dashboard/dashboard-utils";
+import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 
 const CharityGivingHistory = dynamic(
   () => import("@/components/charity-giving-history").then((mod) => mod.CharityGivingHistory),
@@ -113,6 +114,8 @@ export function ProposalDetailPanel({
     name: string;
     organizationId?: string;
   } | null>(null);
+  const [pendingJointAllocation, setPendingJointAllocation] = useState(0);
+  const [budgetBreakdownOpen, setBudgetBreakdownOpen] = useState(false);
 
   const currentProposal = proposalId
     ? proposals.find((proposal) => proposal.id === proposalId) ?? null
@@ -129,6 +132,11 @@ export function ProposalDetailPanel({
     setIsDetailEditMode(false);
     setDetailEditDraft(null);
     setIsDetailSaving(false);
+  }, [proposalId]);
+
+  useEffect(() => {
+    setPendingJointAllocation(0);
+    setBudgetBreakdownOpen(false);
   }, [proposalId]);
 
   // Verify proposal still exists
@@ -296,6 +304,111 @@ export function ProposalDetailPanel({
   const detailRowState = detailProposal ? getRowMessage(detailProposal.id) : undefined;
   const detailApiOrganizationName = detailCharityNavigatorPreview?.organizationName?.trim() || null;
 
+  const isManager = profile.role === "manager";
+  const pendingJointTotal = pendingJointAllocation;
+  const jointRemainingForBars = workspace?.personalBudget.jointRemaining ?? 0;
+  const pendingJointPortion =
+    workspace && detailProposal?.proposalType === "joint"
+      ? Math.min(pendingJointTotal, jointRemainingForBars)
+      : 0;
+  const pendingDiscretionaryPortion =
+    workspace && detailProposal?.proposalType === "joint"
+      ? Math.max(0, pendingJointTotal - jointRemainingForBars)
+      : 0;
+  const totalIndividualAllocated = workspace
+    ? workspace.personalBudget.jointAllocated +
+      workspace.personalBudget.discretionaryAllocated +
+      pendingJointTotal
+    : 0;
+  const totalIndividualTarget = workspace
+    ? workspace.personalBudget.jointTarget + workspace.personalBudget.discretionaryCap
+    : 0;
+
+  const voteIndividualBudgetBlock =
+    detailShowVoteForm && isManager ? (
+      <div className="rounded-xl border border-border bg-muted/30 p-3">
+        <p className="text-sm text-muted-foreground">
+          Managers do not have an individual budget. Joint proposals are still available.
+        </p>
+      </div>
+    ) : detailShowVoteForm && !workspace ? (
+      <div className="rounded-xl border border-border bg-muted/30 p-3">
+        <p className="text-xs text-muted-foreground">Loading your budget…</p>
+      </div>
+    ) : detailShowVoteForm &&
+      workspace &&
+      !isManager &&
+      detailProposal?.proposalType === "joint" ? (
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Your individual budget
+        </p>
+        <PersonalBudgetBars
+          title="Total Individual Budget"
+          allocated={totalIndividualAllocated - pendingJointTotal}
+          total={totalIndividualTarget}
+          pendingAllocation={pendingJointTotal}
+          emphasizeBorder
+        />
+        <p
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+          role="img"
+          aria-label="Green is allocated, blue is your allocation"
+        >
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-4 shrink-0 rounded-full bg-accent" aria-hidden />
+            Allocated
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="h-2.5 w-4 shrink-0 rounded-full"
+              style={{ backgroundColor: "rgb(var(--proposal-cta))" }}
+              aria-hidden
+            />
+            Your input
+          </span>
+        </p>
+        <div className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setBudgetBreakdownOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-expanded={budgetBreakdownOpen}
+          >
+            <span className="text-muted-foreground">Joint & discretionary detail</span>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                budgetBreakdownOpen && "rotate-180"
+              )}
+              aria-hidden
+            />
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: budgetBreakdownOpen ? "1fr" : "0fr" }}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="space-y-3 border-t border-border/60 px-3 pb-3 pt-3">
+                <PersonalBudgetBars
+                  title="Joint Budget"
+                  allocated={workspace.personalBudget.jointAllocated}
+                  total={workspace.personalBudget.jointTarget}
+                  pendingAllocation={pendingJointPortion}
+                />
+                <PersonalBudgetBars
+                  title="Discretionary Budget"
+                  allocated={workspace.personalBudget.discretionaryAllocated}
+                  total={workspace.personalBudget.discretionaryCap}
+                  pendingAllocation={pendingDiscretionaryPortion}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   return (
     <>
       <ResponsiveModal
@@ -320,6 +433,11 @@ export function ProposalDetailPanel({
                 userId={profile.id}
                 proposalTitle={detailProposal.title}
                 onSuccess={() => {}}
+                onAllocationChange={
+                  detailProposal.proposalType === "joint"
+                    ? (amount) => setPendingJointAllocation(amount)
+                    : undefined
+                }
                 maxJointAllocation={
                   detailProposal.proposalType === "joint" && workspace
                     ? workspace.personalBudget.jointRemaining +
@@ -463,6 +581,10 @@ export function ProposalDetailPanel({
                 </div>
               ) : null}
             </dl>
+
+            {detailShowVoteForm && isSmallScreen && voteIndividualBudgetBlock ? (
+              <div className="mt-4">{voteIndividualBudgetBlock}</div>
+            ) : null}
 
             {detailIsRowEditable || detailCanEditSentDate ? (
               <>
@@ -710,6 +832,9 @@ export function ProposalDetailPanel({
             </div>
             {!isSmallScreen && detailShowVoteForm ? (
               <div className="w-80 shrink-0 border-l pl-6 pt-1">
+                {voteIndividualBudgetBlock ? (
+                  <div className="mb-4">{voteIndividualBudgetBlock}</div>
+                ) : null}
                 <VoteForm
                   proposalId={detailProposal.id}
                   proposalType={detailProposal.proposalType}
@@ -718,6 +843,11 @@ export function ProposalDetailPanel({
                   userId={profile.id}
                   proposalTitle={detailProposal.title}
                   onSuccess={() => {}}
+                  onAllocationChange={
+                    detailProposal.proposalType === "joint"
+                      ? (amount) => setPendingJointAllocation(amount)
+                      : undefined
+                  }
                   maxJointAllocation={
                     detailProposal.proposalType === "joint" && workspace
                       ? workspace.personalBudget.jointRemaining +
