@@ -41,6 +41,7 @@ import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, UserProfile, YearMode } from "@/lib/types";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { compactCurrency, currency, formatNumber, toISODate } from "@/lib/utils";
+import { buildCsv, buildTsv, downloadFile, escapeHtml, type CsvSection } from "@/lib/export-utils";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
@@ -130,20 +131,6 @@ function normalized(value: string) {
   return value.trim().toLowerCase();
 }
 
-function escapeCsvField(value: string) {
-  const nextValue = value.replace(/"/g, '""');
-  return /[",\n]/.test(nextValue) ? `"${nextValue}"` : nextValue;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function rowToExportValues(row: DonationExportRow) {
   return [
     row.date,
@@ -159,31 +146,6 @@ function rowToExportValues(row: DonationExportRow) {
 
 function eventRowToExportValues(row: FoundationEventExportRow) {
   return [row.date, row.type, row.amount.toFixed(2), row.memo];
-}
-
-function buildCsv(rows: DonationExportRow[], eventRows: FoundationEventExportRow[]) {
-  const headerLine = EXPORT_HEADERS.join(",");
-  const dataLines = rows.map((row) => rowToExportValues(row).map(escapeCsvField).join(","));
-  const parts = [headerLine, ...dataLines];
-  if (eventRows.length > 0) {
-    const eventHeaderLine = FOUNDATION_EVENT_HEADERS.join(",");
-    const eventDataLines = eventRows.map((row) => eventRowToExportValues(row).map(escapeCsvField).join(","));
-    parts.push("", "Foundation Events", eventHeaderLine, ...eventDataLines);
-  }
-  return parts.join("\n");
-}
-
-function buildTsv(rows: DonationExportRow[], eventRows: FoundationEventExportRow[]) {
-  const sanitize = (value: string) => value.replace(/\t/g, " ").replace(/\r?\n/g, " ");
-  const headerLine = EXPORT_HEADERS.join("\t");
-  const dataLines = rows.map((row) => rowToExportValues(row).map(sanitize).join("\t"));
-  const parts = [headerLine, ...dataLines];
-  if (eventRows.length > 0) {
-    const eventHeaderLine = FOUNDATION_EVENT_HEADERS.join("\t");
-    const eventDataLines = eventRows.map((row) => eventRowToExportValues(row).map(sanitize).join("\t"));
-    parts.push("", "Foundation Events", eventHeaderLine, ...eventDataLines);
-  }
-  return parts.join("\n");
 }
 
 function buildExcelHtml(rows: DonationExportRow[], title: string, subtitle: string, eventRows: FoundationEventExportRow[]) {
@@ -296,18 +258,6 @@ function buildPrintableHtml(rows: DonationExportRow[], title: string, subtitle: 
     </div>
   </body>
 </html>`;
-}
-
-function downloadFile(filename: string, content: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 interface FrankDeenieClientProps {
@@ -802,6 +752,20 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     }
   };
 
+  const buildExportSections = (): CsvSection[] => {
+    const sections: CsvSection[] = [
+      { headers: EXPORT_HEADERS, rows: exportRows.map(rowToExportValues) },
+    ];
+    if (foundationEventExportRows.length > 0) {
+      sections.push({
+        label: "Foundation Events",
+        headers: FOUNDATION_EVENT_HEADERS,
+        rows: foundationEventExportRows.map(eventRowToExportValues),
+      });
+    }
+    return sections;
+  };
+
   const withExportRows = () => {
     if (exportRows.length > 0) {
       return true;
@@ -816,7 +780,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
       return;
     }
 
-    downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows, foundationEventExportRows), "text/csv;charset=utf-8");
+    downloadFile(`${exportFilenameBase}.csv`, buildCsv(buildExportSections()), "text/csv;charset=utf-8");
     toast.success(`CSV exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
@@ -866,14 +830,14 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
       if (!navigator.clipboard?.writeText) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(buildTsv(exportRows, foundationEventExportRows));
+      await navigator.clipboard.writeText(buildTsv(buildExportSections()));
 
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
 
       toast.success("Copied rows for Google Sheets. Paste into cell A1 in the new sheet.");
       setIsExportMenuOpen(false);
     } catch {
-      downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows, foundationEventExportRows), "text/csv;charset=utf-8");
+      downloadFile(`${exportFilenameBase}.csv`, buildCsv(buildExportSections()), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
       toast.error("Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets.");
       setIsExportMenuOpen(false);

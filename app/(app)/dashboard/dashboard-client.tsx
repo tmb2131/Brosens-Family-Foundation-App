@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
-import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, History, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
+import { buildCsv, buildTsv, downloadFile, escapeHtml } from "@/lib/export-utils";
+import { ChevronDown, ChevronRight, ChevronUp, CheckCircle2, DollarSign, Download, Plus, RefreshCw, Users, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
-import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import {
@@ -23,33 +23,33 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
-import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
+import { useIsMobile } from "@/components/ui/responsive-modal";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { cn, charityNavigatorRating, currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { cn, currency, formatNumber, parseNumberInput, titleCase, toISODate } from "@/lib/utils";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/ui/status-pill";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
 
-const CharityGivingHistory = dynamic(
-  () => import("@/components/charity-giving-history").then((mod) => mod.CharityGivingHistory),
-  { ssr: false, loading: () => <div className="space-y-3 p-2"><div className="h-4 w-32 animate-pulse rounded bg-muted" /><div className="h-24 w-full animate-pulse rounded bg-muted" /></div> }
-);
 const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
   { ssr: false, loading: () => <div className="flex h-[220px] w-full items-end gap-2 px-4 pb-4"><div className="h-[40%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[65%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[80%] flex-1 animate-pulse rounded-t-md bg-muted" /><div className="h-[55%] flex-1 animate-pulse rounded-t-md bg-muted" /></div> }
 );
-import { AppRole, FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, UserProfile, WorkspaceSnapshot } from "@/lib/types";
-const VoteForm = dynamic(
-  () => import("@/components/voting/vote-form").then((m) => m.VoteForm),
-  { ssr: false }
-);
+import { FoundationHistorySnapshot, FoundationSnapshot, ProposalStatus, UserProfile, WorkspaceSnapshot } from "@/lib/types";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { usePagePerf } from "@/lib/perf-logger-client";
+import { ProposalDetailPanel, type RowMessage } from "@/components/dashboard/proposal-detail-panel";
+import {
+  type ProposalView,
+  type ProposalDraft,
+  toProposalDraft,
+  buildRequiredActionSummary,
+  buildPendingActionRequiredLabel,
+  isHistoricalDraftDirty,
+  buildHistoricalUpdatePayload,
+} from "./dashboard-utils";
 
 const DASHBOARD_WALKTHROUGH_STEPS: Array<{
   target: string;
@@ -86,54 +86,11 @@ const DASHBOARD_WALKTHROUGH_STEPS: Array<{
 
 const STATUS_OPTIONS: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
-type ProposalView = FoundationSnapshot["proposals"][number];
 type DashboardTab = "tracker" | "pending";
 type SelectedYear = number | "all" | null;
 
 interface PendingResponse {
   proposals: FoundationSnapshot["proposals"];
-}
-
-type CharityNavigatorPreviewState =
-  | "preview_available"
-  | "missing_ein"
-  | "no_score"
-  | "config_missing"
-  | "upstream_error";
-
-interface CharityNavigatorPreviewResponse {
-  state: CharityNavigatorPreviewState;
-  normalizedUrl: string | null;
-  ein: string | null;
-  score: number | null;
-  organizationName: string | null;
-  message?: string;
-}
-
-interface ProposalDraft {
-  status: ProposalStatus;
-  finalAmount: string;
-  sentAt: string;
-  notes: string;
-}
-
-interface ProposalDetailEditDraft {
-  title: string;
-  description: string;
-  proposedAmount: string;
-  notes: string;
-  website: string;
-  charityNavigatorUrl: string;
-}
-
-interface RequiredActionSummary {
-  owner: string;
-  detail: string;
-  tone: "neutral" | "attention" | "complete";
-  href?: string;
-  ctaLabel?: string;
-  /** When true, CTA should open the proposal detail modal (e.g. to submit vote) instead of navigating. */
-  openDetail?: boolean;
 }
 
 type SortKey = "proposal" | "type" | "amount" | "status" | "sentAt" | "notes" | "createdAt";
@@ -182,179 +139,6 @@ const EXPORT_HEADERS = [
   "Required Action"
 ] as const;
 
-function toAmountInput(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-function toProposalDraft(proposal: ProposalView): ProposalDraft {
-  return {
-    status: proposal.status,
-    finalAmount: toAmountInput(proposal.progress.computedFinalAmount),
-    sentAt: proposal.sentAt ?? "",
-    notes: proposal.notes ?? ""
-  };
-}
-
-function toProposalDetailEditDraft(proposal: ProposalView): ProposalDetailEditDraft {
-  return {
-    title: proposal.title,
-    description: proposal.description,
-    proposedAmount: toAmountInput(proposal.proposedAmount),
-    notes: proposal.notes ?? "",
-    website: proposal.organizationWebsite ?? "",
-    charityNavigatorUrl: proposal.charityNavigatorUrl ?? ""
-  };
-}
-
-function normalizeDraftNotes(notes: string) {
-  const trimmed = notes.trim();
-  return trimmed ? trimmed : null;
-}
-
-function normalizeDraftSentAt(draft: ProposalDraft) {
-  if (draft.status !== "sent") {
-    return null;
-  }
-
-  const trimmed = draft.sentAt.trim();
-  return trimmed ? trimmed : null;
-}
-
-function amountsDiffer(left: number, right: number) {
-  return Math.abs(left - right) > 0.009;
-}
-
-function buildRequiredActionSummary(
-  proposal: ProposalView,
-  viewerRole?: AppRole
-): RequiredActionSummary {
-  if (proposal.status === "to_review") {
-    const remainingVotes = Math.max(
-      proposal.progress.totalRequiredVotes - proposal.progress.votesSubmitted,
-      0
-    );
-
-    if (remainingVotes > 0) {
-      const memberLabel = remainingVotes === 1 ? "member" : "members";
-      const voteDetail =
-        proposal.proposalType === "joint"
-          ? `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit their allocations.`
-          : `${formatNumber(remainingVotes)} voting ${memberLabel} still need to submit acknowledgement/flag votes.`;
-      const viewerCanVote = viewerRole === "member" || viewerRole === "oversight";
-      const viewerNeedsToVote = viewerCanVote && !proposal.progress.hasCurrentUserVoted;
-
-      if (viewerNeedsToVote) {
-        return {
-          owner: "You",
-          detail: `Submit your vote. ${voteDetail}`,
-          tone: "attention",
-          ctaLabel: proposal.proposalType === "joint" ? "Enter vote & amount" : "Enter vote",
-          openDetail: true
-        };
-      }
-
-      return {
-        owner: "Voting members",
-        detail: voteDetail,
-        tone: "attention"
-      };
-    }
-
-    const needsViewerAction = viewerRole === "oversight" || viewerRole === "manager";
-    return {
-      owner: "Oversight/Manager",
-      detail: "Record Approved or Declined in Meeting.",
-      tone: needsViewerAction ? "attention" : "neutral",
-      href: "/meeting",
-      ctaLabel: "Open Meeting"
-    };
-  }
-
-  if (proposal.status === "approved") {
-    return {
-      owner: "Admin",
-      detail: "Mark as Sent in Admin after funds are disbursed.",
-      tone: viewerRole === "admin" ? "attention" : "neutral",
-      href: "/admin",
-      ctaLabel: "Open Admin Queue"
-    };
-  }
-
-  if (proposal.status === "sent") {
-    return {
-      owner: "None",
-      detail: "Completed. No action required.",
-      tone: "complete"
-    };
-  }
-
-  return {
-    owner: "None",
-    detail: "Closed. No action required.",
-    tone: "complete"
-  };
-}
-
-function buildPendingActionRequiredLabel(proposal: ProposalView) {
-  const summary = buildRequiredActionSummary(proposal);
-  if (summary.owner === "None") {
-    return summary.detail;
-  }
-  return `${summary.owner}: ${summary.detail}`;
-}
-
-function isHistoricalDraftDirty(proposal: ProposalView, draft: ProposalDraft) {
-  const parsedFinalAmount = parseNumberInput(draft.finalAmount);
-  if (parsedFinalAmount === null || parsedFinalAmount < 0) {
-    return true;
-  }
-
-  const proposalNotes = normalizeDraftNotes(proposal.notes ?? "");
-  const draftNotes = normalizeDraftNotes(draft.notes);
-  const proposalSentAt = proposal.sentAt ?? null;
-  const draftSentAt = normalizeDraftSentAt(draft);
-
-  return (
-    proposal.status !== draft.status ||
-    amountsDiffer(parsedFinalAmount, proposal.progress.computedFinalAmount) ||
-    proposalNotes !== draftNotes ||
-    proposalSentAt !== draftSentAt
-  );
-}
-
-function buildHistoricalUpdatePayload(draft: ProposalDraft) {
-  const finalAmount = parseNumberInput(draft.finalAmount);
-  if (finalAmount === null || finalAmount < 0) {
-    return {
-      payload: null,
-      error: "Final amount must be a non-negative number."
-    };
-  }
-
-  return {
-    payload: {
-      status: draft.status,
-      finalAmount,
-      notes: draft.notes,
-      sentAt: normalizeDraftSentAt(draft)
-    } as Record<string, unknown>
-  };
-}
-
-function escapeCsvField(value: string) {
-  const nextValue = value.replace(/"/g, '""');
-  return /[",\n]/.test(nextValue) ? `"${nextValue}"` : nextValue;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function rowToExportValues(row: ProposalExportRow) {
   return [
     row.proposal,
@@ -366,19 +150,6 @@ function rowToExportValues(row: ProposalExportRow) {
     row.notes,
     row.requiredAction
   ];
-}
-
-function buildCsv(rows: ProposalExportRow[]) {
-  const headerLine = EXPORT_HEADERS.join(",");
-  const dataLines = rows.map((row) => rowToExportValues(row).map(escapeCsvField).join(","));
-  return [headerLine, ...dataLines].join("\n");
-}
-
-function buildTsv(rows: ProposalExportRow[]) {
-  const sanitize = (value: string) => value.replace(/\t/g, " ").replace(/\r?\n/g, " ");
-  const headerLine = EXPORT_HEADERS.join("\t");
-  const dataLines = rows.map((row) => rowToExportValues(row).map(sanitize).join("\t"));
-  return [headerLine, ...dataLines].join("\n");
 }
 
 function buildExcelHtml(rows: ProposalExportRow[], title: string, subtitle: string) {
@@ -449,18 +220,6 @@ function buildPrintableHtml(rows: ProposalExportRow[], title: string, subtitle: 
 </html>`;
 }
 
-function downloadFile(filename: string, content: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
 interface DashboardClientProps {
   profile: UserProfile;
   initialFoundation: FoundationSnapshot;
@@ -484,22 +243,11 @@ export default function DashboardClient({
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [savingProposalId, setSavingProposalId] = useState<string | null>(null);
-  const [rowMessage, setRowMessage] = useState<
-    Record<string, { tone: "success" | "error"; text: string }>
-  >({});
+  const [rowMessage, setRowMessage] = useState<Record<string, RowMessage>>({});
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
   const [detailProposalId, setDetailProposalId] = useState<string | null>(null);
-  const [isDetailEditMode, setIsDetailEditMode] = useState(false);
-  const [detailEditDraft, setDetailEditDraft] = useState<ProposalDetailEditDraft | null>(null);
-  const [isDetailSaving, setIsDetailSaving] = useState(false);
-  const [detailCharityNavigatorPreview, setDetailCharityNavigatorPreview] =
-    useState<CharityNavigatorPreviewResponse | null>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [givingHistoryCharity, setGivingHistoryCharity] = useState<{
-    name: string;
-    organizationId?: string;
-  } | null>(null);
 
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
@@ -788,91 +536,6 @@ export default function DashboardClient({
     }
   }, [showPendingTab]);
 
-  useEffect(() => {
-    if (!detailProposalId) {
-      return;
-    }
-
-    const stillExists = data?.proposals.some((proposal) => proposal.id === detailProposalId) ?? false;
-    if (!stillExists) {
-      setDetailProposalId(null);
-    }
-  }, [data, detailProposalId]);
-
-  useEffect(() => {
-    if (detailProposalId) {
-      return;
-    }
-    setIsDetailEditMode(false);
-    setDetailEditDraft(null);
-    setIsDetailSaving(false);
-  }, [detailProposalId]);
-
-  useEffect(() => {
-    if (!detailProposalId) {
-      setDetailCharityNavigatorPreview(null);
-      return;
-    }
-
-    const currentProposal = data?.proposals.find((proposal) => proposal.id === detailProposalId);
-    const charityNavigatorUrl = currentProposal?.charityNavigatorUrl?.trim() ?? "";
-    if (!charityNavigatorUrl) {
-      setDetailCharityNavigatorPreview(null);
-      return;
-    }
-
-    let active = true;
-    void (async () => {
-      try {
-        const response = await fetch("/api/charity-navigator/preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ charityNavigatorUrl })
-        });
-        if (!response.ok) {
-          if (active) {
-            setDetailCharityNavigatorPreview(null);
-          }
-          return;
-        }
-
-        const payload = (await response.json()) as CharityNavigatorPreviewResponse;
-        if (active) {
-          setDetailCharityNavigatorPreview(payload);
-        }
-      } catch {
-        if (active) {
-          setDetailCharityNavigatorPreview(null);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [data, detailProposalId]);
-
-  useEffect(() => {
-    if (!detailProposalId) {
-      return;
-    }
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setDetailProposalId(null);
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [detailProposalId]);
-
   const dirtyHistoricalProposalIds = useMemo(() => {
     if (!canEditHistorical || !data) {
       return [];
@@ -886,6 +549,44 @@ export default function DashboardClient({
       .map((proposal) => proposal.id);
   }, [canEditHistorical, data, drafts]);
   const dirtyHistoricalCount = dirtyHistoricalProposalIds.length;
+
+  const handlePanelClose = useCallback(() => {
+    setDetailProposalId(null);
+  }, []);
+
+  const handleDetailSaveSuccess = useCallback((updatedProposal: ProposalView) => {
+    setDrafts((current) => ({
+      ...current,
+      [updatedProposal.id]: toProposalDraft(updatedProposal)
+    }));
+  }, []);
+
+  const handlePanelMutateAfterSave = useCallback(() => {
+    if (isOversight) {
+      void mutatePending();
+    }
+  }, [isOversight, mutatePending]);
+
+  const handleSetRowMessage = useCallback((proposalId: string, message: RowMessage | null) => {
+    setRowMessage((current) => {
+      if (message === null) {
+        if (!current[proposalId]) return current;
+        const next = { ...current };
+        delete next[proposalId];
+        return next;
+      }
+      return { ...current, [proposalId]: message };
+    });
+  }, []);
+
+  const getDraft = useCallback((proposalId: string): ProposalDraft => {
+    if (!data) return { status: "to_review", finalAmount: "0", sentAt: "", notes: "" };
+    return drafts[proposalId] ?? toProposalDraft(data.proposals.find((p) => p.id === proposalId)!);
+  }, [drafts, data]);
+
+  const getRowMessage = useCallback((proposalId: string): RowMessage | undefined => {
+    return rowMessage[proposalId];
+  }, [rowMessage]);
 
   if (!data) {
     return (
@@ -1235,7 +936,7 @@ export default function DashboardClient({
       return;
     }
 
-    downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+    downloadFile(`${exportFilenameBase}.csv`, buildCsv([{ headers: EXPORT_HEADERS, rows: exportRows.map(rowToExportValues) }]), "text/csv;charset=utf-8");
     toast.success(`CSV exported (${formatNumber(exportRows.length)} rows).`);
     setIsExportMenuOpen(false);
   };
@@ -1289,167 +990,19 @@ export default function DashboardClient({
       if (!navigator.clipboard?.writeText) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(buildTsv(exportRows));
+      await navigator.clipboard.writeText(buildTsv([{ headers: EXPORT_HEADERS, rows: exportRows.map(rowToExportValues) }]));
 
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
 
       toast.success("Copied rows for Google Sheets. Paste into cell A1 in the new sheet.");
       setIsExportMenuOpen(false);
     } catch {
-      downloadFile(`${exportFilenameBase}.csv`, buildCsv(exportRows), "text/csv;charset=utf-8");
+      downloadFile(`${exportFilenameBase}.csv`, buildCsv([{ headers: EXPORT_HEADERS, rows: exportRows.map(rowToExportValues) }]), "text/csv;charset=utf-8");
       window.open("https://docs.google.com/spreadsheets/create", "_blank", "noopener,noreferrer");
       toast.error("Clipboard access was blocked. Downloaded CSV instead; import that file in Google Sheets.");
       setIsExportMenuOpen(false);
     }
   };
-
-  const updateDetailEditDraft = <K extends keyof ProposalDetailEditDraft>(
-    key: K,
-    value: ProposalDetailEditDraft[K]
-  ) => {
-    setDetailEditDraft((current) => (current ? { ...current, [key]: value } : current));
-  };
-
-  const saveDetailProposalEdits = async () => {
-    if (!detailProposal || !detailEditDraft || !isOversight) {
-      return;
-    }
-
-    const isVoteLocked =
-      detailProposal.budgetYear === currentCalendarYear && detailProposal.progress.votesSubmitted > 0;
-    const payload: Record<string, unknown> = {};
-
-    if (!isVoteLocked) {
-      const title = detailEditDraft.title.trim();
-      if (!title) {
-        toast.error("Title is required.");
-        return;
-      }
-      if (title !== detailProposal.title.trim()) {
-        payload.title = title;
-      }
-
-      const description = detailEditDraft.description.trim();
-      if (!description) {
-        toast.error("Description is required.");
-        return;
-      }
-      if (description !== detailProposal.description.trim()) {
-        payload.description = description;
-      }
-
-      const proposedAmount = parseNumberInput(detailEditDraft.proposedAmount);
-      if (proposedAmount === null || proposedAmount < 0) {
-        toast.error("Proposed amount must be a non-negative number.");
-        return;
-      }
-      if (amountsDiffer(proposedAmount, detailProposal.proposedAmount)) {
-        payload.proposedAmount = proposedAmount;
-      }
-
-      const proposalNotes = normalizeDraftNotes(detailProposal.notes ?? "");
-      const nextNotes = normalizeDraftNotes(detailEditDraft.notes);
-      if (proposalNotes !== nextNotes) {
-        payload.notes = nextNotes;
-      }
-    }
-
-    const website = detailEditDraft.website.trim();
-    const proposalWebsite = (detailProposal.organizationWebsite ?? "").trim();
-    if (website !== proposalWebsite) {
-      payload.website = website || null;
-    }
-
-    const charityNavigatorUrl = detailEditDraft.charityNavigatorUrl.trim();
-    const proposalCharityNavigatorUrl = (detailProposal.charityNavigatorUrl ?? "").trim();
-    if (charityNavigatorUrl !== proposalCharityNavigatorUrl) {
-      payload.charityNavigatorUrl = charityNavigatorUrl || null;
-    }
-
-    if (!Object.keys(payload).length) {
-      toast.error("No changes to save.");
-      return;
-    }
-
-    setIsDetailSaving(true);
-    setRowMessage((current) => {
-      const next = { ...current };
-      delete next[detailProposal.id];
-      return next;
-    });
-
-    try {
-      const updatedProposal = await applyProposalPatch(detailProposal.id, payload);
-      setDrafts((current) => ({
-        ...current,
-        [detailProposal.id]: toProposalDraft(updatedProposal)
-      }));
-      setDetailEditDraft(toProposalDetailEditDraft(updatedProposal));
-      setIsDetailEditMode(false);
-      setRowMessage((current) => ({
-        ...current,
-        [detailProposal.id]: {
-          tone: "success",
-          text: "Proposal details updated."
-        }
-      }));
-
-      mutateAllFoundation();
-      void globalMutate("/api/navigation/summary");
-      void globalMutate("/api/workspace");
-      if (isOversight) {
-        void mutatePending();
-      }
-    } catch (saveError) {
-      toast.error(
-        saveError instanceof Error ? saveError.message : "Failed to update proposal details."
-      );
-    } finally {
-      setIsDetailSaving(false);
-    }
-  };
-
-  const closeDetailDrawer = () => {
-    setDetailProposalId(null);
-  };
-
-  const detailProposal = detailProposalId
-    ? data.proposals.find((proposal) => proposal.id === detailProposalId) ?? null
-    : null;
-  const detailDraft = detailProposal ? drafts[detailProposal.id] ?? toProposalDraft(detailProposal) : null;
-  const detailMasked = Boolean(detailProposal?.progress.masked && detailProposal.status === "to_review" && detailProposal.proposalType !== "discretionary");
-  const detailRequiredAction = detailProposal
-    ? buildRequiredActionSummary(detailProposal, profile.role)
-    : null;
-  const detailShowVoteForm =
-    canVote &&
-    detailProposal?.status === "to_review" &&
-    !detailProposal?.progress.hasCurrentUserVoted;
-  const detailCanOversightEditProposal = Boolean(isOversight && detailProposal);
-  const detailIsOwnProposal = Boolean(detailProposal && detailProposal.proposerId === profile.id);
-  const detailIsVoteLocked = Boolean(
-    detailCanOversightEditProposal &&
-      detailProposal &&
-      detailProposal.budgetYear === currentCalendarYear &&
-      detailProposal.progress.votesSubmitted > 0
-  );
-  const detailCanEditNonUrlFields = detailCanOversightEditProposal && !detailIsVoteLocked;
-  const detailIsRowEditable = Boolean(detailProposal && isHistoricalBulkEditEnabled);
-  const detailCanEditSentDate = Boolean(
-    detailProposal &&
-      (detailIsRowEditable || (!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent"))
-  );
-  const detailSentDateDisabled = detailProposal
-    ? detailIsRowEditable
-      ? detailDraft?.status !== "sent"
-      : !detailCanEditSentDate
-    : true;
-  const detailParsedDraftFinalAmount = detailDraft ? parseNumberInput(detailDraft.finalAmount) : null;
-  const detailParsedDraftProposedAmount = detailEditDraft
-    ? parseNumberInput(detailEditDraft.proposedAmount)
-    : null;
-  const detailRowState = detailProposal ? rowMessage[detailProposal.id] : null;
-  const detailApiOrganizationName = detailCharityNavigatorPreview?.organizationName?.trim() || null;
 
   return (
     <div className="page-stack pb-4">
@@ -2377,460 +1930,24 @@ export default function DashboardClient({
       </GlassCard>
       </Tabs>
 
-      <ResponsiveModal
-        open={!!(detailProposal && detailDraft && detailRequiredAction)}
-        onOpenChange={(open) => { if (!open) closeDetailDrawer(); }}
-      >
-        {detailProposal && detailDraft && detailRequiredAction ? (
-        <ResponsiveModalContent
-          aria-labelledby="proposal-details-title"
-          dialogClassName={cn(
-            "rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden",
-            !isSmallScreen && detailShowVoteForm ? "sm:max-w-5xl" : "sm:max-w-3xl"
-          )}
-          showCloseButton={false}
-          footer={
-            isSmallScreen && detailShowVoteForm ? (
-              <VoteForm
-                proposalId={detailProposal.id}
-                proposalType={detailProposal.proposalType}
-                proposedAmount={detailProposal.proposedAmount}
-                totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                userId={profile.id}
-                proposalTitle={detailProposal.title}
-                onSuccess={() => {}}
-                maxJointAllocation={
-                  detailProposal.proposalType === "joint" && workspace
-                    ? workspace.personalBudget.jointRemaining +
-                      workspace.personalBudget.discretionaryRemaining
-                    : undefined
-                }
-              />
-            ) : null
-          }
-        >
-            <div className={cn(!isSmallScreen && detailShowVoteForm && "flex items-start gap-6")}>
-            <div className={cn(!isSmallScreen && detailShowVoteForm && "flex-1 min-w-0")}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-2xl font-bold tabular-nums text-foreground">
-                  {detailMasked && detailProposal?.proposalType !== "joint" && detailProposal?.proposalType !== "discretionary"
-                    ? "Blind"
-                    : (detailProposal?.proposalType === "joint" || detailProposal?.proposalType === "discretionary") && detailProposal?.status === "to_review"
-                    ? currency(detailProposal.proposedAmount)
-                    : currency(detailProposal.progress.computedFinalAmount)}
-                </p>
-                <DialogTitle id="proposal-details-title" className="mt-1 text-base font-semibold leading-snug">
-                  {detailProposal.title}
-                </DialogTitle>
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={closeDetailDrawer}
-                aria-label="Close proposal details"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              <Badge className={detailProposal.proposalType === "joint"
-                ? "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800"
-                : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800"
-              }>
-                {titleCase(detailProposal.proposalType)}
-              </Badge>
-              <StatusPill status={detailProposal.status} />
-              {detailProposal.organizationName && detailProposal.organizationName !== "Unknown Organization" && detailProposal.organizationName !== detailProposal.title ? (
-                <span className="text-sm text-muted-foreground">{detailProposal.organizationName}</span>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => setGivingHistoryCharity({
-                  name: detailProposal.organizationName || detailProposal.title,
-                  organizationId: detailProposal.organizationId
-                })}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <History className="h-3 w-3" />
-                Giving history
-              </button>
-            </div>
-
-            <div className="my-4 h-px bg-border" />
-
-            <dl className="grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Date Sent</dt>
-                <dd className="mt-1.5 font-semibold text-foreground">
-                  {detailProposal.sentAt
-                    ? new Date(detailProposal.sentAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
-                    : "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Proposed By</dt>
-                <dd className="mt-1.5 font-semibold text-foreground">
-                  {detailProposal.proposerDisplayName}
-                </dd>
-              </div>
-              <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Description</dt>
-                <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">
-                  {detailProposal.description?.trim() || "—"}
-                </dd>
-              </div>
-              <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Organization Website</dt>
-                <dd className="mt-1.5 text-foreground">
-                  {detailProposal.organizationWebsite ? (
-                    <a
-                      href={detailProposal.organizationWebsite}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
-                    >
-                      {detailProposal.organizationWebsite}
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </dd>
-              </div>
-              <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator URL</dt>
-                <dd className="mt-1.5 text-foreground">
-                  {detailProposal.charityNavigatorUrl ? (
-                    <>
-                      <a
-                        href={detailProposal.charityNavigatorUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
-                      >
-                        {detailProposal.charityNavigatorUrl}
-                      </a>
-                      {detailProposal.charityNavigatorScore != null ? (
-                        <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
-                          <p className="font-medium text-foreground">
-                            {detailApiOrganizationName
-                              ? `${detailApiOrganizationName}'s score is `
-                              : "This charity's score is "}
-                            {Math.round(detailProposal.charityNavigatorScore)}%, earning it a{" "}
-                            {charityNavigatorRating(detailProposal.charityNavigatorScore).starLabel} rating.
-                          </p>
-                          <p className="mt-1 text-muted-foreground">
-                            {charityNavigatorRating(detailProposal.charityNavigatorScore).meaning}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-1.5 text-xs text-muted-foreground">Score not yet available.</p>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Add the Charity Navigator URL to autopopulate the charity&apos;s score.
-                    </span>
-                  )}
-                </dd>
-              </div>
-              {detailProposal.notes?.trim() ? (
-                <div className="md:col-span-2">
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Notes</dt>
-                  <dd className="mt-1.5 whitespace-pre-wrap font-semibold text-foreground">{detailProposal.notes.trim()}</dd>
-                </div>
-              ) : null}
-            </dl>
-
-            {detailIsRowEditable || detailCanEditSentDate ? (
-              <>
-              <div className="mt-5 flex items-center gap-2">
-                <div className="h-px flex-1 bg-muted" />
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Edit</span>
-                <div className="h-px flex-1 bg-muted" />
-              </div>
-              <div className="mt-3 grid gap-4 md:grid-cols-2">
-                {detailIsRowEditable ? (
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Amount
-                    <AmountInput
-                      min={0}
-                      step="0.01"
-                      value={detailDraft.finalAmount}
-                      onChange={(event) =>
-                        updateDraft(detailProposal.id, { finalAmount: event.target.value })
-                      }
-                      className="mt-1"
-                    />
-                    <span className="mt-1 block text-[11px] text-muted-foreground">
-                      Amount preview:{" "}
-                      {detailParsedDraftFinalAmount !== null && detailParsedDraftFinalAmount >= 0
-                        ? currency(detailParsedDraftFinalAmount)
-                        : "Invalid amount"}
-                    </span>
-                  </label>
-                ) : null}
-
-                {detailIsRowEditable ? (
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Status
-                    <select
-                      value={detailDraft.status}
-                      onChange={(event) =>
-                        updateDraft(detailProposal.id, {
-                          status: event.target.value as ProposalStatus,
-                          ...(event.target.value === "sent" ? {} : { sentAt: "" })
-                        })
-                      }
-                      className="border-input bg-transparent shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] h-9 w-full rounded-md border px-3 py-1 text-base outline-none md:text-sm mt-1"
-                    >
-                      {STATUS_OPTIONS.map((statusOption) => (
-                        <option key={statusOption} value={statusOption}>
-                          {titleCase(statusOption)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
-                {detailCanEditSentDate ? (
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Date amount sent
-                    <Input
-                      type="date"
-                      value={detailDraft.sentAt}
-                      disabled={detailSentDateDisabled}
-                      onChange={(event) => updateDraft(detailProposal.id, { sentAt: event.target.value })}
-                      className="mt-1"
-                    />
-                  </label>
-                ) : null}
-
-                {detailIsRowEditable ? (
-                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
-                    Notes
-                    <Input
-                      type="text"
-                      value={detailDraft.notes}
-                      onChange={(event) => updateDraft(detailProposal.id, { notes: event.target.value })}
-                      placeholder="Optional notes"
-                      className="mt-1"
-                    />
-                  </label>
-                ) : null}
-              </div>
-              </>
-            ) : null}
-
-            {detailCanOversightEditProposal && isDetailEditMode && detailEditDraft ? (
-              <>
-                <div className="mt-5 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-muted" />
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Proposal Content & Links
-                  </span>
-                  <div className="h-px flex-1 bg-muted" />
-                </div>
-                {detailIsVoteLocked ? (
-                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                    Votes have already been submitted for this active-year proposal. Only URL fields can be updated.
-                  </p>
-                ) : null}
-                <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Proposal title
-                    <Input
-                      type="text"
-                      value={detailEditDraft.title}
-                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
-                      onChange={(event) => updateDetailEditDraft("title", event.target.value)}
-                      className="mt-1"
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground">
-                    Proposed amount
-                    <AmountInput
-                      min={0}
-                      step="0.01"
-                      value={detailEditDraft.proposedAmount}
-                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
-                      onChange={(event) => updateDetailEditDraft("proposedAmount", event.target.value)}
-                      className="mt-1"
-                    />
-                    <span className="mt-1 block text-[11px] text-muted-foreground">
-                      Amount preview:{" "}
-                      {detailParsedDraftProposedAmount !== null && detailParsedDraftProposedAmount >= 0
-                        ? currency(detailParsedDraftProposedAmount)
-                        : "Invalid amount"}
-                    </span>
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
-                    Description
-                    <Textarea
-                      value={detailEditDraft.description}
-                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
-                      onChange={(event) => updateDetailEditDraft("description", event.target.value)}
-                      className="mt-1 min-h-20"
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
-                    Notes
-                    <Input
-                      type="text"
-                      value={detailEditDraft.notes}
-                      disabled={!detailCanEditNonUrlFields || isDetailSaving}
-                      onChange={(event) => updateDetailEditDraft("notes", event.target.value)}
-                      placeholder="Optional notes"
-                      className="mt-1"
-                    />
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
-                    Organization website URL
-                    <Input
-                      type="text"
-                      value={detailEditDraft.website}
-                      disabled={isDetailSaving}
-                      onChange={(event) => updateDetailEditDraft("website", event.target.value)}
-                      className="mt-1"
-                      placeholder="e.g. prepforprep.org or https://example.org"
-                    />
-                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                      You can enter just the domain; we&apos;ll add https:// if needed.
-                    </span>
-                  </label>
-                  <label className="text-xs font-semibold text-muted-foreground md:col-span-2">
-                    Charity Navigator URL
-                    <Input
-                      type="text"
-                      value={detailEditDraft.charityNavigatorUrl}
-                      disabled={isDetailSaving}
-                      onChange={(event) => updateDetailEditDraft("charityNavigatorUrl", event.target.value)}
-                      className="mt-1"
-                      placeholder="e.g. charitynavigator.org/... or full URL"
-                    />
-                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                      You can enter just the domain or full URL; we&apos;ll add https:// if needed.
-                    </span>
-                  </label>
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
-                      setIsDetailEditMode(false);
-                    }}
-                    disabled={isDetailSaving}
-                  >
-                    Cancel edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => void saveDetailProposalEdits()}
-                    disabled={isDetailSaving}
-                  >
-                    {isDetailSaving ? "Saving..." : "Save proposal changes"}
-                  </Button>
-                </div>
-              </>
-            ) : null}
-
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              {detailRequiredAction.href && detailRequiredAction.ctaLabel ? (
-                <Link
-                  href={detailRequiredAction.href}
-                  className="inline-flex rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted"
-                >
-                  {detailRequiredAction.ctaLabel}
-                </Link>
-              ) : null}
-              {detailCanOversightEditProposal ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isDetailSaving}
-                  onClick={() => {
-                    if (isDetailEditMode) {
-                      setIsDetailEditMode(false);
-                      return;
-                    }
-                    setDetailEditDraft(toProposalDetailEditDraft(detailProposal));
-                    setIsDetailEditMode(true);
-                  }}
-                >
-                  {isDetailEditMode ? "Close edit" : "Edit proposal"}
-                </Button>
-              ) : null}
-              {!canEditHistorical && detailIsOwnProposal && detailProposal.status === "sent" ? (
-                <Button
-                  size="sm"
-                  disabled={savingProposalId === detailProposal.id}
-                  onClick={() => void saveProposalSentDate(detailProposal)}
-                >
-                  {savingProposalId === detailProposal.id ? "Saving..." : "Save date"}
-                </Button>
-              ) : null}
-            </div>
-
-
-            {detailRowState ? (
-              <p
-                className={`mt-3 text-xs ${
-                  detailRowState.tone === "error"
-                    ? "text-rose-600"
-                    : "text-emerald-700 dark:text-emerald-300"
-                }`}
-              >
-                {detailRowState.text}
-              </p>
-            ) : null}
-            </div>
-            {!isSmallScreen && detailShowVoteForm ? (
-              <div className="w-80 shrink-0 border-l pl-6 pt-1">
-                <VoteForm
-                  proposalId={detailProposal.id}
-                  proposalType={detailProposal.proposalType}
-                  proposedAmount={detailProposal.proposedAmount}
-                  totalRequiredVotes={detailProposal.progress.totalRequiredVotes}
-                  userId={profile.id}
-                  proposalTitle={detailProposal.title}
-                  onSuccess={() => {}}
-                  maxJointAllocation={
-                    detailProposal.proposalType === "joint" && workspace
-                      ? workspace.personalBudget.jointRemaining +
-                        workspace.personalBudget.discretionaryRemaining
-                      : undefined
-                  }
-                  className="border-t-0 pt-0"
-                />
-              </div>
-            ) : null}
-            </div>
-        </ResponsiveModalContent>
-        ) : null}
-      </ResponsiveModal>
-
-      <ResponsiveModal
-        open={!!givingHistoryCharity}
-        onOpenChange={(open) => { if (!open) setGivingHistoryCharity(null); }}
-      >
-        {givingHistoryCharity ? (
-          <ResponsiveModalContent
-            aria-labelledby="giving-history-title"
-            dialogClassName="rounded-3xl p-4 sm:p-5 max-h-[85vh] overflow-y-auto overflow-x-hidden sm:max-w-2xl"
-            showCloseButton={false}
-          >
-            <CharityGivingHistory
-              charityName={givingHistoryCharity.name}
-              organizationId={givingHistoryCharity.organizationId}
-              primarySource="children"
-              onBack={() => setGivingHistoryCharity(null)}
-            />
-          </ResponsiveModalContent>
-        ) : null}
-      </ResponsiveModal>
+      <ProposalDetailPanel
+        proposalId={detailProposalId}
+        proposals={data.proposals}
+        profile={profile}
+        workspace={workspace}
+        currentCalendarYear={currentCalendarYear}
+        isHistoricalBulkEditEnabled={isHistoricalBulkEditEnabled}
+        canEditHistorical={canEditHistorical}
+        getDraft={getDraft}
+        onUpdateDraft={updateDraft}
+        getRowMessage={getRowMessage}
+        savingProposalId={savingProposalId}
+        onSaveSentDate={saveProposalSentDate}
+        onDetailSaveSuccess={handleDetailSaveSuccess}
+        onSetRowMessage={handleSetRowMessage}
+        onMutateAfterSave={handlePanelMutateAfterSave}
+        onClose={handlePanelClose}
+      />
     </div>
   );
 }
