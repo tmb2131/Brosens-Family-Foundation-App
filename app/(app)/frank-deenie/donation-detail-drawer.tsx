@@ -370,9 +370,15 @@ export const DonationDetailDrawer = memo(function DonationDetailDrawer({
                     Reversal
                   </span>
                 ) : row.returnRole === "replacement" ? (
-                  <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
-                    Reissued
-                  </span>
+                  row.status === "Planned" ? (
+                    <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300">
+                      Pending Reissue
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
+                      Reissued
+                    </span>
+                  )
                 ) : null}
                 <button
                   type="button"

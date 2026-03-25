@@ -1093,7 +1093,7 @@ export default function DashboardClient({
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Foundation</p>
           </div>
           <p className="mt-1 text-base font-bold tabular-nums">{currency(foundationRemaining)}</p>
-          <p className="text-[10px] leading-tight text-muted-foreground">left to allocate</p>
+          <p className="text-[10px] leading-tight text-muted-foreground">remaining</p>
           <DashboardBudgetBarWithTooltip
             usedAmount={totalAllocatedForYear}
             pct={totalUtilization}
@@ -1114,6 +1114,7 @@ export default function DashboardClient({
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Joint</p>
           </div>
           <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.jointRemaining)}</p>
+          <p className="text-[10px] leading-tight text-muted-foreground">remaining</p>
           <DashboardBudgetBarWithTooltip
             usedAmount={data.budget.jointAllocated}
             pct={jointUtilization}
@@ -1134,6 +1135,7 @@ export default function DashboardClient({
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Disc.</p>
           </div>
           <p className="mt-1 text-base font-bold tabular-nums">{currency(data.budget.discretionaryRemaining)}</p>
+          <p className="text-[10px] leading-tight text-muted-foreground">remaining</p>
           <DashboardBudgetBarWithTooltip
             usedAmount={data.budget.discretionaryAllocated}
             pct={discretionaryUtilization}
@@ -1200,7 +1202,7 @@ export default function DashboardClient({
             value={
               <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
                 <span className="tabular-nums">{currency(foundationRemaining)}</span>
-                <span className="text-sm font-normal text-muted-foreground">left to allocate</span>
+                <span className="text-sm font-normal text-muted-foreground">remaining</span>
               </span>
             }
             icon={DollarSign}
@@ -1222,7 +1224,12 @@ export default function DashboardClient({
           </MetricCard>
           <MetricCard
             title="Joint pool"
-            value={<span className="block tabular-nums">{currency(data.budget.jointRemaining)}</span>}
+            value={
+              <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
+                <span className="tabular-nums">{currency(data.budget.jointRemaining)}</span>
+                <span className="text-sm font-normal text-muted-foreground">remaining</span>
+              </span>
+            }
             icon={Users}
             tone="indigo"
           >
@@ -1241,7 +1248,12 @@ export default function DashboardClient({
           </MetricCard>
           <MetricCard
             title="Discretionary pool"
-            value={<span className="block tabular-nums">{currency(data.budget.discretionaryRemaining)}</span>}
+            value={
+              <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
+                <span className="tabular-nums">{currency(data.budget.discretionaryRemaining)}</span>
+                <span className="text-sm font-normal text-muted-foreground">remaining</span>
+              </span>
+            }
             icon={Wallet}
             tone="amber"
           >

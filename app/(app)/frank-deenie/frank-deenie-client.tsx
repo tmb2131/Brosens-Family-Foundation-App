@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import dynamic from "next/dynamic";
 import useSWR from "swr";
 import { toast } from "sonner";
+import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { useSort } from "@/lib/hooks/use-sort";
 import { ArrowDownAZ, ArrowUpAZ, Banknote, ChevronDown, DollarSign, Download, History, Landmark, MoreHorizontal, Pencil, PieChart, Plus, RefreshCw, Trash2, Upload, Users, X } from "lucide-react";
 const FrankDeenieYearSplitChart = dynamic(
@@ -475,7 +476,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
         status: row.status.trim(),
         source: row.source === "children" ? "Children" : "Frank & Deenie",
         proposedBy: byDisplay(row),
-        returnStatus: row.returnRole === "original" ? "Returned" : row.returnRole === "reversal" ? "Reversal" : row.returnRole === "replacement" ? "Reissued" : ""
+        returnStatus: row.returnRole === "original" ? "Returned" : row.returnRole === "reversal" ? "Reversal" : row.returnRole === "replacement" ? (row.status === "Planned" ? "Pending Reissue" : "Reissued") : ""
       })),
     [filteredRows]
   );
@@ -623,6 +624,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     setReturnRow(null);
     setDetailRowId(null);
     void mutate();
+    void mutateAllFoundation();
   }, [mutate]);
 
   const handleFoundationEventClose = useCallback(() => {
@@ -635,7 +637,10 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     void mutate();
   }, [mutate]);
 
-  const handleDetailMutate = useCallback(() => void mutate(), [mutate]);
+  const handleDetailMutate = useCallback(() => {
+    void mutate();
+    void mutateAllFoundation();
+  }, [mutate]);
   const handleDetailBeginReturn = useCallback((row: FrankDeenieDonationRow) => setReturnRow(row), []);
   const handleDetailRequestDelete = useCallback((row: FrankDeenieDonationRow) => {
     if (!row.editable) return;
@@ -1742,9 +1747,15 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                             Reversal
                           </span>
                         ) : isReplacement ? (
-                          <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
-                            Reissued
-                          </span>
+                          row.status === "Planned" ? (
+                            <span className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300">
+                              Pending Reissue
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-full border border-blue-300 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
+                              Reissued
+                            </span>
+                          )
                         ) : null}
                         <span
                           className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${
@@ -1906,9 +1917,15 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                                   Reversal
                                 </span>
                               ) : isReplacement ? (
-                                <span className="shrink-0 inline-flex rounded-full border border-blue-300 bg-blue-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
-                                  Reissued
-                                </span>
+                                row.status === "Planned" ? (
+                                  <span className="shrink-0 inline-flex rounded-full border border-amber-300 bg-amber-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300">
+                                    Pending Reissue
+                                  </span>
+                                ) : (
+                                  <span className="shrink-0 inline-flex rounded-full border border-blue-300 bg-blue-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-blue-700 dark:border-blue-700/50 dark:bg-blue-900/20 dark:text-blue-300">
+                                    Reissued
+                                  </span>
+                                )
                               ) : null}
                             </div>
                           </td>

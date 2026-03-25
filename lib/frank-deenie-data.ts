@@ -661,7 +661,7 @@ export interface MarkDonationReturnedInput {
   sourceId: string;
   source: DonationLedgerSource;
   returnedDate: string;
-  newDonationDate: string;
+  newDonationDate: string | null;
   newAmount?: number;
   requesterId: string;
 }
@@ -671,7 +671,7 @@ export async function markDonationReturned(
   input: MarkDonationReturnedInput
 ) {
   const returnedDate = normalizeDateString(input.returnedDate);
-  const newDonationDate = normalizeDateString(input.newDonationDate);
+  const newDonationDate = input.newDonationDate ? normalizeDateString(input.newDonationDate) : null;
 
   const { data: groupIdRow } = await admin.rpc("gen_random_uuid").single<string>();
   const returnGroupId = groupIdRow ?? crypto.randomUUID();
@@ -686,7 +686,7 @@ async function markFrankDeenieDonationReturned(
   admin: AdminClient,
   input: MarkDonationReturnedInput,
   returnedDate: string,
-  newDonationDate: string,
+  newDonationDate: string | null,
   returnGroupId: string,
 ) {
   const { data: original, error: fetchError } = await admin
@@ -749,16 +749,17 @@ async function markFrankDeenieDonationReturned(
     throw new HttpError(500, `Could not create reversal entry: ${reversalError.message}`);
   }
 
+  const isPending = newDonationDate === null;
   const { error: replacementError } = await admin
     .from("frank_deenie_donations")
     .insert({
-      donation_date: newDonationDate,
+      donation_date: isPending ? returnedDate : newDonationDate,
       donation_type: original.donation_type,
       recipient_name: original.recipient_name,
       memo: original.memo,
       split: original.split,
       amount: newAmount,
-      status: "Gave",
+      status: isPending ? "Planned" : "Gave",
       return_group_id: returnGroupId,
       return_role: "replacement",
       created_by: input.requesterId,
@@ -776,7 +777,7 @@ async function markChildrenDonationReturned(
   admin: AdminClient,
   input: MarkDonationReturnedInput,
   returnedDate: string,
-  newDonationDate: string,
+  newDonationDate: string | null,
   returnGroupId: string,
 ) {
   const { data: proposal, error: fetchError } = await admin
@@ -823,13 +824,14 @@ async function markChildrenDonationReturned(
     throw new HttpError(400, "newAmount must be a non-negative number.");
   }
 
+  const isPending = newDonationDate === null;
   const { error: updateError } = await admin
     .from("grant_proposals")
     .update({
       returned_at: returnedDate,
       return_group_id: returnGroupId,
       original_sent_at: proposal.sent_at,
-      sent_at: newDonationDate,
+      sent_at: isPending ? null : newDonationDate,
     })
     .eq("id", input.sourceId);
 
@@ -862,13 +864,13 @@ async function markChildrenDonationReturned(
   const { error: replacementError } = await admin
     .from("frank_deenie_donations")
     .insert({
-      donation_date: newDonationDate,
+      donation_date: isPending ? returnedDate : newDonationDate,
       donation_type: "donation",
       recipient_name: recipientName,
       memo: null,
       split: null,
       amount: newAmount,
-      status: "Gave",
+      status: isPending ? "Planned" : "Gave",
       return_group_id: returnGroupId,
       return_role: "replacement",
       return_source_id: input.sourceId,

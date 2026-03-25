@@ -33,10 +33,6 @@ export async function POST(request: NextRequest) {
       throw new HttpError(400, "returnedDate is required.");
     }
 
-    if (!body.newDonationDate) {
-      throw new HttpError(400, "newDonationDate is required.");
-    }
-
     let originalName = "";
     let originalAmount = 0;
     if (source === "frank_deenie") {
@@ -65,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const returnedDate = String(body.returnedDate);
-    const newDonationDate = String(body.newDonationDate);
+    const newDonationDate = body.newDonationDate ? String(body.newDonationDate) : null;
     const newAmount = body.newAmount !== undefined ? Number(body.newAmount) : undefined;
 
     const result = await markDonationReturned(admin, {
@@ -79,7 +75,9 @@ export async function POST(request: NextRequest) {
 
     const reissuedAmount = newAmount !== undefined ? newAmount : originalAmount;
     let changeDescription = `Returned check for '${originalName}' (${currency(originalAmount)}).`;
-    if (reissuedAmount !== originalAmount) {
+    if (!newDonationDate) {
+      changeDescription += ` Re-issuance pending for ${currency(reissuedAmount)}.`;
+    } else if (reissuedAmount !== originalAmount) {
       changeDescription += ` Reissued on ${newDonationDate} for ${currency(reissuedAmount)} (was ${currency(originalAmount)}).`;
     } else {
       changeDescription += ` Reissued on ${newDonationDate} for ${currency(reissuedAmount)}.`;
