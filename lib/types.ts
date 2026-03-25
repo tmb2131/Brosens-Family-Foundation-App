@@ -99,6 +99,15 @@ export interface GrantProposal {
   createdAt: string;
 }
 
+export interface ProposalPrefill {
+  organizationName: string;
+  description: string;
+  proposalType: ProposalType;
+  proposedAmount: number;
+  website: string;
+  charityNavigatorUrl: string;
+}
+
 export interface Vote {
   id: string;
   proposalId: string;

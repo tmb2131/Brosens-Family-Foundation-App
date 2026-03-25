@@ -19,6 +19,7 @@ import {
   GrantProposal,
   HistoryByYearPoint,
   Organization,
+  ProposalPrefill,
   ProposalStatus,
   ProposalType,
   UserProfile,
@@ -1511,6 +1512,51 @@ export async function listProposalTitleSuggestions(admin: AdminClient, limit = 2
   }
 
   return suggestions;
+}
+
+export async function getProposalPrefill(
+  admin: AdminClient,
+  proposalId: string
+): Promise<ProposalPrefill | null> {
+  const { data, error } = await admin
+    .from("grant_proposals")
+    .select(
+      "proposal_title, proposal_description, proposal_type, final_amount, proposal_website, proposal_charity_navigator_url, grant_master_id"
+    )
+    .eq("id", proposalId)
+    .maybeSingle<
+      Pick<
+        ProposalRow,
+        | "proposal_title"
+        | "proposal_description"
+        | "proposal_type"
+        | "final_amount"
+        | "proposal_website"
+        | "proposal_charity_navigator_url"
+        | "grant_master_id"
+      >
+    >();
+
+  if (error || !data) return null;
+
+  let title = data.proposal_title?.trim() || "";
+  if (!title) {
+    const { data: grant } = await admin
+      .from("grants_master")
+      .select("title")
+      .eq("id", data.grant_master_id)
+      .maybeSingle<Pick<GrantMasterRow, "title">>();
+    title = grant?.title ?? "";
+  }
+
+  return {
+    organizationName: title,
+    description: data.proposal_description ?? "",
+    proposalType: data.proposal_type,
+    proposedAmount: toNumber(data.final_amount),
+    website: data.proposal_website ?? "",
+    charityNavigatorUrl: data.proposal_charity_navigator_url ?? "",
+  };
 }
 
 /**

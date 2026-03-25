@@ -27,7 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
 import { useDraftPersistence, type ProposalDraft } from "@/lib/hooks/use-draft-persistence";
-import { UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
+import { ProposalPrefill, UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { usePagePerf } from "@/lib/perf-logger-client";
@@ -56,9 +56,10 @@ interface NewProposalClientProps {
   profile: UserProfile;
   initialWorkspace: WorkspaceSnapshot;
   initialTitleSuggestions: string[];
+  prefill?: ProposalPrefill;
 }
 
-export default function NewProposalClient({ profile, initialWorkspace, initialTitleSuggestions }: NewProposalClientProps) {
+export default function NewProposalClient({ profile, initialWorkspace, initialTitleSuggestions, prefill }: NewProposalClientProps) {
   const router = useRouter();
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
@@ -76,12 +77,12 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
     error: workspaceQuery.error?.message ?? null,
   });
 
-  const [organizationName, setOrganizationName] = useState("");
-  const [description, setDescription] = useState("");
-  const [website, setWebsite] = useState("");
-  const [charityNavigatorUrl, setCharityNavigatorUrl] = useState("");
-  const [proposalType, setProposalType] = useState<ProposalTypeOption>("");
-  const [proposedAmount, setProposedAmount] = useState("0");
+  const [organizationName, setOrganizationName] = useState(prefill?.organizationName ?? "");
+  const [description, setDescription] = useState(prefill?.description ?? "");
+  const [website, setWebsite] = useState(prefill?.website ?? "");
+  const [charityNavigatorUrl, setCharityNavigatorUrl] = useState(prefill?.charityNavigatorUrl ?? "");
+  const [proposalType, setProposalType] = useState<ProposalTypeOption>(prefill?.proposalType ?? "");
+  const [proposedAmount, setProposedAmount] = useState(prefill ? String(prefill.proposedAmount) : "0");
   const [proposerAllocationAmount, setProposerAllocationAmount] = useState("");
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -175,11 +176,18 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
     setProposedAmount(draft.proposedAmount || "0");
     setProposerAllocationAmount(draft.proposerAllocationAmount);
   }, []);
-  const { saveDraft, clearDraft } = useDraftPersistence({ getValues, setValues });
+  const { saveDraft, clearDraft } = useDraftPersistence({ getValues, setValues, skipRestore: !!prefill });
 
   useEffect(() => {
     saveDraft();
   }, [organizationName, description, website, charityNavigatorUrl, proposalType, proposedAmount, proposerAllocationAmount, saveDraft]);
+
+  useEffect(() => {
+    if (prefill) {
+      toast.info(`Drafted from your previous gift to ${prefill.organizationName}`, { duration: 4000 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- Progress indicator ---
   const requiredFields = useMemo(() => {

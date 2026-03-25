@@ -811,6 +811,16 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                         <span className="ml-1 text-xs font-normal text-muted-foreground">· {proposal.budgetYear}</span>
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">{proposal.description}</p>
+                      {proposal.budgetYear < workspace.currentBudgetYear && (
+                        <div className="mt-2 flex justify-end">
+                          <Link
+                            href={`/proposals/new?from=${proposal.id}`}
+                            className="text-xs font-medium text-accent hover:underline"
+                          >
+                            Propose Again
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

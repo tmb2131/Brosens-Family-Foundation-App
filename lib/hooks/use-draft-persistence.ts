@@ -47,15 +47,21 @@ function relativeTime(ms: number): string {
 interface UseDraftPersistenceOptions {
   getValues: () => Omit<ProposalDraft, "savedAt">;
   setValues: (draft: ProposalDraft) => void;
+  skipRestore?: boolean;
 }
 
-export function useDraftPersistence({ getValues, setValues }: UseDraftPersistenceOptions) {
+export function useDraftPersistence({ getValues, setValues, skipRestore }: UseDraftPersistenceOptions) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const restoredRef = useRef(false);
 
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
+
+    if (skipRestore) {
+      localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
 
     const draft = readDraft();
     if (!draft) return;
@@ -78,7 +84,7 @@ export function useDraftPersistence({ getValues, setValues }: UseDraftPersistenc
         }
       }
     });
-  }, [setValues]);
+  }, [setValues, skipRestore]);
 
   const saveDraft = useCallback(() => {
     clearTimeout(timerRef.current);
