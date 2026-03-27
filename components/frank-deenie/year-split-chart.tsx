@@ -13,7 +13,7 @@ type LabelRenderProps = Omit<SVGProps<SVGTextElement>, "viewBox"> & {
 };
 
 const SELECTIVE_LABEL_THRESHOLD = 5;
-const LATEST_LABEL_NUDGE_PX = 8;
+const LATEST_LABEL_NUDGE_PX = 3;
 const LATEST_LABEL_RAISE_PX = 10;
 
 export interface FrankDeenieYearSplitPoint {
