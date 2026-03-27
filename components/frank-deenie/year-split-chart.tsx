@@ -13,7 +13,8 @@ type LabelRenderProps = Omit<SVGProps<SVGTextElement>, "viewBox"> & {
 };
 
 const SELECTIVE_LABEL_THRESHOLD = 5;
-const LABEL_EDGE_PADDING = 8;
+const LATEST_LABEL_NUDGE_PX = 8;
+const LATEST_LABEL_RAISE_PX = 10;
 
 export interface FrankDeenieYearSplitPoint {
   year: number;
@@ -54,16 +55,17 @@ export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart
       if (labelIndices && !labelIndices.has(index)) return null;
 
       const cx = Number(rawX ?? 0) + Number(rawW ?? 0) / 2;
-      const cy = Number(rawY ?? 0) - 6;
+      const baseY = Number(rawY ?? 0);
+      const cy = baseY - 6;
       const isLatest = index === chartData.length - 1;
       const label = compactCurrency(Number(value));
-      const textAnchor = isLatest ? "end" : "middle";
-      const x = isLatest ? Number(rawX ?? 0) + Number(rawW ?? 0) - LABEL_EDGE_PADDING : cx;
+      const x = isLatest ? cx - LATEST_LABEL_NUDGE_PX : cx;
+      const y = isLatest ? baseY - LATEST_LABEL_RAISE_PX : cy;
       return (
         <text
           x={x}
-          y={cy}
-          textAnchor={textAnchor}
+          y={y}
+          textAnchor="middle"
           fill={isLatest && labelIndices ? chartText.label : chartText.axis}
           fontSize={11}
           fontWeight={isLatest && labelIndices ? 700 : 600}
