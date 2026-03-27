@@ -13,6 +13,7 @@ type LabelRenderProps = Omit<SVGProps<SVGTextElement>, "viewBox"> & {
 };
 
 const SELECTIVE_LABEL_THRESHOLD = 5;
+const LABEL_EDGE_PADDING = 8;
 
 export interface FrankDeenieYearSplitPoint {
   year: number;
@@ -55,16 +56,19 @@ export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart
       const cx = Number(rawX ?? 0) + Number(rawW ?? 0) / 2;
       const cy = Number(rawY ?? 0) - 6;
       const isLatest = index === chartData.length - 1;
+      const label = compactCurrency(Number(value));
+      const textAnchor = isLatest ? "end" : "middle";
+      const x = isLatest ? Number(rawX ?? 0) + Number(rawW ?? 0) - LABEL_EDGE_PADDING : cx;
       return (
         <text
-          x={cx}
+          x={x}
           y={cy}
-          textAnchor="middle"
+          textAnchor={textAnchor}
           fill={isLatest && labelIndices ? chartText.label : chartText.axis}
           fontSize={11}
           fontWeight={isLatest && labelIndices ? 700 : 600}
         >
-          {compactCurrency(Number(value))}
+          {label}
         </text>
       );
     },
@@ -86,7 +90,7 @@ export const FrankDeenieYearSplitChart = memo(function FrankDeenieYearSplitChart
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
-            margin={{ top: 22, right: 8, left: 0, bottom: 0 }}
+            margin={{ top: 22, right: 16, left: 0, bottom: 0 }}
             onClick={onYearClick ? (state) => {
               if (state?.activePayload?.[0]?.payload?.year) {
                 onYearClick(state.activePayload[0].payload.year);
