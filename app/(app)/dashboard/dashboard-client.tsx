@@ -213,7 +213,7 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const isOversight = profile.role === "oversight";
   const [selectedYear, setSelectedYear] = useState<SelectedYear>(null);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("pending");
+  const [activeTab, setActiveTab] = useState<DashboardTab>("tracker");
   const [drafts, setDrafts] = useState<Record<string, ProposalDraft>>({});
   const [filters, setFilters] = useState<TableFilters>(DEFAULT_FILTERS);
   const { sortKey, sortDirection, toggleSort } = useSort<SortKey>("createdAt", "desc");
