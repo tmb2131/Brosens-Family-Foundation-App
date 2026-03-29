@@ -2,20 +2,18 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import type { ProposalDraft, ProposalDraftPayload } from "@/lib/proposal-draft-types";
+
+export type { ProposalDraft, ProposalDraftPayload } from "@/lib/proposal-draft-types";
 
 const STORAGE_KEY = "proposal-draft";
 const DEBOUNCE_MS = 500;
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-export interface ProposalDraft {
-  organizationName: string;
-  description: string;
-  website: string;
-  charityNavigatorUrl: string;
-  proposalType: string;
-  proposedAmount: string;
-  proposerAllocationAmount: string;
-  savedAt: number;
+function draftHasContent(draft: Pick<ProposalDraft, "organizationName" | "description" | "proposalType">): boolean {
+  return Boolean(
+    draft.organizationName.trim() || draft.description.trim() || draft.proposalType.trim()
+  );
 }
 
 function readDraft(): ProposalDraft | null {
@@ -45,12 +43,35 @@ function relativeTime(ms: number): string {
 }
 
 interface UseDraftPersistenceOptions {
-  getValues: () => Omit<ProposalDraft, "savedAt">;
+  getValues: () => ProposalDraftPayload;
   setValues: (draft: ProposalDraft) => void;
   skipRestore?: boolean;
+  /** Draft loaded on the server (SSR); form state already reflects it unless null. */
+  initialServerDraft?: ProposalDraft | null;
 }
 
-export function useDraftPersistence({ getValues, setValues, skipRestore }: UseDraftPersistenceOptions) {
+function clearServerDraft() {
+  void fetch("/api/proposals/draft", { method: "DELETE" }).catch(() => {
+    // ignore network errors
+  });
+}
+
+function persistServerDraft(payload: ProposalDraftPayload) {
+  void fetch("/api/proposals/draft", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  }).catch(() => {
+    // ignore network errors
+  });
+}
+
+export function useDraftPersistence({
+  getValues,
+  setValues,
+  skipRestore,
+  initialServerDraft
+}: UseDraftPersistenceOptions) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const restoredRef = useRef(false);
 
@@ -63,15 +84,23 @@ export function useDraftPersistence({ getValues, setValues, skipRestore }: UseDr
       return;
     }
 
+    if (initialServerDraft && draftHasContent(initialServerDraft)) {
+      toast.info(`Draft restored from ${relativeTime(initialServerDraft.savedAt)}`, {
+        duration: 4000,
+        action: {
+          label: "Discard",
+          onClick: () => {
+            localStorage.removeItem(STORAGE_KEY);
+            clearServerDraft();
+            window.location.reload();
+          }
+        }
+      });
+      return;
+    }
+
     const draft = readDraft();
-    if (!draft) return;
-
-    const hasContent =
-      draft.organizationName.trim() ||
-      draft.description.trim() ||
-      draft.proposalType;
-
-    if (!hasContent) return;
+    if (!draft || !draftHasContent(draft)) return;
 
     setValues(draft);
     toast.info(`Draft restored from ${relativeTime(draft.savedAt)}`, {
@@ -80,27 +109,35 @@ export function useDraftPersistence({ getValues, setValues, skipRestore }: UseDr
         label: "Discard",
         onClick: () => {
           localStorage.removeItem(STORAGE_KEY);
+          clearServerDraft();
           window.location.reload();
         }
       }
     });
-  }, [setValues, skipRestore]);
+    persistServerDraft({
+      organizationName: draft.organizationName,
+      description: draft.description,
+      website: draft.website,
+      charityNavigatorUrl: draft.charityNavigatorUrl,
+      proposalType: draft.proposalType,
+      proposedAmount: draft.proposedAmount,
+      proposerAllocationAmount: draft.proposerAllocationAmount
+    });
+  }, [setValues, skipRestore, initialServerDraft]);
 
   const saveDraft = useCallback(() => {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       try {
         const values = getValues();
-        const hasContent =
-          values.organizationName.trim() ||
-          values.description.trim() ||
-          values.proposalType;
-        if (!hasContent) {
+        if (!draftHasContent(values)) {
           localStorage.removeItem(STORAGE_KEY);
+          clearServerDraft();
           return;
         }
         const draft: ProposalDraft = { ...values, savedAt: Date.now() };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+        persistServerDraft(values);
       } catch {
         // localStorage may be full or unavailable
       }
@@ -110,6 +147,7 @@ export function useDraftPersistence({ getValues, setValues, skipRestore }: UseDr
   const clearDraft = useCallback(() => {
     clearTimeout(timerRef.current);
     localStorage.removeItem(STORAGE_KEY);
+    clearServerDraft();
   }, []);
 
   useEffect(() => {

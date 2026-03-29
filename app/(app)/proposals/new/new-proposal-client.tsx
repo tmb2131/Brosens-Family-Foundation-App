@@ -26,7 +26,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
-import { useDraftPersistence, type ProposalDraft } from "@/lib/hooks/use-draft-persistence";
+import { useDraftPersistence } from "@/lib/hooks/use-draft-persistence";
+import type { ProposalDraft, ProposalDraftPayload } from "@/lib/proposal-draft-types";
 import { ProposalPrefill, UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
@@ -57,9 +58,16 @@ interface NewProposalClientProps {
   initialWorkspace: WorkspaceSnapshot;
   initialTitleSuggestions: string[];
   prefill?: ProposalPrefill;
+  initialDraft: ProposalDraft | null;
 }
 
-export default function NewProposalClient({ profile, initialWorkspace, initialTitleSuggestions, prefill }: NewProposalClientProps) {
+export default function NewProposalClient({
+  profile,
+  initialWorkspace,
+  initialTitleSuggestions,
+  prefill,
+  initialDraft
+}: NewProposalClientProps) {
   const router = useRouter();
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
@@ -77,13 +85,27 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
     error: workspaceQuery.error?.message ?? null,
   });
 
-  const [organizationName, setOrganizationName] = useState(prefill?.organizationName ?? "");
-  const [description, setDescription] = useState(prefill?.description ?? "");
-  const [website, setWebsite] = useState(prefill?.website ?? "");
-  const [charityNavigatorUrl, setCharityNavigatorUrl] = useState(prefill?.charityNavigatorUrl ?? "");
-  const [proposalType, setProposalType] = useState<ProposalTypeOption>(prefill?.proposalType ?? "");
-  const [proposedAmount, setProposedAmount] = useState(prefill ? String(prefill.proposedAmount) : "0");
-  const [proposerAllocationAmount, setProposerAllocationAmount] = useState("");
+  const [organizationName, setOrganizationName] = useState(
+    () => prefill?.organizationName ?? initialDraft?.organizationName ?? ""
+  );
+  const [description, setDescription] = useState(
+    () => prefill?.description ?? initialDraft?.description ?? ""
+  );
+  const [website, setWebsite] = useState(() => prefill?.website ?? initialDraft?.website ?? "");
+  const [charityNavigatorUrl, setCharityNavigatorUrl] = useState(
+    () => prefill?.charityNavigatorUrl ?? initialDraft?.charityNavigatorUrl ?? ""
+  );
+  const [proposalType, setProposalType] = useState<ProposalTypeOption>(() => {
+    if (prefill?.proposalType) return prefill.proposalType;
+    const t = initialDraft?.proposalType;
+    return t === "joint" || t === "discretionary" ? t : "";
+  });
+  const [proposedAmount, setProposedAmount] = useState(() =>
+    prefill ? String(prefill.proposedAmount) : initialDraft?.proposedAmount ?? "0"
+  );
+  const [proposerAllocationAmount, setProposerAllocationAmount] = useState(
+    () => (prefill ? "" : initialDraft?.proposerAllocationAmount ?? "")
+  );
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewResult, setPreviewResult] = useState<CharityNavigatorPreviewResponse | null>(null);
@@ -154,7 +176,7 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
 
   // --- Draft persistence ---
   const getValues = useCallback(
-    (): Omit<ProposalDraft, "savedAt"> => ({
+    (): ProposalDraftPayload => ({
       organizationName,
       description,
       website,
@@ -176,7 +198,12 @@ export default function NewProposalClient({ profile, initialWorkspace, initialTi
     setProposedAmount(draft.proposedAmount || "0");
     setProposerAllocationAmount(draft.proposerAllocationAmount);
   }, []);
-  const { saveDraft, clearDraft } = useDraftPersistence({ getValues, setValues, skipRestore: !!prefill });
+  const { saveDraft, clearDraft } = useDraftPersistence({
+    getValues,
+    setValues,
+    skipRestore: !!prefill,
+    initialServerDraft: prefill ? null : initialDraft
+  });
 
   useEffect(() => {
     saveDraft();

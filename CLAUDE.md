@@ -141,7 +141,7 @@ scripts/
   fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
 
 supabase/
-  migrations/          # 31 SQL migration files (schema versioning, date-prefixed)
+  migrations/          # 32 SQL migration files (schema versioning, date-prefixed)
   functions/           # Edge functions (currently empty)
   config.toml          # Supabase CLI config
 
@@ -218,6 +218,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 
 ### Proposals
 - `GET|POST /api/proposals` — List/create proposals
+- `GET|PUT|DELETE /api/proposals/draft` — Server-backed new-proposal form draft (per user)
 - `GET /api/proposals/titles` — Proposal title autocomplete
 
 ### Settings
@@ -296,7 +297,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (31 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (32 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -308,6 +309,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `grants_master` | Reusable grant templates |
 | `budgets` | Annual budget (total, joint/discretionary ratios, rollover) |
 | `grant_proposals` | Grant proposals with status lifecycle |
+| `proposal_drafts` | Per-user JSON payload for in-progress new proposal form (cross-device) |
 | `proposal_detail_snapshots` | Immutable snapshot of proposal state at submission time |
 | `votes` | Blind votes with allocation amounts and optional flag comments |
 | `audit_log` | Immutable audit trail for all mutations |
@@ -320,7 +322,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
 
-### Database Migrations (31 total)
+### Database Migrations (32 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -355,6 +357,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260319100000_giving_year_rpcs` | Giving-year RPCs (Feb 1–Jan 31 fiscal year boundaries) |
 | `20260322000000_wrap_rls_auth_calls` | Wrap `auth.uid()`/`auth.role()` in `(select ...)` for RLS performance |
 | `20260322100000_get_foundation_page_data` | `get_foundation_page_data()` RPC — single round-trip for Dashboard data |
+| `20260329100000_proposal_drafts` | `proposal_drafts` table (per-user new-proposal form state) with RLS |
 
 ## Coding Conventions
 

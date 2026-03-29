@@ -1,5 +1,7 @@
 import { requirePageAuth } from "@/lib/auth-server";
 import { getProposalPrefill, getWorkspaceSnapshot, listProposalTitleSuggestions } from "@/lib/foundation-data";
+import { deleteProposalDraft, getProposalDraft } from "@/lib/proposal-draft-data";
+import type { ProposalDraft } from "@/lib/proposal-draft-types";
 import { startPagePerf } from "@/lib/perf-logger";
 import NewProposalClient from "./new-proposal-client";
 
@@ -24,6 +26,14 @@ export default async function NewProposalPage({ searchParams }: NewProposalPageP
     fromId ? getProposalPrefill(admin, fromId) : null,
   ]);
   perf.step("fetchProposalFormData");
+
+  let initialDraft: ProposalDraft | null = null;
+  if (prefill) {
+    await deleteProposalDraft(admin, profile.id);
+  } else {
+    initialDraft = await getProposalDraft(admin, profile.id);
+  }
+  perf.step("proposalDraft");
   perf.done();
 
   return (
@@ -32,6 +42,7 @@ export default async function NewProposalPage({ searchParams }: NewProposalPageP
       initialWorkspace={workspace}
       initialTitleSuggestions={titles}
       prefill={prefill ?? undefined}
+      initialDraft={initialDraft}
     />
   );
 }
