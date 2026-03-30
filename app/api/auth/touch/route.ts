@@ -17,12 +17,10 @@ export async function POST() {
     if (data?.updated && data?.last_accessed_at && profile.role !== "oversight") {
       const userEmail = profile.email?.trim() ?? "";
       if (userEmail) {
-        queueUserAccessNotification(admin, {
+        await queueUserAccessNotification(admin, {
           userEmail,
           userId: profile.id,
           lastAccessedAt: data.last_accessed_at
-        }).catch((err) => {
-          const message = err instanceof Error ? err.message : String(err);
         });
       }
     }
