@@ -1069,7 +1069,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
   const actionsByUserId = new Map<string, OutstandingAction[]>();
   const ownProposalUpdatesByUserId = new Map<string, OwnProposalUpdate[]>();
   const votingUserIds = users.filter((user) => user.role === "member" || user.role === "oversight").map((user) => user.id);
-  const meetingUsers = users.filter((user) => user.role === "oversight" || user.role === "manager");
+  const meetingUsers = users.filter((user) => user.role === "oversight");
   const adminUsers = users.filter((user) => user.role === "admin");
   const votesByProposalId = new Map<string, Set<string>>();
 
@@ -1153,7 +1153,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
       statusLabel: "To review",
       summary: pendingVoterIds.length
         ? `Waiting on ${pendingVoterIds.length} remaining vote${pendingVoterIds.length === 1 ? "" : "s"} before meeting review.`
-        : "All votes are complete. Waiting for oversight/manager meeting decision.",
+        : "All votes are complete. Waiting for oversight meeting decision.",
       chaseNames: pendingVoterIds.length
         ? uniqueIds(pendingVoterIds.map((userId) => displayNameOrEmail(usersById.get(userId))))
         : meetingChaseNames,

@@ -1986,10 +1986,10 @@ export async function submitVote(
     }
 
     if ((votesSubmitted ?? 0) >= requiredVotes) {
-        const recipients = await listUserIdsByRoles(admin, ["oversight", "manager"]);
-        if (recipients.length) {
-        const proposalTitle = proposal.proposal_title?.trim() || "Proposal";
+      const proposalTitle = proposal.proposal_title?.trim() || "Proposal";
+      const oversightRecipients = await listUserIdsByRoles(admin, ["oversight"]);
 
+      if (oversightRecipients.length) {
         void queuePushEvent(admin, {
           eventType: "proposal_ready_for_meeting",
           actorUserId: input.voterId,
@@ -2001,7 +2001,7 @@ export async function submitVote(
             proposalId: proposal.id,
             proposalType: proposal.proposal_type
           },
-          recipientUserIds: recipients,
+          recipientUserIds: oversightRecipients,
           idempotencyKey: `proposal-ready-for-meeting:${proposal.id}`
         }).catch((error) => {
           logNotificationError("submitVote enqueue", error);
@@ -2010,7 +2010,7 @@ export async function submitVote(
         await queueMeetingReviewActionEmails(admin, {
           proposalId: proposal.id,
           proposalTitle,
-          recipientUserIds: recipients,
+          recipientUserIds: oversightRecipients,
           actorUserId: input.voterId
         }).catch((error) => {
           logNotificationError("submitVote enqueue action-required email", error);
