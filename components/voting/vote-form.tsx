@@ -77,31 +77,6 @@ type VoteFormContextValue = {
 
 const VoteFormContext = createContext<VoteFormContextValue | null>(null);
 
-/** Stable scroll-into-view for inputs in bottom sheets: minimal motion + retries after iOS keyboard / visualViewport settle. */
-function attachComfortableFieldScroll(containerEl: HTMLElement | null) {
-  if (!containerEl || typeof window === "undefined") return () => {};
-  const run = () => {
-    containerEl.scrollIntoView({ block: "nearest", inline: "nearest" });
-  };
-  run();
-  let innerRaf = 0;
-  const outerRaf = requestAnimationFrame(() => {
-    innerRaf = requestAnimationFrame(run);
-  });
-  const vv = window.visualViewport;
-  const onResize = () => run();
-  vv?.addEventListener("resize", onResize);
-  const t1 = window.setTimeout(run, 100);
-  const t2 = window.setTimeout(run, 280);
-  return () => {
-    cancelAnimationFrame(outerRaf);
-    cancelAnimationFrame(innerRaf);
-    vv?.removeEventListener("resize", onResize);
-    window.clearTimeout(t1);
-    window.clearTimeout(t2);
-  };
-}
-
 function useVoteFormState(
   props: VoteFormProps,
   options: { skipReviewStep?: boolean }
@@ -423,37 +398,8 @@ export function VoteFormFooterButton() {
 
 function VoteFormContent() {
   const [allocationTouched, setAllocationTouched] = useState(false);
-  const fieldScrollCleanupRef = useRef<(() => void) | null>(null);
-  const allocationLabelRef = useRef<HTMLLabelElement>(null);
-  const flagLabelRef = useRef<HTMLLabelElement>(null);
-  const beginComfortableScroll = useCallback((el: HTMLElement | null) => {
-    fieldScrollCleanupRef.current?.();
-    fieldScrollCleanupRef.current = el ? attachComfortableFieldScroll(el) : null;
-  }, []);
-  const endComfortableScroll = useCallback(() => {
-    fieldScrollCleanupRef.current?.();
-    fieldScrollCleanupRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      fieldScrollCleanupRef.current?.();
-      fieldScrollCleanupRef.current = null;
-    };
-  }, []);
 
   const ctx = useContext(VoteFormContext);
-  const showAllocation =
-    ctx != null && ctx.proposalType === "joint" && ctx.choice === "yes";
-  const showFlagComment =
-    ctx != null && ctx.proposalType !== "joint" && ctx.choice === "flagged";
-
-  useEffect(() => {
-    if (!showAllocation && !showFlagComment) {
-      fieldScrollCleanupRef.current?.();
-      fieldScrollCleanupRef.current = null;
-    }
-  }, [showAllocation, showFlagComment]);
 
   if (!ctx) return null;
   const {
@@ -574,8 +520,8 @@ function VoteFormContent() {
           </Button>
         </div>
 
-      {showAllocation ? (
-        <label ref={allocationLabelRef} className="mt-4 block scroll-mt-3">
+      {proposalType === "joint" && choice === "yes" ? (
+        <label className="mt-4 block scroll-mt-3">
           <span className="block text-base font-semibold text-foreground">Your amount</span>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Suggested: {currency(impliedJointAllocation)}
@@ -586,8 +532,6 @@ function VoteFormContent() {
               className="flex-1 rounded-lg placeholder:italic"
               placeholder={currency(impliedJointAllocation)}
               value={allocationAmount}
-              onFocus={() => beginComfortableScroll(allocationLabelRef.current)}
-              onBlur={endComfortableScroll}
               onChange={(event) => {
                 const v = event.target.value;
                 setAllocationAmount(v);
@@ -613,15 +557,13 @@ function VoteFormContent() {
         </label>
       ) : null}
 
-      {showFlagComment ? (
-        <label ref={flagLabelRef} className="mt-4 block scroll-mt-3 text-xs font-medium">
+      {proposalType !== "joint" && choice === "flagged" ? (
+        <label className="mt-4 block scroll-mt-3 text-xs font-medium">
           Comment (optional)
           <Input
             className="mt-1 rounded-lg placeholder:italic"
             placeholder="e.g. Would like to discuss amount or scope"
             value={flagComment}
-            onFocus={() => beginComfortableScroll(flagLabelRef.current)}
-            onBlur={endComfortableScroll}
             onChange={(e) => setFlagComment(e.target.value)}
             maxLength={500}
           />

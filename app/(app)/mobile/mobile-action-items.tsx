@@ -1,27 +1,51 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, ListChecks, Plus, Vote } from "lucide-react";
+import { CheckCircle2, ChevronUp, ListChecks, Plus, Vote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency, titleCase } from "@/lib/utils";
+import { MobileInlineVoteForm } from "./mobile-inline-vote-form";
 
 type ActionItem = WorkspaceSnapshot["actionItems"][number];
+
+interface BudgetNumbers {
+  totalIndividualAllocated: number;
+  totalIndividualTarget: number;
+  pendingJointTotal: number;
+  pendingJointPortion: number;
+  pendingDiscretionaryPortion: number;
+  jointAllocated: number;
+  jointTarget: number;
+  discretionaryAllocated: number;
+  discretionaryCap: number;
+  totalBudgetRemaining: number;
+}
 
 interface MobileActionItemsProps {
   actionItems: ActionItem[];
   isManager: boolean;
   hasBudgetLeft: boolean;
-  onVote: (proposalId: string) => void;
+  expandedProposalId: string | null;
+  onToggleExpand: (proposalId: string) => void;
+  budget: BudgetNumbers;
+  userId: string;
+  onSuccess: (proposalId: string) => void;
+  onAllocationChange: (proposalId: string, amount: number) => void;
 }
 
 export function MobileActionItems({
   actionItems,
   isManager,
   hasBudgetLeft,
-  onVote,
+  expandedProposalId,
+  onToggleExpand,
+  budget,
+  userId,
+  onSuccess,
+  onAllocationChange,
 }: MobileActionItemsProps) {
   return (
     <GlassCard className="p-3" data-walkthrough="mobile-action-items">
@@ -63,7 +87,17 @@ export function MobileActionItems({
           </div>
         ) : (
           actionItems.map((item) => (
-            <ActionItemCard key={item.proposalId} item={item} onVote={onVote} />
+            <ActionItemCard
+              key={item.proposalId}
+              item={item}
+              expanded={expandedProposalId === item.proposalId}
+              onToggle={() => onToggleExpand(item.proposalId)}
+              isManager={isManager}
+              budget={budget}
+              userId={userId}
+              onSuccess={onSuccess}
+              onAllocationChange={onAllocationChange}
+            />
           ))
         )}
       </div>
@@ -71,7 +105,27 @@ export function MobileActionItems({
   );
 }
 
-function ActionItemCard({ item, onVote }: { item: ActionItem; onVote: (id: string) => void }) {
+interface ActionItemCardProps {
+  item: ActionItem;
+  expanded: boolean;
+  onToggle: () => void;
+  isManager: boolean;
+  budget: BudgetNumbers;
+  userId: string;
+  onSuccess: (proposalId: string) => void;
+  onAllocationChange: (proposalId: string, amount: number) => void;
+}
+
+function ActionItemCard({
+  item,
+  expanded,
+  onToggle,
+  isManager,
+  budget,
+  userId,
+  onSuccess,
+  onAllocationChange,
+}: ActionItemCardProps) {
   return (
     <article
       className={`content-auto rounded-xl border border-t-2 bg-background p-4 shadow-sm ${
@@ -100,10 +154,33 @@ function ActionItemCard({ item, onVote }: { item: ActionItem; onVote: (id: strin
           <p className="font-medium text-foreground">{item.voteProgressLabel}</p>
         </div>
       </div>
-      <Button className="mt-3 w-full" onClick={() => onVote(item.proposalId)}>
-        <Vote className="h-4 w-4" />{" "}
-        {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
+      <Button
+        className="mt-3 w-full"
+        variant={expanded ? "outline" : "default"}
+        onClick={onToggle}
+      >
+        {expanded ? (
+          <>
+            <ChevronUp className="h-4 w-4" />
+            Collapse
+          </>
+        ) : (
+          <>
+            <Vote className="h-4 w-4" />{" "}
+            {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
+          </>
+        )}
       </Button>
+
+      <MobileInlineVoteForm
+        item={item}
+        expanded={expanded}
+        isManager={isManager}
+        budget={budget}
+        userId={userId}
+        onSuccess={onSuccess}
+        onAllocationChange={onAllocationChange}
+      />
     </article>
   );
 }

@@ -28,7 +28,6 @@ import { MobileGreetingHeader } from "./mobile-greeting-header";
 import { MobileProfileSheet } from "./mobile-profile-sheet";
 import { MobileNudgeCard } from "./mobile-nudge-card";
 import { MobileActionItems } from "./mobile-action-items";
-import { MobileVoteModal } from "./mobile-vote-modal";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
@@ -79,11 +78,49 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
   }, [searchParams]);
 
   const [profileSheetOpen, setProfileSheetOpen] = useState(false);
-  const [voteDialogProposalId, setVoteDialogProposalId] = useState<string | null>(null);
-  const [isVoteSaving, setIsVoteSaving] = useState(false);
+  const [expandedVoteProposalId, setExpandedVoteProposalId] = useState<string | null>(null);
   const [pendingJointAllocationByProposalId, setPendingJointAllocationByProposalId] = useState<
     Record<string, number>
   >({});
+
+  const handleToggleExpand = useCallback((proposalId: string) => {
+    setExpandedVoteProposalId((prev) => {
+      if (prev === proposalId) {
+        // Collapsing — clear pending allocation
+        setPendingJointAllocationByProposalId((allocs) => {
+          const next = { ...allocs };
+          delete next[proposalId];
+          return next;
+        });
+        return null;
+      }
+      // Expanding a different card — clear the previous one's pending allocation
+      if (prev) {
+        setPendingJointAllocationByProposalId((allocs) => {
+          const next = { ...allocs };
+          delete next[prev];
+          return next;
+        });
+      }
+      return proposalId;
+    });
+  }, []);
+
+  const handleVoteSuccess = useCallback((proposalId: string) => {
+    setPendingJointAllocationByProposalId((prev) => {
+      const next = { ...prev };
+      delete next[proposalId];
+      return next;
+    });
+    setExpandedVoteProposalId(null);
+  }, []);
+
+  const handleAllocationChange = useCallback((proposalId: string, amount: number) => {
+    setPendingJointAllocationByProposalId((prev) => ({
+      ...prev,
+      [proposalId]: amount,
+    }));
+  }, []);
 
   // ── Walkthrough ──────────────────────────────────────────────────
   const { registerStartWalkthrough } = useMobileWalkthrough();
@@ -170,11 +207,6 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
     (g) => g.budgetYear === workspace.currentBudgetYear,
   );
   const hasBudgetLeft = !isManager && totalBudgetRemaining > 0;
-
-  const voteDialogItem =
-    voteDialogProposalId != null
-      ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId) ?? null
-      : null;
 
   // ── Render ───────────────────────────────────────────────────────
   return (
@@ -276,12 +308,8 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
         actionItems={workspace.actionItems}
         isManager={isManager}
         hasBudgetLeft={hasBudgetLeft}
-        onVote={setVoteDialogProposalId}
-      />
-
-      <MobileVoteModal
-        voteDialogItem={voteDialogItem}
-        isManager={isManager}
+        expandedProposalId={expandedVoteProposalId}
+        onToggleExpand={handleToggleExpand}
         budget={{
           totalIndividualAllocated,
           totalIndividualTarget,
@@ -294,33 +322,9 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
           discretionaryCap: workspace.personalBudget.discretionaryCap,
           totalBudgetRemaining,
         }}
-        isVoteSaving={isVoteSaving}
         userId={workspace.user.id}
-        onClose={() => {
-          setVoteDialogProposalId(null);
-          if (voteDialogProposalId) {
-            setPendingJointAllocationByProposalId((prev) => {
-              const next = { ...prev };
-              delete next[voteDialogProposalId];
-              return next;
-            });
-          }
-        }}
-        onSuccess={(proposalId) => {
-          setPendingJointAllocationByProposalId((prev) => {
-            const next = { ...prev };
-            delete next[proposalId];
-            return next;
-          });
-          setVoteDialogProposalId(null);
-        }}
-        onAllocationChange={(proposalId, amount) => {
-          setPendingJointAllocationByProposalId((prev) => ({
-            ...prev,
-            [proposalId]: amount,
-          }));
-        }}
-        onSavingChange={setIsVoteSaving}
+        onSuccess={handleVoteSuccess}
+        onAllocationChange={handleAllocationChange}
       />
 
       {/* ── Walkthrough spotlight overlay ──────────────────────────── */}
