@@ -12,7 +12,7 @@ import {
 
 const MOBILE_BREAKPOINT = 640
 
-function useIsMobile() {
+export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState(false)
 
   React.useEffect(() => {
@@ -165,6 +165,5 @@ export {
   ResponsiveModal,
   ResponsiveModalContent,
   ResponsiveModalClose,
-  useIsMobile,
   type ResponsiveModalDrawerProps,
 }

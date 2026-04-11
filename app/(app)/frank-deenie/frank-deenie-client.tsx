@@ -39,6 +39,18 @@ const FoundationEventForm = dynamic(
   () => import("./foundation-event-form").then((m) => m.FoundationEventForm),
   { ssr: false }
 );
+const MobileInlineAddDonation = dynamic(
+  () => import("./mobile-inline-add-donation").then((m) => m.MobileInlineAddDonation),
+  { ssr: false }
+);
+const MobileInlineFoundationEvent = dynamic(
+  () => import("./mobile-inline-foundation-event").then((m) => m.MobileInlineFoundationEvent),
+  { ssr: false }
+);
+const MobileInlineDonationDetail = dynamic(
+  () => import("./mobile-inline-donation-detail").then((m) => m.MobileInlineDonationDetail),
+  { ssr: false }
+);
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, UserProfile, YearMode } from "@/lib/types";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
@@ -271,6 +283,10 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
   const [returnRow, setReturnRow] = useState<FrankDeenieDonationRow | null>(null);
   const [foundationEventType, setFoundationEventType] = useState<FoundationEventType | null>(null);
   const [editingFoundationEvent, setEditingFoundationEvent] = useState<FoundationEvent | null>(null);
+  // Mobile inline expansion state (mirrors the modal state but lives in-flow, not in a portal).
+  const [expandedMobileForm, setExpandedMobileForm] = useState<"add" | "fund" | "transfer" | null>(null);
+  const [expandedMobileRowId, setExpandedMobileRowId] = useState<string | null>(null);
+  const [expandedMobileDetailMode, setExpandedMobileDetailMode] = useState<DetailMode>("view");
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
   const MOBILE_PAGE_SIZE = 50;
   const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_PAGE_SIZE);
@@ -283,7 +299,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
   }, []);
 
   const nameSuggestionsNeeded = useRef(false);
-  if (showAddForm) nameSuggestionsNeeded.current = true;
+  if (showAddForm || expandedMobileForm === "add") nameSuggestionsNeeded.current = true;
   const nameSuggestionsQuery = useSWR<{ names: string[] }>(
     nameSuggestionsNeeded.current ? "/api/frank-deenie/name-suggestions" : null
   );
@@ -677,6 +693,31 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
 
   const handleDonationCreated = useCallback(() => void mutate(), [mutate]);
 
+  // Mobile inline form handlers
+  const toggleMobileForm = useCallback((kind: "add" | "fund" | "transfer") => {
+    setExpandedMobileForm((current) => (current === kind ? null : kind));
+    setExpandedMobileRowId(null);
+  }, []);
+  const closeMobileForm = useCallback(() => setExpandedMobileForm(null), []);
+  const handleMobileAddCreated = useCallback(() => {
+    setExpandedMobileForm(null);
+    void mutate();
+  }, [mutate]);
+  const handleMobileFoundationSaved = useCallback(() => {
+    setExpandedMobileForm(null);
+    void mutate();
+  }, [mutate]);
+  const toggleMobileRow = useCallback((rowId: string) => {
+    setExpandedMobileRowId((current) => (current === rowId ? null : rowId));
+    setExpandedMobileDetailMode("view");
+    setExpandedMobileForm(null);
+  }, []);
+  const closeMobileRow = useCallback(() => setExpandedMobileRowId(null), []);
+  const handleMobileDetailMutate = useCallback(() => {
+    void mutate();
+    void mutateAllFoundation();
+  }, [mutate]);
+
   const importCsv = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!importCsvFile) {
@@ -976,33 +1017,55 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setFoundationEventType("fund_foundation")}
+                onClick={() => toggleMobileForm("fund")}
                 className="flex-1 text-xs"
+                aria-expanded={expandedMobileForm === "fund"}
               >
-                <Landmark className="h-3.5 w-3.5" />
-                Fund Foundation
+                {expandedMobileForm === "fund" ? <X className="h-3.5 w-3.5" /> : <Landmark className="h-3.5 w-3.5" />}
+                {expandedMobileForm === "fund" ? "Close" : "Fund Foundation"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setFoundationEventType("transfer_to_foundation")}
+                onClick={() => toggleMobileForm("transfer")}
                 className="flex-1 text-xs"
+                aria-expanded={expandedMobileForm === "transfer"}
               >
-                <Banknote className="h-3.5 w-3.5" />
-                Transfer
+                {expandedMobileForm === "transfer" ? <X className="h-3.5 w-3.5" /> : <Banknote className="h-3.5 w-3.5" />}
+                {expandedMobileForm === "transfer" ? "Close" : "Transfer"}
               </Button>
             </div>
             <Button
               type="button"
               variant="prominent"
               size="sm"
-              onClick={openAddForm}
+              onClick={() => toggleMobileForm("add")}
               className="mt-2 w-full"
+              aria-expanded={expandedMobileForm === "add"}
             >
-              <Plus className="h-4 w-4" />
-              Add Donation
+              {expandedMobileForm === "add" ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {expandedMobileForm === "add" ? "Close" : "Add Donation"}
             </Button>
+            <MobileInlineAddDonation
+              expanded={expandedMobileForm === "add"}
+              selectedYear={selectedYear}
+              nameSuggestions={allNameSuggestions}
+              onCreated={handleMobileAddCreated}
+              onCancel={closeMobileForm}
+            />
+            <MobileInlineFoundationEvent
+              expanded={expandedMobileForm === "fund" || expandedMobileForm === "transfer"}
+              eventType={
+                expandedMobileForm === "fund"
+                  ? "fund_foundation"
+                  : expandedMobileForm === "transfer"
+                    ? "transfer_to_foundation"
+                    : null
+              }
+              onSaved={handleMobileFoundationSaved}
+              onCancel={closeMobileForm}
+            />
           </>
         ) : null}
       </GlassCard>
@@ -1712,17 +1775,21 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                 const isReturnedOriginal = row.returnRole === "original";
                 const isReversal = row.returnRole === "reversal";
                 const isReplacement = row.returnRole === "replacement";
+                const isExpanded = expandedMobileRowId === row.id;
 
                 return (
                   <article
                     key={row.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDetailRowId(row.id)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailRowId(row.id); } }}
-                    className={`relative cursor-pointer px-1 py-3.5 transition-all active:scale-[0.985] ${
+                    className={`relative px-1 py-3.5 transition-all ${
                       isChildren && !isReturnedOriginal ? "pl-3.5" : ""
                     } ${isReturnedOriginal ? "opacity-60" : ""} ${isReversal ? "opacity-60" : ""}`}
+                  ><div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => toggleMobileRow(row.id)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleMobileRow(row.id); } }}
+                    className="cursor-pointer transition-all active:scale-[0.985]"
+                    aria-expanded={isExpanded}
                   >
                     {isChildren && !isReturnedOriginal ? (
                       <span className="absolute left-0 top-3.5 bottom-3.5 w-[3px] rounded-full bg-amber-400 dark:bg-amber-500" />
@@ -1777,6 +1844,19 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                       {isChildren ? "Children" : byDisplay(row)}
                       {notesText ? <><span className="mx-1.5">&middot;</span><span className="text-muted-foreground/70">{notesText}</span></> : null}
                     </p>
+                    </div>
+                    <MobileInlineDonationDetail
+                      row={row}
+                      expanded={isExpanded}
+                      isAdmin={isAdmin}
+                      readOnly={readOnly}
+                      deletingRowId={deletingRowId}
+                      initialMode={expandedMobileDetailMode}
+                      onClose={closeMobileRow}
+                      onMutate={handleMobileDetailMutate}
+                      onRequestDelete={handleDetailRequestDelete}
+                      onViewHistory={handleDetailViewHistory}
+                    />
                   </article>
                 );
               })
