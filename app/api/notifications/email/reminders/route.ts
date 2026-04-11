@@ -7,22 +7,13 @@ import {
   processWeeklyActionReminderEmails
 } from "@/lib/email-notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function isAuthorizedBySecret(request: NextRequest) {
-  const authorization = request.headers.get("authorization") ?? "";
-  const workerSecret = process.env.EMAIL_WORKER_SECRET?.trim();
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  if (workerSecret && authorization === `Bearer ${workerSecret}`) {
-    return true;
-  }
-  if (cronSecret && authorization === `Bearer ${cronSecret}`) {
-    return true;
-  }
-  return false;
-}
+import { isAuthorizedByWorker } from "@/lib/worker-auth";
 
 async function runReminders(request: NextRequest): Promise<NextResponse> {
-  const fromCronOrWorker = isAuthorizedBySecret(request);
+  const fromCronOrWorker = isAuthorizedByWorker(request, [
+    "EMAIL_WORKER_SECRET",
+    "CRON_SECRET"
+  ]);
   const manual = !fromCronOrWorker;
 
   // Only apply DISABLE_EMAIL_CRON to cron/worker (Bearer) requests; manual run from Settings always runs
