@@ -84,7 +84,7 @@ app/
 
 components/
   ui/                  # shadcn/ui primitives (card, badge, dialog, table, button, skeleton,
-                       #   drawer, sheet, tabs, switch, select, tooltip, alert, sonner,
+                       #   drawer, tabs, switch, select, tooltip, alert, sonner,
                        #   dropdown-menu, input, label, progress, separator, textarea) +
                        #   app wrappers (responsive-modal, metric-card, status-pill, role-pill,
                        #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar,
@@ -123,7 +123,6 @@ lib/
   proposer-display-names.ts       # Proposer name formatting utilities
   perf-logger.ts       # Server-side page performance timing (startPagePerf)
   perf-logger-client.ts # Client-side page performance hooks (usePagePerf)
-  in-memory-db.ts      # In-memory seeded database for dev/prototype mode
   push-notifications.ts
   email-notifications.ts
   organization-categorization.ts  # AI-based category assignment (Gemini/OpenAI)
@@ -157,7 +156,6 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `GET /api/admin` — Admin queue data (approved proposals for sending)
 
 ### Auth
-- `GET /api/auth/login` — Current user profile (same shape as `/auth/me`)
 - `POST /api/auth/logout` — Session termination
 - `GET /api/auth/me` — Current user profile
 - `GET /api/auth/users` — List users (email autocomplete)
@@ -257,14 +255,13 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Role authorization via `assertRole(profile, allowedRoles)`
 - Worker endpoints (push/process, email/process, org categories/process) validate Bearer token secrets
 - Custom `HttpError` class and `toErrorResponse()` wrapper for consistent error responses
-- Cache header constants in `lib/http-error.ts`: `PRIVATE_CACHE_HEADERS`, `STALE_CACHE_HEADERS`, `DYNAMIC_CACHE_HEADERS`, `STATIC_CACHE_HEADERS`
+- Cache header constants in `lib/http-error.ts`: `PRIVATE_CACHE_HEADERS`, `STALE_CACHE_HEADERS`, `DYNAMIC_CACHE_HEADERS`
 - `POST` for mutations, `GET` for queries, `PATCH` for partial updates, `PUT` for full replacements
 
 ### Data Access
 
 - **Admin client** (service role key) for server-side elevated operations
 - **User client** respects RLS policies for row-level data isolation
-- **In-memory DB** (`lib/in-memory-db.ts`) — a seeded, process-global state store used for dev/prototype mode. Exposes the same shape as the real Supabase data
 - **Server RPCs** — performance-critical pages use Postgres RPCs (e.g., `get_foundation_page_data()`) to fetch all page data in a single round-trip instead of many sequential queries
 - No ORM — raw SQL via Supabase JS client
 - SWR on the client with polling intervals for real-time-ish UI updates; client components use `revalidateIfStale: false` to prevent redundant revalidation on mount when fresh data is already present

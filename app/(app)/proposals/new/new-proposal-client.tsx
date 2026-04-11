@@ -187,20 +187,8 @@ export default function NewProposalClient({
     }),
     [organizationName, description, website, charityNavigatorUrl, proposalType, proposedAmount, proposerAllocationAmount]
   );
-  const setValues = useCallback((draft: ProposalDraft) => {
-    setOrganizationName(draft.organizationName);
-    setDescription(draft.description);
-    setWebsite(draft.website);
-    setCharityNavigatorUrl(draft.charityNavigatorUrl);
-    if (draft.proposalType === "joint" || draft.proposalType === "discretionary") {
-      setProposalType(draft.proposalType);
-    }
-    setProposedAmount(draft.proposedAmount || "0");
-    setProposerAllocationAmount(draft.proposerAllocationAmount);
-  }, []);
   const { saveDraft, clearDraft } = useDraftPersistence({
     getValues,
-    setValues,
     skipRestore: !!prefill,
     initialServerDraft: prefill ? null : initialDraft
   });

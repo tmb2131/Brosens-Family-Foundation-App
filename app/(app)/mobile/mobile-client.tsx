@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import useSWR from "swr";
 import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
-import { RefreshCw, Wallet } from "lucide-react";
+import { BookOpen, LogOut, Moon, RefreshCw, Sun, Wallet } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
 import { useWalkthrough, type WalkthroughStep } from "@/lib/hooks/use-walkthrough";
 import { Button } from "@/components/ui/button";
@@ -19,16 +21,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { GlassCard, CardLabel } from "@/components/ui/card";
+import {
+  ResponsiveModal,
+  ResponsiveModalContent,
+} from "@/components/ui/responsive-modal";
+import { RolePill } from "@/components/ui/role-pill";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency } from "@/lib/utils";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
 import { MobileGreetingHeader } from "./mobile-greeting-header";
-import { MobileProfileSheet } from "./mobile-profile-sheet";
 import { MobileNudgeCard } from "./mobile-nudge-card";
 import { MobileActionItems } from "./mobile-action-items";
 import { usePagePerf } from "@/lib/perf-logger-client";
+
+function getProfileInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0]?.[0] ?? "?").toUpperCase();
+}
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
   {
@@ -122,8 +134,12 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
     }));
   }, []);
 
+  // ── Profile sheet dependencies ───────────────────────────────────
+  const { signOut } = useAuth();
+  const { resolvedTheme, setTheme } = useTheme();
+
   // ── Walkthrough ──────────────────────────────────────────────────
-  const { registerStartWalkthrough } = useMobileWalkthrough();
+  const { registerStartWalkthrough, startWalkthrough } = useMobileWalkthrough();
   const mobileWalkthroughOnClose = useCallback(() => {
     try { localStorage.setItem("mobile-walkthrough-seen", "1"); } catch { /* noop */ }
   }, []);
@@ -217,12 +233,71 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
         onAvatarPress={() => setProfileSheetOpen(true)}
       />
 
-      <MobileProfileSheet
-        open={profileSheetOpen}
-        onOpenChange={setProfileSheetOpen}
-        userName={workspace.user.name}
-        userRole={workspace.user.role}
-      />
+      <ResponsiveModal open={profileSheetOpen} onOpenChange={setProfileSheetOpen}>
+        <ResponsiveModalContent
+          dialogClassName="sm:max-w-sm"
+          showCloseButton={false}
+        >
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground text-base font-semibold">
+                {getProfileInitials(workspace.user.name)}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {workspace.user.name}
+                </p>
+                <div className="mt-1">
+                  <RolePill role={workspace.user.role} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setTheme(resolvedTheme === "dark" ? "light" : "dark");
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                {resolvedTheme === "dark" ? (
+                  <Sun className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                ) : (
+                  <Moon className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                )}
+                {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileSheetOpen(false);
+                  setTimeout(() => startWalkthrough(), 300);
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <BookOpen className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                Walkthrough Guide
+              </button>
+
+              <div className="my-1 border-t" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileSheetOpen(false);
+                  void signOut();
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 hover:bg-muted dark:text-rose-400"
+              >
+                <LogOut className="h-4 w-4" strokeWidth={1.5} />
+                Sign out
+              </button>
+            </div>
+          </div>
+        </ResponsiveModalContent>
+      </ResponsiveModal>
 
       {deepLinkTarget ? (
         <GlassCard className="p-3">
