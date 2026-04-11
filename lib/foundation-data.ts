@@ -6,6 +6,7 @@ import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
   queueAdminSendRequiredActionEmails,
   queueMeetingReviewActionEmails,
+  queueProposalDecisionEmail,
   queueProposalSubmittedConfirmationEmail,
   queueVoteRequiredActionEmails
 } from "@/lib/email-notifications";
@@ -2162,6 +2163,19 @@ export async function setMeetingDecision(
   }).catch((pushError) => {
     logNotificationError("setMeetingDecision enqueue proposer update", pushError);
   });
+
+  if (status === "approved" || status === "declined") {
+    void queueProposalDecisionEmail(admin, {
+      proposalId,
+      proposalTitle,
+      proposedAmount: toNumber(existingProposal.final_amount) ?? 0,
+      proposalType: existingProposal.proposal_type,
+      proposerUserId: existingProposal.proposer_id,
+      decision: status
+    }).catch((emailError) => {
+      logNotificationError("setMeetingDecision enqueue proposer decision email", emailError);
+    });
+  }
 
   if (status === "approved") {
     void listUserIdsByRoles(admin, ["admin"])

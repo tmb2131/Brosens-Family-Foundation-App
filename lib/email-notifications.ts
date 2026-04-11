@@ -11,7 +11,8 @@ type EmailNotificationType =
   | "introduction"
   | "proposal_submitted_confirmation"
   | "user_access_notification"
-  | "frank_deenie_donation_change";
+  | "frank_deenie_donation_change"
+  | "proposal_decision";
 
 type OutstandingActionType = "vote_required" | "meeting_review_required" | "admin_send_required";
 
@@ -771,6 +772,76 @@ function buildProposalSubmittedConfirmationContent(input: {
 </table>
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">${escapeHtml(otherMembersLine)}</p>
 ${emailButton("Open Workspace", workspaceUrl)}`;
+
+  const htmlBody = wrapEmailHtml(subject, contentHtml);
+
+  return {
+    subject,
+    htmlBody,
+    textBody
+  };
+}
+
+function buildProposalDecisionContent(input: {
+  proposerName: string;
+  proposalTitle: string;
+  proposedAmount: number;
+  proposalType: ProposalType;
+  decision: "approved" | "declined";
+}) {
+  const title = input.proposalTitle.trim() || "Proposal";
+  const amountStr = currency(input.proposedAmount);
+  const typeLabel = input.proposalType === "joint" ? "Joint" : "Discretionary";
+  const decisionLabel = input.decision === "approved" ? "Approved" : "Declined";
+  const subject =
+    input.decision === "approved" ? `Proposal approved: ${title}` : `Proposal declined: ${title}`;
+  const dashboardUrl = buildOpenUrl("/dashboard");
+
+  const leadLine =
+    input.decision === "approved"
+      ? "Your proposal has been approved."
+      : "Your proposal has been declined.";
+
+  const followUpLine =
+    input.decision === "approved"
+      ? "An admin will now prepare it for sending. You can follow its progress from the dashboard."
+      : "You can review the full decision and vote details on the dashboard.";
+
+  const textBody = [
+    `Hi ${input.proposerName},`,
+    "",
+    leadLine,
+    "",
+    "Details:",
+    `  Name: ${title}`,
+    `  Amount: ${amountStr}`,
+    `  Type: ${typeLabel}`,
+    `  Decision: ${decisionLabel}`,
+    "",
+    followUpLine,
+    "",
+    dashboardUrl,
+    "",
+    "Brosens Family Foundation"
+  ].join("\n");
+
+  const highlightStyles =
+    input.decision === "approved"
+      ? "background-color:#f0fdf4;border-left:4px solid #16a34a;"
+      : "background-color:#fef2f2;border-left:4px solid #dc2626;";
+
+  const contentHtml = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">Hi ${escapeHtml(input.proposerName)},</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">${escapeHtml(leadLine)}</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;">
+<tr><td style="padding:16px 20px;${highlightStyles}border-radius:4px;">
+<p style="margin:0 0 4px 0;font-weight:700;font-size:15px;color:#111827;">${escapeHtml(title)}</p>
+<p style="margin:0 0 4px 0;color:#4b5563;font-size:14px;">${escapeHtml(amountStr)} · ${escapeHtml(typeLabel)}</p>
+<p style="margin:0;color:#111827;font-size:14px;"><strong>Decision:</strong> ${escapeHtml(decisionLabel)}</p>
+</td></tr>
+</table>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;color:#111827;">${escapeHtml(followUpLine)}</p>
+${emailButton("Open Dashboard", dashboardUrl)}`;
 
   const htmlBody = wrapEmailHtml(subject, contentHtml);
 
@@ -1624,6 +1695,52 @@ export async function queueProposalSubmittedConfirmationEmail(
       proposalId: input.proposalId,
       proposalTitle: input.proposalTitle,
       proposalType: input.proposalType
+    },
+    recipientUserIds: [input.proposerUserId]
+  });
+}
+
+export async function queueProposalDecisionEmail(
+  admin: AdminClient,
+  input: {
+    proposalId: string;
+    proposalTitle: string;
+    proposedAmount: number;
+    proposalType: ProposalType;
+    proposerUserId: string;
+    decision: "approved" | "declined";
+  }
+) {
+  const proposerMap = await loadUsersByIds(admin, [input.proposerUserId]);
+  const proposer = proposerMap.get(input.proposerUserId);
+  if (!proposer) {
+    return { enqueued: false, reason: "no_recipients" as const };
+  }
+  const proposerName = proposer.full_name?.trim() || proposer.email || "there";
+
+  const content = buildProposalDecisionContent({
+    proposerName,
+    proposalTitle: input.proposalTitle,
+    proposedAmount: input.proposedAmount,
+    proposalType: input.proposalType,
+    decision: input.decision
+  });
+
+  return queueEmailNotification(admin, {
+    notificationType: "proposal_decision",
+    actorUserId: null,
+    entityId: input.proposalId,
+    idempotencyKey: `proposal-decision:${input.proposalId}:${input.decision}`,
+    subject: content.subject,
+    htmlBody: content.htmlBody,
+    textBody: content.textBody,
+    primaryLinkPath: "/dashboard",
+    primaryLinkLabel: "Open Dashboard",
+    payload: {
+      proposalId: input.proposalId,
+      proposalTitle: input.proposalTitle,
+      proposalType: input.proposalType,
+      decision: input.decision
     },
     recipientUserIds: [input.proposerUserId]
   });
