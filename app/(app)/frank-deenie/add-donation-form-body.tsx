@@ -60,6 +60,8 @@ export interface AddDonationFormBodyProps {
   onCancel: () => void;
   /** Form id so an external Save button can submit the form from outside (desktop footer pattern). */
   formId?: string;
+  /** Ref to the form element (for footer Save via requestSubmit). */
+  formRef?: React.Ref<HTMLFormElement>;
   /** Notify parent of saving state (for dismiss protection). */
   onSavingChange?: (isSaving: boolean) => void;
   /** If true, render Save/Cancel inline at the bottom of the body. Mobile uses this; desktop renders them in the modal footer. */
@@ -73,6 +75,7 @@ export const AddDonationFormBody = memo(function AddDonationFormBody({
   onCreated,
   onCancel,
   formId = "add-donation-form",
+  formRef,
   onSavingChange,
   renderInlineActions = false,
 }: AddDonationFormBodyProps) {
@@ -148,7 +151,7 @@ export const AddDonationFormBody = memo(function AddDonationFormBody({
   };
 
   return (
-    <form id={formId} className="grid gap-3" onSubmit={handleSubmit}>
+    <form ref={formRef} id={formId} className="grid gap-3" onSubmit={handleSubmit}>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="text-xs font-semibold text-muted-foreground">
           Date

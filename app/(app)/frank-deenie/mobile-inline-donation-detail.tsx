@@ -71,30 +71,32 @@ export function MobileInlineDonationDetail({
     >
       <div className="min-h-0 overflow-hidden">
         <div ref={containerRef} className="mt-3 border-t border-border/60 pt-3">
-          {inlineMode === "return-check" ? (
-            <ReturnCheckFormBody
-              row={row}
-              resetKey={row.id}
-              onReturned={handleReturnSuccess}
-              onCancel={handleReturnCancel}
-              renderInlineActions
-            />
-          ) : (
-            <DonationDetailBody
-              row={row}
-              isAdmin={isAdmin}
-              readOnly={readOnly}
-              deletingRowId={deletingRowId}
-              initialMode={inlineMode as DetailMode}
-              resetKey={`${row.id}:${inlineMode}`}
-              onClose={onClose}
-              onMutate={onMutate}
-              onBeginReturn={handleBeginReturn}
-              onRequestDelete={onRequestDelete}
-              onViewHistory={onViewHistory}
-              showCloseButton={false}
-            />
-          )}
+          {expanded ? (
+            inlineMode === "return-check" ? (
+              <ReturnCheckFormBody
+                row={row}
+                resetKey={row.id}
+                onReturned={handleReturnSuccess}
+                onCancel={handleReturnCancel}
+                renderInlineActions
+              />
+            ) : (
+              <DonationDetailBody
+                row={row}
+                isAdmin={isAdmin}
+                readOnly={readOnly}
+                deletingRowId={deletingRowId}
+                initialMode={inlineMode as DetailMode}
+                resetKey={`${row.id}:${inlineMode}`}
+                onClose={onClose}
+                onMutate={onMutate}
+                onBeginReturn={handleBeginReturn}
+                onRequestDelete={onRequestDelete}
+                onViewHistory={onViewHistory}
+                showCloseButton={false}
+              />
+            )
+          ) : null}
         </div>
       </div>
     </div>

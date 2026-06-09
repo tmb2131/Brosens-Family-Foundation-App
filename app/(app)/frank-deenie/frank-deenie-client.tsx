@@ -583,19 +583,16 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
 
   const requestDelete = (row: FrankDeenieDonationRow) => {
     if (!row.editable) return;
+    // Close any open detail drawer so the confirm dialog is the only modal (stacked Radix dialogs block clicks).
+    setDetailRowId(null);
+    setDetailMode("view");
     setDeleteConfirmRow(row);
   };
 
-  const executeDelete = async () => {
-    if (!deleteConfirmRow) return;
-
-    const row = deleteConfirmRow;
+  const executeDelete = async (row: FrankDeenieDonationRow) => {
     setDeleteConfirmRow(null);
     setDeletingRowId(row.id);
-
-    if (detailRowId === row.id) {
-      setDetailRowId(null);
-    }
+    setDetailRowId((current) => (current === row.id ? null : current));
 
     try {
       await mutate(
@@ -657,12 +654,20 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     void mutate();
     void mutateAllFoundation();
   }, [mutate]);
-  const handleDetailBeginReturn = useCallback((row: FrankDeenieDonationRow) => setReturnRow(row), []);
+  const handleDetailBeginReturn = useCallback((row: FrankDeenieDonationRow) => {
+    setDetailRowId(null);
+    setDetailMode("view");
+    setReturnRow(row);
+  }, []);
   const handleDetailRequestDelete = useCallback((row: FrankDeenieDonationRow) => {
     if (!row.editable) return;
+    setDetailRowId(null);
+    setDetailMode("view");
     setDeleteConfirmRow(row);
   }, []);
   const handleDetailViewHistory = useCallback((name: string) => {
+    setDetailRowId(null);
+    setDetailMode("view");
     setGivingHistoryName(name);
     setGivingHistoryFuzzy(false);
     setGivingHistoryNames(null);
@@ -2234,9 +2239,10 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
+                      type="button"
                       variant="destructive"
                       className="flex-1 sm:flex-none"
-                      onClick={() => void executeDelete()}
+                      onClick={() => void executeDelete(deleteConfirmRow)}
                     >
                       Delete
                     </Button>

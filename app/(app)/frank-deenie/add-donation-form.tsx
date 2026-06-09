@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ interface AddDonationFormProps {
 
 export const AddDonationForm = memo(function AddDonationForm({ open, onClose, selectedYear, nameSuggestions, onCreated }: AddDonationFormProps) {
   const [isCreating, setIsCreating] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const handleClose = () => {
     if (!isCreating) onClose();
@@ -35,7 +36,12 @@ export const AddDonationForm = memo(function AddDonationForm({ open, onClose, se
         footer={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-3">
             <div className="flex items-center gap-2">
-              <Button type="submit" form="add-donation-modal-form" disabled={isCreating} className="flex-1 sm:flex-none">
+              <Button
+                type="button"
+                disabled={isCreating}
+                className="flex-1 sm:flex-none"
+                onClick={() => formRef.current?.requestSubmit()}
+              >
                 {isCreating ? "Saving..." : "Save Donation"}
               </Button>
               <Button variant="outline" type="button" onClick={handleClose} disabled={isCreating} className="flex-1 sm:flex-none">
@@ -73,6 +79,7 @@ export const AddDonationForm = memo(function AddDonationForm({ open, onClose, se
             onCreated={onCreated}
             onCancel={handleClose}
             formId="add-donation-modal-form"
+            formRef={formRef}
             onSavingChange={setIsCreating}
           />
         </div>

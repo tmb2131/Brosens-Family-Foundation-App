@@ -50,14 +50,14 @@ export function MobileInlineFoundationEvent({
           ref={containerRef}
           className="mt-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
         >
-          {resolvedEventType ? (
+          {expanded && resolvedEventType ? (
             <>
               <h3 className="text-base font-bold">{title}</h3>
               <div className="mt-3">
                 <FoundationEventFormBody
                   eventType={resolvedEventType}
                   editingEvent={editingEvent}
-                  resetKey={expanded ? `${resolvedEventType}:${editingEvent?.id ?? "new"}` : "closed"}
+                  resetKey={`${resolvedEventType}:${editingEvent?.id ?? "new"}`}
                   onSaved={onSaved}
                   onCancel={onCancel}
                   renderInlineActions
