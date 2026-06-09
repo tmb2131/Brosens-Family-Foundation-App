@@ -271,6 +271,8 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
   const [deleteConfirmRow, setDeleteConfirmRow] = useState<FrankDeenieDonationRow | null>(null);
   const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const [detailMode, setDetailMode] = useState<DetailMode>("view");
+  /** After choosing Delete from the row menu, Radix can click-through to the table row and open the detail drawer. */
+  const suppressRowDetailOpenRef = useRef(false);
   
   const [isFilterNameOpen, setIsFilterNameOpen] = useState(false);
   const [chartDrilldownYear, setChartDrilldownYear] = useState<number | null>(null);
@@ -583,6 +585,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
 
   const requestDelete = (row: FrankDeenieDonationRow) => {
     if (!row.editable) return;
+    suppressRowDetailOpenRef.current = true;
     // Close any open detail drawer so the confirm dialog is the only modal (stacked Radix dialogs block clicks).
     setDetailRowId(null);
     setDetailMode("view");
@@ -1967,6 +1970,11 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                             row.source === "children" && !isReturnedOriginal ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           } ${isReturnedOriginal || isReversal ? "opacity-60" : ""}`}
                           onClick={(event) => {
+                            if (suppressRowDetailOpenRef.current) {
+                              suppressRowDetailOpenRef.current = false;
+                              return;
+                            }
+
                             const target = event.target;
                             if (
                               target instanceof HTMLElement &&
@@ -2048,7 +2056,11 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
                                     <MoreHorizontal className="h-3.5 w-3.5" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-36 animate-in fade-in-0 zoom-in-95">
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-36 animate-in fade-in-0 zoom-in-95"
+                                  onCloseAutoFocus={(event) => event.preventDefault()}
+                                >
                                   <DropdownMenuItem
                                     className="text-xs font-semibold transition-colors hover:bg-muted"
                                     onSelect={() => setDetailRowId(row.id)}
