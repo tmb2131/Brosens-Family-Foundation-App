@@ -35,7 +35,7 @@ export const AddDonationForm = memo(function AddDonationForm({ open, onClose, se
         footer={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-3">
             <div className="flex items-center gap-2">
-              <Button type="submit" form="add-donation-form" disabled={isCreating} className="flex-1 sm:flex-none">
+              <Button type="submit" form="add-donation-modal-form" disabled={isCreating} className="flex-1 sm:flex-none">
                 {isCreating ? "Saving..." : "Save Donation"}
               </Button>
               <Button variant="outline" type="button" onClick={handleClose} disabled={isCreating} className="flex-1 sm:flex-none">
@@ -72,6 +72,7 @@ export const AddDonationForm = memo(function AddDonationForm({ open, onClose, se
             nameSuggestions={nameSuggestions}
             onCreated={onCreated}
             onCancel={handleClose}
+            formId="add-donation-modal-form"
             onSavingChange={setIsCreating}
           />
         </div>

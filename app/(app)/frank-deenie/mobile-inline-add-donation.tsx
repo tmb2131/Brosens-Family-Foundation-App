@@ -44,14 +44,17 @@ export function MobileInlineAddDonation({
             Add a new ledger entry for the selected period.
           </p>
           <div className="mt-3">
-            <AddDonationFormBody
-              resetKey={expanded ? "open" : "closed"}
-              selectedYear={selectedYear}
-              nameSuggestions={nameSuggestions}
-              onCreated={onCreated}
-              onCancel={onCancel}
-              renderInlineActions
-            />
+            {expanded ? (
+              <AddDonationFormBody
+                resetKey="open"
+                selectedYear={selectedYear}
+                nameSuggestions={nameSuggestions}
+                onCreated={onCreated}
+                onCancel={onCancel}
+                formId="mobile-inline-add-donation-form"
+                renderInlineActions
+              />
+            ) : null}
           </div>
         </div>
       </div>
