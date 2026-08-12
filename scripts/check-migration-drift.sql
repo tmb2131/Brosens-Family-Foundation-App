@@ -1,73 +1,22 @@
--- Migration drift check — paste into the Supabase SQL Editor.
+-- Migration drift check — paste the whole file into the Supabase SQL Editor.
 --
--- Answers the same question as `supabase db push --dry-run` without needing the
--- CLI linked, and answers it better: the dry run only compares filenames against
--- the CLI's ledger, so anything applied by hand in the SQL Editor reads as
--- "pending" and anything dropped later still reads as "applied". Query 2 checks
--- the catalog for the objects themselves, which is what actually matters.
+-- Reports what the database actually contains, which is the only reliable
+-- signal. `supabase db push --dry-run` compares filenames against the CLI's
+-- ledger, and this project has no ledger: schema_migrations does not exist, so
+-- the CLI has never pushed here and every migration was applied by hand.
 --
--- Regenerate query 1's version list from the repo with:
---   ls supabase/migrations/*.sql | sed 's|.*/||; s|\.sql$||'
+--   ⚠ DO NOT RUN `npm run db:push` AGAINST THIS PROJECT YET.
+--
+-- With no ledger the CLI treats all 34 migrations as pending and replays them
+-- from 20260211000000 against a database that already has most of the objects.
+-- Backfill the ledger first — see the note at the bottom of this file.
+--
+-- Query 1 is the truth. Query 3 only becomes meaningful once the ledger exists.
 
 
 -- ---------------------------------------------------------------------------
--- 1. Repo migrations vs the CLI's ledger.
---    NOT RECORDED = the CLI has no record of it. It may still have been applied
---    by hand — cross-check against query 2 before re-running anything.
--- ---------------------------------------------------------------------------
-with repo(version, name) as (
-  values
-    ('20260211000000', 'initial_schema'),
-    ('20260211000001', 'auth_profile_and_blind_vote_policies'),
-    ('20260212000000', 'discretionary_vote_choices'),
-    ('20260212000001', 'mandate_policy_notifications'),
-    ('20260212000002', 'proposal_sent_at'),
-    ('20260213000000', 'audit_log'),
-    ('20260213000001', 'email_notifications'),
-    ('20260213000002', 'frank_deenie_donations'),
-    ('20260213000003', 'organization_charity_navigator_url'),
-    ('20260213000004', 'push_notifications'),
-    ('20260214000000', 'organization_directional_category'),
-    ('20260214000001', 'ntee_broad_category_rebucket'),
-    ('20260215000000', 'email_introduction_type'),
-    ('20260215000001', 'proposal_detail_snapshots'),
-    ('20260217000000', 'votes_flag_comment'),
-    ('20260217000001', 'proposal_vote_progress_security_invoker'),
-    ('20260217100000', 'mandate_comments'),
-    ('20260217100001', 'mandate_comment_replies'),
-    ('20260217100002', 'mandate_comment_resolved'),
-    ('20260218000000', 'proposal_submitted_confirmation_type'),
-    ('20260218100000', 'user_profiles_last_accessed_at'),
-    ('20260219100000', 'user_access_notification'),
-    ('20260307000000', 'frank_deenie_donation_change_notification'),
-    ('20260308000000', 'mandate_oversight_wording'),
-    ('20260318000000', 'check_returns'),
-    ('20260318100000', 'foundation_events'),
-    ('20260318200000', 'available_years_rpc'),
-    ('20260319000000', 'original_sent_at'),
-    ('20260319100000', 'giving_year_rpcs'),
-    ('20260322000000', 'wrap_rls_auth_calls'),
-    ('20260322100000', 'get_foundation_page_data'),
-    ('20260329100000', 'proposal_drafts'),
-    ('20260410000000', 'proposal_decision_notification'),
-    ('20260812000000', 'restrict_security_definer_rpc_grants')
-)
-select
-  coalesce(repo.version, m.version)                   as version,
-  coalesce(repo.name, '(not in repo)')                as migration,
-  case
-    when repo.version is null then 'IN DB, NOT IN REPO'
-    when m.version is null    then 'NOT RECORDED'
-    else 'applied'
-  end                                                 as ledger
-from repo
-full outer join supabase_migrations.schema_migrations m on m.version = repo.version
-order by 1;
-
-
--- ---------------------------------------------------------------------------
--- 2. Do the objects the recent migrations create actually exist?
---    This is the drift-proof check — it reads the catalog, not the ledger.
+-- 1. Do the objects the migrations create actually exist?
+--    Reads the catalog, so it is correct no matter how a migration was applied.
 -- ---------------------------------------------------------------------------
 select item, introduced_by, case when present then 'ok' else 'MISSING' end as state
 from (
@@ -84,6 +33,18 @@ from (
     ('table mandate_comments', '20260217100000_mandate_comments',
      to_regclass('public.mandate_comments') is not null),
 
+    ('table audit_log', '20260213000000_audit_log',
+     to_regclass('public.audit_log') is not null),
+
+    ('table email_notifications', '20260213000001_email_notifications',
+     to_regclass('public.email_notifications') is not null),
+
+    ('table push_subscriptions', '20260213000004_push_notifications',
+     to_regclass('public.push_subscriptions') is not null),
+
+    ('table frank_deenie_donations', '20260213000002_frank_deenie_donations',
+     to_regclass('public.frank_deenie_donations') is not null),
+
     ('column grant_proposals.returned_at', '20260318000000_check_returns',
      exists (select 1 from information_schema.columns
              where table_schema = 'public' and table_name = 'grant_proposals'
@@ -94,19 +55,38 @@ from (
              where table_schema = 'public' and table_name = 'grant_proposals'
                and column_name = 'original_sent_at')),
 
+    ('column grant_proposals.sent_at', '20260212000002_proposal_sent_at',
+     exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'grant_proposals'
+               and column_name = 'sent_at')),
+
     ('column user_profiles.last_accessed_at', '20260218100000_user_profiles_last_accessed_at',
      exists (select 1 from information_schema.columns
              where table_schema = 'public' and table_name = 'user_profiles'
                and column_name = 'last_accessed_at')),
+
+    ('column votes.flag_comment', '20260217000000_votes_flag_comment',
+     exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'votes'
+               and column_name = 'flag_comment')),
 
     ('column mandate_comments.resolved_at', '20260217100002_mandate_comment_resolved',
      exists (select 1 from information_schema.columns
              where table_schema = 'public' and table_name = 'mandate_comments'
                and column_name = 'resolved_at')),
 
+    ('column organizations.directional_category', '20260214000000_organization_directional_category',
+     exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'organizations'
+               and column_name = 'directional_category')),
+
     ('fn get_foundation_page_data', '20260322100000_get_foundation_page_data',
      exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'public' and p.proname = 'get_foundation_page_data')),
+
+    ('fn touch_last_accessed_at', '20260219100000_user_access_notification',
+     exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'touch_last_accessed_at')),
 
     ('fn get_distinct_frank_deenie_years', '20260318200000_available_years_rpc',
      exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -116,7 +96,7 @@ from (
      exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'public' and p.proname = 'get_distinct_children_years')),
 
-    -- Known missing in production, and called by nothing in the app.
+    -- Known absent, and called by nothing in the app.
     ('fn get_distinct_frank_deenie_giving_years', '20260319100000_giving_year_rpcs',
      exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'public' and p.proname = 'get_distinct_frank_deenie_giving_years')),
@@ -137,6 +117,10 @@ from (
      exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
              where t.typname = 'email_notification_type' and e.enumlabel = 'user_access_notification')),
 
+    ('enum email_notification_type.proposal_submitted_confirmation', '20260218000000_proposal_submitted_confirmation_type',
+     exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+             where t.typname = 'email_notification_type' and e.enumlabel = 'proposal_submitted_confirmation')),
+
     ('enum vote_choice.flagged', '20260212000000_discretionary_vote_choices',
      exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
              where t.typname = 'vote_choice' and e.enumlabel = 'flagged'))
@@ -145,12 +129,11 @@ order by present, item;
 
 
 -- ---------------------------------------------------------------------------
--- 3. Did the RPC lock-down take? Every row should show anon=f, authenticated=f,
---    service_role=t, with search_path pinned. Trigger functions are excluded on
---    purpose and will not appear.
+-- 2. Did the RPC lock-down take?
+--    Every row should read anon=f, authenticated=f, service_role=t, with
+--    search_path pinned. Trigger functions are excluded on purpose.
+--    to_regrole guards keep this working on a plain Postgres too.
 -- ---------------------------------------------------------------------------
--- to_regrole guards keep this from erroring on a database that lacks the
--- Supabase roles (a bare local Postgres); on Supabase all three always exist.
 select
   p.oid::regprocedure as fn,
   case when to_regrole('anon') is null then null
@@ -166,3 +149,99 @@ where n.nspname = 'public'
   and p.prosecdef
   and p.prorettype <> 'trigger'::regtype
 order by 1;
+
+
+-- ---------------------------------------------------------------------------
+-- 3. Repo migrations vs the CLI ledger.
+--    Returns a single explanatory row when no ledger exists, rather than 42P01.
+--    Built as a pg_temp function so the table reference stays dynamic — plain
+--    SQL resolves table names at parse time and would fail before any guard
+--    could run. pg_temp objects vanish with the session.
+--
+--    Regenerate the version list from the repo with:
+--      ls supabase/migrations/*.sql | sed 's|.*/||; s|\.sql$||'
+-- ---------------------------------------------------------------------------
+create or replace function pg_temp.migration_ledger()
+returns table (version text, migration text, ledger text)
+language plpgsql
+as $fn$
+begin
+  if to_regclass('supabase_migrations.schema_migrations') is null then
+    return query select
+      null::text,
+      null::text,
+      'NO LEDGER — the Supabase CLI has never pushed to this database. Every migration was applied by hand. Do not run db:push until the ledger is backfilled (see the note below).'::text;
+    return;
+  end if;
+
+  return query execute $q$
+    with repo(version, name) as (
+      values
+        ('20260211000000', 'initial_schema'),
+        ('20260211000001', 'auth_profile_and_blind_vote_policies'),
+        ('20260212000000', 'discretionary_vote_choices'),
+        ('20260212000001', 'mandate_policy_notifications'),
+        ('20260212000002', 'proposal_sent_at'),
+        ('20260213000000', 'audit_log'),
+        ('20260213000001', 'email_notifications'),
+        ('20260213000002', 'frank_deenie_donations'),
+        ('20260213000003', 'organization_charity_navigator_url'),
+        ('20260213000004', 'push_notifications'),
+        ('20260214000000', 'organization_directional_category'),
+        ('20260214000001', 'ntee_broad_category_rebucket'),
+        ('20260215000000', 'email_introduction_type'),
+        ('20260215000001', 'proposal_detail_snapshots'),
+        ('20260217000000', 'votes_flag_comment'),
+        ('20260217000001', 'proposal_vote_progress_security_invoker'),
+        ('20260217100000', 'mandate_comments'),
+        ('20260217100001', 'mandate_comment_replies'),
+        ('20260217100002', 'mandate_comment_resolved'),
+        ('20260218000000', 'proposal_submitted_confirmation_type'),
+        ('20260218100000', 'user_profiles_last_accessed_at'),
+        ('20260219100000', 'user_access_notification'),
+        ('20260307000000', 'frank_deenie_donation_change_notification'),
+        ('20260308000000', 'mandate_oversight_wording'),
+        ('20260318000000', 'check_returns'),
+        ('20260318100000', 'foundation_events'),
+        ('20260318200000', 'available_years_rpc'),
+        ('20260319000000', 'original_sent_at'),
+        ('20260319100000', 'giving_year_rpcs'),
+        ('20260322000000', 'wrap_rls_auth_calls'),
+        ('20260322100000', 'get_foundation_page_data'),
+        ('20260329100000', 'proposal_drafts'),
+        ('20260410000000', 'proposal_decision_notification'),
+        ('20260812000000', 'restrict_security_definer_rpc_grants')
+    )
+    select
+      coalesce(repo.version, m.version),
+      coalesce(repo.name, '(not in repo)'),
+      case
+        when repo.version is null then 'IN DB, NOT IN REPO'
+        when m.version is null    then 'NOT RECORDED'
+        else 'applied'
+      end
+    from repo
+    full outer join supabase_migrations.schema_migrations m on m.version = repo.version
+    order by 1
+  $q$;
+end
+$fn$;
+
+select * from pg_temp.migration_ledger();
+
+
+-- ---------------------------------------------------------------------------
+-- Backfilling the ledger, once you want `db:push` to be usable.
+--
+-- Link the project, then tell the CLI which migrations are already in place so
+-- it stops treating them as pending. Mark applied only the ones query 1 shows
+-- as present, and mark the rest reverted so they run on the next push:
+--
+--   npx supabase link --project-ref <ref>
+--   npx supabase migration repair --status applied 20260211000000 20260211000001 ...
+--   npx supabase migration repair --status reverted 20260319100000
+--   npm run db:push:dry-run     # should now list only what is genuinely pending
+--
+-- Until that is done, apply new migrations by pasting them into the SQL Editor,
+-- the way the rest of this schema was built.
+-- ---------------------------------------------------------------------------
