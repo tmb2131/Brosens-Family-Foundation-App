@@ -436,7 +436,7 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase public anon key
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase secret service role key
-- `APP_BASE_URL` — Application base URL (e.g., `https://brosensfoundation.com`)
+- `APP_BASE_URL` — Application base URL (e.g., `https://brosensfoundation.com`). Used for absolute links in emails and for `og:url` in proposal link previews. Resolved by `getAppBaseUrl()` in `lib/app-url.ts`, which falls back through `NEXT_PUBLIC_APP_URL` → `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL`; the project production domain is preferred over the per-deployment hostname because deployment URLs are ephemeral
 
 ### Push notifications
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
