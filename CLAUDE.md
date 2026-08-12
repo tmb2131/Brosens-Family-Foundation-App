@@ -315,7 +315,6 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `budgets` | Annual budget (total, joint/discretionary ratios, rollover) |
 | `grant_proposals` | Grant proposals with status lifecycle |
 | `proposal_drafts` | Per-user JSON payload for in-progress new proposal form (cross-device) |
-| `proposal_detail_snapshots` | Immutable snapshot of proposal state at submission time |
 | `votes` | Blind votes with allocation amounts and optional flag comments |
 | `audit_log` | Immutable audit trail for all mutations |
 | `frank_deenie_donations` | Frank & Deenie donation ledger (with return tracking) |
@@ -324,8 +323,12 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `email_notifications` | Email notification queue |
 | `policy_documents` | Versioned mandate policy content |
 | `policy_changes` | Policy change diffs with version history |
-| `policy_notifications` | Per-user acknowledgement/flag status per policy version |
+| `policy_change_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
+| `notification_preferences` | Per-user push/email notification opt-ins |
+| `notification_events` / `notification_deliveries` | Push event queue and per-subscription delivery records |
+| `email_deliveries` / `email_weekly_reminders` | Email delivery records and weekly reminder bookkeeping |
+| `organization_category_jobs` | Queue for AI directional-category assignment |
 
 ### Database Migrations (34 total)
 
@@ -334,7 +337,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260211000000_initial_schema` | Core enums, tables: user_profiles, organizations, grants_master, budgets, grant_proposals, votes; proposal_vote_progress view |
 | `20260211000001_auth_profile_and_blind_vote_policies` | handle_new_auth_user trigger; RLS for user_profiles and votes |
 | `20260212000000_discretionary_vote_choices` | vote_choice enum: `acknowledged`, `flagged` |
-| `20260212000001_mandate_policy_notifications` | policy_documents, policy_changes, policy_notifications tables |
+| `20260212000001_mandate_policy_notifications` | policy_documents, policy_changes, policy_change_notifications tables |
 | `20260212000002_proposal_sent_at` | sent_at timestamp on grant_proposals |
 | `20260213000000_audit_log` | audit_log table (immutable) |
 | `20260213000001_email_notifications` | email_notifications table with typed notification kinds |
@@ -344,7 +347,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260214000000_organization_directional_category` | directional_category, directional_category_source, directional_category_locked on organizations |
 | `20260214000001_ntee_broad_category_rebucket` | Updated NTEE category bucket mapping |
 | `20260215000000_email_introduction_type` | introduction email notification type |
-| `20260215000001_proposal_detail_snapshots` | proposal_detail_snapshots table |
+| `20260215000001_proposal_detail_snapshots` | Despite the name, creates no table — denormalizes `proposal_title`, `proposal_description`, `proposal_website`, `proposal_charity_navigator_url` onto `grant_proposals` so a proposal keeps the details it was submitted with |
 | `20260217000000_votes_flag_comment` | flag_comment on votes |
 | `20260217000001_proposal_vote_progress_security_invoker` | proposal_vote_progress view security update |
 | `20260217100000_mandate_comments` | mandate_comments table (threaded, quoted with offsets) |

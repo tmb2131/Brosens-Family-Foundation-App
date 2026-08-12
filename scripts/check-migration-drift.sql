@@ -92,10 +92,16 @@ with objects(item, detail, present) as (
      to_regclass('public.foundation_events') is not null),
     ('table proposal_drafts', '20260329100000_proposal_drafts',
      to_regclass('public.proposal_drafts') is not null),
-    ('table proposal_detail_snapshots', '20260215000001_proposal_detail_snapshots',
-     to_regclass('public.proposal_detail_snapshots') is not null),
     ('table mandate_comments', '20260217100000_mandate_comments',
      to_regclass('public.mandate_comments') is not null),
+    ('table policy_change_notifications', '20260212000001_mandate_policy_notifications',
+     to_regclass('public.policy_change_notifications') is not null),
+    ('table notification_preferences', '20260213000004_push_notifications',
+     to_regclass('public.notification_preferences') is not null),
+    ('table organization_category_jobs', '20260214000000_organization_directional_category',
+     to_regclass('public.organization_category_jobs') is not null),
+    ('table email_deliveries', '20260213000001_email_notifications',
+     to_regclass('public.email_deliveries') is not null),
     ('table audit_log', '20260213000000_audit_log',
      to_regclass('public.audit_log') is not null),
     ('table email_notifications', '20260213000001_email_notifications',
@@ -128,6 +134,14 @@ with objects(item, detail, present) as (
     ('column organizations.directional_category', '20260214000000_organization_directional_category',
      exists (select 1 from information_schema.columns where table_schema='public'
              and table_name='organizations' and column_name='directional_category')),
+    -- 20260215000001 is named "proposal_detail_snapshots" but creates no table:
+    -- it denormalizes the proposal's details onto grant_proposals as columns.
+    ('column grant_proposals.proposal_title', '20260215000001_proposal_detail_snapshots',
+     exists (select 1 from information_schema.columns where table_schema='public'
+             and table_name='grant_proposals' and column_name='proposal_title')),
+    ('column grant_proposals.proposal_charity_navigator_url', '20260215000001_proposal_detail_snapshots',
+     exists (select 1 from information_schema.columns where table_schema='public'
+             and table_name='grant_proposals' and column_name='proposal_charity_navigator_url')),
 
     ('fn get_foundation_page_data', '20260322100000_get_foundation_page_data',
      exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
