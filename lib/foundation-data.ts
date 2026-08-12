@@ -827,6 +827,26 @@ function buildProposalViews(input: {
   });
 }
 
+/**
+ * Blind voting, enforced in the payload rather than only in the UI.
+ *
+ * `buildProposalViews` always attaches the full vote breakdown, because the
+ * oversight meeting view needs it before reveal (it triages "needs discussion"
+ * from no/flagged votes). The general foundation snapshot, though, is served to
+ * every role through `/api/foundation`, `/api/workspace` and `/api/proposals`,
+ * and it is also serialized into the Dashboard RSC payload. Nothing outside the
+ * meeting path renders this array, so strip it while the proposal is still
+ * masked for this viewer — otherwise a member could read everyone else's choices
+ * and allocation amounts out of the response before casting their own vote.
+ *
+ * This mirrors the same guard in `getProposalDetail`.
+ */
+function redactBlindVoteBreakdown(
+  view: ReturnType<typeof buildProposalViews>[number]
+): ReturnType<typeof buildProposalViews>[number]["voteBreakdown"] {
+  return view.progress.masked ? [] : view.voteBreakdown;
+}
+
 async function loadProposalsWithDependencies(admin: AdminClient, proposalRows: ProposalRow[]) {
   const proposalIds = proposalRows.map((row) => row.id);
   const grantIds = unique(proposalRows.map((row) => row.grant_master_id));
@@ -998,7 +1018,8 @@ export function buildFoundationSnapshotFromData(
 
   const proposals = proposalViews.map((p) => ({
     ...p,
-    proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId))
+    proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId)),
+    voteBreakdown: redactBlindVoteBreakdown(p)
   }));
 
   let jointAllocated = 0;
@@ -1263,7 +1284,8 @@ export async function getFoundationSnapshot(
 
   const proposals = proposalViews.map((p) => ({
     ...p,
-    proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId))
+    proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId)),
+    voteBreakdown: redactBlindVoteBreakdown(p)
   }));
 
   let jointAllocated = 0;

@@ -270,7 +270,6 @@ export function ProposalDetailPanel({
     ? proposals.find((proposal) => proposal.id === proposalId) ?? null
     : null;
   const detailDraft = detailProposal ? getDraft(detailProposal.id) : null;
-  const detailMasked = Boolean(detailProposal?.progress.masked && detailProposal.status === "to_review" && detailProposal.proposalType !== "discretionary");
   const detailRequiredAction = detailProposal
     ? buildRequiredActionSummary(detailProposal, profile.role)
     : null;
@@ -453,9 +452,7 @@ export function ProposalDetailPanel({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-2xl font-bold tabular-nums text-foreground">
-                  {detailMasked && detailProposal?.proposalType !== "joint" && detailProposal?.proposalType !== "discretionary"
-                    ? "Blind"
-                    : (detailProposal?.proposalType === "joint" || detailProposal?.proposalType === "discretionary") && detailProposal?.status === "to_review"
+                  {detailProposal.status === "to_review"
                     ? currency(detailProposal.proposedAmount)
                     : currency(detailProposal.progress.computedFinalAmount)}
                 </p>

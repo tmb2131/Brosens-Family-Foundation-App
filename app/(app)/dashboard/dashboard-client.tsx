@@ -551,7 +551,6 @@ export default function DashboardClient({
     setIsExportMenuOpen(false);
   };
   const exportRows: ProposalExportRow[] = filteredAndSortedProposals.map((proposal) => {
-    const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
     const requiredAction = buildRequiredActionSummary(proposal, profile.role);
     const requiredActionLabel =
       requiredAction.owner === "None"
@@ -561,7 +560,12 @@ export default function DashboardClient({
       proposal: proposal.title.trim(),
       description: proposal.description.trim(),
       type: titleCase(proposal.proposalType),
-      amount: masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary" ? "Blind until your vote is submitted" : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review" ? currency(proposal.proposedAmount) : proposal.progress.computedFinalAmount.toFixed(2),
+      // While a proposal is open for voting the running vote tally is blind, so
+      // show what was asked for rather than what has been allocated so far.
+      amount:
+        proposal.status === "to_review"
+          ? currency(proposal.proposedAmount)
+          : proposal.progress.computedFinalAmount.toFixed(2),
       status: titleCase(proposal.status),
       sentAt: proposal.sentAt ?? "",
       notes: proposal.notes?.trim() ?? "",
@@ -1348,8 +1352,6 @@ export default function DashboardClient({
                 {/* Mobile card list */}
                 <div className="space-y-3 md:hidden">
                   {pendingProposals.map((proposal) => {
-                    const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
-
                     return (
                       <article
                         key={proposal.id}
@@ -1378,7 +1380,9 @@ export default function DashboardClient({
                           <StatusPill status={proposal.status} />
                         </div>
                         <p className="mt-2 text-lg font-semibold text-foreground">
-                          {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary" ? "Blind until voted" : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review" ? currency(proposal.proposedAmount) : currency(proposal.progress.computedFinalAmount)}
+                          {proposal.status === "to_review"
+                            ? currency(proposal.proposedAmount)
+                            : currency(proposal.progress.computedFinalAmount)}
                         </p>
                         <div className="mt-2 text-xs text-muted-foreground">
                           <p>{buildPendingActionRequiredLabel(proposal)}</p>
@@ -1401,8 +1405,6 @@ export default function DashboardClient({
                   </thead>
                   <tbody>
                     {pendingProposals.map((proposal) => {
-                      const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
-
                       return (
                         <tr key={proposal.id} className="border-b align-top">
                           <td className="px-2 py-3">
@@ -1413,9 +1415,7 @@ export default function DashboardClient({
                             {titleCase(proposal.proposalType)}
                           </td>
                           <td className="px-2 py-3 text-xs text-muted-foreground">
-                            {masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
-                              ? "Blind until your vote is submitted"
-                              : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
+                            {proposal.status === "to_review"
                               ? currency(proposal.proposedAmount)
                               : currency(proposal.progress.computedFinalAmount)}
                           </td>
@@ -1626,7 +1626,6 @@ export default function DashboardClient({
             </p>
           ) : (
             filteredAndSortedProposals.map((proposal) => {
-              const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
               const requiredAction = buildRequiredActionSummary(proposal, profile.role);
               const isJoint = proposal.proposalType === "joint";
               const requiredActionToneClass =
@@ -1636,9 +1635,7 @@ export default function DashboardClient({
                   ? "text-emerald-700 dark:text-emerald-300"
                   : "text-muted-foreground";
               const amountDisplay =
-                masked && !isJoint && proposal.proposalType !== "discretionary"
-                  ? "Blind"
-                  : (isJoint || proposal.proposalType === "discretionary") && proposal.status === "to_review"
+                proposal.status === "to_review"
                   ? currency(proposal.proposedAmount)
                   : currency(proposal.progress.computedFinalAmount);
 
@@ -1750,9 +1747,7 @@ export default function DashboardClient({
                     requiredAction.tone === "attention" &&
                     Boolean(requiredAction.openDetail && requiredAction.ctaLabel);
                   const amountDisplay =
-                    masked && proposal.proposalType !== "joint" && proposal.proposalType !== "discretionary"
-                      ? "Blind until your vote is submitted"
-                      : (proposal.proposalType === "joint" || proposal.proposalType === "discretionary") && proposal.status === "to_review"
+                    proposal.status === "to_review"
                       ? currency(proposal.proposedAmount)
                       : isHistoricalBulkEditEnabled
                       ? parsedDraftFinalAmount !== null && parsedDraftFinalAmount >= 0

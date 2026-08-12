@@ -16,3 +16,6 @@ test-results
 # Supabase CLI link state and local temp — do not commit
 supabase/.supabase
 supabase/.temp
+
+# TypeScript incremental build cache
+*.tsbuildinfo
