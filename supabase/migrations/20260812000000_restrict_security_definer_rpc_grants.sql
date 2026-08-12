@@ -11,41 +11,56 @@
 -- Every one of these RPCs is only ever called server-side through the service-role
 -- client (lib/supabase/admin.ts), so removing the client-facing grants changes no
 -- application behavior.
+--
+-- Driven from pg_proc rather than a hard-coded list of signatures. `revoke` on a
+-- function that does not exist raises 42883 and aborts the whole migration, and
+-- the repo's migration history is not a reliable guide to what a given database
+-- actually has: the giving-year RPCs added in 20260319100000 are absent from
+-- production. Reading the catalog skips whatever is missing, tolerates signature
+-- drift (regprocedure renders the real argument list), and makes the migration
+-- safe to re-run.
 
-revoke execute on function public.get_foundation_page_data(int, uuid, boolean)
-  from public, anon, authenticated;
-grant execute on function public.get_foundation_page_data(int, uuid, boolean)
-  to service_role;
+do $$
+declare
+  target regprocedure;
+  locked int := 0;
+begin
+  for target in
+    select p.oid::regprocedure
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in (
+        'get_foundation_page_data',
+        'touch_last_accessed_at',
+        'get_distinct_frank_deenie_years',
+        'get_distinct_children_years',
+        'get_distinct_frank_deenie_giving_years',
+        'get_distinct_children_giving_years'
+      )
+      -- Trigger functions are invoked through the trigger rather than called by
+      -- a client, and revoking EXECUTE on one breaks the triggering write.
+      and p.prorettype <> 'trigger'::regtype
+  loop
+    execute format('revoke execute on function %s from public, anon, authenticated', target);
+    execute format('grant execute on function %s to service_role', target);
 
-revoke execute on function public.touch_last_accessed_at(uuid)
-  from public, anon, authenticated;
-grant execute on function public.touch_last_accessed_at(uuid)
-  to service_role;
+    -- A SECURITY DEFINER function without a fixed search_path resolves
+    -- unqualified names against the caller's search_path. The year RPCs were
+    -- created without one; re-setting it on the others is a no-op.
+    execute format('alter function %s set search_path = public', target);
 
-revoke execute on function public.get_distinct_frank_deenie_years()
-  from public, anon, authenticated;
-grant execute on function public.get_distinct_frank_deenie_years()
-  to service_role;
+    locked := locked + 1;
+    raise notice 'locked down %', target;
+  end loop;
 
-revoke execute on function public.get_distinct_children_years()
-  from public, anon, authenticated;
-grant execute on function public.get_distinct_children_years()
-  to service_role;
+  raise notice '% function(s) locked down', locked;
+end
+$$;
 
-revoke execute on function public.get_distinct_frank_deenie_giving_years()
-  from public, anon, authenticated;
-grant execute on function public.get_distinct_frank_deenie_giving_years()
-  to service_role;
-
-revoke execute on function public.get_distinct_children_giving_years()
-  from public, anon, authenticated;
-grant execute on function public.get_distinct_children_giving_years()
-  to service_role;
-
--- The year RPCs were created without a fixed search_path. A SECURITY DEFINER
--- function without one resolves unqualified names against the caller's
--- search_path, so pin it the way the other definer functions already do.
-alter function public.get_distinct_frank_deenie_years() set search_path = public;
-alter function public.get_distinct_children_years() set search_path = public;
-alter function public.get_distinct_frank_deenie_giving_years() set search_path = public;
-alter function public.get_distinct_children_giving_years() set search_path = public;
+-- Verify afterwards — proacl should name only the owner and service_role, with
+-- no anon=X or authenticated=X entry:
+--
+--   select p.oid::regprocedure as fn, p.proacl, p.proconfig
+--   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--   where n.nspname = 'public' and p.prosecdef;
