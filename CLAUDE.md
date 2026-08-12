@@ -140,9 +140,11 @@ lib/
 scripts/
   daily-digest-preview.ts          # Preview the daily digest email in the terminal
   fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
-  check-migration-drift.sql        # Paste into the SQL Editor: repo migrations vs the CLI
-                                   #   ledger, catalog check for the objects they create, and
-                                   #   the SECURITY DEFINER grant state
+  check-migration-drift.sql        # Paste into the SQL Editor: catalog check for the objects
+                                   #   the migrations create, SECURITY DEFINER grant state, and
+                                   #   repo migrations vs the CLI ledger
+  backfill-migration-ledger.sql    # One-time: writes the CLI migration ledger this project
+                                   #   never had, after verifying the schema matches
 
 supabase/
   migrations/          # 32 SQL migration files (schema versioning, date-prefixed)
@@ -302,7 +304,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (34 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (33 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -330,7 +332,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `email_deliveries` / `email_weekly_reminders` | Email delivery records and weekly reminder bookkeeping |
 | `organization_category_jobs` | Queue for AI directional-category assignment |
 
-### Database Migrations (34 total)
+### Database Migrations (33 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -362,7 +364,6 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260318100000_foundation_events` | `foundation_events` table for fund/transfer events with RLS |
 | `20260318200000_available_years_rpc` | RPCs `get_distinct_frank_deenie_years()` and `get_distinct_children_years()` |
 | `20260319000000_original_sent_at` | `original_sent_at` on grant_proposals |
-| `20260319100000_giving_year_rpcs` | Giving-year RPCs (Feb 1–Jan 31 fiscal year boundaries) |
 | `20260322000000_wrap_rls_auth_calls` | Wrap `auth.uid()`/`auth.role()` in `(select ...)` for RLS performance |
 | `20260322100000_get_foundation_page_data` | `get_foundation_page_data()` RPC — single round-trip for Dashboard data |
 | `20260329100000_proposal_drafts` | `proposal_drafts` table (per-user new-proposal form state) with RLS |

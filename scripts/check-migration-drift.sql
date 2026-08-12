@@ -12,7 +12,7 @@
 --   ⚠ DO NOT RUN `npm run db:push` AGAINST THIS PROJECT.
 --
 -- schema_migrations does not exist here, so the CLI has never pushed and every
--- migration was applied by hand. With no ledger the CLI treats all 34 as pending
+-- migration was applied by hand. With no ledger the CLI treats all 33 as pending
 -- and replays them from 20260211000000 against a database that already holds
 -- most of the objects. See the backfill note at the bottom before using it.
 
@@ -64,7 +64,6 @@ begin
         ('20260318100000', 'foundation_events'),
         ('20260318200000', 'available_years_rpc'),
         ('20260319000000', 'original_sent_at'),
-        ('20260319100000', 'giving_year_rpcs'),
         ('20260322000000', 'wrap_rls_auth_calls'),
         ('20260322100000', 'get_foundation_page_data'),
         ('20260329100000', 'proposal_drafts'),
@@ -155,14 +154,6 @@ with objects(item, detail, present) as (
     ('fn get_distinct_children_years', '20260318200000_available_years_rpc',
      exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
              where n.nspname='public' and p.proname='get_distinct_children_years')),
-    -- Expected absent, and called by nothing in the app.
-    ('fn get_distinct_frank_deenie_giving_years', '20260319100000_giving_year_rpcs (unused)',
-     exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-             where n.nspname='public' and p.proname='get_distinct_frank_deenie_giving_years')),
-    ('fn get_distinct_children_giving_years', '20260319100000_giving_year_rpcs (unused)',
-     exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-             where n.nspname='public' and p.proname='get_distinct_children_giving_years')),
-
     ('enum email_notification_type.proposal_decision', '20260410000000_proposal_decision_notification',
      exists (select 1 from pg_enum e join pg_type t on t.oid=e.enumtypid
              where t.typname='email_notification_type' and e.enumlabel='proposal_decision')),
@@ -225,8 +216,7 @@ order by section, (state in ('ok', 'applied')), item;
 -- ---------------------------------------------------------------------------
 -- What the result should look like
 --
---   1. objects     every row 'ok', except the two giving_year functions, which
---                  are expected MISSING and are called by nothing.
+--   1. objects     every row should read 'ok'.
 --   2. rpc grants  every row 'ok'. Any 'EXPOSED' row means the lock-down
 --                  migration has not been applied yet — run
 --                  supabase/migrations/20260812000000_restrict_security_definer_rpc_grants.sql
@@ -235,10 +225,7 @@ order by section, (state in ('ok', 'applied')), item;
 -- Backfilling the ledger, once you want db:push to be usable:
 --
 --   npx supabase link --project-ref <ref>
---   npx supabase migration repair --status applied 20260211000000 20260211000001 ...
---   npx supabase migration repair --status reverted 20260319100000
---   npm run db:push:dry-run     # should now list only what is genuinely pending
---
--- Mark applied only what section 1 shows present. Until then, apply new
--- migrations by pasting them into the SQL Editor, as this schema was built.
+-- Run scripts/backfill-migration-ledger.sql in the SQL Editor — it verifies the
+-- schema first and refuses to write if anything is missing. After that,
+-- `npm run db:push:dry-run` reports only what is genuinely pending.
 -- ---------------------------------------------------------------------------
