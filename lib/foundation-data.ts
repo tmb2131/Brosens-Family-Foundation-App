@@ -2029,6 +2029,51 @@ export async function submitVote(
 }
 
 /**
+ * Loads only a proposal's display title, for link-preview metadata on shared
+ * proposal URLs.
+ *
+ * SECURITY: unlike every other reader here, the result of this function is
+ * served to unauthenticated clients — a link-unfurling bot has no session. It
+ * is therefore deliberately limited to the title, which is what the foundation
+ * agreed to expose in a preview card. Do not widen it to amounts, proposer,
+ * status or vote data; those must stay behind `getProposalDetail`. Proposal ids
+ * are unguessable UUIDs, so this discloses a title only to someone who already
+ * holds the link.
+ */
+export async function getProposalShareTitle(
+  admin: AdminClient,
+  proposalId: string
+): Promise<string | null> {
+  if (!UUID_PATTERN.test(proposalId)) {
+    return null;
+  }
+
+  const { data: row, error } = await admin
+    .from("grant_proposals")
+    .select("proposal_title, grant_master_id")
+    .eq("id", proposalId)
+    .maybeSingle<{ proposal_title: string | null; grant_master_id: string }>();
+
+  if (error || !row) {
+    return null;
+  }
+
+  const proposalTitle = row.proposal_title?.trim();
+  if (proposalTitle) {
+    return proposalTitle;
+  }
+
+  // Older proposals carry their title on the grant template instead.
+  const { data: grant } = await admin
+    .from("grants_master")
+    .select("title")
+    .eq("id", row.grant_master_id)
+    .maybeSingle<{ title: string | null }>();
+
+  return grant?.title?.trim() || null;
+}
+
+/**
  * Loads a single proposal by id for the standalone (shareable) proposal page,
  * together with what `user` is allowed to do with it.
  *

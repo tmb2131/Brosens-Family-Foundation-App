@@ -4,16 +4,23 @@ import { requirePageAuth } from "@/lib/auth-server";
 import { getProposalDetail } from "@/lib/foundation-data";
 import { HttpError } from "@/lib/http-error";
 import { startPagePerf } from "@/lib/perf-logger";
+import { buildProposalShareMetadata } from "@/lib/proposal-share-metadata";
 import ProposalDetailClient from "@/app/(app)/proposals/[proposalId]/proposal-detail-client";
 
 /**
- * The proposal title is intentionally not used in metadata: the page is behind
- * auth, so link unfurlers never see it, and a generic title keeps proposal
- * names out of browser history and shared screenshots of the tab bar.
+ * Names the browser tab, and supplies the preview card when the URL is shared
+ * somewhere that reaches this page directly. The unauthenticated case redirects
+ * to /login before rendering, so that page carries the same metadata for
+ * link-unfurling bots.
  */
-export const metadata: Metadata = {
-  title: "Proposal"
-};
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ proposalId: string }>;
+}): Promise<Metadata> {
+  const { proposalId } = await params;
+  return (await buildProposalShareMetadata(proposalId)) ?? { title: "Proposal" };
+}
 
 export default async function ProposalDetailPage({
   params

@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { AppRole, ProposalType } from "@/lib/types";
 import { HttpError, isUniqueConstraintError } from "@/lib/http-error";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { currency } from "@/lib/utils";
 
 type AdminClient = SupabaseClient;
@@ -290,31 +291,6 @@ function getEmailConfig(): EmailConfig | null {
     apiKey,
     replyTo
   };
-}
-
-function getAppBaseUrl() {
-  const baseUrlCandidates = [
-    process.env.APP_BASE_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
-  ];
-
-  for (const candidate of baseUrlCandidates) {
-    const value = String(candidate ?? "").trim();
-    if (!value) {
-      continue;
-    }
-
-    try {
-      const url = new URL(value);
-      return `${url.origin}/`;
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
 }
 
 function withAppBase(path: string) {
