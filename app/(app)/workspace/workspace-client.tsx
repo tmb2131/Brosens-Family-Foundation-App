@@ -789,16 +789,23 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                 {workspace.voteHistory.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No votes recorded yet.</p>
                 ) : workspace.voteHistory.map((vote) => (
-                  <div
+                  <Link
                     key={`${vote.proposalId}-${vote.at}`}
-                    className="rounded-xl border border-border p-2 transition-colors hover:bg-muted/60"
+                    href={`/proposals/${vote.proposalId}`}
+                    className="group block rounded-xl border border-border p-2 transition-colors hover:bg-muted/60"
                   >
-                    <p className="text-sm font-medium">{vote.proposalTitle}</p>
+                    <p className="flex items-start justify-between gap-2 text-sm font-medium">
+                      <span className="group-hover:underline">{vote.proposalTitle}</span>
+                      <ExternalLink
+                        className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {voteChoiceLabel(vote.choice)} | {currency(vote.amount)}
                     </p>
                     <p className="text-xs text-muted-foreground">{new Date(vote.at).toLocaleDateString()}</p>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </GlassCard>
