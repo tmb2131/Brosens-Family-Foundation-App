@@ -159,7 +159,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 ### Auth
 - `POST /api/auth/logout` — Session termination
 - `GET /api/auth/me` — Current user profile
-- `GET /api/auth/users` — List users (email autocomplete)
+- `GET /api/auth/users` — List users (email autocomplete). **Deliberately unauthenticated** — the login page calls it before sign-in to populate the email dropdown, so the member roster (names + emails) is public. This is an accepted trade-off for a small closed foundation, not an oversight; do not "fix" it by adding `requireAuthContext()` without also removing the login dropdown that depends on it
 - `POST /api/auth/touch` — Update `last_accessed_at` (rate-limited to 1x per 15 min)
 - `POST /api/auth/timezone` — Save user timezone preference
 
@@ -429,6 +429,28 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
 - RLS policies enforce data isolation at the database level
 - Worker endpoints require Bearer token authentication
 - Never commit `.env` files — use `.env.local` for local development
+
+### Blind voting
+
+Blind voting is a data rule, not a UI rule. Every read path is served by the
+service-role client, which bypasses RLS, so the guarantee lives in two places:
+
+- **Payload redaction.** `redactBlindVoteData()` in `lib/foundation-data.ts`
+  strips `voteBreakdown` while a proposal is masked for the viewer, and replaces
+  `progress.computedFinalAmount` with the requested amount while a proposal is
+  `to_review` so the running allocation tally never ships. The oversight meeting
+  view (`buildMeetingProposalsFromData`) is the deliberate exception — it needs
+  pre-reveal flag counts to triage discussion, and both its page and its API
+  route are role-gated. Joint and discretionary proposals follow the same rule.
+- **RPC grants.** SECURITY DEFINER functions run as their owner and Supabase
+  publishes `public`-schema functions over PostgREST, so any new one must
+  `revoke execute ... from public, anon, authenticated` and grant only
+  `service_role` (see `20260812000000_restrict_security_definer_rpc_grants.sql`).
+  Otherwise the anon key in the client bundle is enough to read every vote row.
+
+Because `computedFinalAmount` feeds the Dashboard's `jointAllocated` figure, the
+budget bars count an open joint proposal at its requested amount and switch to
+the vote-derived total once it is approved.
 
 ## Environment Variables
 

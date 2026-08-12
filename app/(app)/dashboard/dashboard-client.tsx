@@ -1730,7 +1730,6 @@ export default function DashboardClient({
               ) : (
                 filteredAndSortedProposals.map((proposal) => {
                   const draft = drafts[proposal.id] ?? toProposalDraft(proposal);
-                  const masked = proposal.progress.masked && proposal.status === "to_review" && proposal.proposalType !== "discretionary";
                   const rowState = rowMessage[proposal.id];
                   const parsedDraftFinalAmount = parseNumberInput(draft.finalAmount);
                   const requiredAction = buildRequiredActionSummary(proposal, profile.role);
@@ -1754,9 +1753,12 @@ export default function DashboardClient({
                         ? currency(parsedDraftFinalAmount)
                         : "Invalid amount"
                       : currency(proposal.progress.computedFinalAmount);
+                  // Only flag an invalid draft amount when the draft amount is what
+                  // the cell actually shows; an open proposal shows the requested
+                  // amount instead, so there is nothing to call invalid.
                   const amountToneClass =
                     isHistoricalBulkEditEnabled &&
-                    !masked &&
+                    proposal.status !== "to_review" &&
                     (parsedDraftFinalAmount === null || parsedDraftFinalAmount < 0)
                       ? "text-rose-600"
                       : "text-muted-foreground";
