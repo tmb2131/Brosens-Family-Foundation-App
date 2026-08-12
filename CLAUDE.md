@@ -69,6 +69,7 @@ app/
     meeting/           # Meeting reveal & decision flow
     mobile/            # Mobile-first home (members)
     proposals/new/     # New proposal submission form
+    proposals/[proposalId]/  # Standalone shareable proposal page (view + vote)
     reports/           # Reports and historical analysis
     settings/          # User preferences and settings
     workspace/         # Personal "My Workspace" dashboard
@@ -216,6 +217,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 
 ### Proposals
 - `GET|POST /api/proposals` — List/create proposals
+- `GET /api/proposals/[proposalId]` — Single proposal detail for the shareable proposal page (vote breakdown stripped while blind)
 - `GET|PUT|DELETE /api/proposals/draft` — Server-backed new-proposal form draft (per user)
 - `GET /api/proposals/titles` — Proposal title autocomplete
 
@@ -286,6 +288,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 4. Default role for new users: `member`
 5. Session stored in HTTP-only cookies
 6. `LastAccessedTouch` component POSTs to `/api/auth/touch` on mount — updates `user_profiles.last_accessed_at` at most every 15 minutes (DB function enforced); triggers a `user_access_notification` email to oversight members
+7. Deep links survive sign-in: `middleware.ts` sets an `x-pathname` request header, `requirePageAuth()` reads it and redirects to `/login?redirect=<path>`, and the login client sends the user back there. Login's `allowedRedirects` list is exact-match; `/proposals/<uuid>` is additionally allowed and overrides the role-based landing page so a shared proposal link lands where it points
 
 ### Database Conventions
 

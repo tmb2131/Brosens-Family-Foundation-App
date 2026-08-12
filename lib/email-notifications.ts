@@ -1200,7 +1200,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
           proposal.proposal_type === "joint"
             ? "Submit your vote and your allocation."
             : "Mark this proposal as acknowledged or flagged.",
-        linkPath: `/workspace?proposalId=${proposal.id}`,
+        linkPath: `/proposals/${proposal.id}`,
         createdAt: proposal.created_at
       });
     }
@@ -1228,7 +1228,7 @@ async function loadOutstandingActionsState(admin: AdminClient): Promise<{
       chaseNames: pendingVoterIds.length
         ? uniqueIds(pendingVoterIds.map((userId) => displayNameOrEmail(usersById.get(userId))))
         : meetingChaseNames,
-      linkPath: pendingVoterIds.length ? `/workspace?proposalId=${proposal.id}` : `/meeting?proposalId=${proposal.id}`,
+      linkPath: `/proposals/${proposal.id}`,
       createdAt: proposal.created_at
     });
   }
@@ -1656,7 +1656,7 @@ export async function queueVoteRequiredActionEmails(
       input.proposalType === "joint"
         ? "A joint proposal now needs your vote."
         : "A discretionary proposal now needs your acknowledgement or flag.",
-    actionLinkPath: `/workspace?proposalId=${input.proposalId}`,
+    actionLinkPath: `/proposals/${input.proposalId}`,
     idempotencyKeyPrefix: `action-required:vote:${input.proposalId}`
   });
 }
@@ -1680,7 +1680,7 @@ export async function queueProposalSubmittedConfirmationEmail(
     proposalType: input.proposalType,
     otherMembersNotified: input.otherMembersNotified
   });
-  const primaryLinkPath = `/workspace?proposalId=${input.proposalId}`;
+  const primaryLinkPath = `/proposals/${input.proposalId}`;
   return queueEmailNotification(admin, {
     notificationType: "proposal_submitted_confirmation",
     actorUserId: input.proposerUserId,
@@ -1690,7 +1690,7 @@ export async function queueProposalSubmittedConfirmationEmail(
     htmlBody: content.htmlBody,
     textBody: content.textBody,
     primaryLinkPath,
-    primaryLinkLabel: "Open Workspace",
+    primaryLinkLabel: "View Proposal",
     payload: {
       proposalId: input.proposalId,
       proposalTitle: input.proposalTitle,

@@ -24,8 +24,14 @@ const STATIC_ASSET_HEADERS = {
 };
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
   const url = request.nextUrl;
+
+  // Expose the requested path to server components so page-level auth can send
+  // an unauthenticated visitor back here after login (shareable deep links).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", `${url.pathname}${url.search}`);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(key, value);

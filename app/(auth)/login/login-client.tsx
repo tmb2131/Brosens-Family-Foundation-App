@@ -24,8 +24,15 @@ const allowedRedirects = [
   "/frank-deenie"
 ] as const;
 
+/** `/proposals/<uuid>` — a shared link to a single proposal. */
+const PROPOSAL_DETAIL_PATH =
+  /^\/proposals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function sanitizeRedirect(target: string): Route {
   if (allowedRedirects.includes(target as (typeof allowedRedirects)[number])) {
+    return target as Route;
+  }
+  if (PROPOSAL_DETAIL_PATH.test(target)) {
     return target as Route;
   }
   return "/dashboard";
@@ -36,6 +43,12 @@ function resolvePostLoginRedirect(
   fallback: Route,
   isMobile: boolean
 ): Route {
+  // A shared proposal link is an explicit destination — it wins over the
+  // role's default landing page, so the link lands where it points.
+  if (PROPOSAL_DETAIL_PATH.test(fallback)) {
+    return fallback;
+  }
+
   if (role === "admin") {
     return "/admin";
   }

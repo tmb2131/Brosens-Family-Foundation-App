@@ -6,7 +6,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import { useWalkthrough, type WalkthroughStep } from "@/lib/hooks/use-walkthrough";
-import { CheckCircle2, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, Gift, History, ListChecks, Plus, RefreshCw, Vote, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -328,23 +328,33 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                       <StatusPill status={voteDialogItem.status} />
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setVoteDialogProposalId(null);
-                      if (voteDialogProposalId) {
-                        setPendingJointAllocationByProposalId((prev) => {
-                          const next = { ...prev };
-                          delete next[voteDialogProposalId];
-                          return next;
-                        });
-                      }
-                    }}
-                    aria-label="Close proposal details"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        href={`/proposals/${voteDialogItem.proposalId}`}
+                        aria-label="Open this proposal on its own shareable page"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Open page
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setVoteDialogProposalId(null);
+                        if (voteDialogProposalId) {
+                          setPendingJointAllocationByProposalId((prev) => {
+                            const next = { ...prev };
+                            delete next[voteDialogProposalId];
+                            return next;
+                          });
+                        }
+                      }}
+                      aria-label="Close proposal details"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <dl className="mt-4 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 text-sm md:grid-cols-2">
@@ -747,12 +757,19 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                           proposed donation
                         </span>
                       </p>
-                      <Button
-                        className="mt-3 w-full sm:w-auto"
-                        onClick={() => setVoteDialogProposalId(item.proposalId)}
-                      >
-                        <Vote className="h-4 w-4" /> {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
-                      </Button>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <Button
+                          className="w-full sm:w-auto"
+                          onClick={() => setVoteDialogProposalId(item.proposalId)}
+                        >
+                          <Vote className="h-4 w-4" /> {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
+                        </Button>
+                        <Button asChild variant="outline" className="w-full sm:w-auto">
+                          <Link href={`/proposals/${item.proposalId}`}>
+                            <ExternalLink className="h-4 w-4" /> Open page
+                          </Link>
+                        </Button>
+                      </div>
                     </article>
                   );
                 })

@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -117,6 +118,23 @@ export const requireAuthContext = cache(async (): Promise<AuthContext> => {
 });
 
 /**
+ * Builds the login URL, preserving the requested path so the visitor lands back
+ * on it after signing in. Relies on the `x-pathname` header set in middleware.
+ */
+async function loginRedirectUrl(): Promise<string> {
+  try {
+    const requestHeaders = await headers();
+    const pathname = requestHeaders.get("x-pathname");
+    if (pathname && pathname.startsWith("/") && !pathname.startsWith("//")) {
+      return `/login?redirect=${encodeURIComponent(pathname)}`;
+    }
+  } catch {
+    // headers() is unavailable outside a request scope — fall through.
+  }
+  return "/login";
+}
+
+/**
  * Page-level auth: redirects to /login instead of throwing on 401.
  * Use in async Server Component page.tsx files.
  */
@@ -125,7 +143,7 @@ export async function requirePageAuth(): Promise<AuthContext> {
     return await requireAuthContext();
   } catch (err) {
     if (err instanceof HttpError && err.status === 401) {
-      redirect("/login");
+      redirect(await loginRedirectUrl());
     }
     throw err;
   }

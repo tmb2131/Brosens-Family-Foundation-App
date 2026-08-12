@@ -20,11 +20,13 @@ import {
   GrantProposal,
   HistoryByYearPoint,
   Organization,
+  ProposalDetailSnapshot,
   ProposalPrefill,
   ProposalStatus,
   ProposalType,
   UserProfile,
   Vote,
+  VoteBlockedReason,
   VoteChoice,
   WorkspaceSnapshot
 } from "@/lib/types";
@@ -106,6 +108,8 @@ const PROPOSAL_SELECT =
   "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, returned_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
 
 const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface HistoricalProposalImportRow {
   title?: string;
@@ -1841,7 +1845,7 @@ export async function submitProposal(
         input.proposalType === "joint"
           ? "Submit your vote and your allocation."
           : `${input.proposer.name} submitted "${normalizedOrganizationName}".`,
-      linkPath: "/workspace",
+      linkPath: `/proposals/${insertedProposal.id}`,
       payload: {
         proposalId: insertedProposal.id,
         proposalType: input.proposalType
@@ -2024,6 +2028,115 @@ export async function submitVote(
   return { ok: true };
 }
 
+/**
+ * Loads a single proposal by id for the standalone (shareable) proposal page,
+ * together with what `user` is allowed to do with it.
+ *
+ * Blind voting is preserved: the per-voter breakdown is stripped whenever the
+ * proposal is still masked for this viewer, so a shared link can never leak
+ * other members' votes.
+ */
+export async function getProposalDetail(
+  admin: AdminClient,
+  proposalId: string,
+  user: UserProfile
+): Promise<ProposalDetailSnapshot> {
+  // Guard before querying: a non-UUID id makes Postgres raise instead of returning no rows.
+  if (!UUID_PATTERN.test(proposalId)) {
+    throw new HttpError(404, "Proposal not found.");
+  }
+
+  const { data: row, error } = await admin
+    .from("grant_proposals")
+    .select(PROPOSAL_SELECT)
+    .eq("id", proposalId)
+    .maybeSingle<ProposalRow>();
+
+  if (error) {
+    throw new HttpError(500, `Could not load proposal: ${error.message}`);
+  }
+
+  if (!row) {
+    throw new HttpError(404, "Proposal not found.");
+  }
+
+  const [votingMemberIds, deps, proposerProfile] = await Promise.all([
+    getVotingMemberIds(admin),
+    loadProposalsWithDependencies(admin, [row]),
+    getProfileById(admin, row.proposer_id)
+  ]);
+
+  const [view] = buildProposalViews({
+    proposals: [row],
+    grantById: deps.grantById,
+    organizationById: deps.organizationById,
+    votesByProposalId: deps.votesByProposalId,
+    voterDisplayNames: deps.voterDisplayNames,
+    currentUserId: user.id,
+    votingMemberIds
+  });
+
+  const proposal = {
+    ...view,
+    proposerDisplayName: getProposerDisplayName(proposerProfile?.email),
+    // Blind voting: never ship other members' votes until reveal / after voting.
+    voteBreakdown: view.progress.masked ? [] : view.voteBreakdown
+  };
+
+  const ownVote =
+    (deps.votesByProposalId.get(row.id) ?? []).find((vote) => vote.userId === user.id) ?? null;
+
+  const isProposer = row.proposer_id === user.id;
+  const isEligibleVoter = isVotingRole(user.role) && votingMemberIds.includes(user.id);
+
+  let voteBlockedReason: VoteBlockedReason | null = null;
+  if (!isEligibleVoter) {
+    voteBlockedReason = "not_voting_role";
+  } else if (row.status !== "to_review") {
+    voteBlockedReason = "not_open_for_voting";
+  } else if (row.proposal_type === "discretionary" && isProposer) {
+    voteBlockedReason = "own_discretionary_proposal";
+  } else if (ownVote) {
+    voteBlockedReason = "already_voted";
+  }
+
+  // Only voters who can still act need budget headroom for the allocation cap.
+  let personalBudget: ProposalDetailSnapshot["personalBudget"] = null;
+  if (voteBlockedReason === null && user.role !== "manager") {
+    const pageData = await fetchFoundationPageData(admin, {
+      budgetYear: row.budget_year,
+      userId: user.id
+    });
+    const foundation = buildFoundationSnapshotFromData(pageData, user.id);
+    const workspace = buildWorkspaceSnapshotFromData(pageData, user, foundation);
+    personalBudget = {
+      jointRemaining: workspace.personalBudget.jointRemaining,
+      discretionaryRemaining: workspace.personalBudget.discretionaryRemaining
+    };
+  }
+
+  return {
+    proposal,
+    viewer: {
+      userId: user.id,
+      role: user.role,
+      canVote: voteBlockedReason === null,
+      voteBlockedReason,
+      isProposer,
+      existingVote: ownVote
+        ? {
+            choice: ownVote.choice,
+            allocationAmount: ownVote.allocationAmount,
+            flagComment: ownVote.flagComment ?? null,
+            at: ownVote.createdAt
+          }
+        : null
+    },
+    personalBudget,
+    votingMemberCount: votingMemberIds.length
+  };
+}
+
 export async function getMeetingProposals(admin: AdminClient, currentUserId: string) {
   const budget = await getCurrentBudgetOrNull(admin);
   if (!budget) {
@@ -2152,7 +2265,7 @@ export async function setMeetingDecision(
     entityId: proposalId,
     title: "Proposal Status Updated",
     body: statusBody,
-    linkPath: "/dashboard",
+    linkPath: `/proposals/${proposalId}`,
     payload: {
       proposalId,
       status,

@@ -178,6 +178,46 @@ export interface FoundationSnapshot {
   };
 }
 
+/** A proposal enriched with organization, progress and vote breakdown (as returned by the foundation snapshot). */
+export type ProposalView = FoundationSnapshot["proposals"][number];
+
+/** Why the current viewer cannot cast a vote on a proposal. `null` means they can. */
+export type VoteBlockedReason =
+  | "not_voting_role"
+  | "not_open_for_voting"
+  | "own_discretionary_proposal"
+  | "already_voted";
+
+/**
+ * Everything the standalone proposal page needs for one proposal: the proposal
+ * itself, what the current viewer is allowed to do with it, and the budget
+ * headroom used to cap a joint allocation.
+ */
+export interface ProposalDetailSnapshot {
+  proposal: ProposalView;
+  viewer: {
+    userId: string;
+    role: AppRole;
+    /** True when the viewer may submit (or change) a vote right now. */
+    canVote: boolean;
+    /** Set when `canVote` is false, explaining why. */
+    voteBlockedReason: VoteBlockedReason | null;
+    isProposer: boolean;
+    existingVote: {
+      choice: VoteChoice;
+      allocationAmount: number;
+      flagComment: string | null;
+      at: string;
+    } | null;
+  };
+  /** Viewer's remaining personal budget for the proposal's year; null for roles without one. */
+  personalBudget: {
+    jointRemaining: number;
+    discretionaryRemaining: number;
+  } | null;
+  votingMemberCount: number;
+}
+
 export type FoundationEventType = "fund_foundation" | "transfer_to_foundation";
 
 export interface FoundationEvent {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, ChevronUp, ListChecks, Plus, Vote } from "lucide-react";
+import { CheckCircle2, ChevronUp, ExternalLink, ListChecks, Plus, Vote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -154,23 +154,30 @@ function ActionItemCard({
           <p className="font-medium text-foreground">{item.voteProgressLabel}</p>
         </div>
       </div>
-      <Button
-        className="mt-3 w-full"
-        variant={expanded ? "outline" : "default"}
-        onClick={onToggle}
-      >
-        {expanded ? (
-          <>
-            <ChevronUp className="h-4 w-4" />
-            Collapse
-          </>
-        ) : (
-          <>
-            <Vote className="h-4 w-4" />{" "}
-            {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
-          </>
-        )}
-      </Button>
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          className="flex-1"
+          variant={expanded ? "outline" : "default"}
+          onClick={onToggle}
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="h-4 w-4" />
+              Collapse
+            </>
+          ) : (
+            <>
+              <Vote className="h-4 w-4" />{" "}
+              {item.proposalType === "joint" ? "Enter vote & amount" : "Enter vote"}
+            </>
+          )}
+        </Button>
+        <Button asChild variant="outline" size="icon" aria-label={`Open ${item.title} on its own page`}>
+          <Link href={`/proposals/${item.proposalId}`}>
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
 
       <MobileInlineVoteForm
         item={item}

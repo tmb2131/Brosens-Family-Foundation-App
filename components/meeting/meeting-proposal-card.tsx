@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, Check, Eye } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Check, ExternalLink, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { currency, formatNumber, titleCase } from "@/lib/utils";
@@ -80,9 +81,9 @@ export function MeetingProposalCard({
         </div>
       </div>
 
-      <div>
+      <div className="flex items-center gap-2">
         <Button
-          className="w-full sm:w-auto sm:flex-1 transition-colors group-hover:bg-primary/90"
+          className="flex-1 transition-colors group-hover:bg-primary/90"
           size="sm"
           disabled={saving}
           onClick={() => onOpenDecisionDialog(proposal.id)}
@@ -90,6 +91,16 @@ export function MeetingProposalCard({
         >
           <Eye className="h-3.5 w-3.5 mr-2" />
           Review & confirm
+        </Button>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          aria-label={`Open ${proposal.title} on its own shareable page`}
+        >
+          <Link href={`/proposals/${proposal.id}`}>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
         </Button>
       </div>
     </article>
