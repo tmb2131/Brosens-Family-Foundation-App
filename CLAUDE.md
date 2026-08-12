@@ -140,6 +140,9 @@ lib/
 scripts/
   daily-digest-preview.ts          # Preview the daily digest email in the terminal
   fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
+  check-migration-drift.sql        # Paste into the SQL Editor: repo migrations vs the CLI
+                                   #   ledger, catalog check for the objects they create, and
+                                   #   the SECURITY DEFINER grant state
 
 supabase/
   migrations/          # 32 SQL migration files (schema versioning, date-prefixed)
@@ -299,7 +302,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (33 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (34 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -324,7 +327,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
 
-### Database Migrations (33 total)
+### Database Migrations (34 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -360,6 +363,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260322000000_wrap_rls_auth_calls` | Wrap `auth.uid()`/`auth.role()` in `(select ...)` for RLS performance |
 | `20260322100000_get_foundation_page_data` | `get_foundation_page_data()` RPC — single round-trip for Dashboard data |
 | `20260329100000_proposal_drafts` | `proposal_drafts` table (per-user new-proposal form state) with RLS |
+| `20260410000000_proposal_decision_notification` | `proposal_decision` email notification type |
 | `20260812000000_restrict_security_definer_rpc_grants` | Revoke EXECUTE on all SECURITY DEFINER RPCs from `public`/`anon`/`authenticated`, grant to `service_role`; pin `search_path` on the year RPCs |
 
 ## Coding Conventions
