@@ -102,8 +102,14 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
     canManageOrganizationCategories ? "/api/organizations/categories" : null,
     { fallbackData: initialOrgCategories ?? undefined, revalidateOnMount: !hasOrgCategoriesFallback }
   );
+  // `useSWR().isLoading` deliberately ignores `fallbackData`, so it stays true for the whole
+  // duration of any revalidation — and stays true forever if one is left dangling (a fetch that
+  // never settles, e.g. a backgrounded mobile tab), because `revalidateOnMount: false` means
+  // nothing ever fires again to clear it. Render off the data we actually have instead.
+  const organizations = organizationCategoriesQuery.data?.organizations;
+  const organizationsError = organizationCategoriesQuery.error as Error | undefined;
 
-  usePagePerf("/settings", !isLoading, {
+  usePagePerf("/settings", !canManageBudget || data !== undefined, {
     isLoading,
     hasData: data !== undefined,
     error: error?.message ?? null,
@@ -159,8 +165,7 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
   }, [data]);
 
   useEffect(() => {
-    const organizations = organizationCategoriesQuery.data?.organizations ?? [];
-    if (!organizations.length) {
+    if (!organizations?.length) {
       setSelectedOrganizationId("");
       setSelectedCategory("other");
       setSelectedCategoryLocked(false);
@@ -176,7 +181,7 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
 
     setSelectedCategory(selectedOrganization.directionalCategory);
     setSelectedCategoryLocked(selectedOrganization.directionalCategoryLocked);
-  }, [organizationCategoriesQuery.data?.organizations, selectedOrganizationId]);
+  }, [organizations, selectedOrganizationId]);
 
   const visibleSections = useMemo(
     () =>
@@ -524,7 +529,7 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
     }
   };
 
-  const selectedOrganization = (organizationCategoriesQuery.data?.organizations ?? []).find(
+  const selectedOrganization = (organizations ?? []).find(
     (organization) => organization.id === selectedOrganizationId
   );
 
@@ -737,16 +742,18 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
 
       {canManageOrganizationCategories ? (
         <CollapsibleSection id="settings-category-overrides" title="Organization Category Overrides" defaultOpen={false} className={cn(scrollMargin, desktopHidden("category-overrides"))}>
-          {organizationCategoriesQuery.isLoading ? (
-            <div className="mt-2 space-y-2">
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-10 w-full rounded-xl" />
-            </div>
-          ) : organizationCategoriesQuery.error ? (
-            <p className="mt-2 text-sm text-rose-600">
-              Could not load organizations: {organizationCategoriesQuery.error.message}
-            </p>
-          ) : !organizationCategoriesQuery.data?.organizations.length ? (
+          {organizations === undefined ? (
+            organizationsError ? (
+              <p className="mt-2 text-sm text-rose-600">
+                Could not load organizations: {organizationsError.message}
+              </p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-10 w-full rounded-xl" />
+              </div>
+            )
+          ) : !organizations.length ? (
             <p className="mt-2 text-sm text-muted-foreground">No organizations available yet.</p>
           ) : (
             <form className="mt-3 space-y-3" onSubmit={saveCategoryOverride}>
@@ -759,7 +766,7 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
                   onChange={(event) => {
                     const organizationId = event.target.value;
                     setSelectedOrganizationId(organizationId);
-                    const nextOrganization = (organizationCategoriesQuery.data?.organizations ?? []).find(
+                    const nextOrganization = organizations.find(
                       (organization) => organization.id === organizationId
                     );
                     if (nextOrganization) {
@@ -768,7 +775,7 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
                     }
                   }}
                 >
-                  {(organizationCategoriesQuery.data?.organizations ?? []).map((organization) => (
+                  {organizations.map((organization) => (
                     <option key={organization.id} value={organization.id}>
                       {organization.name}
                     </option>
@@ -820,6 +827,12 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
                 </p>
               ) : null}
 
+              {organizationsError ? (
+                <p className="text-xs text-rose-600">
+                  Showing the last loaded list — refresh failed: {organizationsError.message}
+                </p>
+              ) : null}
+
               <Button
                 size="lg"
                 type="submit"
@@ -842,7 +855,7 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
                 <CardLabel>Settings Error</CardLabel>
                 <p className="mt-2 text-sm text-rose-600">{error.message}</p>
               </>
-            ) : isLoading || !data ? (
+            ) : !data ? (
               <div className="space-y-2">
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-10 w-full rounded-xl" />
