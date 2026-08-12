@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { mutate as globalMutate } from "swr";
-import { ChevronDown, History, X } from "lucide-react";
+import { ChevronDown, ExternalLink, History, X } from "lucide-react";
 import { mutateAllFoundation } from "@/lib/swr-helpers";
 import { Button } from "@/components/ui/button";
 import { AmountInput } from "@/components/ui/amount-input";
@@ -463,14 +463,24 @@ export function ProposalDetailPanel({
                   {detailProposal.title}
                 </DialogTitle>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                aria-label="Close proposal details"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    href={`/proposals/${detailProposal.id}`}
+                    aria-label="Open this proposal on its own shareable page"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Open page
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  aria-label="Close proposal details"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
