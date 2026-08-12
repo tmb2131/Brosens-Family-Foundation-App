@@ -18,7 +18,15 @@ function friendlyResetRequestError(error: unknown): string {
   if (message.includes("failed to fetch")) {
     return "Unable to reach the server. Check your connection and try again.";
   }
-  if (message.includes("too many requests") || message.includes("rate limit")) {
+  // Supabase throttles with "For security purposes, you can only request this
+  // after N seconds." and "email rate limit exceeded" — neither says "too many
+  // requests", so match the wording it actually sends.
+  if (
+    message.includes("too many requests") ||
+    message.includes("rate limit") ||
+    message.includes("for security purposes") ||
+    message.includes("only request this after")
+  ) {
     return "Too many reset attempts. Please wait a moment and try again.";
   }
 
@@ -120,7 +128,13 @@ export default function ForgotPasswordClient() {
         ) : null}
         {!error && callbackError === "expired_or_invalid" ? (
           <p className="mt-3 text-xs text-rose-600" role="status" aria-live="polite">
-            Your previous reset link expired or is invalid. Request a new one below.
+            Your previous reset link expired or is invalid. Request a new one above.
+          </p>
+        ) : null}
+        {!error && callbackError === "other_browser" ? (
+          <p className="mt-3 text-xs text-rose-600" role="status" aria-live="polite">
+            Reset links only work in the browser they were requested from. Request a new one above and
+            open it on this device.
           </p>
         ) : null}
       </GlassCard>

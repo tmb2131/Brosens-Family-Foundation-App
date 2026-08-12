@@ -17,11 +17,24 @@ function friendlyPasswordUpdateError(error: unknown): string {
   }
 
   const message = error.message.toLowerCase();
-  if (message.includes("same password")) {
+  // Supabase phrases reuse as "New password should be different from the old
+  // password." — match on that before the broader password check below, which
+  // would otherwise blame the password's length.
+  if (message.includes("same password") || message.includes("different from the old")) {
     return "Use a different password than your current one.";
   }
+  if (
+    message.includes("auth session missing") ||
+    message.includes("session_not_found") ||
+    message.includes("jwt expired")
+  ) {
+    return "Your reset link has expired. Request a new reset email and try again.";
+  }
+  if (message.includes("failed to fetch")) {
+    return "Unable to reach the server. Check your connection and try again.";
+  }
   if (message.includes("password")) {
-    return "Your new password does not meet requirements. Use at least 12 characters.";
+    return `Your new password does not meet requirements. Use at least ${minimumPasswordLength} characters.`;
   }
 
   return "Unable to update password right now. Please try again.";
@@ -32,6 +45,7 @@ export default function ResetPasswordClient() {
   const params = useSearchParams();
   const callbackError = params.get("error");
   const hasInvalidOrExpiredLink = callbackError === "expired_or_invalid";
+  const wasOpenedInAnotherBrowser = callbackError === "other_browser";
   const { configured, loading: authLoading, session, updatePassword, signOut } = useAuth();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,7 +103,12 @@ export default function ResetPasswordClient() {
 
         {!authLoading && configured && !session ? (
           <>
-            {hasInvalidOrExpiredLink ? (
+            {wasOpenedInAnotherBrowser ? (
+              <p className="mt-3 text-sm text-rose-600">
+                This reset link has to be opened in the same browser you requested it from. Request a
+                new reset email here and open it on this device.
+              </p>
+            ) : hasInvalidOrExpiredLink ? (
               <p className="mt-3 text-sm text-rose-600">
                 This reset link is invalid or expired. Request a new reset email to continue.
               </p>

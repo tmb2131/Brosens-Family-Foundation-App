@@ -10,7 +10,7 @@ import {
   useRef,
   useState
 } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { UserProfile } from "@/lib/types";
 
@@ -57,6 +57,77 @@ export function useSeedProfile() {
   return useContext(SeedProfileContext);
 }
 
+const URL_CREDENTIAL_PARAMS = ["code", "token_hash", "type"] as const;
+
+/**
+ * Removes consumed auth credentials from the address bar without a navigation.
+ * `fragmentOnly` leaves the query string alone, so a page's own `?error=` copy
+ * survives when all that needed clearing was the fragment.
+ */
+function stripAuthCredentialsFromUrl(fragmentOnly = false) {
+  const url = new URL(window.location.href);
+  if (!fragmentOnly) {
+    for (const param of URL_CREDENTIAL_PARAMS) {
+      url.searchParams.delete(param);
+    }
+  }
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
+/**
+ * Establishes a session from credentials carried in the current URL.
+ *
+ * `/auth/callback` handles this server-side for links that reach it, but
+ * Supabase does not always route through it: implicit-flow links return their
+ * tokens in the fragment (which never leaves the browser), and a project whose
+ * redirect allow-list rejects the callback URL falls back to the Site URL. In
+ * both cases the credentials land on an ordinary page, so consume them here
+ * rather than leaving the user on a page that looks signed out.
+ */
+async function consumeAuthCredentialsFromUrl(supabase: SupabaseClient): Promise<void> {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const accessToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
+
+  if (accessToken && refreshToken) {
+    await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    stripAuthCredentialsFromUrl();
+    return;
+  }
+
+  // An expired link reports the failure in the fragment too; drop it so the
+  // page can render its own "request a new link" messaging.
+  if (hashParams.get("error") || hashParams.get("error_code")) {
+    stripAuthCredentialsFromUrl(true);
+    return;
+  }
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const code = searchParams.get("code");
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      stripAuthCredentialsFromUrl();
+    }
+    return;
+  }
+
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type");
+
+  if (tokenHash && type === "recovery") {
+    const { error } = await supabase.auth.verifyOtp({ type: "recovery", token_hash: tokenHash });
+    if (!error) {
+      stripAuthCredentialsFromUrl();
+    }
+  }
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const supabase = useMemo(() => createClient(), []);
   const syncedTimezoneRef = useRef<string | null>(null);
@@ -82,7 +153,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       };
     }
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    const bootstrapSession = async () => {
+      // Email links (password reset, magic link) can deliver their credentials
+      // straight to this page; redeem them before reading the session.
+      await consumeAuthCredentialsFromUrl(supabase).catch(() => {});
+
+      const { data } = await supabase.auth.getSession();
       if (!mounted) {
         return;
       }
@@ -100,6 +176,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setUser(null);
       }
       setLoading(false);
+    };
+
+    // Without the catch a rejected read would leave every gated page stuck on
+    // its "loading" branch forever.
+    void bootstrapSession().catch(() => {
+      if (mounted) {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      }
     });
 
     const {
