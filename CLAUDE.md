@@ -108,7 +108,8 @@ components/
   scroll-to-top.tsx                      # Scroll restoration on route change
 
 lib/
-  supabase/            # Supabase client configs (browser, server, admin)
+  supabase/            # Supabase client configs (browser, server, admin) + cookie-name.ts
+                       #   (auth cookie name, shared by the server client and middleware)
   hooks/               # Custom hooks: use-draft-persistence, use-charity-navigator-preview,
                        #   use-walkthrough, use-sort
   types.ts             # Shared TypeScript types and interfaces
@@ -265,6 +266,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - **Admin client** (service role key) for server-side elevated operations
 - **User client** respects RLS policies for row-level data isolation
 - **Server RPCs** — performance-critical pages use Postgres RPCs (e.g., `get_foundation_page_data()`) to fetch all page data in a single round-trip instead of many sequential queries
+- **Request-scoped memoization** — `fetchFoundationPageData()` memoizes the RPC result in a `cache()`-backed Map, so repeated callers within one request share a round-trip while every new request reads fresh. Do not promote this to a module-level TTL cache: that cache would be per-serverless-instance, so a write handled by one instance would leave another serving pre-write data to the client revalidation that immediately follows. `invalidateFoundationCache()` covers write-then-read within a single request
 - No ORM — raw SQL via Supabase JS client
 - SWR on the client with polling intervals for real-time-ish UI updates; client components use `revalidateIfStale: false` to prevent redundant revalidation on mount when fresh data is already present
 
@@ -286,7 +288,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 2. `user_profiles` table maps auth user to app profile (role, name)
 3. Roles: `member`, `oversight`, `admin`, `manager`
 4. Default role for new users: `member`
-5. Session stored in HTTP-only cookies
+5. Session stored in HTTP-only cookies. `middleware.ts` refreshes an expired session before the render, because a Server Component cannot write cookies — `lib/supabase/server.ts` has to swallow the write, which would otherwise discard the rotated tokens and eventually spend a refresh token twice, signing the member out. Both read the cookie name from `getAuthCookieNameForHost()`, so keep them in sync
 6. `LastAccessedTouch` component POSTs to `/api/auth/touch` on mount — updates `user_profiles.last_accessed_at` at most every 15 minutes (DB function enforced); triggers a `user_access_notification` email to oversight members
 7. Deep links survive sign-in: `middleware.ts` sets an `x-pathname` request header, `requirePageAuth()` reads it and redirects to `/login?redirect=<path>`, and the login client sends the user back there. Login's `allowedRedirects` list is exact-match; `/proposals/<uuid>` is additionally allowed and overrides the role-based landing page so a shared proposal link lands where it points
 
@@ -297,7 +299,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (32 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (33 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -322,7 +324,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `policy_notifications` | Per-user acknowledgement/flag status per policy version |
 | `mandate_comments` | Threaded comments on mandate sections with quoted text + offset |
 
-### Database Migrations (32 total)
+### Database Migrations (33 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -358,6 +360,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260322000000_wrap_rls_auth_calls` | Wrap `auth.uid()`/`auth.role()` in `(select ...)` for RLS performance |
 | `20260322100000_get_foundation_page_data` | `get_foundation_page_data()` RPC — single round-trip for Dashboard data |
 | `20260329100000_proposal_drafts` | `proposal_drafts` table (per-user new-proposal form state) with RLS |
+| `20260812000000_restrict_security_definer_rpc_grants` | Revoke EXECUTE on all SECURITY DEFINER RPCs from `public`/`anon`/`authenticated`, grant to `service_role`; pin `search_path` on the year RPCs |
 
 ## Coding Conventions
 
@@ -416,7 +419,7 @@ All colors use HSL CSS variables defined in `:root` (light) and `.dark`:
 
 ## Security
 
-- Middleware (`middleware.ts`) sets security headers on all non-API, non-static routes:
+- Middleware (`middleware.ts`) sets security headers on all non-static routes, API routes included:
   - `X-Content-Type-Options: nosniff`
   - `X-Frame-Options: DENY`
   - `Referrer-Policy: strict-origin-when-cross-origin`

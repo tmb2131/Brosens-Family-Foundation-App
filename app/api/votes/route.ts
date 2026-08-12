@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     await submitVote(admin, {
       proposalId,
-      voterId: profile.id,
+      voter: profile,
       choice,
       allocationAmount,
       flagComment: choice === "flagged" ? flagComment ?? null : undefined

@@ -947,27 +947,61 @@ export interface FoundationPageData {
   userVotedProposals: ProposalRow[];
 }
 
-const FOUNDATION_CACHE_TTL_MS = 15_000;
-const foundationPageDataCache = new Map<string, { data: FoundationPageData; expiresAt: number }>();
+type FoundationPageDataOptions = {
+  budgetYear?: number;
+  userId?: string;
+  includeAllYears?: boolean;
+};
 
-function foundationCacheKey(opts: { budgetYear?: number; userId?: string; includeAllYears?: boolean }): string {
+function foundationCacheKey(opts: FoundationPageDataOptions): string {
   return `${opts.userId ?? ""}:${opts.budgetYear ?? ""}:${opts.includeAllYears ? "1" : "0"}`;
 }
 
+/**
+ * Per-request memo store for `fetchFoundationPageData`.
+ *
+ * `cache()` hands back the same Map for the lifetime of one request and a fresh
+ * one for the next, which is the only scope where caching this data is safe. A
+ * module-level cache with a TTL would be per-serverless-instance, so a vote
+ * written by one instance would not invalidate the copy another instance is
+ * still serving — the client's post-write revalidation could then read back the
+ * pre-write state. Request scope also keeps `invalidateFoundationCache()`
+ * meaningful for the write-then-read-in-one-request case.
+ *
+ * Promises are stored rather than resolved values so that concurrent callers in
+ * the same request share one round-trip.
+ */
+const foundationPageDataStore = cache(() => new Map<string, Promise<FoundationPageData>>());
+
 export function invalidateFoundationCache() {
-  foundationPageDataCache.clear();
+  foundationPageDataStore().clear();
 }
 
-export async function fetchFoundationPageData(
+export function fetchFoundationPageData(
   admin: AdminClient,
-  opts: { budgetYear?: number; userId?: string; includeAllYears?: boolean } = {}
+  opts: FoundationPageDataOptions = {}
 ): Promise<FoundationPageData> {
+  const store = foundationPageDataStore();
   const key = foundationCacheKey(opts);
-  const cached = foundationPageDataCache.get(key);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.data;
+
+  const inFlight = store.get(key);
+  if (inFlight) {
+    return inFlight;
   }
 
+  const pending = loadFoundationPageData(admin, opts).catch((error) => {
+    // A failed load must not be replayed to every later caller in this request.
+    store.delete(key);
+    throw error;
+  });
+  store.set(key, pending);
+  return pending;
+}
+
+async function loadFoundationPageData(
+  admin: AdminClient,
+  opts: FoundationPageDataOptions
+): Promise<FoundationPageData> {
   const { data, error } = await admin.rpc("get_foundation_page_data", {
     p_budget_year: opts.budgetYear ?? null,
     p_user_id: opts.userId ?? null,
@@ -993,15 +1027,6 @@ export async function fetchFoundationPageData(
     userSubmittedProposals: (raw.userSubmittedProposals as ProposalRow[]) ?? [],
     userVotedProposals: (raw.userVotedProposals as ProposalRow[]) ?? [],
   };
-
-  foundationPageDataCache.set(key, { data: result, expiresAt: Date.now() + FOUNDATION_CACHE_TTL_MS });
-
-  if (foundationPageDataCache.size > 100) {
-    const now = Date.now();
-    for (const [k, v] of foundationPageDataCache) {
-      if (now >= v.expiresAt) foundationPageDataCache.delete(k);
-    }
-  }
 
   return result;
 }
@@ -1936,13 +1961,15 @@ export async function submitVote(
   admin: AdminClient,
   input: {
     proposalId: string;
-    voterId: string;
+    /** The authenticated caller, already resolved by the route. */
+    voter: UserProfile;
     choice: VoteChoice;
     allocationAmount: number;
     /** Optional comment when choice is "flagged" (discretionary). */
     flagComment?: string | null;
   }
 ) {
+  const voterId = input.voter.id;
   const { data: proposal, error: proposalError } = await admin
     .from("grant_proposals")
     .select(PROPOSAL_SELECT)
@@ -1962,11 +1989,11 @@ export async function submitVote(
   }
 
   const votingMemberIds = await getVotingMemberIds(admin);
-  if (!votingMemberIds.includes(input.voterId)) {
+  if (!votingMemberIds.includes(voterId)) {
     throw new HttpError(403, "Only voting family members can cast votes.");
   }
 
-  if (proposal.proposal_type === "discretionary" && input.voterId === proposal.proposer_id) {
+  if (proposal.proposal_type === "discretionary" && voterId === proposal.proposer_id) {
     throw new HttpError(403, "Discretionary proposer cannot vote on their own proposal.");
   }
 
@@ -1987,20 +2014,24 @@ export async function submitVote(
       : 0;
 
   if (proposal.proposal_type === "joint" && input.choice === "yes" && normalizedAmount > 0) {
-    const voterProfile = await getProfileById(admin, input.voterId);
-    if (voterProfile) {
-      const workspace = await getWorkspaceSnapshot(admin, voterProfile);
-      const currentVote = workspace.voteHistory.find((v) => v.proposalId === input.proposalId);
-      const totalBudgetRemaining =
-        workspace.personalBudget.jointRemaining +
-        workspace.personalBudget.discretionaryRemaining;
-      const maxAllowed = totalBudgetRemaining + (currentVote?.amount ?? 0);
-      if (normalizedAmount > maxAllowed) {
-        throw new HttpError(
-          400,
-          `Your allocation cannot exceed your total budget remaining (${currency(totalBudgetRemaining)}).`
-        );
-      }
+    // Same headroom the proposal page shows the voter, computed the same way:
+    // one RPC feeding the pure builders, against the proposal's own budget year.
+    const pageData = await fetchFoundationPageData(admin, {
+      budgetYear: proposal.budget_year,
+      userId: voterId
+    });
+    const foundation = buildFoundationSnapshotFromData(pageData, voterId);
+    const workspace = buildWorkspaceSnapshotFromData(pageData, input.voter, foundation);
+
+    const currentVote = workspace.voteHistory.find((v) => v.proposalId === input.proposalId);
+    const totalBudgetRemaining =
+      workspace.personalBudget.jointRemaining + workspace.personalBudget.discretionaryRemaining;
+    const maxAllowed = totalBudgetRemaining + (currentVote?.amount ?? 0);
+    if (normalizedAmount > maxAllowed) {
+      throw new HttpError(
+        400,
+        `Your allocation cannot exceed your total budget remaining (${currency(totalBudgetRemaining)}).`
+      );
     }
   }
 
@@ -2012,7 +2043,7 @@ export async function submitVote(
   const { error: voteError } = await admin.from("votes").upsert(
     {
       proposal_id: input.proposalId,
-      voter_id: input.voterId,
+      voter_id: voterId,
       choice: input.choice,
       allocation_amount: normalizedAmount,
       flag_comment: flagCommentValue
@@ -2046,7 +2077,7 @@ export async function submitVote(
       if (oversightRecipients.length) {
         void queuePushEvent(admin, {
           eventType: "proposal_ready_for_meeting",
-          actorUserId: input.voterId,
+          actorUserId: voterId,
           entityId: proposal.id,
           title: "Proposal Ready For Meeting",
           body: `"${proposalTitle}" now has enough votes for review.`,
@@ -2065,7 +2096,7 @@ export async function submitVote(
           proposalId: proposal.id,
           proposalTitle,
           recipientUserIds: oversightRecipients,
-          actorUserId: input.voterId
+          actorUserId: voterId
         }).catch((error) => {
           logNotificationError("submitVote enqueue action-required email", error);
         });
