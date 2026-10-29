@@ -63,7 +63,13 @@ interface ProposalRow {
   allocation_mode: AllocationMode;
   status: ProposalStatus;
   reveal_votes: boolean;
+  /** The amount requested (or, for imported history, the amount awarded). */
   final_amount: number | string;
+  /**
+   * Joint proposals only: the vote total saved when the proposal was approved.
+   * Optional because a database without migration 20261029000000 omits it.
+   */
+  approved_amount?: number | string | null;
   notes: string | null;
   sent_at: string | null;
   returned_at: string | null;
@@ -105,7 +111,7 @@ interface OrganizationRow {
 }
 
 const PROPOSAL_SELECT =
-  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, returned_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
+  "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, approved_amount, notes, sent_at, returned_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
 
 const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
 
@@ -258,12 +264,53 @@ function mapProposal(row: ProposalRow, grant: GrantMasterRow | undefined): Grant
   };
 }
 
-function computeFinalAmount(proposal: GrantProposal, votes: Vote[]) {
-  if (proposal.proposalType === "joint") {
-    return votes.reduce((sum, vote) => sum + vote.allocationAmount, 0);
+/**
+ * The amount a proposal counts for everywhere: budgets, history, reports, the
+ * admin queue. `eligibleVotes` are the votes `getEligibleVotesForProposal` keeps.
+ *
+ * In order:
+ * 1. An approved or sent joint proposal with a saved total uses it. Votes are
+ *    filtered by who holds a voting role today, so re-adding them would let a
+ *    role change or a deleted account rewrite a grant that was already decided.
+ * 2. A returned check keeps `final_amount`, which its Frank & Deenie reversal
+ *    entry was written from.
+ * 3. A settled joint grant from a past year with no votes is imported history,
+ *    where `final_amount` is the amount awarded.
+ * 4. Otherwise a joint proposal is the sum of its allocations and a
+ *    discretionary one is the amount requested.
+ */
+function resolveProposalAmount(row: ProposalRow, eligibleVotes: Vote[]): number {
+  const savedJointAmount = getSavedJointAmount(row);
+  if (savedJointAmount !== null) {
+    return savedJointAmount;
   }
 
-  return roundCurrency(proposal.proposedAmount);
+  if (row.returned_at !== null) {
+    return toNumber(row.final_amount);
+  }
+
+  if (row.proposal_type !== "joint") {
+    return roundCurrency(toNumber(row.final_amount));
+  }
+
+  const isImportedJointGrant =
+    (row.status === "approved" || row.status === "sent") &&
+    row.budget_year < currentYear() &&
+    eligibleVotes.length === 0;
+  if (isImportedJointGrant) {
+    return toNumber(row.final_amount);
+  }
+
+  return eligibleVotes.reduce((sum, vote) => sum + vote.allocationAmount, 0);
+}
+
+/** The total saved when a joint proposal was approved, while it stays approved or sent. */
+function getSavedJointAmount(row: ProposalRow): number | null {
+  if (row.proposal_type !== "joint" || (row.status !== "approved" && row.status !== "sent")) {
+    return null;
+  }
+
+  return row.approved_amount == null ? null : toNumber(row.approved_amount);
 }
 
 function getEligibleVotesForProposal(proposal: GrantProposal, votes: Vote[], votingMemberIds: string[]) {
@@ -662,20 +709,7 @@ function historyChartAmountForProposalRow(
   const proposal = mapProposal(row, undefined);
   const rawProposalVotes = votesByProposalId.get(proposal.id) ?? [];
   const votes = getEligibleVotesForProposal(proposal, rawProposalVotes, votingMemberIds);
-  const computedFromVotes = computeFinalAmount(proposal, votes);
-  const isReturned = row.returned_at !== null;
-  const shouldUseStoredJointAmount =
-    proposal.proposalType === "joint" &&
-    proposal.budgetYear < currentYear() &&
-    votes.length === 0 &&
-    ["approved", "sent"].includes(row.status);
-  if (isReturned) {
-    return toNumber(row.final_amount);
-  }
-  if (shouldUseStoredJointAmount) {
-    return toNumber(row.final_amount);
-  }
-  return computedFromVotes;
+  return resolveProposalAmount(row, votes);
 }
 
 type HistoryYearTotalsAgg = {
@@ -727,7 +761,14 @@ function aggregateHistoryByYearFromRows(
   }
 
   for (const row of pendingRows) {
-    const amount = historyChartAmountForProposalRow(row, votesByProposalId, votingMemberIds);
+    // An open proposal counts at the amount requested, as it does in the budget
+    // bars: its vote-derived total is the running tally, which every member
+    // receives this chart's data for and which stays hidden until voting closes
+    // (see redactBlindVoteData).
+    const amount =
+      row.status === "to_review"
+        ? roundCurrency(toNumber(row.final_amount))
+        : historyChartAmountForProposalRow(row, votesByProposalId, votingMemberIds);
     const kind: "joint" | "discretionary" = row.proposal_type === "joint" ? "joint" : "discretionary";
     bump(row.budget_year, amount, kind, "notSent");
   }
@@ -784,19 +825,7 @@ function buildProposalViews(input: {
       : false;
 
     const masked = !(proposal.revealVotes || hasCurrentUserVoted);
-    const hasRawVotes = votes.length > 0;
-    const computedFromVotes = computeFinalAmount(proposal, votes);
-    const isReturned = row.returned_at !== null;
-    const shouldUseStoredJointAmount =
-      proposal.proposalType === "joint" &&
-      proposal.budgetYear < currentYear() &&
-      !hasRawVotes &&
-      ["approved", "sent"].includes(row.status);
-    const computedFinalAmount = isReturned
-      ? toNumber(row.final_amount)
-      : shouldUseStoredJointAmount
-        ? toNumber(row.final_amount)
-        : computedFromVotes;
+    const computedFinalAmount = resolveProposalAmount(row, votes);
 
     return {
       ...proposal,
@@ -2357,6 +2386,24 @@ export async function setMeetingReveal(
   return getProposalViewById(admin, proposalId, currentUserId);
 }
 
+/**
+ * The joint total to save for a decision: what `resolveProposalAmount` gives the
+ * proposal in its new status, from the votes as they stand right now.
+ */
+async function jointAmountToSave(
+  admin: AdminClient,
+  row: ProposalRow,
+  status: "approved" | "sent"
+): Promise<number> {
+  const [votes, votingMemberIds] = await Promise.all([
+    loadVotesByProposalIds(admin, [row.id]),
+    getVotingMemberIds(admin)
+  ]);
+  const eligibleVotes = getEligibleVotesForProposal(mapProposal(row, undefined), votes, votingMemberIds);
+
+  return roundCurrency(resolveProposalAmount({ ...row, status, approved_amount: null }, eligibleVotes));
+}
+
 export async function setMeetingDecision(
   admin: AdminClient,
   proposalId: string,
@@ -2381,9 +2428,26 @@ export async function setMeetingDecision(
   const nextSentAt =
     status === "sent" ? normalizedSentAt ?? new Date().toISOString().slice(0, 10) : null;
 
+  const decisionUpdate: Record<string, unknown> = {
+    status,
+    reveal_votes: true,
+    sent_at: nextSentAt
+  };
+
+  // Save a joint grant's total as it stands at approval, so nothing that later
+  // changes who can vote rewrites it. Marking a grant Sent keeps the total saved
+  // at approval, and only computes one if it was approved without saving.
+  if (existingProposal.proposal_type === "joint") {
+    if (status === "declined") {
+      decisionUpdate.approved_amount = null;
+    } else if (status === "approved" || existingProposal.approved_amount == null) {
+      decisionUpdate.approved_amount = await jointAmountToSave(admin, existingProposal, status);
+    }
+  }
+
   const { error } = await admin
     .from("grant_proposals")
-    .update({ status, reveal_votes: true, sent_at: nextSentAt })
+    .update(decisionUpdate)
     .eq("id", proposalId);
 
   if (error) {
@@ -2422,7 +2486,12 @@ export async function setMeetingDecision(
     void queueProposalDecisionEmail(admin, {
       proposalId,
       proposalTitle,
-      proposedAmount: toNumber(existingProposal.final_amount) ?? 0,
+      // Approved: what the grant was awarded, which for a joint grant is the
+      // members' total rather than the amount asked for. Declined: the request.
+      amount:
+        status === "approved" && updatedProposal
+          ? updatedProposal.progress.computedFinalAmount
+          : toNumber(existingProposal.final_amount),
       proposalType: existingProposal.proposal_type,
       proposerUserId: existingProposal.proposer_id,
       decision: status
@@ -2599,6 +2668,16 @@ export async function updateProposalRecord(
       throw new HttpError(400, "finalAmount must be a non-negative number.");
     }
     updates.final_amount = roundCurrency(finalAmount);
+  }
+
+  // A settled joint grant shows its saved total, so a correction to a past
+  // grant's final amount has to be saved there too or it would not show.
+  if (canEditHistorical && proposal.proposal_type === "joint" && (hasStatus || hasFinalAmount)) {
+    if (nextStatus !== "approved" && nextStatus !== "sent") {
+      updates.approved_amount = null;
+    } else if (updates.final_amount !== undefined) {
+      updates.approved_amount = updates.final_amount;
+    }
   }
 
   if (hasTitle) {

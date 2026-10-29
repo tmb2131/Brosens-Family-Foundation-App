@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { AppRole, ProposalType } from "@/lib/types";
 import { HttpError, isUniqueConstraintError } from "@/lib/http-error";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { settledProposalAmount, type SettledAmountRow } from "@/lib/proposal-amounts";
 import { currency } from "@/lib/utils";
 
 type AdminClient = SupabaseClient;
@@ -761,12 +762,12 @@ ${emailButton("Open Workspace", workspaceUrl)}`;
 function buildProposalDecisionContent(input: {
   proposerName: string;
   proposalTitle: string;
-  proposedAmount: number;
+  amount: number;
   proposalType: ProposalType;
   decision: "approved" | "declined";
 }) {
   const title = input.proposalTitle.trim() || "Proposal";
-  const amountStr = currency(input.proposedAmount);
+  const amountStr = currency(input.amount);
   const typeLabel = input.proposalType === "joint" ? "Joint" : "Discretionary";
   const decisionLabel = input.decision === "approved" ? "Approved" : "Declined";
   const subject =
@@ -1681,7 +1682,8 @@ export async function queueProposalDecisionEmail(
   input: {
     proposalId: string;
     proposalTitle: string;
-    proposedAmount: number;
+    /** Approved: the amount awarded (a joint grant's member total). Declined: the amount requested. */
+    amount: number;
     proposalType: ProposalType;
     proposerUserId: string;
     decision: "approved" | "declined";
@@ -1697,7 +1699,7 @@ export async function queueProposalDecisionEmail(
   const content = buildProposalDecisionContent({
     proposerName,
     proposalTitle: input.proposalTitle,
-    proposedAmount: input.proposedAmount,
+    amount: input.amount,
     proposalType: input.proposalType,
     decision: input.decision
   });
@@ -2081,15 +2083,16 @@ async function fetchDailyDigestData(
   } else {
     const { data: proposalRows, error: proposalRowsError } = await admin
       .from("grant_proposals")
-      .select("id, proposal_title, sent_at, final_amount")
+      .select("id, proposal_title, sent_at, proposal_type, final_amount, approved_amount")
       .in("id", proposalIds)
       .returns<
-        Array<{
-          id: string;
-          proposal_title: string | null;
-          sent_at: string | null;
-          final_amount: number | string | null;
-        }>
+        Array<
+          SettledAmountRow & {
+            id: string;
+            proposal_title: string | null;
+            sent_at: string | null;
+          }
+        >
       >();
 
     if (proposalRowsError) {
@@ -2103,7 +2106,7 @@ async function fetchDailyDigestData(
         if (!row) {
           return null;
         }
-        const amount = typeof row.final_amount === "number" ? row.final_amount : Number(row.final_amount) || 0;
+        const amount = settledProposalAmount(row);
         return {
           id: proposalId,
           title: row.proposal_title?.trim() || "Proposal",

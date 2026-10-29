@@ -12,9 +12,9 @@
 --   ⚠ DO NOT RUN `npm run db:push` AGAINST THIS PROJECT.
 --
 -- schema_migrations does not exist here, so the CLI has never pushed and every
--- migration was applied by hand. With no ledger the CLI treats all 33 as pending
--- and replays them from 20260211000000 against a database that already holds
--- most of the objects. See the backfill note at the bottom before using it.
+-- migration was applied by hand. With no ledger the CLI treats every one as
+-- pending and replays them from 20260211000000 against a database that already
+-- holds most of the objects. See the backfill note at the bottom before using it.
 
 -- The ledger table may not exist, and plain SQL resolves table names at parse
 -- time — so no guard written inside the query could run. Keeping the reference
@@ -68,7 +68,8 @@ begin
         ('20260322100000', 'get_foundation_page_data'),
         ('20260329100000', 'proposal_drafts'),
         ('20260410000000', 'proposal_decision_notification'),
-        ('20260812000000', 'restrict_security_definer_rpc_grants')
+        ('20260812000000', 'restrict_security_definer_rpc_grants'),
+        ('20261029000000', 'save_joint_approved_amount')
     )
     select
       coalesce(repo.version, m.version),
@@ -115,6 +116,9 @@ with objects(item, detail, present) as (
     ('column grant_proposals.returned_at', '20260318000000_check_returns',
      exists (select 1 from information_schema.columns where table_schema='public'
              and table_name='grant_proposals' and column_name='returned_at')),
+    ('column grant_proposals.approved_amount', '20261029000000_save_joint_approved_amount',
+     exists (select 1 from information_schema.columns where table_schema='public'
+             and table_name='grant_proposals' and column_name='approved_amount')),
     ('column grant_proposals.original_sent_at', '20260319000000_original_sent_at',
      exists (select 1 from information_schema.columns where table_schema='public'
              and table_name='grant_proposals' and column_name='original_sent_at')),

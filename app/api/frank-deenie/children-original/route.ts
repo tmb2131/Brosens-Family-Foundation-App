@@ -38,7 +38,26 @@ export async function PATCH(request: NextRequest) {
       if (!Number.isFinite(amount) || amount < 0) {
         throw new HttpError(400, "amount must be a non-negative number.");
       }
-      updatePayload.final_amount = Math.round(amount * 100) / 100;
+      const roundedAmount = Math.round(amount * 100) / 100;
+      updatePayload.final_amount = roundedAmount;
+
+      // A joint grant's ledger amount is its saved total (settledProposalAmount),
+      // so a correction has to be saved there too or it would not show.
+      const { data: proposal, error: loadError } = await admin
+        .from("grant_proposals")
+        .select("proposal_type")
+        .eq("id", proposalId)
+        .maybeSingle<{ proposal_type: string }>();
+
+      if (loadError) {
+        throw new HttpError(500, `Failed to load proposal: ${loadError.message}`);
+      }
+      if (!proposal) {
+        throw new HttpError(404, "Proposal not found.");
+      }
+      if (proposal.proposal_type === "joint") {
+        updatePayload.approved_amount = roundedAmount;
+      }
     }
 
     const { error } = await admin

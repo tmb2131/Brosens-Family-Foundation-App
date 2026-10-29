@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
+import { settledProposalAmount, type SettledAmountRow } from "@/lib/proposal-amounts";
 import { DonationLedgerSource, DonationReturnRole, FoundationEvent, FoundationEventType, FrankDeenieDonationRow, FrankDeenieSnapshot, YearMode } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
@@ -21,12 +22,11 @@ interface FrankDeenieDonationDbRow {
   return_source_id: string | null;
 }
 
-interface ChildrenProposalRow {
+interface ChildrenProposalRow extends SettledAmountRow {
   id: string;
   grant_master_id: string;
   organization_id: string | null;
   proposer_id: string;
-  final_amount: number | string;
   status: string;
   notes: string | null;
   sent_at: string | null;
@@ -278,7 +278,7 @@ function mapChildrenDonationRow(
     name: organizationName || proposalTitle,
     memo: proposalNotes || proposalDescription,
     split: "",
-    amount: toNumber(row.final_amount),
+    amount: settledProposalAmount(row),
     status: isSent ? "Gave" : "Planned",
     editable: false,
     proposedBy: profileEmailById.get(row.proposer_id) ?? "",
@@ -341,7 +341,7 @@ async function listFrankDeenieDonationsByYear(admin: AdminClient, year: number |
 async function listChildrenDonationsByYear(admin: AdminClient, year: number | null, yearMode: YearMode = "calendar") {
   let query = admin
     .from("grant_proposals")
-    .select("id, grant_master_id, organization_id, proposer_id, final_amount, status, notes, sent_at, original_sent_at, created_at, returned_at, return_group_id")
+    .select("id, grant_master_id, organization_id, proposer_id, proposal_type, final_amount, approved_amount, status, notes, sent_at, original_sent_at, created_at, returned_at, return_group_id")
     .in("status", ["sent", "approved"])
     .order("created_at", { ascending: false });
 
@@ -782,16 +782,17 @@ async function markChildrenDonationReturned(
 ) {
   const { data: proposal, error: fetchError } = await admin
     .from("grant_proposals")
-    .select("id, organization_id, final_amount, status, returned_at, sent_at")
+    .select("id, organization_id, proposal_type, final_amount, approved_amount, status, returned_at, sent_at")
     .eq("id", input.sourceId)
-    .maybeSingle<{
-      id: string;
-      organization_id: string | null;
-      final_amount: number | string;
-      status: string;
-      returned_at: string | null;
-      sent_at: string | null;
-    }>();
+    .maybeSingle<
+      SettledAmountRow & {
+        id: string;
+        organization_id: string | null;
+        status: string;
+        returned_at: string | null;
+        sent_at: string | null;
+      }
+    >();
 
   if (fetchError) {
     throw new HttpError(500, `Could not fetch proposal: ${fetchError.message}`);
@@ -818,7 +819,8 @@ async function markChildrenDonationReturned(
     }
   }
 
-  const originalAmount = toNumber(proposal.final_amount);
+  // The amount the ledger row shows for this grant, so the reversal nets it out.
+  const originalAmount = settledProposalAmount(proposal);
   const newAmount = input.newAmount !== undefined ? roundCurrency(Number(input.newAmount)) : originalAmount;
   if (!Number.isFinite(newAmount) || newAmount < 0) {
     throw new HttpError(400, "newAmount must be a non-negative number.");

@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { HttpError } from "@/lib/http-error";
+import { settledProposalAmount, type SettledAmountRow } from "@/lib/proposal-amounts";
 import { GivingHistoryEntry, GivingHistoryGift, OrganizationGivingHistory } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
@@ -13,10 +14,9 @@ interface GivingHistoryInput {
   names?: string[];
 }
 
-interface SentProposalRow {
+interface SentProposalRow extends SettledAmountRow {
   budget_year: number;
-  final_amount: number | string;
-  sent_at: string | null;
+  sent_at?: string | null;
 }
 
 interface FrankDeenieDonationRow {
@@ -87,7 +87,7 @@ async function loadChildrenAmountsByYear(
 
   const { data, error } = await admin
     .from("grant_proposals")
-    .select("budget_year, final_amount, sent_at")
+    .select("budget_year, proposal_type, final_amount, approved_amount, sent_at")
     .in("organization_id", [...orgIds])
     .eq("status", "sent")
     .is("returned_at", null)
@@ -102,7 +102,7 @@ async function loadChildrenAmountsByYear(
 
   for (const row of data ?? []) {
     const year = row.budget_year;
-    const amount = toNumber(row.final_amount);
+    const amount = settledProposalAmount(row);
     byYear.set(year, round2((byYear.get(year) ?? 0) + amount));
 
     const gifts = giftsByYear.get(year) ?? [];
@@ -169,7 +169,7 @@ async function loadYearlyTotals(admin: AdminClient): Promise<YearlyTotals> {
   const [proposalResult, fdResult] = await Promise.all([
     admin
       .from("grant_proposals")
-      .select("budget_year, final_amount")
+      .select("budget_year, proposal_type, final_amount, approved_amount")
       .eq("status", "sent")
       .is("returned_at", null)
       .returns<SentProposalRow[]>(),
@@ -192,7 +192,7 @@ async function loadYearlyTotals(admin: AdminClient): Promise<YearlyTotals> {
 
   for (const row of proposalResult.data ?? []) {
     const year = row.budget_year;
-    overall.set(year, round2((overall.get(year) ?? 0) + toNumber(row.final_amount)));
+    overall.set(year, round2((overall.get(year) ?? 0) + settledProposalAmount(row)));
   }
 
   for (const row of fdResult.data ?? []) {
