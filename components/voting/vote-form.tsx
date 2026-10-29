@@ -77,6 +77,25 @@ type VoteFormContextValue = {
 
 const VoteFormContext = createContext<VoteFormContextValue | null>(null);
 
+const PROPOSAL_DETAIL_KEY = /^\/api\/proposals\/[0-9a-f-]{36}$/i;
+
+/**
+ * Re-read every view that shows voting state after a failed vote. The rollback
+ * only restores what this tab had, so when the vote was refused because one is
+ * already recorded (cast from another tab or device), this replaces the stale
+ * "vote now" state with the real one.
+ */
+function revalidateVoteViews() {
+  return globalMutate(
+    (key) =>
+      typeof key === "string" &&
+      (key === "/api/workspace" ||
+        key === "/api/navigation/summary" ||
+        key.startsWith("/api/foundation") ||
+        PROPOSAL_DETAIL_KEY.test(key))
+  );
+}
+
 function useVoteFormState(
   props: VoteFormProps,
   options: { skipReviewStep?: boolean }
@@ -214,6 +233,7 @@ function useVoteFormState(
       void globalMutate((k) => typeof k === "string" && k.startsWith("/api/foundation/"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save vote");
+      void revalidateVoteViews();
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -725,6 +745,7 @@ function VoteFormStandalone({
       void globalMutate((k) => typeof k === "string" && k.startsWith("/api/foundation/"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save vote");
+      void revalidateVoteViews();
     } finally {
       savingRef.current = false;
       setSaving(false);

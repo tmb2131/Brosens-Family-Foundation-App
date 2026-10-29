@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { HttpError } from "@/lib/http-error";
+import { HttpError, isUniqueConstraintError } from "@/lib/http-error";
 import { getProposerDisplayName } from "@/lib/proposer-display-names";
 import { listUserIdsByRoles, queuePushEvent } from "@/lib/push-notifications";
 import {
@@ -108,6 +108,9 @@ const PROPOSAL_SELECT =
   "id, grant_master_id, organization_id, proposer_id, budget_year, proposal_type, allocation_mode, status, reveal_votes, final_amount, notes, sent_at, returned_at, proposal_title, proposal_description, proposal_website, proposal_charity_navigator_url, created_at";
 
 const EDITABLE_PROPOSAL_STATUSES: ProposalStatus[] = ["to_review", "approved", "sent", "declined"];
+
+const VOTE_ALREADY_RECORDED_MESSAGE =
+  "You've already voted on this proposal, and votes can't be changed once submitted.";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -2001,6 +2004,25 @@ export async function submitVote(
     );
   }
 
+  // Votes are final once cast. A member who has voted can see how everyone else
+  // voted, so accepting a second vote would let them change theirs after seeing
+  // the others'. Checked up front for a clear message; the insert below is what
+  // makes it hold under concurrent submissions.
+  const { data: existingVote, error: existingVoteError } = await admin
+    .from("votes")
+    .select("id")
+    .eq("proposal_id", input.proposalId)
+    .eq("voter_id", voterId)
+    .maybeSingle<{ id: string }>();
+
+  if (existingVoteError) {
+    throw new HttpError(500, `Could not check for an existing vote: ${existingVoteError.message}`);
+  }
+
+  if (existingVote) {
+    throw new HttpError(409, VOTE_ALREADY_RECORDED_MESSAGE);
+  }
+
   const normalizedAmount =
     proposal.proposal_type === "joint" && input.choice === "yes"
       ? Math.max(0, Math.round(input.allocationAmount))
@@ -2016,11 +2038,9 @@ export async function submitVote(
     const foundation = buildFoundationSnapshotFromData(pageData, voterId);
     const workspace = buildWorkspaceSnapshotFromData(pageData, input.voter, foundation);
 
-    const currentVote = workspace.voteHistory.find((v) => v.proposalId === input.proposalId);
     const totalBudgetRemaining =
       workspace.personalBudget.jointRemaining + workspace.personalBudget.discretionaryRemaining;
-    const maxAllowed = totalBudgetRemaining + (currentVote?.amount ?? 0);
-    if (normalizedAmount > maxAllowed) {
+    if (normalizedAmount > totalBudgetRemaining) {
       throw new HttpError(
         400,
         `Your allocation cannot exceed your total budget remaining (${currency(totalBudgetRemaining)}).`
@@ -2033,18 +2053,20 @@ export async function submitVote(
       ? input.flagComment.trim()
       : null;
 
-  const { error: voteError } = await admin.from("votes").upsert(
-    {
-      proposal_id: input.proposalId,
-      voter_id: voterId,
-      choice: input.choice,
-      allocation_amount: normalizedAmount,
-      flag_comment: flagCommentValue
-    },
-    { onConflict: "proposal_id,voter_id" }
-  );
+  // Insert, never upsert: the unique (proposal_id, voter_id) constraint turns a
+  // second vote that raced past the check above into a conflict, not an edit.
+  const { error: voteError } = await admin.from("votes").insert({
+    proposal_id: input.proposalId,
+    voter_id: voterId,
+    choice: input.choice,
+    allocation_amount: normalizedAmount,
+    flag_comment: flagCommentValue
+  });
 
   if (voteError) {
+    if (isUniqueConstraintError(voteError)) {
+      throw new HttpError(409, VOTE_ALREADY_RECORDED_MESSAGE);
+    }
     throw new HttpError(500, `Could not save vote: ${voteError.message}`);
   }
 

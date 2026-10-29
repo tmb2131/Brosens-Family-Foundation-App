@@ -52,7 +52,7 @@ const VOTE_BLOCKED_COPY: Record<VoteBlockedReason, { title: string; body: string
   },
   already_voted: {
     title: "Vote submitted",
-    body: "Your vote is recorded. Reach out to Oversight if you need it changed."
+    body: "Your vote is recorded and can’t be changed in the app. If you made a mistake, let Oversight know."
   }
 };
 
