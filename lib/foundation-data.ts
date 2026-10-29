@@ -849,28 +849,19 @@ type ProposalViewFields = ReturnType<typeof buildProposalViews>[number];
  *   allocations cast so far. Substituting the amount that was asked for — which
  *   is what the Dashboard already displays for a to_review proposal — hides the
  *   tally without changing any of those displays, and keeps it out of the
- *   `jointAllocated` budget figure aggregated from this field. A settled
+ *   `jointAllocated` budget figure aggregated from this field. It is withheld
+ *   from everyone, voted or not: a member who has voted could otherwise
+ *   subtract their own amount and work out what the others gave. A settled
  *   proposal keeps its real amount: that is a recorded fact rather than a live
  *   tally, and history and reporting depend on it. For discretionary proposals
  *   the two values are already the same, so only joint proposals change.
  */
 function redactBlindVoteData(
-  view: ProposalViewFields,
-  /**
-   * `shared` — the foundation-wide snapshot every role reads. The tally is
-   * withheld from everyone, so the budget totals it feeds read the same for
-   * every member regardless of who has voted.
-   * `viewer` — the single-proposal page, which deliberately shows a member the
-   * running total once they have cast their own vote.
-   */
-  scope: "shared" | "viewer"
+  view: ProposalViewFields
 ): Pick<ProposalViewFields, "voteBreakdown" | "progress"> {
-  const hideTally =
-    view.status === "to_review" && (scope === "shared" || view.progress.masked);
-
   return {
     voteBreakdown: view.progress.masked ? [] : view.voteBreakdown,
-    progress: hideTally
+    progress: view.status === "to_review"
       ? { ...view.progress, computedFinalAmount: roundCurrency(view.proposedAmount) }
       : view.progress
   };
@@ -1073,7 +1064,7 @@ export function buildFoundationSnapshotFromData(
   const proposals = proposalViews.map((p) => ({
     ...p,
     proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId)),
-    ...redactBlindVoteData(p, "shared")
+    ...redactBlindVoteData(p)
   }));
 
   let jointAllocated = 0;
@@ -1339,7 +1330,7 @@ export async function getFoundationSnapshot(
   const proposals = proposalViews.map((p) => ({
     ...p,
     proposerDisplayName: getProposerDisplayName(proposerEmailById.get(p.proposerId)),
-    ...redactBlindVoteData(p, "shared")
+    ...redactBlindVoteData(p)
   }));
 
   let jointAllocated = 0;
@@ -2206,9 +2197,9 @@ export async function getProposalDetail(
   const proposal = {
     ...view,
     proposerDisplayName: getProposerDisplayName(proposerProfile?.email),
-    // Blind voting: never ship other members' votes, or the running allocation
-    // total, until reveal / after this viewer has voted.
-    ...redactBlindVoteData(view, "viewer")
+    // Blind voting: never ship other members' votes until reveal / after this
+    // viewer has voted, or the running allocation total until voting closes.
+    ...redactBlindVoteData(view)
   };
 
   const ownVote =

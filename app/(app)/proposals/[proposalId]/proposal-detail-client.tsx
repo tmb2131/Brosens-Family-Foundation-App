@@ -152,9 +152,6 @@ export default function ProposalDetailClient({
   }
 
   const isOpenForVoting = proposal.status === "to_review";
-  // A joint proposal's running total is other members' votes — keep it blind
-  // until the viewer has voted or Oversight has revealed.
-  const canSeeRunningTotal = !proposal.progress.masked;
 
   const votePanel = viewer.canVote ? (
     <Card className="gap-4 p-4">
@@ -278,9 +275,7 @@ export default function ProposalDetailClient({
                 </span>
                 {isOpenForVoting && proposal.proposalType === "joint" ? (
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {canSeeRunningTotal
-                      ? `${currency(proposal.progress.computedFinalAmount)} allocated so far`
-                      : "Allocations hidden until you vote"}
+                    Total shown once voting closes
                   </span>
                 ) : null}
               </DetailRow>
