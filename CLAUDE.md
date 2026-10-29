@@ -105,6 +105,7 @@ components/
   workspace-walkthrough-context.tsx      # Contextual walkthrough guide for Workspace
   mobile-walkthrough-context.tsx         # Contextual walkthrough guide for Mobile
   pwa-ios-install-banner.tsx             # iOS PWA install prompt banner
+  budget-year-banner.tsx                 # Oversight/Manager reminder to set up the next budget year
   scroll-to-top.tsx                      # Scroll restoration on route change
 
 lib/
@@ -121,6 +122,8 @@ lib/
   policy-data.ts       # Mandate policy data access
   mandate-policy.ts    # Mandate policy business logic (versioning, diffing)
   navigation-summary.ts # Navigation badge counts (getNavigationSummary)
+  budget-year-notice.ts # Active budget year and the "set up next year's budget" notice
+  proposal-amounts.ts  # settledProposalAmount(): what a settled grant was awarded, from its row
   organization-giving-history.ts  # Historical giving analysis by org
   proposer-display-names.ts       # Proposer name formatting utilities
   perf-logger.ts       # Server-side page performance timing (startPagePerf)
@@ -147,7 +150,7 @@ scripts/
                                    #   never had, after verifying the schema matches
 
 supabase/
-  migrations/          # 32 SQL migration files (schema versioning, date-prefixed)
+  migrations/          # 34 SQL migration files (schema versioning, date-prefixed)
   functions/           # Edge functions (currently empty)
   config.toml          # Supabase CLI config
 
@@ -198,7 +201,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `GET|POST /api/meeting` — Meeting proposals / actions (reveal, hide_votes, decision)
 
 ### Navigation
-- `GET /api/navigation/summary` — Badge counts (to_review, action_items, etc.)
+- `GET /api/navigation/summary` — Badge counts (to_review, action_items, etc.), plus `budgetNotice` for Oversight/Manager when a budget year needs setting up
 
 ### Notifications
 - `POST /api/notifications/push/subscribe` — Web Push subscription
@@ -232,7 +235,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `POST /api/settings/historical-proposals/import` — Bulk import historical proposals
 
 ### Votes
-- `POST /api/votes` — Submit vote (yes/no for joint, acknowledged/flagged for discretionary)
+- `POST /api/votes` — Submit vote (yes/no for joint, acknowledged/flagged for discretionary). Votes are final: a second vote on the same proposal returns 409
 
 ### Workspace
 - `GET /api/workspace` — Personal workspace snapshot (action items, budget, history)
@@ -273,6 +276,8 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - **Server RPCs** — performance-critical pages use Postgres RPCs (e.g., `get_foundation_page_data()`) to fetch all page data in a single round-trip instead of many sequential queries
 - **Request-scoped memoization** — `fetchFoundationPageData()` memoizes the RPC result in a `cache()`-backed Map, so repeated callers within one request share a round-trip while every new request reads fresh. Do not promote this to a module-level TTL cache: that cache would be per-serverless-instance, so a write handled by one instance would leave another serving pre-write data to the client revalidation that immediately follows. `invalidateFoundationCache()` covers write-then-read within a single request
 - No ORM — raw SQL via Supabase JS client
+- **Grant amounts** — `grant_proposals.final_amount` is the amount *requested* (for imported history, the amount awarded). A joint grant is awarded the sum of the members' allocations, saved to `approved_amount` when it is approved (`setMeetingDecision`), because re-adding the votes later counts only current voting members. `resolveProposalAmount()` in `lib/foundation-data.ts` is the single rule for `computedFinalAmount`; readers that only have the row (emails, Frank & Deenie ledger, giving history) use `settledProposalAmount()` from `lib/proposal-amounts.ts`. Never show `final_amount` as what a joint grant was awarded
+- **Budget year fallback** — with no budget for the current calendar year, `getCurrentBudget()` and the RPC fall back to the latest budget, so new proposals are filed under it. `lib/budget-year-notice.ts` turns that into a banner for Oversight/Manager (from December) and a warning on the new-proposal form
 - SWR on the client with polling intervals for real-time-ish UI updates; client components use `revalidateIfStale: false` to prevent redundant revalidation on mount when fresh data is already present
 
 ### Performance Instrumentation
@@ -304,7 +309,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - Timestamps with timezone (`created_at`, `updated_at` with triggers)
 - Enums: `app_role`, `proposal_status`, `proposal_type`, `allocation_mode`, `vote_choice`, `email_notification_type`
 - RLS policies on all user-facing tables
-- Migrations in `supabase/migrations/` named with date prefix (33 migrations total)
+- Migrations in `supabase/migrations/` named with date prefix (34 migrations total)
 - Apply migrations with `npm run db:push`
 
 ### Key Database Tables
@@ -315,7 +320,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `organizations` | Nonprofits with Charity Navigator score, directional category |
 | `grants_master` | Reusable grant templates |
 | `budgets` | Annual budget (total, joint/discretionary ratios, rollover) |
-| `grant_proposals` | Grant proposals with status lifecycle |
+| `grant_proposals` | Grant proposals with status lifecycle; `final_amount` = amount requested, `approved_amount` = joint total saved at approval |
 | `proposal_drafts` | Per-user JSON payload for in-progress new proposal form (cross-device) |
 | `votes` | Blind votes with allocation amounts and optional flag comments |
 | `audit_log` | Immutable audit trail for all mutations |
@@ -332,7 +337,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `email_deliveries` / `email_weekly_reminders` | Email delivery records and weekly reminder bookkeeping |
 | `organization_category_jobs` | Queue for AI directional-category assignment |
 
-### Database Migrations (33 total)
+### Database Migrations (34 total)
 
 | Migration | Key Changes |
 |-----------|-------------|
@@ -369,6 +374,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 | `20260329100000_proposal_drafts` | `proposal_drafts` table (per-user new-proposal form state) with RLS |
 | `20260410000000_proposal_decision_notification` | `proposal_decision` email notification type |
 | `20260812000000_restrict_security_definer_rpc_grants` | Revoke EXECUTE on all SECURITY DEFINER RPCs from `public`/`anon`/`authenticated`, grant to `service_role`; pin `search_path` on the year RPCs |
+| `20261029000000_save_joint_approved_amount` | `approved_amount` on grant_proposals (joint total saved at approval), backfilled for settled joint grants; `get_foundation_page_data()` returns it. Apply before deploying code that reads it |
 
 ## Coding Conventions
 
@@ -449,7 +455,9 @@ service-role client, which bypasses RLS, so the guarantee lives in two places:
 - **Payload redaction.** `redactBlindVoteData()` in `lib/foundation-data.ts`
   strips `voteBreakdown` while a proposal is masked for the viewer, and replaces
   `progress.computedFinalAmount` with the requested amount while a proposal is
-  `to_review` so the running allocation tally never ships. The oversight meeting
+  `to_review` so the running allocation tally never ships (the history chart's
+  "allocated, not sent" figure counts open proposals at the requested amount for
+  the same reason). The oversight meeting
   view (`buildMeetingProposalsFromData`) is the deliberate exception — it needs
   pre-reveal flag counts to triage discussion, and both its page and its API
   route are role-gated. Joint and discretionary proposals follow the same rule.
@@ -457,6 +465,9 @@ service-role client, which bypasses RLS, so the guarantee lives in two places:
   name, choice and flag comment but not their allocation amount, even after
   reveal and even in the meeting view. Members see only the group total
   (`computedFinalAmount`) and their own vote (`viewer.existingVote`).
+- **Votes are final.** A member who has voted sees everyone else's choices, so
+  `submitVote()` refuses a second vote (409) and inserts rather than upserts, letting
+  the `(proposal_id, voter_id)` unique constraint catch a racing duplicate.
 - **RPC grants.** SECURITY DEFINER functions run as their owner and Supabase
   publishes `public`-schema functions over PostgREST, so any new one must
   `revoke execute ... from public, anon, authenticated` and grant only
@@ -465,7 +476,7 @@ service-role client, which bypasses RLS, so the guarantee lives in two places:
 
 Because `computedFinalAmount` feeds the Dashboard's `jointAllocated` figure, the
 budget bars count an open joint proposal at its requested amount and switch to
-the vote-derived total once it is approved.
+the total saved at approval once it is approved.
 
 ## Environment Variables
 
