@@ -163,7 +163,6 @@ export interface FoundationSnapshot {
         userId: string;
         userDisplayName: string;
         choice: VoteChoice;
-        allocationAmount: number;
         createdAt: string;
         flagComment?: string | null;
       }>;

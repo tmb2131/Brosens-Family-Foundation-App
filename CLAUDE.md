@@ -453,6 +453,10 @@ service-role client, which bypasses RLS, so the guarantee lives in two places:
   view (`buildMeetingProposalsFromData`) is the deliberate exception — it needs
   pre-reveal flag counts to triage discussion, and both its page and its API
   route are role-gated. Joint and discretionary proposals follow the same rule.
+- **Per-member amounts are never shown.** `voteBreakdown` carries each voter's
+  name, choice and flag comment but not their allocation amount, even after
+  reveal and even in the meeting view. Members see only the group total
+  (`computedFinalAmount`) and their own vote (`viewer.existingVote`).
 - **RPC grants.** SECURITY DEFINER functions run as their owner and Supabase
   publishes `public`-schema functions over PostgREST, so any new one must
   `revoke execute ... from public, anon, authenticated` and grant only

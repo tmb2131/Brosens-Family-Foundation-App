@@ -670,12 +670,7 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
                                   <p className="text-sm font-medium text-foreground truncate">
                                     {vote.userDisplayName}
                                   </p>
-                                  <p className="text-sm font-bold text-foreground tabular-nums shrink-0">
-                                    {currency(vote.allocationAmount)}
-                                  </p>
-                                </div>
-                                <div className="mt-0.5">
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${choiceColor}`}>
+                                  <span className={`inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${choiceColor}`}>
                                     {voteChoiceLabel(vote.choice)}
                                   </span>
                                 </div>

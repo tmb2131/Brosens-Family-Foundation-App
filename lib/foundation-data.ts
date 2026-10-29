@@ -807,11 +807,12 @@ function buildProposalViews(input: {
           : null
         : null,
       organizationDirectionalCategory: toDirectionalCategory(organization?.directional_category),
+      // Each member's own allocation stays private: the breakdown carries
+      // who voted and how, and only the total (computedFinalAmount) is shared.
       voteBreakdown: votes.map((vote) => ({
         userId: vote.userId,
         userDisplayName: input.voterDisplayNames.get(vote.userId) ?? "Unknown",
         choice: vote.choice,
-        allocationAmount: vote.allocationAmount,
         createdAt: vote.createdAt,
         flagComment: vote.flagComment
       })),
@@ -841,7 +842,8 @@ type ProposalViewFields = ReturnType<typeof buildProposalViews>[number];
  *
  * Two separate things leak:
  *
- * - `voteBreakdown` is every other member's choice, amount and flag comment.
+ * - `voteBreakdown` is every other member's choice and flag comment (never
+ *   their allocation amount, which is not shipped at all).
  *   It is withheld while the proposal is masked for this viewer.
  * - `computedFinalAmount` on an open joint proposal is the running sum of the
  *   allocations cast so far. Substituting the amount that was asked for — which

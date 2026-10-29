@@ -363,11 +363,8 @@ export default function ProposalDetailClient({
                         </p>
                       ) : null}
                     </div>
-                    <p className="text-sm font-semibold tabular-nums text-foreground">
+                    <p className="text-sm font-semibold text-foreground">
                       {voteChoiceLabel(vote.choice)}
-                      {proposal.proposalType === "joint" && vote.choice === "yes"
-                        ? ` · ${currency(vote.allocationAmount)}`
-                        : ""}
                     </p>
                   </li>
                 ))}
