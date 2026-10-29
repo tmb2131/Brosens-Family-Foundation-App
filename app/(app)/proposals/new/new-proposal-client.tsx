@@ -28,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
 import { useDraftPersistence } from "@/lib/hooks/use-draft-persistence";
 import type { ProposalDraft, ProposalDraftPayload } from "@/lib/proposal-draft-types";
-import { ProposalPrefill, UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
+import { BudgetYearNotice, ProposalPrefill, UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { usePagePerf } from "@/lib/perf-logger-client";
@@ -59,6 +59,7 @@ interface NewProposalClientProps {
   initialTitleSuggestions: string[];
   prefill?: ProposalPrefill;
   initialDraft: ProposalDraft | null;
+  budgetYearNotice: BudgetYearNotice | null;
 }
 
 export default function NewProposalClient({
@@ -66,7 +67,8 @@ export default function NewProposalClient({
   initialWorkspace,
   initialTitleSuggestions,
   prefill,
-  initialDraft
+  initialDraft,
+  budgetYearNotice
 }: NewProposalClientProps) {
   const router = useRouter();
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
@@ -117,6 +119,7 @@ export default function NewProposalClient({
   const [error, setError] = useState<string | null>(null);
   const savingRef = useRef(false);
   const isVotingMember = profile.role === "member" || profile.role === "oversight";
+  const canManageBudget = profile.role === "oversight" || profile.role === "manager";
   const discretionaryLimit = workspaceQuery.data
     ? Math.max(0, Math.floor(workspaceQuery.data.personalBudget.discretionaryRemaining))
     : null;
@@ -410,6 +413,22 @@ export default function NewProposalClient({
           Proposals are added to the full grant list and move to blind voting by eligible voters.
         </p>
       </GlassCard>
+
+      {budgetYearNotice?.kind === "missing" && budgetYearNotice.fallbackYear !== null ? (
+        <div
+          role="note"
+          className="flex items-start gap-2 rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <p>
+            There&apos;s no {budgetYearNotice.year} budget yet, so this proposal will count toward the{" "}
+            {budgetYearNotice.fallbackYear} budget.{" "}
+            {canManageBudget
+              ? `If it belongs in ${budgetYearNotice.year}, set up the ${budgetYearNotice.year} budget in Settings first.`
+              : `If it belongs in ${budgetYearNotice.year}, ask Oversight to set up the ${budgetYearNotice.year} budget first.`}
+          </p>
+        </div>
+      ) : null}
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
       <GlassCard>

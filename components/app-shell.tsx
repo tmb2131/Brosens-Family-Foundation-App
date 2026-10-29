@@ -29,6 +29,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { getClientIsStandalone } from "@/lib/device-detection";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
+import { BudgetYearBanner } from "@/components/budget-year-banner";
 import { RouteProgressBar, BackgroundRevalidationBar } from "@/components/ui/route-progress-bar";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
@@ -917,6 +918,7 @@ export function AppShell({ children }: PropsWithChildren) {
         )}
 
         <PwaIosInstallBanner />
+        <BudgetYearBanner notice={navigationSummary?.budgetNotice ?? null} />
 
         <main className="mx-auto min-w-0 max-w-7xl flex-1 pt-4 sm:pt-0">
           {children}

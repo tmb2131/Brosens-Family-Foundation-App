@@ -1,13 +1,15 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import {
+  BUDGET_MANAGER_ROLES,
+  getBudgetYearNotice,
+  loadBudgetYears,
+  resolveActiveBudgetYear
+} from "@/lib/budget-year-notice";
 import { HttpError } from "@/lib/http-error";
 import { getPendingPolicyNotificationCount } from "@/lib/policy-data";
 import { AppRole, NavigationSummarySnapshot, ProposalType } from "@/lib/types";
 
 type AdminClient = SupabaseClient;
-
-interface BudgetYearRow {
-  budget_year: number;
-}
 
 interface ActionItemProposalRow {
   id: string;
@@ -27,37 +29,6 @@ interface VoteRow {
 
 interface VotingMemberRow {
   id: string;
-}
-
-async function getCurrentBudgetYearOrNull(admin: AdminClient) {
-  const thisYear = new Date().getFullYear();
-
-  const { data: currentBudget, error: currentBudgetError } = await admin
-    .from("budgets")
-    .select("budget_year")
-    .eq("budget_year", thisYear)
-    .maybeSingle<BudgetYearRow>();
-
-  if (currentBudgetError) {
-    throw new HttpError(500, `Could not load current budget year: ${currentBudgetError.message}`);
-  }
-
-  if (currentBudget) {
-    return currentBudget.budget_year;
-  }
-
-  const { data: fallbackBudget, error: fallbackBudgetError } = await admin
-    .from("budgets")
-    .select("budget_year")
-    .order("budget_year", { ascending: false })
-    .limit(1)
-    .maybeSingle<BudgetYearRow>();
-
-  if (fallbackBudgetError) {
-    throw new HttpError(500, `Could not load fallback budget year: ${fallbackBudgetError.message}`);
-  }
-
-  return fallbackBudget?.budget_year ?? null;
 }
 
 async function countProposalsByStatus(
@@ -241,7 +212,8 @@ export async function getNavigationSummary(
   userId: string,
   role: AppRole
 ): Promise<NavigationSummarySnapshot> {
-  const budgetYear = await getCurrentBudgetYearOrNull(admin);
+  const budgetYears = await loadBudgetYears(admin);
+  const budgetYear = resolveActiveBudgetYear(budgetYears);
   const toReviewCountPromise =
     budgetYear === null ? Promise.resolve(0) : countProposalsByStatus(admin, "to_review", budgetYear);
 
@@ -261,6 +233,7 @@ export async function getNavigationSummary(
     workspaceActionItemsCount,
     meetingToReviewCount,
     adminApprovedCount,
-    pendingPolicyNotificationsCount
+    pendingPolicyNotificationsCount,
+    budgetNotice: BUDGET_MANAGER_ROLES.includes(role) ? getBudgetYearNotice(budgetYears) : null
   };
 }

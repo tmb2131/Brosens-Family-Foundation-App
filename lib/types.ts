@@ -304,12 +304,24 @@ export interface WorkspaceSnapshot {
   submittedGifts: Array<GrantProposal>;
 }
 
+/**
+ * A budget year that still needs setting up (see lib/budget-year-notice.ts).
+ * `upcoming`: it is December and next year has no budget yet.
+ * `missing`: this calendar year has no budget, so the app is filing new
+ * proposals under `fallbackYear` (null when no budget exists at all).
+ */
+export type BudgetYearNotice =
+  | { kind: "upcoming"; year: number }
+  | { kind: "missing"; year: number; fallbackYear: number | null };
+
 export interface NavigationSummarySnapshot {
   dashboardToReviewCount: number;
   workspaceActionItemsCount: number;
   meetingToReviewCount: number;
   adminApprovedCount: number;
   pendingPolicyNotificationsCount: number;
+  /** Only for the roles that set budgets (Oversight and Manager); null otherwise. */
+  budgetNotice: BudgetYearNotice | null;
 }
 
 export interface FoundationHistorySnapshot {

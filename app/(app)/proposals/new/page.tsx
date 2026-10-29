@@ -1,4 +1,5 @@
 import { requirePageAuth } from "@/lib/auth-server";
+import { loadBudgetYearNotice } from "@/lib/budget-year-notice";
 import { getProposalPrefill, getWorkspaceSnapshot, listProposalTitleSuggestions } from "@/lib/foundation-data";
 import { deleteProposalDraft, getProposalDraft } from "@/lib/proposal-draft-data";
 import type { ProposalDraft } from "@/lib/proposal-draft-types";
@@ -20,10 +21,11 @@ export default async function NewProposalPage({ searchParams }: NewProposalPageP
 
   const fromId = typeof resolvedParams.from === "string" ? resolvedParams.from.trim() : null;
 
-  const [workspace, titles, prefill] = await Promise.all([
+  const [workspace, titles, prefill, budgetYearNotice] = await Promise.all([
     getWorkspaceSnapshot(admin, profile),
     listProposalTitleSuggestions(admin),
     fromId ? getProposalPrefill(admin, fromId) : null,
+    loadBudgetYearNotice(admin),
   ]);
   perf.step("fetchProposalFormData");
 
@@ -43,6 +45,7 @@ export default async function NewProposalPage({ searchParams }: NewProposalPageP
       initialTitleSuggestions={titles}
       prefill={prefill ?? undefined}
       initialDraft={initialDraft}
+      budgetYearNotice={budgetYearNotice}
     />
   );
 }
