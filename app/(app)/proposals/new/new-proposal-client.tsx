@@ -31,6 +31,7 @@ import type { ProposalDraft, ProposalDraftPayload } from "@/lib/proposal-draft-t
 import { BudgetYearNotice, ProposalPrefill, UserProfile, WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
+import { homePathFor, useBackNavigation } from "@/lib/back-navigation";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
 const CharityGivingHistory = dynamic(
@@ -71,6 +72,11 @@ export default function NewProposalClient({
   budgetYearNotice
 }: NewProposalClientProps) {
   const router = useRouter();
+  const goBackFallback = useCallback(
+    () => homePathFor(profile.role, getClientIsMobile()),
+    [profile.role]
+  );
+  const goBack = useBackNavigation(goBackFallback);
   const workspaceQuery = useSWR<WorkspaceSnapshot>("/api/workspace", {
     refreshInterval: 30_000,
     fallbackData: initialWorkspace,
@@ -286,31 +292,56 @@ export default function NewProposalClient({
         throw new Error(payload.error || "Failed to submit");
       }
 
-      const { proposal } = (await response.json()) as { proposal: { id: string } };
-      if (proposalType === "joint" && isVotingMember && proposal?.id) {
+      // The proposal exists from here on. Nothing below may leave this form
+      // open to be submitted again, or the retry would create a duplicate.
+      const created = (await response.json().catch(() => null)) as { proposal?: { id?: string } } | null;
+      const proposalId = created?.proposal?.id ?? null;
+      clearDraft();
+      setIsConfirmDialogOpen(false);
+
+      let voteError: string | null = null;
+      if (proposalType === "joint" && isVotingMember && proposalId) {
         const allocation =
           parsedProposerAllocation ?? parseNumberInput(proposerAllocationAmount) ?? 0;
-        const voteResponse = await fetch("/api/votes", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            proposalId: proposal.id,
-            choice: "yes",
-            allocationAmount: Math.max(0, Math.round(allocation))
-          })
-        });
-        if (!voteResponse.ok) {
-          const payload = await voteResponse.json().catch(() => ({ error: "Could not save your vote" }));
-          throw new Error(payload.error || "Proposal was created but your vote could not be saved. You can vote from the dashboard or workspace.");
+        try {
+          const voteResponse = await fetch("/api/votes", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              proposalId,
+              choice: "yes",
+              allocationAmount: Math.max(0, Math.round(allocation))
+            })
+          });
+          if (!voteResponse.ok) {
+            const payload = await voteResponse.json().catch(() => null);
+            voteError = payload?.error || "Your vote could not be saved.";
+          }
+        } catch {
+          voteError = "Your vote could not be saved.";
         }
       }
 
-      clearDraft();
       void globalMutate("/api/navigation/summary");
       void globalMutate("/api/workspace");
       mutateAllFoundation();
-      setIsConfirmDialogOpen(false);
       window.dispatchEvent(new Event("route-progress-start"));
+
+      if (voteError && proposalId) {
+        toast.warning("Proposal submitted, but your vote wasn't saved", {
+          description: `${voteError} Cast your vote on this page.`,
+          duration: 12_000
+        });
+        router.push(`/proposals/${proposalId}`);
+        return;
+      }
+
+      toast.success("Proposal submitted", {
+        description:
+          proposalType === "joint"
+            ? "Your vote is in. Members have been asked to vote."
+            : "Members have been asked to acknowledge it."
+      });
       router.push(getClientIsMobile() ? "/mobile" : "/dashboard");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to submit");
@@ -692,7 +723,7 @@ export default function NewProposalClient({
               size="lg"
               type="button"
               disabled={saving}
-              onClick={() => router.push("/dashboard")}
+              onClick={goBack}
               className="w-full"
             >
               Cancel
