@@ -43,7 +43,7 @@ const VOTE_BLOCKED_COPY: Record<VoteBlockedReason, { title: string; body: string
   },
   not_open_for_voting: {
     title: "Voting closed",
-    body: "This proposal is no longer in review, so votes can’t be changed."
+    body: "This proposal is no longer in review, so it isn’t taking votes."
   },
   own_discretionary_proposal: {
     title: "Your proposal",
@@ -160,10 +160,8 @@ export default function ProposalDetailClient({
         totalRequiredVotes={proposal.progress.totalRequiredVotes}
         userId={viewer.userId}
         proposalTitle={proposal.title}
-        onSuccess={() => {
-          toast.success("Vote submitted");
-          void detailQuery.mutate();
-        }}
+        // The form confirms the vote and refreshes this page once the server has it.
+        onSuccess={() => {}}
         maxJointAllocation={
           proposal.proposalType === "joint" && personalBudget
             ? personalBudget.jointRemaining + personalBudget.discretionaryRemaining

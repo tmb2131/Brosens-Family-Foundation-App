@@ -39,6 +39,8 @@ const AmountInput = React.forwardRef<
     <Input
       ref={mergedRef}
       type="number"
+      // Number pad on phones instead of the full keyboard.
+      inputMode="decimal"
       className={cn(
         "[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]",
         className

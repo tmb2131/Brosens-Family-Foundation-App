@@ -66,7 +66,8 @@ export function MobileInlineVoteForm({
       className="grid transition-[grid-template-rows] duration-300 ease-in-out"
       style={{ gridTemplateRows: expanded ? "1fr" : "0fr" }}
     >
-      <div className="min-h-0 overflow-hidden">
+      {/* Collapsed forms stay mounted for the animation; `inert` keeps them out of the tab order and screen readers. */}
+      <div className="min-h-0 overflow-hidden" inert={!expanded}>
         <div ref={containerRef} className="border-t border-border/60 pt-3">
           <VoteFormProvider
             variant="mobile"
