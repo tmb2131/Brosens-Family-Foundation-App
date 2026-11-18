@@ -11,6 +11,7 @@ import {
   Leaf,
   ListChecks,
   LogOut,
+  Menu,
   PanelLeftClose,
   Plus,
   ScrollText,
@@ -30,6 +31,7 @@ import { getClientIsStandalone } from "@/lib/device-detection";
 import { AppRole, NavigationSummarySnapshot, UserProfile } from "@/lib/types";
 import { PwaIosInstallBanner } from "@/components/pwa-ios-install-banner";
 import { BudgetYearBanner } from "@/components/budget-year-banner";
+import { getMoreLinks, MobileMoreSheet } from "@/components/mobile-more-sheet";
 import { RouteProgressBar, BackgroundRevalidationBar } from "@/components/ui/route-progress-bar";
 import { useDashboardWalkthrough } from "@/components/dashboard-walkthrough-context";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
@@ -56,6 +58,8 @@ const roleAvatarClasses: Record<AppRole, string> = {
 type NavItem = {
   href: Route;
   label: string;
+  /** Shorter label for the phone bottom bar, where space is tight. */
+  shortLabel?: string;
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   roles?: AppRole[];
 };
@@ -129,6 +133,7 @@ const focusNavItems: NavItem[] = [
   {
     href: "/proposals/new",
     label: "New Proposal",
+    shortLabel: "New",
     icon: Plus,
     roles: ["member", "oversight"]
   },
@@ -152,6 +157,9 @@ const managerMobileNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: FileText },
   { href: "/frank-deenie" as Route, label: "F&D", icon: HandCoins }
 ];
+
+/** Pages inside the phone "More" sheet whose counts feed the More tab's badge. */
+const MORE_BADGE_HREFS = new Set<string>(["/mandate", "/meeting"]);
 
 const fullNavSections: Array<{ id: NavSectionId; label: string }> = [
   { id: "work", label: "Work" },
@@ -594,9 +602,26 @@ interface MobileBottomNavProps {
   pathname: string;
   navItems: NavItem[];
   outstandingByHref: NavOutstandingCounts;
+  moreActive: boolean;
+  moreOpen: boolean;
+  moreCount: number;
+  onOpenMore: () => void;
 }
 
-const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outstandingByHref }: MobileBottomNavProps) {
+const mobileNavItemClass =
+  "flex min-h-12 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0 py-1.5 text-[10px] font-semibold leading-tight text-[hsl(var(--foreground)/0.72)] transition-[background-color,border-color,color,box-shadow,transform] duration-[180ms] ease-in-out hover:bg-[hsl(var(--muted)/0.8)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2 motion-safe:active:scale-95";
+const mobileNavItemActiveClass =
+  "bg-accent text-white shadow-[0_10px_20px_-14px_hsl(var(--accent)/1)] hover:bg-accent hover:text-white";
+
+const MobileBottomNav = memo(function MobileBottomNav({
+  pathname,
+  navItems,
+  outstandingByHref,
+  moreActive,
+  moreOpen,
+  moreCount,
+  onOpenMore
+}: MobileBottomNavProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
@@ -624,15 +649,15 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t bg-card px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden [transform:translateZ(0)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t bg-card px-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-soft print:hidden sm:hidden [transform:translateZ(0)]"
       aria-label="Mobile primary navigation"
     >
       <ul
-        className="grid gap-1"
-        style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length, 1)}, minmax(0, 1fr))` }}
+        className="grid gap-0.5"
+        style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length + 1, 1)}, minmax(0, 1fr))` }}
       >
         {navItems.map((item) => {
-          const active = isRouteActive(pathname, item.href) || pendingHref === item.href;
+          const active = (!moreOpen && isRouteActive(pathname, item.href)) || pendingHref === item.href;
           const outstandingCount = outstandingByHref[item.href] ?? 0;
           const isNewProposalShortcut = item.href === "/proposals/new";
           const showNewProposalCta = isNewProposalShortcut && !active;
@@ -642,23 +667,40 @@ const MobileBottomNav = memo(function MobileBottomNav({ pathname, navItems, outs
                 href={item.href}
                 onClick={(e) => handleNavClick(e, item)}
                 className={cn(
-                  "flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl p-2 text-[0.6875rem] font-semibold text-[hsl(var(--foreground)/0.72)] transition-[background-color,border-color,color,box-shadow,transform] duration-[180ms] ease-in-out hover:bg-[hsl(var(--muted)/0.8)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-[hsl(var(--accent)/0.45)] focus-visible:outline-offset-2 motion-safe:active:scale-95",
-                  active && "bg-accent text-white shadow-[0_10px_20px_-14px_hsl(var(--accent)/1)] hover:bg-accent hover:text-white",
+                  mobileNavItemClass,
+                  active && mobileNavItemActiveClass,
                   showNewProposalCta && "border border-[rgb(var(--proposal-cta-border)/0.56)] bg-[rgb(var(--proposal-cta)/0.12)] text-[rgb(var(--proposal-cta-hover))] shadow-[0_10px_20px_-16px_rgb(var(--proposal-cta)/0.95)] dark:border-[rgb(var(--proposal-cta-border)/0.62)] dark:bg-[rgb(var(--proposal-cta)/0.2)] dark:text-[rgb(var(--proposal-cta-foreground))] dark:shadow-[0_12px_22px_-16px_rgb(var(--proposal-cta)/1)]"
                 )}
                 aria-current={active ? "page" : undefined}
                 aria-label={outstandingCount > 0 ? `${item.label} (${outstandingCount})` : item.label}
                 data-nav-href={item.href}
               >
-                <span className={cn("relative inline-flex", showNewProposalCta && "h-6 w-6 items-center justify-center rounded-full bg-[rgb(var(--proposal-cta))] text-[rgb(var(--proposal-cta-foreground))] shadow-[0_6px_12px_-8px_rgb(var(--proposal-cta)/1)] motion-safe:animate-[sidebar-cta-pulse_900ms_ease-out_1]")}>
-                  <item.icon className="h-5 w-5" strokeWidth={1.5} />
+                <span className={cn("relative inline-flex h-5 items-center justify-center", showNewProposalCta && "w-5 rounded-full bg-[rgb(var(--proposal-cta))] text-[rgb(var(--proposal-cta-foreground))] shadow-[0_6px_12px_-8px_rgb(var(--proposal-cta)/1)] motion-safe:animate-[sidebar-cta-pulse_900ms_ease-out_1]")}>
+                  <item.icon className={showNewProposalCta ? "h-4 w-4" : "h-5 w-5"} strokeWidth={showNewProposalCta ? 2 : 1.5} />
                   <OutstandingBadge count={outstandingCount} />
                 </span>
-                <span className="max-w-[4.25rem] truncate text-[10px] leading-tight">{item.label}</span>
+                <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
               </a>
             </li>
           );
         })}
+        <li className="min-w-0">
+          <button
+            type="button"
+            onClick={onOpenMore}
+            className={cn(mobileNavItemClass, (moreActive || moreOpen) && mobileNavItemActiveClass)}
+            aria-label={moreCount > 0 ? `More (${moreCount})` : "More"}
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+            aria-current={moreActive && !moreOpen ? "page" : undefined}
+          >
+            <span className="relative inline-flex h-5 items-center justify-center">
+              <Menu className="h-5 w-5" strokeWidth={1.5} />
+              <OutstandingBadge count={moreCount} />
+            </span>
+            <span className="max-w-full truncate">More</span>
+          </button>
+        </li>
       </ul>
     </nav>
   );
@@ -785,13 +827,6 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [user]);
   const desktopNavSections = useMemo(() => groupFullNavItems(availableFullNav), [availableFullNav]);
 
-  const showMobileFocusNav =
-    isSmallViewport &&
-    (pathname.startsWith("/mobile") ||
-      pathname.startsWith("/meeting") ||
-      pathname.startsWith("/dashboard") ||
-      pathname.startsWith("/proposals/new") ||
-      pathname.startsWith("/frank-deenie"));
   /** Home, Admin Queue, + New Proposal, F&D (or Dashboard for non-admin): constrain viewport so bottom nav always visible without scrolling. */
   const stickyBottomNavOnMobile =
     isSmallViewport &&
@@ -810,14 +845,19 @@ export function AppShell({ children }: PropsWithChildren) {
       pathname.startsWith("/proposals/new") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/frank-deenie"));
-  const renderedNav =
-    isSmallViewport && user?.role === "admin"
+  // One bottom bar per role on every page; everything else lives under "More".
+  // (It used to switch to the desktop list on pages outside the focus set,
+  // which dropped Home and New Proposal and never offered Settings.)
+  const mobileNavItems =
+    user?.role === "admin"
       ? adminMobileNavItems
-      : isSmallViewport && user?.role === "manager"
+      : user?.role === "manager"
         ? managerMobileNavItems
-        : showMobileFocusNav
-          ? availableFocusNav
-          : availableFullNav;
+        : availableFocusNav;
+  const moreLinks = useMemo(() => getMoreLinks(user?.role), [user?.role]);
+  const isMoreRouteActive = moreLinks.some((link) => isRouteActive(pathname, link.href));
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const openMore = useCallback(() => setIsMoreOpen(true), []);
   const { data: navigationSummary, isValidating: isNavValidating } = useSWR<NavigationSummarySnapshot>(
     user ? "/api/navigation/summary" : null,
     { refreshInterval: navPollInterval, refreshWhenHidden: false, dedupingInterval: 10_000 }
@@ -849,6 +889,11 @@ export function AppShell({ children }: PropsWithChildren) {
       }) as NavOutstandingCounts,
     [navigationSummary]
   );
+  // Badge "More" only for what the bar doesn't already show: My Workspace's
+  // count is the same action items as Home's, so counting it would double up.
+  const moreCount = moreLinks
+    .filter((link) => MORE_BADGE_HREFS.has(link.href))
+    .reduce((sum, link) => sum + (outstandingByHref[link.href] ?? 0), 0);
 
   return (
     <SWRConfig value={{ refreshWhenHidden: false, refreshWhenOffline: false }}>
@@ -925,7 +970,25 @@ export function AppShell({ children }: PropsWithChildren) {
         </main>
       </div>
 
-      <MobileBottomNav pathname={pathname} navItems={renderedNav} outstandingByHref={outstandingByHref} />
+      <MobileBottomNav
+        pathname={pathname}
+        navItems={mobileNavItems}
+        outstandingByHref={outstandingByHref}
+        moreActive={isMoreRouteActive}
+        moreOpen={isMoreOpen}
+        moreCount={moreCount}
+        onOpenMore={openMore}
+      />
+      {isSmallViewport ? (
+        <MobileMoreSheet
+          open={isMoreOpen}
+          onOpenChange={setIsMoreOpen}
+          user={user}
+          pathname={pathname}
+          countsByHref={outstandingByHref}
+          onSignOut={() => void signOut()}
+        />
+      ) : null}
     </div>
     </SWRConfig>
   );

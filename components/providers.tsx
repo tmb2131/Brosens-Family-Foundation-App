@@ -28,7 +28,11 @@ export function Providers({ children }: PropsWithChildren) {
         >
           <TooltipProvider>
             {children}
-            <Toaster position="bottom-center" />
+            {/* On phones, sit above the fixed bottom nav instead of covering it. */}
+            <Toaster
+              position="bottom-center"
+              mobileOffset={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))" }}
+            />
           </TooltipProvider>
         </SWRConfig>
       </AuthProvider>

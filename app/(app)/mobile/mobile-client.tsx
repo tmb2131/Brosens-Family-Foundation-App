@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import useSWR from "swr";
 import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
-import { BookOpen, LogOut, Moon, RefreshCw, Sun, Wallet } from "lucide-react";
+import { BookOpen, LogOut, Moon, RefreshCw, Settings, Sun, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useMobileWalkthrough } from "@/components/mobile-walkthrough-context";
 import { useWalkthrough, type WalkthroughStep } from "@/lib/hooks/use-walkthrough";
@@ -271,6 +271,15 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
                 )}
                 {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
               </button>
+
+              <Link
+                href="/settings"
+                onClick={() => setProfileSheetOpen(false)}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                Settings
+              </Link>
 
               <button
                 type="button"
