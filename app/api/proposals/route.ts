@@ -7,6 +7,7 @@ import {
 import { toErrorResponse, HttpError } from "@/lib/http-error";
 import { AllocationMode, ProposalType } from "@/lib/types";
 import { normalizeOptionalHttpUrl } from "@/lib/url-validation";
+import { parseCharityNavigatorScoreInput } from "@/lib/charity-navigator";
 
 export async function GET() {
   try {
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
       body.charityNavigatorUrl,
       "charity navigator link"
     );
+    const charityNavigatorScore = parseCharityNavigatorScoreInput(body.charityNavigatorScore);
 
     if (!organizationName || !description) {
       throw new HttpError(400, "Missing required fields.");
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       proposedAmount,
       website,
       charityNavigatorUrl,
+      charityNavigatorScore,
       proposer: profile
     });
 

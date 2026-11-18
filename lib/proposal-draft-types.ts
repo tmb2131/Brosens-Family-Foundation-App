@@ -3,6 +3,8 @@ export interface ProposalDraftPayload {
   description: string;
   website: string;
   charityNavigatorUrl: string;
+  /** Optional: drafts saved before manual score entry don't have it. */
+  charityNavigatorScore?: string;
   proposalType: string;
   proposedAmount: string;
   proposerAllocationAmount: string;

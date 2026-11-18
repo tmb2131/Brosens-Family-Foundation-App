@@ -28,7 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BudgetPreviewCard } from "@/components/workspace/budget-preview-card";
 import { useDraftPersistence } from "@/lib/hooks/use-draft-persistence";
 import type { ProposalDraft, ProposalDraftPayload } from "@/lib/proposal-draft-types";
-import { BudgetYearNotice, ProposalPrefill, UserProfile, WorkspaceSnapshot, CharityNavigatorPreviewResponse } from "@/lib/types";
+import { BudgetYearNotice, ProposalPrefill, UserProfile, WorkspaceSnapshot } from "@/lib/types";
 import { currency, parseNumberInput, titleCase } from "@/lib/utils";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { usePagePerf } from "@/lib/perf-logger-client";
@@ -97,6 +97,9 @@ export default function NewProposalClient({
   const [charityNavigatorUrl, setCharityNavigatorUrl] = useState(
     () => prefill?.charityNavigatorUrl ?? initialDraft?.charityNavigatorUrl ?? ""
   );
+  const [charityNavigatorScore, setCharityNavigatorScore] = useState(
+    () => (prefill ? "" : initialDraft?.charityNavigatorScore ?? "")
+  );
   const [proposalType, setProposalType] = useState<ProposalTypeOption>(() => {
     if (prefill?.proposalType) return prefill.proposalType;
     const t = initialDraft?.proposalType;
@@ -108,12 +111,17 @@ export default function NewProposalClient({
   const [proposerAllocationAmount, setProposerAllocationAmount] = useState(
     () => (prefill ? "" : initialDraft?.proposerAllocationAmount ?? "")
   );
-  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewResult, setPreviewResult] = useState<CharityNavigatorPreviewResponse | null>(null);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const parsedProposedAmount = parseNumberInput(proposedAmount);
   const parsedProposerAllocation = parseNumberInput(proposerAllocationAmount);
+  const parsedCharityNavigatorScore = parseNumberInput(charityNavigatorScore);
+  const charityNavigatorScoreError =
+    charityNavigatorScore.trim() &&
+    (parsedCharityNavigatorScore === null ||
+      parsedCharityNavigatorScore < 0 ||
+      parsedCharityNavigatorScore > 100)
+      ? "Enter a score from 0 to 100, or leave it blank."
+      : null;
   const allocationMode: "sum" = "sum";
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,11 +192,12 @@ export default function NewProposalClient({
       description,
       website,
       charityNavigatorUrl,
+      charityNavigatorScore,
       proposalType,
       proposedAmount,
       proposerAllocationAmount
     }),
-    [organizationName, description, website, charityNavigatorUrl, proposalType, proposedAmount, proposerAllocationAmount]
+    [organizationName, description, website, charityNavigatorUrl, charityNavigatorScore, proposalType, proposedAmount, proposerAllocationAmount]
   );
   const { saveDraft, clearDraft } = useDraftPersistence({
     getValues,
@@ -198,7 +207,7 @@ export default function NewProposalClient({
 
   useEffect(() => {
     saveDraft();
-  }, [organizationName, description, website, charityNavigatorUrl, proposalType, proposedAmount, proposerAllocationAmount, saveDraft]);
+  }, [organizationName, description, website, charityNavigatorUrl, charityNavigatorScore, proposalType, proposedAmount, proposerAllocationAmount, saveDraft]);
 
   useEffect(() => {
     if (prefill) {
@@ -234,36 +243,6 @@ export default function NewProposalClient({
     }
   }, [isManager, proposalType]);
 
-  const previewCharityNavigator = async () => {
-    if (!charityNavigatorUrl.trim() || isPreviewLoading) {
-      return;
-    }
-
-    setPreviewError(null);
-    setPreviewResult(null);
-    setIsPreviewLoading(true);
-
-    try {
-      const response = await fetch("/api/charity-navigator/preview", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ charityNavigatorUrl })
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({ error: "Failed to preview link" }));
-        throw new Error(payload.error || "Failed to preview link");
-      }
-
-      const payload = (await response.json()) as CharityNavigatorPreviewResponse;
-      setPreviewResult(payload);
-    } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : "Failed to preview link");
-    } finally {
-      setIsPreviewLoading(false);
-    }
-  };
-
-
   const confirmSubmit = async () => {
     if (savingRef.current) return;
 
@@ -274,6 +253,11 @@ export default function NewProposalClient({
 
     if (isManager && proposalType !== "joint") {
       setError("Managers can only submit joint proposals.");
+      return;
+    }
+
+    if (charityNavigatorScoreError) {
+      setError(charityNavigatorScoreError);
       return;
     }
 
@@ -290,6 +274,7 @@ export default function NewProposalClient({
           description,
           website,
           charityNavigatorUrl,
+          charityNavigatorScore: parsedCharityNavigatorScore,
           proposalType,
           allocationMode,
           proposedAmount: Number(proposedAmount || 0)
@@ -384,10 +369,7 @@ export default function NewProposalClient({
     parsedProposedAmount
   } as const;
 
-  const givingHistoryOrgName =
-    previewResult?.state === "preview_available" && previewResult.organizationName?.trim()
-      ? previewResult.organizationName.trim()
-      : organizationName.trim() || null;
+  const givingHistoryOrgName = organizationName.trim() || null;
 
   return (
     <>
@@ -661,50 +643,39 @@ export default function NewProposalClient({
 
           <div className="space-y-1.5">
             <Label htmlFor="charity-nav-url">Charity Navigator link (optional)</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="charity-nav-url"
-                type="text"
-                value={charityNavigatorUrl}
-                onChange={(event) => {
-                  setCharityNavigatorUrl(event.target.value);
-                  setPreviewError(null);
-                  setPreviewResult(null);
-                }}
-                className="rounded-xl"
-                placeholder="e.g. charitynavigator.org/ein/#########"
-                inputMode="url"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0 rounded-xl"
-                disabled={isPreviewLoading || !charityNavigatorUrl.trim()}
-                onClick={() => void previewCharityNavigator()}
-              >
-                {isPreviewLoading ? "Previewing..." : "Preview"}
-              </Button>
-            </div>
+            <Input
+              id="charity-nav-url"
+              type="text"
+              value={charityNavigatorUrl}
+              onChange={(event) => setCharityNavigatorUrl(event.target.value)}
+              className="rounded-xl"
+              placeholder="e.g. charitynavigator.org/ein/#########"
+              inputMode="url"
+            />
             <p className="mt-1 text-xs text-muted-foreground">
-              Add the Charity Navigator profile URL. The app auto-populates the score from this
-              link when you submit.
+              Add the charity&apos;s Charity Navigator profile URL so voters can look it up.
             </p>
-            {previewError ? (
-              <p className="mt-1 text-xs text-rose-600">{previewError}</p>
-            ) : null}
-            {previewResult?.state === "preview_available" ? (
-              <div className="mt-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
-                {previewResult.organizationName?.trim()
-                  ? `${previewResult.organizationName.trim()}'s score preview: `
-                  : "This charity's score preview: "}
-                {previewResult.score ?? "—"} / 100
-                {previewResult.ein ? ` (EIN ${previewResult.ein})` : ""}
-              </div>
-            ) : null}
-            {previewResult && previewResult.state !== "preview_available" ? (
-              <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
-                {previewResult.message ?? "Preview unavailable for this link."}
-              </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="charity-nav-score">Charity Navigator score (optional)</Label>
+            <Input
+              id="charity-nav-score"
+              type="text"
+              value={charityNavigatorScore}
+              onChange={(event) => setCharityNavigatorScore(event.target.value)}
+              className="max-w-[10rem] rounded-xl"
+              placeholder="0–100"
+              inputMode="decimal"
+              aria-invalid={charityNavigatorScoreError ? true : undefined}
+              aria-describedby="charity-nav-score-help"
+            />
+            <p id="charity-nav-score-help" className="mt-1 text-xs text-muted-foreground">
+              The score shown on the charity&apos;s Charity Navigator profile. Leave blank to keep the
+              score already on file for this organization.
+            </p>
+            {charityNavigatorScoreError ? (
+              <p className="mt-1 text-xs text-rose-600">{charityNavigatorScoreError}</p>
             ) : null}
           </div>
 

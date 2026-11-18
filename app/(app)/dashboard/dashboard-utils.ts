@@ -17,6 +17,7 @@ export interface ProposalDetailEditDraft {
   notes: string;
   website: string;
   charityNavigatorUrl: string;
+  charityNavigatorScore: string;
 }
 
 export interface RequiredActionSummary {
@@ -49,7 +50,9 @@ export function toProposalDetailEditDraft(proposal: ProposalView): ProposalDetai
     proposedAmount: toAmountInput(proposal.proposedAmount),
     notes: proposal.notes ?? "",
     website: proposal.organizationWebsite ?? "",
-    charityNavigatorUrl: proposal.charityNavigatorUrl ?? ""
+    charityNavigatorUrl: proposal.charityNavigatorUrl ?? "",
+    charityNavigatorScore:
+      proposal.charityNavigatorScore != null ? String(proposal.charityNavigatorScore) : ""
   };
 }
 

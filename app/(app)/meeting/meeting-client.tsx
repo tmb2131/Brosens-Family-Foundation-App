@@ -13,7 +13,6 @@ import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/respons
 import { StatusPill } from "@/components/ui/status-pill";
 import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot, UserProfile } from "@/lib/types";
-import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { usePagePerf } from "@/lib/perf-logger-client";
@@ -72,13 +71,6 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
     meetingDialogProposalId != null
       ? data?.proposals.find((p) => p.id === meetingDialogProposalId) ?? null
       : null;
-
-  const meetingDialogCharityNavigatorPreview = useCharityNavigatorPreview(
-    meetingDialogProposal?.charityNavigatorUrl ?? null
-  );
-
-  const meetingDialogApiOrganizationName =
-    meetingDialogCharityNavigatorPreview?.organizationName?.trim() || null;
 
   if (!["oversight", "manager"].includes(profile.role)) {
     return (
@@ -507,7 +499,7 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
               ) : null}
 
               {/* Charity Navigator */}
-              {meetingDialogProposal.charityNavigatorUrl ? (
+              {meetingDialogProposal.charityNavigatorUrl || meetingDialogProposal.charityNavigatorScore != null ? (
                 <div className="mb-4 rounded-xl border border-border/70 bg-gradient-to-r from-sky-50/50 to-sky-50/30 dark:from-sky-900/20 dark:to-sky-900/10 p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="h-6 w-6 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 flex items-center justify-center">
@@ -520,9 +512,7 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
                   {meetingDialogProposal.charityNavigatorScore != null ? (
                     <>
                       <p className="text-sm font-medium text-foreground">
-                        {meetingDialogApiOrganizationName
-                          ? `${meetingDialogApiOrganizationName}'s score is `
-                          : "This charity's score is "}
+                        This charity&apos;s score is{" "}
                         {Math.round(meetingDialogProposal.charityNavigatorScore)}%, earning it a{" "}
                         {charityNavigatorRating(meetingDialogProposal.charityNavigatorScore).starLabel} rating.
                       </p>
@@ -531,17 +521,19 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Score not yet available.</p>
+                    <p className="text-xs text-muted-foreground">No score entered.</p>
                   )}
-                  <a
-                    href={meetingDialogProposal.charityNavigatorUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2 hover:no-underline"
-                  >
-                    View on Charity Navigator
-                    <span className="text-xs">↗</span>
-                  </a>
+                  {meetingDialogProposal.charityNavigatorUrl ? (
+                    <a
+                      href={meetingDialogProposal.charityNavigatorUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary underline underline-offset-2 hover:no-underline"
+                    >
+                      View on Charity Navigator
+                      <span className="text-xs">↗</span>
+                    </a>
+                  ) : null}
                 </div>
               ) : null}
 

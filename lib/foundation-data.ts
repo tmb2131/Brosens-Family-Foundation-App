@@ -36,10 +36,6 @@ import {
   enqueueOrganizationCategoryJob,
   enqueueOrganizationCategoryJobs
 } from "@/lib/organization-categorization";
-import {
-  fetchScoreByEin,
-  parseEinFromCharityNavigatorUrl
-} from "@/lib/charity-navigator";
 
 type AdminClient = SupabaseClient;
 
@@ -1664,42 +1660,21 @@ export async function getProposalPrefill(
 }
 
 /**
- * Parse EIN from Charity Navigator URL, fetch encompass score from API, and update
- * organization's charity_navigator_score (and charity_navigator_url if currently null).
- * Does not throw; logs and returns on parse/API errors.
+ * Save a hand-entered Charity Navigator score on the organization. The score
+ * lives on the organization, so it shows on every proposal for that charity.
  */
-async function updateOrganizationCharityNavigatorFromUrl(
+async function setOrganizationCharityNavigatorScore(
   admin: AdminClient,
   organizationId: string,
-  charityNavigatorUrl: string
+  score: number | null
 ): Promise<void> {
-  const ein = parseEinFromCharityNavigatorUrl(charityNavigatorUrl);
-  if (!ein) return;
-
-  const score = await fetchScoreByEin(ein);
-  if (score === null) return;
-
-  const updates: { charity_navigator_score: number; charity_navigator_url?: string } = {
-    charity_navigator_score: score
-  };
-
-  const { data: org, error: fetchOrgError } = await admin
+  const { error } = await admin
     .from("organizations")
-    .select("charity_navigator_url")
-    .eq("id", organizationId)
-    .maybeSingle<{ charity_navigator_url: string | null }>();
-
-  if (!fetchOrgError && org?.charity_navigator_url == null) {
-    updates.charity_navigator_url = charityNavigatorUrl.trim();
-  }
-
-  const { error: updateError } = await admin
-    .from("organizations")
-    .update(updates)
+    .update({ charity_navigator_score: score })
     .eq("id", organizationId);
 
-  if (updateError) {
-    logNotificationError("updateOrganizationCharityNavigatorFromUrl", updateError);
+  if (error) {
+    throw new HttpError(500, `Could not save Charity Navigator score: ${error.message}`);
   }
 }
 
@@ -1713,6 +1688,8 @@ export async function submitProposal(
     proposedAmount: number;
     website?: string | null;
     charityNavigatorUrl?: string | null;
+    /** Hand-entered score; undefined or null leaves the organization's score as is. */
+    charityNavigatorScore?: number | null;
     proposer: UserProfile;
   }
 ) {
@@ -1851,14 +1828,12 @@ export async function submitProposal(
     "Organization resolution failed while submitting proposal."
   );
 
-  if (normalizedCharityNavigatorUrl) {
-    await updateOrganizationCharityNavigatorFromUrl(
+  if (input.charityNavigatorScore != null) {
+    await setOrganizationCharityNavigatorScore(
       admin,
       resolvedOrganizationId,
-      normalizedCharityNavigatorUrl
-    ).catch((err) => {
-      logNotificationError("submitProposal Charity Navigator score", err);
-    });
+      input.charityNavigatorScore
+    );
   }
 
   const proposalWebsiteSnapshot = normalizedWebsite || existingOrganizationByName?.website || null;
@@ -2554,6 +2529,7 @@ export async function updateProposalRecord(
     notes?: string | null;
     website?: string | null;
     charityNavigatorUrl?: string | null;
+    charityNavigatorScore?: number | null;
     sentAt?: string | null;
     currentUserId?: string;
   }
@@ -2580,9 +2556,12 @@ export async function updateProposalRecord(
   const hasNotes = input.notes !== undefined;
   const hasWebsite = input.website !== undefined;
   const hasCharityNavigatorUrl = input.charityNavigatorUrl !== undefined;
+  const hasCharityNavigatorScore = input.charityNavigatorScore !== undefined;
   const hasSentAt = input.sentAt !== undefined;
   const hasContentFields = hasTitle || hasDescription || hasProposedAmount || hasNotes;
-  const hasUrlFields = hasWebsite || hasCharityNavigatorUrl;
+  // The score is reference data about the charity, like its links, so it stays
+  // editable after votes are in.
+  const hasUrlFields = hasWebsite || hasCharityNavigatorUrl || hasCharityNavigatorScore;
   const hasDetailFields = hasContentFields || hasUrlFields;
   const hasHistoricalWorkflowFields = hasStatus || hasFinalAmount;
   const isSentAtOnlyPatch =
@@ -2611,7 +2590,10 @@ export async function updateProposalRecord(
   }
 
   if (!canEditDetails && hasDetailFields) {
-    throw new HttpError(403, "Only oversight can edit proposal title, description, amount, notes, and links.");
+    throw new HttpError(
+      403,
+      "Only oversight can edit proposal title, description, amount, notes, links, and Charity Navigator score."
+    );
   }
 
   if (!canEditHistorical && hasHistoricalWorkflowFields) {
@@ -2641,7 +2623,7 @@ export async function updateProposalRecord(
     if ((submittedVotes ?? 0) > 0) {
       throw new HttpError(
         403,
-        "Active-year proposals with submitted votes can only update website links."
+        "Active-year proposals with submitted votes can only update links and the Charity Navigator score."
       );
     }
   }
@@ -2740,14 +2722,20 @@ export async function updateProposalRecord(
     updates.sent_at = new Date().toISOString().slice(0, 10);
   }
 
-  if (!Object.keys(updates).length) {
+  if (!Object.keys(updates).length && !hasCharityNavigatorScore) {
     throw new HttpError(400, "No editable fields were provided.");
   }
 
-  const { error } = await admin.from("grant_proposals").update(updates).eq("id", input.proposalId);
+  if (hasCharityNavigatorScore && !proposal.organization_id) {
+    throw new HttpError(400, "This proposal has no organization to save a Charity Navigator score on.");
+  }
 
-  if (error) {
-    throw new HttpError(500, `Could not update proposal: ${error.message}`);
+  if (Object.keys(updates).length) {
+    const { error } = await admin.from("grant_proposals").update(updates).eq("id", input.proposalId);
+
+    if (error) {
+      throw new HttpError(500, `Could not update proposal: ${error.message}`);
+    }
   }
 
   if (proposal.organization_id) {
@@ -2761,17 +2749,12 @@ export async function updateProposalRecord(
       }
     }
 
-    if (hasCharityNavigatorUrl && input.charityNavigatorUrl != null) {
-      const normalizedUrl = String(input.charityNavigatorUrl).trim() || null;
-      if (normalizedUrl) {
-        await updateOrganizationCharityNavigatorFromUrl(
-          admin,
-          proposal.organization_id,
-          normalizedUrl
-        ).catch((err) => {
-          logNotificationError("updateProposalRecord Charity Navigator score", err);
-        });
-      }
+    if (hasCharityNavigatorScore) {
+      await setOrganizationCharityNavigatorScore(
+        admin,
+        proposal.organization_id,
+        input.charityNavigatorScore ?? null
+      );
     }
     void enqueueOrganizationCategoryJob(admin, proposal.organization_id).catch((enqueueError) => {
       logNotificationError("updateProposalRecord enqueue organization categorization", enqueueError);

@@ -4,7 +4,7 @@ import { FormEvent, useState, useEffect, useMemo, useCallback } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { toast } from "sonner";
 import type { LucideIcon } from "lucide-react";
-import { DollarSign, Users, Wallet, KeyRound, Bell, FileUp, Cog, Mail, Star, Tags, PieChart } from "lucide-react";
+import { DollarSign, Users, Wallet, KeyRound, Bell, FileUp, Cog, Mail, Tags, PieChart } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { PushSettingsCard } from "@/components/notifications/push-settings-card";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "csv-import", label: "CSV Import", icon: FileUp, roles: ["oversight"] },
   { id: "category-worker", label: "Category Worker", icon: Cog, roles: ["oversight"] },
   { id: "email-worker", label: "Email Worker", icon: Mail, roles: ["oversight"] },
-  { id: "charity-nav", label: "Charity Navigator", icon: Star, roles: ["oversight"] },
   { id: "category-overrides", label: "Category Overrides", icon: Tags, roles: ["oversight"] },
   { id: "budget", label: "Budget", icon: DollarSign, roles: ["oversight", "manager"] },
   { id: "budget-snapshot", label: "Budget Snapshot", icon: PieChart, roles: ["oversight", "manager"] },
@@ -134,7 +133,6 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
   const [savingCategoryOverride, setSavingCategoryOverride] = useState(false);
   const [runningCategoryWorker, setRunningCategoryWorker] = useState(false);
   const [runningEmailWorker, setRunningEmailWorker] = useState(false);
-  const [runningCharityNavigatorScores, setRunningCharityNavigatorScores] = useState(false);
   const parsedTotalAmount = parseNumberInput(totalAmount);
   const parsedRollover = parseNumberInput(rollover);
   const parsedJointRatio = parseNumberInput(jointRatio);
@@ -499,36 +497,6 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
     }
   };
 
-  const runCharityNavigatorScores = async () => {
-    setRunningCharityNavigatorScores(true);
-
-    try {
-      const response = await fetch("/api/settings/charity-navigator-scores", { method: "POST" });
-      const payload = (await response.json().catch(() => ({}))) as {
-        updated?: number;
-        skipped?: number;
-        failed?: number;
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(String(payload.error ?? "Failed to fetch Charity Navigator scores."));
-      }
-
-      const updated = Number(payload.updated ?? 0);
-      const skipped = Number(payload.skipped ?? 0);
-      const failed = Number(payload.failed ?? 0);
-      toast.success(
-        `Done. Updated ${formatNumber(updated)}, skipped ${formatNumber(skipped)}, failed ${formatNumber(failed)}.`
-      );
-      void globalMutate("/api/foundation");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to fetch Charity Navigator scores.");
-    } finally {
-      setRunningCharityNavigatorScores(false);
-    }
-  };
-
   const selectedOrganization = (organizations ?? []).find(
     (organization) => organization.id === selectedOrganizationId
   );
@@ -721,24 +689,6 @@ export default function SettingsClient({ profile, initialBudget, initialOrgCateg
         </CollapsibleSection>
       ) : null}
 
-      {profile.role === "oversight" ? (
-        <CollapsibleSection id="settings-charity-nav" title="Charity Navigator Scores" defaultOpen={false} className={cn(scrollMargin, desktopHidden("charity-nav"))}>
-          <p className="text-sm text-muted-foreground">
-            Fetch Charity Navigator encompass scores for all organizations that have a Charity Navigator
-            URL (from proposals or organization record) and update organization scores. Requires{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">CHARITY_NAVIGATOR_API_KEY</code> in
-            environment.
-          </p>
-          <Button
-            size="lg"
-            className="mt-3 w-full sm:w-auto"
-            onClick={() => void runCharityNavigatorScores()}
-            disabled={runningCharityNavigatorScores}
-          >
-            {runningCharityNavigatorScores ? "Fetching…" : "Fetch Charity Navigator Scores"}
-          </Button>
-        </CollapsibleSection>
-      ) : null}
 
       {canManageOrganizationCategories ? (
         <CollapsibleSection id="settings-category-overrides" title="Organization Category Overrides" defaultOpen={false} className={cn(scrollMargin, desktopHidden("category-overrides"))}>

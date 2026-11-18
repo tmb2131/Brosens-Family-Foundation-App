@@ -473,19 +473,3 @@ export interface OrganizationGivingHistory {
   childrenGrandTotal: number;
   frankDeenieGrandTotal: number;
 }
-
-export type CharityNavigatorPreviewState =
-  | "preview_available"
-  | "missing_ein"
-  | "no_score"
-  | "config_missing"
-  | "upstream_error";
-
-export interface CharityNavigatorPreviewResponse {
-  state: CharityNavigatorPreviewState;
-  normalizedUrl: string | null;
-  ein: string | null;
-  score: number | null;
-  organizationName: string | null;
-  message?: string;
-}

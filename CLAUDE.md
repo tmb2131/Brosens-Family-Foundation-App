@@ -73,13 +73,12 @@ app/
     reports/           # Reports and historical analysis
     settings/          # User preferences and settings
     workspace/         # Personal "My Workspace" dashboard
-  api/                 # API routes (16 feature groups, ~45 endpoints)
+  api/                 # API routes (15 feature groups, ~43 endpoints)
     admin/             auth/            budgets/
-    charity-navigator/ foundation/      frank-deenie/
-    health/            meeting/         navigation/
-    notifications/     organizations/   policy/
-    proposals/         settings/        votes/
-    workspace/
+    foundation/        frank-deenie/    health/
+    meeting/           navigation/      notifications/
+    organizations/     policy/          proposals/
+    settings/          votes/           workspace/
   auth/callback/       # Supabase OAuth callback handler
   open/                # Device-aware redirect handler (mobile vs desktop)
 
@@ -111,8 +110,7 @@ components/
 lib/
   supabase/            # Supabase client configs (browser, server, admin) + cookie-name.ts
                        #   (auth cookie name, shared by the server client and middleware)
-  hooks/               # Custom hooks: use-draft-persistence, use-charity-navigator-preview,
-                       #   use-walkthrough, use-sort
+  hooks/               # Custom hooks: use-draft-persistence, use-walkthrough, use-sort
   types.ts             # Shared TypeScript types and interfaces
   auth-server.ts       # requireAuthContext(), assertRole(), isVotingRole()
   http-error.ts        # HttpError class, toErrorResponse(), cache header constants
@@ -131,7 +129,7 @@ lib/
   push-notifications.ts
   email-notifications.ts
   organization-categorization.ts  # AI-based category assignment (Gemini/OpenAI)
-  charity-navigator.ts # Charity Navigator GraphQL API (EIN lookup, encompass score)
+  charity-navigator.ts # parseCharityNavigatorScoreInput(): validates a hand-entered score (0-100)
   audit.ts             # Audit log writer (writeAuditLog)
   csv.ts               # CSV parsing utilities (parseCsvRows, normalizeHeader)
   device-detection.ts  # Mobile/iOS/standalone detection (server + client)
@@ -142,7 +140,6 @@ lib/
 
 scripts/
   daily-digest-preview.ts          # Preview the daily digest email in the terminal
-  fetch-charity-navigator-scores.ts # Bulk fetch Charity Navigator scores for orgs
   check-migration-drift.sql        # Paste into the SQL Editor: catalog check for the objects
                                    #   the migrations create, SECURITY DEFINER grant state, and
                                    #   repo migrations vs the CLI ledger
@@ -175,14 +172,11 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 ### Budgets
 - `GET|POST /api/budgets` — Budget snapshot / create-update annual budget
 
-### Charity Navigator
-- `POST /api/charity-navigator/preview` — Score preview for a Charity Navigator URL
-
 ### Foundation
 - `GET /api/foundation` — Foundation snapshot (proposals, budget, history)
 - `GET /api/foundation/pending` — Pending proposals summary
 - `GET /api/foundation/history` — Historical giving by year
-- `PATCH /api/foundation/proposals/[proposalId]` — Update proposal fields
+- `PATCH /api/foundation/proposals/[proposalId]` — Update proposal fields (oversight), including `charityNavigatorScore`, which is saved on the organization
 
 ### Frank & Deenie
 - `GET|POST /api/frank-deenie` — Donation ledger list/create
@@ -231,7 +225,6 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - `GET /api/proposals/titles` — Proposal title autocomplete
 
 ### Settings
-- `POST /api/settings/charity-navigator-scores` — Bulk score backfill for orgs
 - `POST /api/settings/historical-proposals/import` — Bulk import historical proposals
 
 ### Votes
@@ -501,8 +494,8 @@ the total saved at approval once it is approved.
 - `SERPER_API_KEY` — optional org enrichment
 - `ORG_CATEGORY_WORKER_SECRET`
 
-### Charity Navigator score auto-populate
-- `CHARITY_NAVIGATOR_API_KEY` — optional; when set, fetches Charity Navigator encompass score (0-100) via GraphQL for new/edited proposals with a charitynavigator.org profile URL. Requires [developer registration](https://developer.charitynavigator.org/). If unset, score is not auto-populated.
+### Charity Navigator
+- No API key. The foundation cancelled its Charity Navigator API subscription, so scores are entered by hand: optionally on the new-proposal form, and by Oversight in the proposal detail edit panel. The score is stored on `organizations.charity_navigator_score` and shows on every proposal for that organization; a blank score on a new proposal keeps the one on file. `charity_navigator_score` is also accepted by the historical proposals CSV import
 
 ### Test environment
 - `DISABLE_EMAIL_CRON=true` — prevents email cron jobs from sending during tests (set in Vercel env for test Supabase project)

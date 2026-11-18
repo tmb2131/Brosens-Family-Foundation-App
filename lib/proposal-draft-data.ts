@@ -12,6 +12,7 @@ function isProposalDraftPayload(value: unknown): value is ProposalDraftPayload {
     typeof o.description === "string" &&
     typeof o.website === "string" &&
     typeof o.charityNavigatorUrl === "string" &&
+    (o.charityNavigatorScore === undefined || typeof o.charityNavigatorScore === "string") &&
     typeof o.proposalType === "string" &&
     typeof o.proposedAmount === "string" &&
     typeof o.proposerAllocationAmount === "string"
@@ -40,6 +41,7 @@ export function parseProposalDraftPayload(body: unknown): ProposalDraftPayload {
     description: String(o.description ?? "").trim(),
     website: String(o.website ?? "").trim(),
     charityNavigatorUrl: String(o.charityNavigatorUrl ?? "").trim(),
+    charityNavigatorScore: String(o.charityNavigatorScore ?? "").trim(),
     proposalType,
     proposedAmount: String(o.proposedAmount ?? "0"),
     proposerAllocationAmount: String(o.proposerAllocationAmount ?? "").trim()

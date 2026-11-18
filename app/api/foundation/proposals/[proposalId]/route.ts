@@ -5,6 +5,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { HttpError, toErrorResponse } from "@/lib/http-error";
 import { ProposalStatus } from "@/lib/types";
 import { normalizeOptionalHttpUrl } from "@/lib/url-validation";
+import { parseCharityNavigatorScoreInput } from "@/lib/charity-navigator";
 
 export async function PATCH(
   request: NextRequest,
@@ -46,6 +47,7 @@ export async function PATCH(
     const hasNotes = Object.prototype.hasOwnProperty.call(body, "notes");
     const hasWebsite = Object.prototype.hasOwnProperty.call(body, "website");
     const hasCharityNavigatorUrl = Object.prototype.hasOwnProperty.call(body, "charityNavigatorUrl");
+    const hasCharityNavigatorScore = Object.prototype.hasOwnProperty.call(body, "charityNavigatorScore");
     const hasSentAt = Object.prototype.hasOwnProperty.call(body, "sentAt");
 
     if (
@@ -57,6 +59,7 @@ export async function PATCH(
       !hasNotes &&
       !hasWebsite &&
       !hasCharityNavigatorUrl &&
+      !hasCharityNavigatorScore &&
       !hasSentAt
     ) {
       throw new HttpError(400, "No editable fields were provided.");
@@ -120,6 +123,10 @@ export async function PATCH(
       );
     }
 
+    const charityNavigatorScore = hasCharityNavigatorScore
+      ? parseCharityNavigatorScoreInput(body.charityNavigatorScore)
+      : undefined;
+
     let sentAt: string | null | undefined;
     if (hasSentAt) {
       if (body.sentAt === null) {
@@ -143,6 +150,7 @@ export async function PATCH(
       ...(hasNotes ? { notes } : {}),
       ...(hasWebsite ? { website } : {}),
       ...(hasCharityNavigatorUrl ? { charityNavigatorUrl } : {}),
+      ...(hasCharityNavigatorScore ? { charityNavigatorScore: charityNavigatorScore ?? null } : {}),
       ...(hasSentAt ? { sentAt } : {}),
       currentUserId: profile.id
     });
@@ -153,7 +161,8 @@ export async function PATCH(
       ...(hasProposedAmount ? ["proposedAmount"] : []),
       ...(hasNotes ? ["notes"] : []),
       ...(hasWebsite ? ["website"] : []),
-      ...(hasCharityNavigatorUrl ? ["charityNavigatorUrl"] : [])
+      ...(hasCharityNavigatorUrl ? ["charityNavigatorUrl"] : []),
+      ...(hasCharityNavigatorScore ? ["charityNavigatorScore"] : [])
     ];
 
     if (profile.role === "oversight" && changedDetailKeys.length) {

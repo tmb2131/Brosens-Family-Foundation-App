@@ -13,12 +13,11 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { StatusPill } from "@/components/ui/status-pill";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
-import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
+import { CharityNavigatorDetails } from "@/components/charity-navigator-details";
 import { usePagePerf } from "@/lib/perf-logger-client";
 import { PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
 import type { ProposalDetailSnapshot, VoteBlockedReason } from "@/lib/types";
 import {
-  charityNavigatorRating,
   cn,
   currency,
   formatNumber,
@@ -95,8 +94,6 @@ export default function ProposalDetailClient({
 
   const detail = detailQuery.data ?? initialDetail;
   const { proposal, viewer, personalBudget } = detail;
-  const charityNavigatorPreview = useCharityNavigatorPreview(proposal.charityNavigatorUrl);
-  const previewOrganizationName = charityNavigatorPreview?.organizationName?.trim() || null;
 
   usePagePerf("/proposals/[proposalId]", !detailQuery.isLoading, {
     isLoading: detailQuery.isLoading,
@@ -305,36 +302,10 @@ export default function ProposalDetailClient({
                 )}
               </DetailRow>
               <DetailRow label="Charity Navigator" className="md:col-span-2">
-                {proposal.charityNavigatorUrl ? (
-                  <>
-                    <a
-                      href={proposal.charityNavigatorUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
-                    >
-                      {proposal.charityNavigatorUrl}
-                    </a>
-                    {proposal.charityNavigatorScore != null ? (
-                      <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
-                        <p className="font-medium text-foreground">
-                          {previewOrganizationName
-                            ? `${previewOrganizationName}'s score is `
-                            : "This charity's score is "}
-                          {Math.round(proposal.charityNavigatorScore)}%, earning it a{" "}
-                          {charityNavigatorRating(proposal.charityNavigatorScore).starLabel} rating.
-                        </p>
-                        <p className="mt-1 text-muted-foreground">
-                          {charityNavigatorRating(proposal.charityNavigatorScore).meaning}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="mt-1.5 text-xs text-muted-foreground">Score not yet available.</p>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-muted-foreground">No Charity Navigator profile linked.</span>
-                )}
+<CharityNavigatorDetails
+                  url={proposal.charityNavigatorUrl}
+                  score={proposal.charityNavigatorScore}
+                />
               </DetailRow>
               {proposal.notes?.trim() ? (
                 <DetailRow label="Notes" className="md:col-span-2">

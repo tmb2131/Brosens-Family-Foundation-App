@@ -17,9 +17,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
-import { cn, charityNavigatorRating, currency, parseNumberInput, titleCase } from "@/lib/utils";
+import { cn, currency, parseNumberInput, titleCase } from "@/lib/utils";
 import type { ProposalStatus, UserProfile, WorkspaceSnapshot } from "@/lib/types";
-import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
+import { CharityNavigatorDetails } from "@/components/charity-navigator-details";
 import {
   type ProposalView,
   type ProposalDraft,
@@ -116,13 +116,6 @@ export function ProposalDetailPanel({
   } | null>(null);
   const [pendingJointAllocation, setPendingJointAllocation] = useState(0);
   const [budgetBreakdownOpen, setBudgetBreakdownOpen] = useState(false);
-
-  const currentProposal = proposalId
-    ? proposals.find((proposal) => proposal.id === proposalId) ?? null
-    : null;
-  const detailCharityNavigatorPreview = useCharityNavigatorPreview(
-    currentProposal?.charityNavigatorUrl ?? null
-  );
 
   // Reset edit state when panel closes
   useEffect(() => {
@@ -237,6 +230,16 @@ export function ProposalDetailPanel({
       payload.charityNavigatorUrl = charityNavigatorUrl || null;
     }
 
+    const scoreInput = detailEditDraft.charityNavigatorScore.trim();
+    const nextScore = scoreInput ? parseNumberInput(scoreInput) : null;
+    if (scoreInput && (nextScore === null || nextScore < 0 || nextScore > 100)) {
+      toast.error("Charity Navigator score must be a number from 0 to 100.");
+      return;
+    }
+    if (nextScore !== (detailProposal.charityNavigatorScore ?? null)) {
+      payload.charityNavigatorScore = nextScore;
+    }
+
     if (!Object.keys(payload).length) {
       toast.error("No changes to save.");
       return;
@@ -301,7 +304,6 @@ export function ProposalDetailPanel({
     ? parseNumberInput(detailEditDraft.proposedAmount)
     : null;
   const detailRowState = detailProposal ? getRowMessage(detailProposal.id) : undefined;
-  const detailApiOrganizationName = detailCharityNavigatorPreview?.organizationName?.trim() || null;
 
   const isManager = profile.role === "manager";
   const pendingJointTotal = pendingJointAllocation;
@@ -545,40 +547,12 @@ export function ProposalDetailPanel({
                 </dd>
               </div>
               <div className="md:col-span-2">
-                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator URL</dt>
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator</dt>
                 <dd className="mt-1.5 text-foreground">
-                  {detailProposal.charityNavigatorUrl ? (
-                    <>
-                      <a
-                        href={detailProposal.charityNavigatorUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
-                      >
-                        {detailProposal.charityNavigatorUrl}
-                      </a>
-                      {detailProposal.charityNavigatorScore != null ? (
-                        <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
-                          <p className="font-medium text-foreground">
-                            {detailApiOrganizationName
-                              ? `${detailApiOrganizationName}'s score is `
-                              : "This charity's score is "}
-                            {Math.round(detailProposal.charityNavigatorScore)}%, earning it a{" "}
-                            {charityNavigatorRating(detailProposal.charityNavigatorScore).starLabel} rating.
-                          </p>
-                          <p className="mt-1 text-muted-foreground">
-                            {charityNavigatorRating(detailProposal.charityNavigatorScore).meaning}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="mt-1.5 text-xs text-muted-foreground">Score not yet available.</p>
-                      )}
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Add the Charity Navigator URL to autopopulate the charity&apos;s score.
-                    </span>
-                  )}
+                  <CharityNavigatorDetails
+                    url={detailProposal.charityNavigatorUrl}
+                    score={detailProposal.charityNavigatorScore}
+                  />
                 </dd>
               </div>
               {detailProposal.notes?.trim() ? (
@@ -761,6 +735,22 @@ export function ProposalDetailPanel({
                     />
                     <span className="mt-0.5 block text-[11px] text-muted-foreground">
                       You can enter just the domain or full URL; we&apos;ll add https:// if needed.
+                    </span>
+                  </label>
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Charity Navigator score (0–100)
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={detailEditDraft.charityNavigatorScore}
+                      disabled={isDetailSaving}
+                      onChange={(event) => updateDetailEditDraft("charityNavigatorScore", event.target.value)}
+                      className="mt-1"
+                      placeholder="e.g. 92"
+                    />
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      Copy it from the charity&apos;s Charity Navigator profile. Saved on the organization, so it
+                      shows on all its proposals. Leave blank to clear.
                     </span>
                   </label>
                 </div>

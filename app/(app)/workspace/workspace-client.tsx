@@ -20,11 +20,11 @@ import { Badge } from "@/components/ui/badge";
 import { ResponsiveModal, ResponsiveModalContent, useIsMobile } from "@/components/ui/responsive-modal";
 import { cn } from "@/lib/utils";
 import { WorkspaceSnapshot } from "@/lib/types";
-import { useCharityNavigatorPreview } from "@/lib/hooks/use-charity-navigator-preview";
+import { CharityNavigatorDetails } from "@/components/charity-navigator-details";
 import { Card, GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars";
-import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
+import { currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import dynamic from "next/dynamic";
 
 const VoteForm = dynamic(
@@ -135,11 +135,6 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     ...PRELOADED_SWR_CONFIG,
   });
 
-  const voteDialogCharityNavigatorUrl = voteDialogProposalId && workspaceQuery.data
-    ? workspaceQuery.data.actionItems.find((entry) => entry.proposalId === voteDialogProposalId)?.charityNavigatorUrl ?? null
-    : null;
-  const voteDialogCharityNavigatorPreview = useCharityNavigatorPreview(voteDialogCharityNavigatorUrl);
-
   usePagePerf("/workspace", !workspaceQuery.isLoading, {
     isLoading: workspaceQuery.isLoading,
     hasData: workspaceQuery.data !== undefined,
@@ -246,8 +241,6 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     voteDialogProposalId != null
       ? workspace.actionItems.find((i) => i.proposalId === voteDialogProposalId)
       : null;
-  const voteDialogApiOrganizationName =
-    voteDialogCharityNavigatorPreview?.organizationName?.trim() || null;
 
   return (
     <div className="page-stack pb-4">
@@ -398,40 +391,12 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                     </dd>
                   </div>
                   <div className="md:col-span-2">
-                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator URL</dt>
+                    <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Charity Navigator</dt>
                     <dd className="mt-1.5 text-foreground">
-                      {voteDialogItem.charityNavigatorUrl ? (
-                        <>
-                          <a
-                            href={voteDialogItem.charityNavigatorUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="break-all text-xs font-semibold text-blue-700 underline dark:text-blue-300"
-                          >
-                            {voteDialogItem.charityNavigatorUrl}
-                          </a>
-                          {voteDialogItem.charityNavigatorScore != null ? (
-                            <div className="mt-2 rounded-lg border border-border/70 bg-muted/50 p-2.5 text-xs">
-                              <p className="font-medium text-foreground">
-                                {voteDialogApiOrganizationName
-                                  ? `${voteDialogApiOrganizationName}'s score is `
-                                  : "This charity's score is "}
-                                {Math.round(voteDialogItem.charityNavigatorScore)}%, earning it a{" "}
-                                {charityNavigatorRating(voteDialogItem.charityNavigatorScore).starLabel} rating.
-                              </p>
-                              <p className="mt-1 text-muted-foreground">
-                                {charityNavigatorRating(voteDialogItem.charityNavigatorScore).meaning}
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="mt-1.5 text-xs text-muted-foreground">Score not yet available.</p>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          Add the Charity Navigator URL to autopopulate the charity&apos;s score.
-                        </span>
-                      )}
+                      <CharityNavigatorDetails
+                        url={voteDialogItem.charityNavigatorUrl}
+                        score={voteDialogItem.charityNavigatorScore}
+                      />
                     </dd>
                   </div>
                   {voteDialogItem.notes?.trim() ? (
