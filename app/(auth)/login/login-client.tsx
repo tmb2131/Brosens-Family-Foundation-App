@@ -13,55 +13,87 @@ import { Label } from "@/components/ui/label";
 import { getClientIsMobile } from "@/lib/device-detection";
 import { UserProfile, type AuthUsersResponse } from "@/lib/types";
 
-const allowedRedirects = [
-  "/mobile",
-  "/dashboard",
-  "/workspace",
-  "/meeting",
-  "/admin",
-  "/settings",
-  "/proposals/new",
-  "/frank-deenie"
-] as const;
+type AppRole = UserProfile["role"];
+
+/** Pages a sign-in may return to, and the roles that can open each one. */
+const REDIRECT_ROLES: Record<string, readonly AppRole[]> = {
+  "/mobile": ["member", "oversight", "manager", "admin"],
+  "/dashboard": ["member", "oversight", "manager", "admin"],
+  "/workspace": ["member", "oversight"],
+  "/meeting": ["oversight", "manager"],
+  "/admin": ["admin"],
+  "/settings": ["member", "oversight", "manager", "admin"],
+  "/proposals/new": ["member", "oversight", "manager", "admin"],
+  "/frank-deenie": ["member", "oversight", "manager", "admin"],
+  "/mandate": ["member", "oversight", "manager", "admin"],
+  "/reports": ["member", "oversight", "manager", "admin"]
+};
 
 /** `/proposals/<uuid>` — a shared link to a single proposal. */
 const PROPOSAL_DETAIL_PATH =
   /^\/proposals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function sanitizeRedirect(target: string): Route {
-  if (allowedRedirects.includes(target as (typeof allowedRedirects)[number])) {
-    return target as Route;
+const REDIRECT_BASE = "https://redirect.invalid";
+
+/**
+ * The page to return to after sign-in, or null. Keeps the query string (email
+ * links carry `?proposalId=` and `/mobile?next=`), but only for known pages on
+ * this origin, so it can't be used as an open redirect.
+ */
+function sanitizeRedirect(target: string | null): Route | null {
+  if (!target || !target.startsWith("/") || target.startsWith("//") || target.includes("\\")) {
+    return null;
   }
-  if (PROPOSAL_DETAIL_PATH.test(target)) {
-    return target as Route;
+  let url: URL;
+  try {
+    url = new URL(target, REDIRECT_BASE);
+  } catch {
+    return null;
+  }
+  if (url.origin !== REDIRECT_BASE) {
+    return null;
+  }
+  if (!(url.pathname in REDIRECT_ROLES) && !PROPOSAL_DETAIL_PATH.test(url.pathname)) {
+    return null;
+  }
+  return `${url.pathname}${url.search}` as Route;
+}
+
+function canOpen(role: AppRole, target: Route): boolean {
+  const pathname = new URL(target, REDIRECT_BASE).pathname;
+  if (PROPOSAL_DETAIL_PATH.test(pathname)) {
+    return true;
+  }
+  return REDIRECT_ROLES[pathname]?.includes(role) ?? false;
+}
+
+function defaultLandingPage(role: AppRole | null | undefined, isMobile: boolean): Route {
+  if (role === "admin") {
+    return "/admin";
+  }
+  if (role === "member") {
+    return isMobile ? "/mobile" : "/workspace";
+  }
+  if (role === "manager") {
+    return "/frank-deenie";
   }
   return "/dashboard";
 }
 
+/**
+ * Where to go after sign-in: the page the visitor was sent here from (a shared
+ * link, an email link, or the page whose session expired) when their role can
+ * open it, otherwise their role's usual landing page.
+ */
 function resolvePostLoginRedirect(
-  role: UserProfile["role"] | null | undefined,
-  fallback: Route,
+  role: AppRole | null | undefined,
+  requested: Route | null,
   isMobile: boolean
 ): Route {
-  // A shared proposal link is an explicit destination — it wins over the
-  // role's default landing page, so the link lands where it points.
-  if (PROPOSAL_DETAIL_PATH.test(fallback)) {
-    return fallback;
+  if (requested && role && canOpen(role, requested)) {
+    return requested;
   }
-
-  if (role === "admin") {
-    return "/admin";
-  }
-
-  if (role === "member") {
-    return isMobile ? "/mobile" : "/workspace";
-  }
-
-  if (role === "manager") {
-    return "/frank-deenie";
-  }
-
-  return fallback;
+  return defaultLandingPage(role, isMobile);
 }
 
 async function loadSignedInProfile() {
@@ -122,8 +154,7 @@ export default function LoginPage() {
   const router = useRouter();
   const params = useSearchParams();
   const resetSuccess = params.get("reset") === "success";
-  const redirect = params.get("redirect") || "/dashboard";
-  const safeRedirect = sanitizeRedirect(redirect);
+  const safeRedirect = sanitizeRedirect(params.get("redirect"));
   const isMobile = getClientIsMobile();
   const { signIn, refreshProfile, user, configured } = useAuth();
 

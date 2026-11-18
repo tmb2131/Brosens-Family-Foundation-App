@@ -1,4 +1,5 @@
-import { requirePageAuth, assertRole } from "@/lib/auth-server";
+import { redirect } from "next/navigation";
+import { requirePageAuth } from "@/lib/auth-server";
 import {
   fetchFoundationPageData,
   buildMeetingProposalsFromData
@@ -13,7 +14,11 @@ export default async function MeetingPage() {
   const { profile, admin } = await requirePageAuth();
   perf.step("auth");
 
-  assertRole(profile, ["oversight", "manager"]);
+  // Someone following a link meant for another role lands on the dashboard
+  // instead of an error page.
+  if (!["oversight", "manager"].includes(profile.role)) {
+    redirect("/dashboard");
+  }
 
   const pageData = await fetchFoundationPageData(admin, { userId: profile.id });
   perf.step("fetchFoundationPageData");

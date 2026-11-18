@@ -11,6 +11,7 @@ import {
   useState
 } from "react";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import { mutate as mutateSwrCache } from "swr";
 import { createClient } from "@/lib/supabase/client";
 import { UserProfile } from "@/lib/types";
 
@@ -18,6 +19,8 @@ interface AuthState {
   session: Session | null;
   user: UserProfile | null;
   loading: boolean;
+  /** True after the person signed out here, as opposed to their session expiring. */
+  signedOut: boolean;
   configured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -136,9 +139,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signedOut, setSignedOut] = useState(false);
 
   const seedProfile = useCallback((profile: UserProfile) => {
     serverSeededRef.current = true;
+    setSignedOut(false);
     setUser(profile);
     setLoading(false);
   }, []);
@@ -206,7 +211,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           setUser(profile);
         }
       } else {
+        // Signed out here or in another tab: forget this user's cached data too.
         serverSeededRef.current = false;
+        void mutateSwrCache(() => true, undefined, { revalidate: false });
         setUser(null);
       }
     });
@@ -255,22 +262,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (error) {
         throw error;
       }
+      setSignedOut(false);
     },
     [supabase]
   );
 
   const signOut = useCallback(async () => {
-    if (!supabase) {
-      setSession(null);
-      setUser(null);
-      return;
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        // The auth server couldn't be reached (or refused): still end the
+        // session on this device rather than leave the person signed in.
+        await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      }
     }
 
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
-    }
+    // Drop every cached response. Pages skip refetching on mount when the
+    // cache already has data, so without this the next person to sign in on
+    // this device would briefly see this user's budget and votes.
+    await mutateSwrCache(() => true, undefined, { revalidate: false });
 
+    setSignedOut(true);
     setSession(null);
     setUser(null);
   }, [supabase]);
@@ -351,6 +363,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       session,
       user,
       loading,
+      signedOut,
       configured: Boolean(supabase),
       signIn,
       signOut,
@@ -359,7 +372,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       updatePassword,
       changePassword
     }),
-    [session, user, loading, supabase, signIn, signOut, refreshProfile, sendPasswordReset, updatePassword, changePassword]
+    [session, user, loading, signedOut, supabase, signIn, signOut, refreshProfile, sendPasswordReset, updatePassword, changePassword]
   );
 
   return (
