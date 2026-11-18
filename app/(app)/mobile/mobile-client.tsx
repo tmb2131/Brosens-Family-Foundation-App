@@ -31,6 +31,7 @@ import { PersonalBudgetBars } from "@/components/workspace/personal-budget-bars"
 import { WorkspaceSnapshot } from "@/lib/types";
 import { currency } from "@/lib/utils";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { MobileGreetingHeader } from "./mobile-greeting-header";
 import { MobileNudgeCard } from "./mobile-nudge-card";
 import { MobileActionItems } from "./mobile-action-items";
@@ -161,7 +162,7 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
   }, [workspaceQuery.data, openWalkthrough]);
 
   // ── Loading / Error ──────────────────────────────────────────────
-  if (!workspaceQuery.data) {
+  if (!workspaceQuery.data && !workspaceQuery.error) {
     return (
       <div className="page-stack pb-4">
         <SkeletonCard />
@@ -170,12 +171,12 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
     );
   }
 
-  if (workspaceQuery.error || !workspaceQuery.data) {
+  if (!workspaceQuery.data) {
     return (
       <div className="page-stack pb-4">
         <GlassCard className="p-3" role="alert">
           <p className="text-sm text-rose-600">
-            Could not load the focus view
+            Could not load your home screen
             {workspaceQuery.error ? `: ${workspaceQuery.error.message}` : "."}
           </p>
           <div className="mt-3 flex gap-2">
@@ -232,6 +233,8 @@ export default function MobileFocusClient({ initialWorkspace }: MobileFocusClien
         userEmail={workspace.user.email}
         onAvatarPress={() => setProfileSheetOpen(true)}
       />
+
+      <RefreshErrorNotice error={workspaceQuery.error} onRetry={() => void workspaceQuery.mutate()} />
 
       <ResponsiveModal open={profileSheetOpen} onOpenChange={setProfileSheetOpen}>
         <ResponsiveModalContent

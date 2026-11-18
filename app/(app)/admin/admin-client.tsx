@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { mutateAllFoundation, PRELOADED_SWR_CONFIG } from "@/lib/swr-helpers";
-import { AlertCircle, CheckCircle2, ClipboardList, ExternalLink, Inbox, LogOut, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, ClipboardList, ExternalLink, Inbox, LogOut, RefreshCw, Users } from "lucide-react";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
@@ -63,11 +64,14 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
     }
   }, [data?.proposals, proposalIdFromUrl]);
 
-  if (error) {
+  if (error && !data) {
     return (
-      <GlassCard>
+      <GlassCard role="alert">
         <CardLabel>Execution Queue Error</CardLabel>
         <p className="mt-2 text-sm text-rose-600">{error.message}</p>
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
+          <RefreshCw className="h-3.5 w-3.5" /> Try again
+        </Button>
       </GlassCard>
     );
   }
@@ -145,6 +149,7 @@ export default function AdminClient({ profile, initialQueue }: AdminClientProps)
 
   return (
     <div className="page-stack pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8">
+      <RefreshErrorNotice error={error} onRetry={() => void mutate()} />
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="space-y-3">
           <GlassCard className="rounded-3xl">

@@ -29,6 +29,7 @@ import {
 } from "@/lib/types";
 import { MANDATE_SECTION_LABELS, MANDATE_SECTION_ORDER } from "@/lib/mandate-policy";
 import { SkeletonCard } from "@/components/ui/skeleton";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { cn, formatNumber } from "@/lib/utils";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
@@ -638,9 +639,11 @@ export default function MandateClient({ profile, initialMandate }: MandateClient
     setAddCommentOpen(true);
   }, []);
 
-  if (error) {
+  // A failed background refresh must not replace the page: Oversight may be
+  // mid-edit, and the draft lives in this component.
+  if (error && !data) {
     return (
-      <GlassCard>
+      <GlassCard role="alert">
         <CardLabel>Mandate Error</CardLabel>
         <p className="mt-2 text-sm text-rose-600">
           We could not load the mandate: {error.message}
@@ -826,6 +829,7 @@ export default function MandateClient({ profile, initialMandate }: MandateClient
 
   return (
     <div className="page-stack pb-6">
+      <RefreshErrorNotice error={error} onRetry={() => void mutate()} />
       <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

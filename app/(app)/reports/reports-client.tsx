@@ -24,6 +24,7 @@ import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/component
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/ui/metric-card";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   DirectionalCategory,
@@ -294,6 +295,18 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     }, 200);
   };
 
+  if (!data && error) {
+    return (
+      <GlassCard role="alert">
+        <CardLabel>Report Error</CardLabel>
+        <p className="mt-2 text-sm text-rose-600">Failed to load annual report: {error.message}</p>
+        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()} aria-label="Retry loading report">
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Try again
+        </Button>
+      </GlassCard>
+    );
+  }
+
   if (!data) {
     return (
       <div className="page-stack pb-6">
@@ -313,22 +326,9 @@ export default function ReportsClient({ initialFoundation }: ReportsClientProps)
     );
   }
 
-  if (error || !data) {
-    return (
-      <GlassCard role="alert">
-        <CardLabel>Report Error</CardLabel>
-        <p className="mt-2 text-sm text-rose-600">
-          Failed to load annual report{error ? `: ${error.message}` : "."}
-        </p>
-        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()} aria-label="Retry loading report">
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Try again
-        </Button>
-      </GlassCard>
-    );
-  }
-
   return (
     <div className="page-stack pb-6" data-report-print>
+      <RefreshErrorNotice error={error} onRetry={() => void mutate()} />
       <GlassCard className="rounded-3xl">
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <div>

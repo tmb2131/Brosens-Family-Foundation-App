@@ -34,6 +34,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { StatusPill } from "@/components/ui/status-pill";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkeletonCard, SkeletonChart } from "@/components/ui/skeleton";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 
 const HistoricalImpactChart = dynamic(
   () => import("@/components/dashboard/historical-impact-chart").then((mod) => mod.HistoricalImpactChart),
@@ -499,6 +500,25 @@ export default function DashboardClient({
     return rowMessage[proposalId];
   }, [rowMessage]);
 
+  if (!data && error) {
+    return (
+      <GlassCard role="alert">
+        <CardLabel>Dashboard Error</CardLabel>
+        <p className="mt-2 text-sm text-rose-600">Failed to load dashboard: {error.message}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="outline" size="lg" onClick={() => void mutate()}>
+            <RefreshCw className="h-3.5 w-3.5" /> Try again
+          </Button>
+          {selectedYear !== null ? (
+            <Button variant="ghost" size="lg" onClick={() => setSelectedYear(null)}>
+              Back to the current year
+            </Button>
+          ) : null}
+        </div>
+      </GlassCard>
+    );
+  }
+
   if (!data) {
     return (
       <div className="page-stack pb-4">
@@ -529,20 +549,6 @@ export default function DashboardClient({
         <SkeletonChart className="hidden lg:block" />
         <SkeletonCard className="hidden lg:block" />
       </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <GlassCard role="alert">
-        <CardLabel>Dashboard Error</CardLabel>
-        <p className="mt-2 text-sm text-rose-600">
-          Failed to load dashboard{error ? `: ${error.message}` : "."}
-        </p>
-        <Button variant="outline" size="lg" className="mt-3" onClick={() => void mutate()}>
-          <RefreshCw className="h-3.5 w-3.5" /> Try again
-        </Button>
-      </GlassCard>
     );
   }
 
@@ -912,6 +918,7 @@ export default function DashboardClient({
 
   return (
     <div className="page-stack pb-4">
+      <RefreshErrorNotice error={error} onRetry={() => void mutate()} />
       {walkthrough.isOpen &&
         walkthrough.spotlightRect &&
         typeof document !== "undefined" &&

@@ -35,6 +35,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { useWorkspaceWalkthrough } from "@/components/workspace-walkthrough-context";
 import { PageWithSidebar } from "@/components/ui/page-with-sidebar";
 import { RevalidatingDot } from "@/components/ui/revalidating-dot";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { usePagePerf } from "@/lib/perf-logger-client";
 
 const WALKTHROUGH_STEPS: WalkthroughStep[] = [
@@ -144,7 +145,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
 
 
 
-  if (!workspaceQuery.data) {
+  if (!workspaceQuery.data && !workspaceQuery.error) {
     return (
       <div className="page-stack pb-4">
         <SkeletonCard />
@@ -154,7 +155,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
     );
   }
 
-  if (workspaceQuery.error || !workspaceQuery.data) {
+  if (!workspaceQuery.data) {
     return (
       <GlassCard className="p-4" role="alert">
         <p className="text-sm text-rose-600">
@@ -244,6 +245,7 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
 
   return (
     <div className="page-stack pb-4">
+      <RefreshErrorNotice error={workspaceQuery.error} onRetry={() => void workspaceQuery.mutate()} />
       <ResponsiveModal
         open={voteDialogProposalId !== null}
         onOpenChange={(open) => {

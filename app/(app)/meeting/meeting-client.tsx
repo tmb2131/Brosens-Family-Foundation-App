@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
 import { MetricCard } from "@/components/ui/metric-card";
 import { ResponsiveModal, ResponsiveModalContent } from "@/components/ui/responsive-modal";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { StatusPill } from "@/components/ui/status-pill";
 import { charityNavigatorRating, currency, formatNumber, titleCase, voteChoiceLabel } from "@/lib/utils";
 import { FoundationSnapshot, UserProfile } from "@/lib/types";
@@ -83,7 +84,10 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
     );
   }
 
-  if (error) {
+  // Only a failed first load replaces the page. Once proposals are on screen a
+  // dropped poll keeps them there (see RefreshErrorNotice below), so a network
+  // blip mid-meeting can't blank the view.
+  if (error && !data) {
     return (
       <GlassCard className="rounded-3xl">
         <div className="text-center py-8">
@@ -291,6 +295,7 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
 
   return (
     <div className="page-stack gap-3 lg:gap-6 pb-4">
+      <RefreshErrorNotice error={error} onRetry={() => void mutate()} />
       {/* Mobile: stats card with integrated live indicator */}
       <GlassCard className="p-4 lg:hidden">
         <div className="flex items-center justify-between gap-3 mb-3">
@@ -304,8 +309,8 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Live</span>
+            <span className={`inline-block h-2 w-2 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500 animate-pulse"}`} />
+            <span>{error ? "Offline" : "Live"}</span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -335,8 +340,8 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Live</span>
+              <span className={`inline-block h-2 w-2 rounded-full ${error ? "bg-amber-500" : "bg-emerald-500 animate-pulse"}`} />
+              <span>{error ? "Offline" : "Live"}</span>
             </div>
           </div>
         </div>

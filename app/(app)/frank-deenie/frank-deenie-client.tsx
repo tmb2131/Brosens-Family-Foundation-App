@@ -17,6 +17,7 @@ const CharityGivingHistory = dynamic(
 );
 import { Button } from "@/components/ui/button";
 import { GlassCard, CardLabel, CardValue } from "@/components/ui/card";
+import { RefreshErrorNotice } from "@/components/ui/refresh-error-notice";
 import { DataTableHeadRow, DataTableRow, DataTableSortButton } from "@/components/ui/data-table";
 import { FilterPanel } from "@/components/ui/filter-panel";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -858,7 +859,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     }
   };
 
-  if (!data) {
+  if (!data && !error) {
     return (
       <div className="page-stack pb-6">
         {/* Mobile skeleton */}
@@ -933,7 +934,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
     );
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <div className="page-stack pb-6">
         <GlassCard>
@@ -963,6 +964,7 @@ export default function FrankDeenieClient({ profile, initialSnapshot }: FrankDee
 
   return (
     <div className="page-stack pb-6">
+      <RefreshErrorNotice error={error} onRetry={() => void mutate()} />
       {/* Mobile hero: compact header */}
       <GlassCard className="rounded-3xl sm:hidden">
         <div className="flex items-center justify-between">
