@@ -89,7 +89,7 @@ components/
                        #   app wrappers (responsive-modal, metric-card, status-pill, role-pill,
                        #   amount-input, data-table, filter-panel, chart-legend, route-progress-bar,
                        #   password-input, collapsible-section, theme-toggle, autocomplete-input,
-                       #   page-with-sidebar, revalidating-dot)
+                       #   page-with-sidebar, revalidating-dot, refresh-error-notice)
   auth/                # AuthProvider, Guard component, LastAccessedTouch, ServerAuthSeed
   dashboard/           # Charts and dashboard widgets (budget-split, historical-impact, reports-charts)
   meeting/             # Meeting components (meeting-proposal-card)
@@ -98,6 +98,7 @@ components/
   notifications/       # Push notification components (push-settings-card)
   frank-deenie/        # Donation tracking components (year-split-chart)
   app-shell.tsx        # Full app layout: desktop sidebar + mobile bottom nav, badge polling
+  mobile-more-sheet.tsx # Phone "More" sheet: pages not in the role's bottom bar, theme, sign out
   providers.tsx        # Root providers: ThemeProvider, AuthProvider, SWRConfig, TooltipProvider
   charity-giving-history.tsx             # Historical giving display for a charity/org
   dashboard-walkthrough-context.tsx      # Contextual walkthrough guide for Dashboard
@@ -105,12 +106,13 @@ components/
   mobile-walkthrough-context.tsx         # Contextual walkthrough guide for Mobile
   pwa-ios-install-banner.tsx             # iOS PWA install prompt banner
   budget-year-banner.tsx                 # Oversight/Manager reminder to set up the next budget year
-  scroll-to-top.tsx                      # Scroll restoration on route change
+  scroll-to-top.tsx                      # Scroll restoration on route change; counts in-app navigations for Back
 
 lib/
   supabase/            # Supabase client configs (browser, server, admin) + cookie-name.ts
                        #   (auth cookie name, shared by the server client and middleware)
   hooks/               # Custom hooks: use-draft-persistence, use-walkthrough, use-sort
+  back-navigation.ts   # useBackNavigation() (back in-app, else the role's home) + homePathFor()
   types.ts             # Shared TypeScript types and interfaces
   auth-server.ts       # requireAuthContext(), assertRole(), isVotingRole()
   http-error.ts        # HttpError class, toErrorResponse(), cache header constants
@@ -247,8 +249,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 
 `components/app-shell.tsx` renders the full application chrome:
 - **Desktop:** collapsible sidebar (240px open / 64px collapsed), persisted to `localStorage`; Cmd/Ctrl+B keyboard shortcut to toggle
-- **Mobile:** fixed bottom nav bar; adapts between focus-nav (Home, Meeting, + New Proposal, Dashboard) and full-nav depending on route and role
-- **Admin mobile nav:** special two-item nav (Admin Queue, F&D)
+- **Mobile:** fixed bottom nav bar, the same on every page for a role: members/oversight get Home, (Meeting for oversight), New, Dashboard, F&D; manager gets Dashboard, F&D; admin gets Admin Queue, F&D. Every role also gets a **More** tab (`components/mobile-more-sheet.tsx`) with the pages missing from its bar (My Workspace, Reports, Mandate, Settings; Meeting for manager, Dashboard for admin), the theme toggle and sign-out. The More badge counts only Mandate (and Meeting for manager) so it never repeats Home's action-item count. Labels sit under icons and must fit at 360px with six tabs
 - **Badge counts:** polls `/api/navigation/summary` every 30s; revalidates on every client-side route change
 - **Route prefetch:** prefetches all visible nav routes on browser idle
 
@@ -272,6 +273,7 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 - **Grant amounts** — `grant_proposals.final_amount` is the amount *requested* (for imported history, the amount awarded). A joint grant is awarded the sum of the members' allocations, saved to `approved_amount` when it is approved (`setMeetingDecision`), because re-adding the votes later counts only current voting members. `resolveProposalAmount()` in `lib/foundation-data.ts` is the single rule for `computedFinalAmount`; readers that only have the row (emails, Frank & Deenie ledger, giving history) use `settledProposalAmount()` from `lib/proposal-amounts.ts`. Never show `final_amount` as what a joint grant was awarded
 - **Budget year fallback** — with no budget for the current calendar year, `getCurrentBudget()` and the RPC fall back to the latest budget, so new proposals are filed under it. `lib/budget-year-notice.ts` turns that into a banner for Oversight/Manager (from December) and a warning on the new-proposal form
 - SWR on the client with polling intervals for real-time-ish UI updates; client components use `revalidateIfStale: false` to prevent redundant revalidation on mount when fresh data is already present
+- **Loading vs. error states** — check `!data && error` (error card with Try again) before `!data` (skeleton). Once data is on screen, a failed poll must not replace the page: render `<RefreshErrorNotice error={error} onRetry={mutate} />` above it and keep the data. Otherwise a dropped poll blanks the meeting mid-decision or an in-progress mandate edit
 
 ### Performance Instrumentation
 
@@ -293,7 +295,8 @@ All routes under `app/api/`. JSON request/response. `POST` for mutations, `GET` 
 4. Default role for new users: `member`
 5. Session stored in HTTP-only cookies. `middleware.ts` refreshes an expired session before the render, because a Server Component cannot write cookies — `lib/supabase/server.ts` has to swallow the write, which would otherwise discard the rotated tokens and eventually spend a refresh token twice, signing the member out. Both read the cookie name from `getAuthCookieNameForHost()`, so keep them in sync
 6. `LastAccessedTouch` component POSTs to `/api/auth/touch` on mount — updates `user_profiles.last_accessed_at` at most every 15 minutes (DB function enforced); triggers a `user_access_notification` email to oversight members
-7. Deep links survive sign-in: `middleware.ts` sets an `x-pathname` request header, `requirePageAuth()` reads it and redirects to `/login?redirect=<path>`, and the login client sends the user back there. Login's `allowedRedirects` list is exact-match; `/proposals/<uuid>` is additionally allowed and overrides the role-based landing page so a shared proposal link lands where it points
+7. Deep links survive sign-in: `middleware.ts` sets an `x-pathname` request header (path and query), `requirePageAuth()` reads it and redirects to `/login?redirect=<path>`, and the login client sends the user back there, query string included (`/meeting?proposalId=`, `/mobile?next=`). The redirect is honored for any role that can open the page (`REDIRECT_ROLES` in `login-client.tsx`, plus `/proposals/<uuid>` for everyone); otherwise the role's landing page is used. Only known same-origin paths are accepted, so it is not an open redirect
+8. Sign-out (`AuthProvider.signOut`) falls back to a local sign-out if the auth server can't be reached, and clears the whole SWR cache: pages skip refetching on mount when the cache has data, so without the clear the next person to sign in on that device would see the previous user's workspace until the next poll. After an explicit sign-out the Guard sends the user to plain `/login`; after an expired session it adds `?redirect=` back to the page they were on
 
 ### Database Conventions
 
