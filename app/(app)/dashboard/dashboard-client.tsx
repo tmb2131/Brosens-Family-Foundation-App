@@ -1019,6 +1019,7 @@ export default function DashboardClient({
         </p>
         <div className="flex items-center gap-1.5">
           <select
+            aria-label="Budget year"
             className="h-8 rounded-lg border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground outline-none transition-colors active:bg-muted focus:outline-none"
             value={selectedYearFilterValue}
             onChange={(event) =>
@@ -1504,6 +1505,7 @@ export default function DashboardClient({
                     key={status}
                     type="button"
                     onClick={() => setFilter("status", status)}
+                    aria-pressed={filters.status === status}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       filters.status === status
                         ? "bg-foreground text-card"
@@ -1520,6 +1522,7 @@ export default function DashboardClient({
                     key={type}
                     type="button"
                     onClick={() => setFilter("proposalType", type)}
+                    aria-pressed={filters.proposalType === type}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       filters.proposalType === type
                         ? "bg-foreground text-card"
@@ -1533,6 +1536,7 @@ export default function DashboardClient({
                 <button
                   type="button"
                   onClick={() => setFilter("myActions", !filters.myActions)}
+                  aria-pressed={filters.myActions}
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                     filters.myActions
                       ? "bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))]"

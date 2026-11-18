@@ -24,12 +24,14 @@ import {
   ProposalPrefill,
   ProposalStatus,
   ProposalType,
+  SubmittedGift,
   UserProfile,
   Vote,
   VoteBlockedReason,
   VoteChoice,
   WorkspaceSnapshot
 } from "@/lib/types";
+import { settledProposalAmount } from "@/lib/proposal-amounts";
 import { isVotingRole } from "@/lib/auth-server";
 import { currency } from "@/lib/utils";
 import {
@@ -257,6 +259,15 @@ function mapProposal(row: ProposalRow, grant: GrantMasterRow | undefined): Grant
     notes: row.notes,
     sentAt: row.sent_at,
     createdAt: row.created_at
+  };
+}
+
+/** A proposer's own proposal for My Workspace, with what it was awarded once settled. */
+function toSubmittedGift(row: ProposalRow, grant: GrantMasterRow | undefined): SubmittedGift {
+  const settled = row.status === "approved" || row.status === "sent";
+  return {
+    ...mapProposal(row, grant),
+    awardedAmount: settled ? settledProposalAmount(row) : null
   };
 }
 
@@ -1232,7 +1243,7 @@ export function buildWorkspaceSnapshotFromData(
   });
 
   const submittedGifts = data.userSubmittedProposals.map((row) =>
-    mapProposal(row, grantById.get(row.grant_master_id))
+    toSubmittedGift(row, grantById.get(row.grant_master_id))
   );
 
   const hasIndividualBudget = user.role !== "manager";
@@ -1526,7 +1537,7 @@ export async function getWorkspaceSnapshot(
   });
 
   const submittedGifts = submittedRows.map((row) =>
-    mapProposal(row, submittedGrantById.get(row.grant_master_id))
+    toSubmittedGift(row, submittedGrantById.get(row.grant_master_id))
   );
   const hasIndividualBudget = user.role !== "manager";
   const personalBudget = hasIndividualBudget

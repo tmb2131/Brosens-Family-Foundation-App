@@ -248,6 +248,14 @@ export default function MeetingClient({ profile, initialMeeting }: MeetingClient
 
     try {
       await optimisticMutate("/api/meeting", doFetch, meetingUpdater);
+      if (payload.action === "decision") {
+        toast.success(payload.status === "approved" ? "Proposal approved" : "Proposal declined", {
+          description:
+            payload.status === "approved"
+              ? "It's now in the admin queue to be sent."
+              : "It has been moved out of the meeting queue."
+        });
+      }
       await mutateAllFoundation();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Meeting action failed");

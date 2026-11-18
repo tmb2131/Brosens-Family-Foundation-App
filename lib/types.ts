@@ -301,7 +301,16 @@ export interface WorkspaceSnapshot {
     amount: number;
     at: string;
   }>;
-  submittedGifts: Array<GrantProposal>;
+  submittedGifts: Array<SubmittedGift>;
+}
+
+export interface SubmittedGift extends GrantProposal {
+  /**
+   * What an approved or sent proposal was awarded (for a joint grant, the
+   * total saved at approval); null while it is open or after it is declined.
+   * `proposedAmount` is only what was asked for.
+   */
+  awardedAmount: number | null;
 }
 
 /**

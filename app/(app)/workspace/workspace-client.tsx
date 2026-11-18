@@ -767,7 +767,8 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                       />
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {voteChoiceLabel(vote.choice)} | {currency(vote.amount)}
+                      {voteChoiceLabel(vote.choice)}
+                      {vote.choice === "yes" ? ` · ${currency(vote.amount)}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">{new Date(vote.at).toLocaleDateString()}</p>
                   </Link>
@@ -796,8 +797,10 @@ export default function WorkspaceClient({ initialWorkspace }: WorkspaceClientPro
                         <StatusPill status={proposal.status} />
                       </div>
                       <p className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
-                        {currency(proposal.proposedAmount)}
-                        <span className="ml-1 text-xs font-normal text-muted-foreground">· {proposal.budgetYear}</span>
+                        {currency(proposal.awardedAmount ?? proposal.proposedAmount)}
+                        <span className="ml-1 text-xs font-normal text-muted-foreground">
+                          {proposal.awardedAmount !== null ? "awarded" : "requested"} · {proposal.budgetYear}
+                        </span>
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">{proposal.description}</p>
                       <div className="mt-2 flex items-center justify-end gap-3">
